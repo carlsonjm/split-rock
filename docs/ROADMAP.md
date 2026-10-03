@@ -86,6 +86,8 @@ being needed.
 - Voice: speaking to the assistant, and answers read aloud.
 - Seeing the screen: "what is this window?", with permission each time.
 - Languages other than English.
+- Gooseberry's notes tool: kept answers and recallable memory become notes
+  where Gooseberry is installed (`MEMORY.md`).
 
 ## Not planned
 
@@ -99,6 +101,13 @@ The maintainer's to make.
 
 - **The consumer name** (holds up a public release). Inside Shuffle it is the
   workspace assistant for now.
+
+- **Notes kept before Gooseberry arrives** (holds up the Gooseberry tool).
+  When Gooseberry is installed after Split Rock, the answers already in
+  `Notes/` can move into Gooseberry, offered once on a card, or stay where they
+  are while new ones go to Gooseberry. Moving them keeps the person's notes in
+  one place; leaving them means two places to look. Recommended: offer once,
+  on a card.
 
 Shuffle's own question, whether the assistant is in the bundle and is the reason
 to buy it, is Shuffle's and is recorded there.

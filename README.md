@@ -33,7 +33,8 @@ talks to it through the Agent Client Protocol, so it works with any assistant
 that supports it, and never sees your account or your bill.
 
 Your notebook is an ordinary folder of notes. Split Rock shows it for you; any
-notes app that reads plain notes can open it too.
+notes app that reads plain notes can open it too. Where Gooseberry is
+installed, what you keep becomes notes there, beside your own.
 
 ## With Shuffle
 

@@ -167,3 +167,16 @@ Even a small change, such as text size, gets a card; a small one needs one tap.
 
 Rejected: making small changes at once with an Undo afterwards. Where small ends
 would blur, and one simple promise is worth more than the saved tap.
+
+## Kept notes go to Gooseberry where it is installed
+
+Where Gooseberry, the notes component, is installed, what the person keeps and
+the memory the assistant needs to call on later become Gooseberry notes, added
+and read only through Gooseberry's notes tool. Split Rock keeps its own `Notes/`
+until then, and always keeps `This computer.md` and `About me.md`. The fence is
+unchanged: the assistant still writes files only in the notebook. (The
+maintainer, 3 October.)
+
+Rejected: kept notes only in the notebook, which splits the person's notes in
+two and keeps them off Gooseberry's board and planner; and reading Gooseberry's
+folder directly, which would make its layout a contract and hide what was read.

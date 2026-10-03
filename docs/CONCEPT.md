@@ -79,7 +79,7 @@ holds the exact command or setting.
 | An assistant account | Pat signs in with an account they already have, through that assistant's own sign-in | Or skips it and keeps the built-in guide |
 | The assistant program | Any agent that speaks the Agent Client Protocol | Each agent owns its sign-in and billing |
 | What the assistant needs to run | Installed silently with Split Rock | Many agents ship as Node.js programs; Pat never sees that |
-| A place to remember | A plain folder of notes that Split Rock shows itself | Any plain-notes app can open it too |
+| A place to remember | A plain folder of notes that Split Rock shows itself; kept answers go to Gooseberry where it is installed | Any plain-notes app can open it too |
 | A way to undo system changes | A snapshot before every system change, where the disk supports it, and a copy of any personal settings file it changes | Btrfs supports snapshots; snapshots usually leave personal settings out |
 | Administrator rights | KDE's own password prompt, per action | Split Rock never holds the password |
 | Acting on the desktop | Split Rock's own tools, offered to the agent over MCP | Desktop-specific tools switch on only where that desktop is installed |
@@ -108,7 +108,8 @@ Inside it:
   with how to undo it. Split Rock writes it itself.
 - `About me.md`: how Pat likes to be helped and who helps Pat, written only
   after Pat says yes.
-- `Notes/`: every answer Pat kept, filed by topic without Pat filing anything.
+- `Notes/`: every answer Pat kept, filed by topic without Pat filing anything,
+  unless Gooseberry is installed, where kept answers become Gooseberry notes.
 - `ASSISTANT.md`: the rules the assistant follows in this notebook, written at
   setup.
 

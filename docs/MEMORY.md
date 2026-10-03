@@ -12,7 +12,7 @@ worth remembering is written into the binder, which is the notebook folder.
 | The conversation | Held by Split Rock's service only | — | While it lasts |
 | The record of this computer | `This computer.md` | Split Rock itself | Automatically, at every change and every fix |
 | About the person | `About me.md` | The assistant, after the person says yes | When something worth knowing comes up |
-| Kept notes | `Notes/`, one folder per topic | The assistant | When the person taps Keep this |
+| Kept notes | Gooseberry, where it is installed; otherwise `Notes/`, one folder per topic | The assistant | When the person taps Keep this |
 
 `ASSISTANT.md` holds the rules the assistant follows in this notebook. Split Rock
 writes it at setup.
@@ -50,14 +50,23 @@ it only after a yes.
 ## Kept notes
 
 Keep this sits under every answer. A kept answer becomes a note with a plain
-title, the date and the question it answered, filed in a topic folder the
-assistant chooses, such as `Notes/Printing/`. Nobody has to file anything.
+title, the date and the question it answered. Nobody has to file anything.
+
+- **Where Gooseberry is installed,** the note is added through Gooseberry's
+  notes tool, under a place of its own. It is then on the person's board and
+  planner and found by Search, like any note they wrote. Memory the assistant
+  needs to call on later goes there too.
+- **Otherwise,** it is filed in a topic folder the assistant chooses, such as
+  `Notes/Printing/`.
+
+The record of this computer and the page about the person stay in the notebook
+either way. Split Rock looks for Gooseberry when it starts, and never needs it.
 
 ## Remembering in a conversation
 
 When a conversation starts, the assistant gets `About me.md`, the top of
-`This computer.md` and the list of note titles. It opens a note only when the
-question touches it, and says when it does: "Last time, the printer needed its
+`This computer.md` and the list of kept note titles, from Gooseberry where it is
+installed. It opens a note only when the question touches it, and says when it does: "Last time, the printer needed its
 driver reinstalled." Memory that is used is memory that is shown.
 
 ## Never written down
@@ -68,7 +77,8 @@ Rock checks every write and refuses these even when asked, and says why.
 ## Forgetting
 
 Forget on any note, or "forget that" in a conversation, moves the note to the
-desktop's trash, where it can be restored. A change in `This computer.md` stays
+desktop's trash, where it can be restored. A kept note in Gooseberry is removed
+the same way, through Gooseberry. A change in `This computer.md` stays
 while its undo can still be used.
 
 ## The notebook belongs to the person
