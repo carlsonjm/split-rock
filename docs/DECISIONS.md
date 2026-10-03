@@ -180,3 +180,13 @@ maintainer, 3 October.)
 Rejected: kept notes only in the notebook, which splits the person's notes in
 two and keeps them off Gooseberry's board and planner; and reading Gooseberry's
 folder directly, which would make its layout a contract and hide what was read.
+
+## Gooseberry arriving later is a question, asked once
+
+When Gooseberry is installed after answers were kept in `Notes/`, Split Rock
+asks once, on a card, whether to move them, and introduces Gooseberry in a few
+steps. Like every decision, it is the person's, brought to them as a question.
+(The maintainer, 3 October.)
+
+Rejected: moving them without asking, which breaks the card; and leaving them
+silently, which leaves two places to look without the person knowing.

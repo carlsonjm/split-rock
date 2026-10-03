@@ -59,6 +59,10 @@ title, the date and the question it answered. Nobody has to file anything.
 - **Otherwise,** it is filed in a topic folder the assistant chooses, such as
   `Notes/Printing/`.
 
+When Gooseberry arrives after answers were already kept in `Notes/`, Split Rock
+asks once, on a card, whether to move them into Gooseberry, with a short
+introduction to it. Nothing moves until the person says yes.
+
 The record of this computer and the page about the person stay in the notebook
 either way. Split Rock looks for Gooseberry when it starts, and never needs it.
 
