@@ -11,8 +11,8 @@ redistribute the source under its terms.
 The following are not licensed under the GPL and remain the property of the
 copyright holder, Jared Carlson:
 
-- The names **Shuffle**, **Split Rock**, **Kadunce**, **Tettegouche** and
-  **Temperance**
+- The publisher name **Good Input** and the product name **Shuffle for Plasma**
+- The names **Split Rock**, **Kadunce**, **Tettegouche** and **Temperance**
 - The Split Rock logo, once there is one
 
 This is the ordinary arrangement for free software: the code is free to

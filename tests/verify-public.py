@@ -1,17 +1,14 @@
 #!/usr/bin/env python3
 """Keep this public repository's text fit to publish.
 
-The same script runs in Kadunce, Tettegouche and Temperance; each repository's
-tests/verify-public.json says what it allows. It reads tracked text files and
+The same script runs in Kadunce, Tettegouche, Temperance and Split Rock; each
+repository's tests/verify-public.json says what it allows. It reads tracked text files and
 the messages of commits not yet pushed:
 
 - No attribution by initial, such as "J ruled" or "(J, 28 September)". Who
   decided what, and when, is kept in the private suite record. The copyright
   holder's full name in licence headers and metadata is legal identity and
   stays.
-- "Table" only in the files the settings list, and never more often than they
-  allow. Public text names Table, says it ships in 1.0 and how it opens and
-  closes; its design stays on Kadunce's private Table branch.
 - No paths into a real home folder; a fixture under /home/test is fine.
 - docs/INPUT.md opens with its controls map, a table headed Task, Touch and
   Keyboard: each destination by its product name, with the touch and key that
@@ -34,7 +31,6 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 SETTINGS = json.loads((ROOT / "tests" / "verify-public.json").read_text())
 ATTRIBUTION = re.compile(r"\bJ\b")
-TABLE = re.compile(r"\bTable\b")
 MACHINE_PATH = re.compile(r"/home/(?!(?:test|user)\b)[\w.-]+")
 errors: list[str] = []
 
@@ -163,13 +159,11 @@ def unpushed_commits() -> list[str]:
 def check_commit_messages() -> None:
     for commit in unpushed_commits():
         message = git("log", "-1", "--format=%B", commit)
-        if re.search(r"^Private: table$", message, re.MULTILINE):
-            continue
         body = "\n".join(line for line in message.splitlines()
                          if not line.startswith("Co-Authored-By:"))
         subject = message.splitlines()[0] if message else commit
         for pattern, what in [(ATTRIBUTION, "attribution by initial"),
-                              (TABLE, "Table"), (MACHINE_PATH, "a machine path")]:
+                              (MACHINE_PATH, "a machine path")]:
             if pattern.search(body):
                 errors.append(f"unpushed commit {commit[:7]} '{subject}' carries {what}")
 
@@ -183,8 +177,6 @@ files = tracked_text()
 pending = check_counts(files, ATTRIBUTION, SETTINGS["attribution_pending"],
                        "attributions by initial",
                        "State the rule or behavior itself; who decided belongs in the private suite record.")
-check_counts(files, TABLE, SETTINGS["table"], "mentions of Table",
-             "Public text gives only Table's name, release and how it opens and closes.")
 check_machine_paths(files)
 check_controls_map(files)
 check_commit_messages()
