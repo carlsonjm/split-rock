@@ -102,3 +102,32 @@ the person's sight, and its undo puts the copy back.
 
 Rejected: relying on disk snapshots alone. They usually cover the system and
 not the person's own settings, and not every disk supports them.
+
+## Sign-in never needs a terminal
+
+Setup offers only assistants that sign the person in through a browser or a
+key. One that signs in only through a terminal is left out of setup.
+
+Rejected: opening a terminal just for sign-in. It is the first thing Pat would
+see, and the one thing Split Rock promises Pat never has to see.
+
+## Claude is offered only with an Anthropic key
+
+Split Rock starts Claude's adapter with subscription sign-in hidden. This holds
+on the maintainer's machine too, because it is a rule about the product, not
+about who uses it.
+
+Rejected: offering sign-in with a Claude subscription. Anthropic does not allow
+it in a third-party product without its approval. If Anthropic approves Split
+Rock, this ruling changes.
+
+## Written in C++ and Qt, like the rest of the suite
+
+The service and the widget use C++, Qt and KDE's own libraries for the password
+prompt, settings and the session bus. The protocol layer is Split Rock's own,
+pinned to one protocol version and tested against the pretend assistant and the
+real ones.
+
+Rejected: Rust or Python for their official protocol libraries, which would add
+a second language and toolchain to a suite maintained by one person and agents;
+and copying Qt Creator's client, whose licence does not match Split Rock's.

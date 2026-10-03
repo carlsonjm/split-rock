@@ -85,11 +85,12 @@ holds the exact command or setting.
 
 ### The account
 
-Setup offers, in order: an account Pat already has, if an agent offers a free
-personal tier; a paid assistant Pat already pays for; or Not now. Free tiers
-change, so Split Rock reads what each agent offers at setup rather than
-promising it in advance. It says plainly when an option costs money, and never
-signs Pat up for anything.
+Setup offers only assistants Pat can sign in to without a terminal, and the
+first one offered is the easiest sign-in to an account Pat may already pay for.
+Free tiers have mostly ended, so Split Rock says plainly that an assistant
+costs money, reads what each one offers at setup rather than promising it in
+advance, and never signs Pat up for anything. Not now keeps the built-in guide.
+What each assistant offers is in `ASSISTANTS.md`.
 
 ### The notebook
 
@@ -110,7 +111,9 @@ Inside it:
 
 ## Risks
 
-- **The account step may stop Pat.** The built-in guide works without one.
+- **The account step may stop Pat.** It is likely a paid account, and a
+  provider's rules decide which sign-ins Split Rock may offer. The built-in
+  guide works without one.
 - **The Agent Client Protocol is young.** Agents and their sign-in methods will
   change under Split Rock.
 - **Rolling-release systems break things.** Snapshots before updates are the

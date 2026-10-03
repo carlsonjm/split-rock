@@ -12,13 +12,14 @@ first; Split Rock starts when the maintainer adds it to the suite record.
 A small test program, not yet a widget, that talks to real assistants over the
 Agent Client Protocol.
 
-- Connect to Claude Agent, Gemini CLI and Codex; sign in; ask; get an answer.
+- Connect to Codex, Gemini CLI and Claude Agent; sign in; ask; get an answer.
 - Receive a request to change something, and refuse it.
 - A pretend assistant that follows a script, so every later test runs without
   an account, a network or a real computer to change.
 
-**Proves:** for each assistant, whether a person can sign in without ever seeing
-a terminal. That table decides what setup can offer.
+**Proves:** the sign-in table in `ASSISTANTS.md`, checked live: for each
+assistant, whether a person can sign in without ever seeing a terminal, and
+what it costs.
 
 ## Milestone 1: ask and remember, on the maintainer's machine
 
@@ -97,8 +98,11 @@ The maintainer's to make. Each names what it holds up.
 1. **What Do it may do** (holds up Milestone 2). Only a fixed set of changes
    that Split Rock knows how to undo, or anything the assistant proposes, with a
    snapshot as the safety net.
-2. **Which assistant setup offers first** (holds up Milestone 3). Decided from
-   Milestone 0's sign-in table and each provider's rules on sign-in.
+2. **Which assistant setup offers first** (holds up Milestone 1 for the
+   maintainer and Milestone 3 for everyone). ChatGPT through Codex, a browser
+   sign-in to an account many people already pay for; or Claude with an
+   Anthropic key, billed per use. Asking Anthropic to approve subscription
+   sign-in for Split Rock is a third path.
 3. **Whether conversations are kept** (holds up Milestone 1). Forgotten when the
    window closes, with Keep this to file an answer; or every conversation saved
    to the notebook.
