@@ -131,3 +131,39 @@ real ones.
 Rejected: Rust or Python for their official protocol libraries, which would add
 a second language and toolchain to a suite maintained by one person and agents;
 and copying Qt Creator's client, whose licence does not match Split Rock's.
+
+## Do it offers only changes Split Rock knows how to undo
+
+The assistant may propose a change only from a fixed set, each with a tested
+undo. Anything else gets Show me how: the steps, for the person to take. The set
+grows one tested change at a time. (The maintainer, 3 October.)
+
+Rejected: letting the assistant propose any change, with a snapshot as the
+safety net. Its undo cannot be promised, and a broken promise of undo is the
+fastest way to lose the person's trust.
+
+## ChatGPT first, Claude with a key second
+
+Setup offers ChatGPT through Codex first: a browser sign-in to an account many
+people already pay for, and the maintainer's preferred assistant. Claude with an
+Anthropic key is offered next. (The maintainer, 3 October.)
+
+Rejected: Claude first, because a key means a developer website and billing per
+use; and waiting for Anthropic to approve subscription sign-in before building.
+
+## Conversations are not saved; the notebook is the memory
+
+A conversation lasts until the person starts a new one, logs out or restarts,
+and is never written to disk. What is worth remembering is written into the
+notebook as `MEMORY.md` describes. (The maintainer, 3 October.)
+
+Rejected: saving every conversation, which fills the notebook with what nobody
+chose to keep and makes it harder for the assistant to find what matters.
+
+## No change without a card, however small
+
+Even a small change, such as text size, gets a card; a small one needs one tap.
+(The maintainer, 3 October.)
+
+Rejected: making small changes at once with an Undo afterwards. Where small ends
+would blur, and one simple promise is worth more than the saved tap.

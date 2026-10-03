@@ -63,7 +63,9 @@ signs up for something has failed Pat.
 
 ## The Do it card
 
-The card is the product. Each one says what will change in one sentence, why
+The card is the product. Split Rock offers Do it only for changes it
+knows how to undo; anything else gets Show me how. Each card says what will
+change in one sentence, why
 Split Rock suggests it, whether and how it can be undone, and whether it needs
 Pat's password.
 
@@ -103,11 +105,14 @@ the assistant cannot read them as plain files.
 Inside it:
 
 - `This computer.md`: the hardware, what has been fixed, and every change made,
-  with how to undo it.
-- `Inbox/`: anything Pat asks to keep, until it is filed.
-- `Notes/`: everything filed.
+  with how to undo it. Split Rock writes it itself.
+- `About me.md`: how Pat likes to be helped and who helps Pat, written only
+  after Pat says yes.
+- `Notes/`: every answer Pat kept, filed by topic without Pat filing anything.
 - `ASSISTANT.md`: the rules the assistant follows in this notebook, written at
   setup.
+
+Conversations are not saved. How memory works is in `MEMORY.md`.
 
 ## Risks
 

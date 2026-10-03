@@ -2,7 +2,7 @@
 
 What is planned for Split Rock, in order, and what is not. Each milestone ends
 with what it has to prove before the next one starts. Decisions still open are
-at the end, each named with the milestone it holds up.
+at the end, each named with what it holds up.
 
 **Where it sits in the suite:** not scheduled. Shuffle's own 1.0 work comes
 first; Split Rock starts when the maintainer adds it to the suite record.
@@ -28,8 +28,10 @@ Nothing on the computer changes yet. The assistant can look and explain.
 - The panel widget: open it, ask in plain words, read the answer.
 - A background service that holds the conversation, so closing the widget or
   restarting the panel loses nothing.
-- The notebook: a chosen folder, shown in the widget's own Notebook tab.
-  `This computer.md` starts with the hardware.
+- The notebook and its memory (`MEMORY.md`): `This computer.md` with the
+  hardware and fixed problems, `About me.md`, Keep this, Forget, and the
+  refusal to write down passwords and card numbers.
+- Sign-in with ChatGPT through Codex, and with an Anthropic key for Claude.
 - The assistant runs fenced in: it can read what it needs to explain the
   computer, and can write only to the notebook.
 
@@ -42,8 +44,8 @@ Still on the maintainer's machine.
 
 - The Do it card: what will change, why, how to undo it, and whether it needs
   the password. Do it, Show me how instead, Not now.
-- The first set of changes the assistant may propose, each with a tested undo.
-  What that set is waits on an open decision.
+- A fixed set of changes the assistant may propose, each with a tested undo.
+  Anything outside the set gets Show me how instead of Do it.
 - Before every change: the undo written to `This computer.md`, the changed
   settings files copied aside, and a snapshot where the disk supports one.
 - Administrator rights through KDE's own password prompt, one action at a time.
@@ -93,23 +95,10 @@ being needed.
 
 ## Open decisions
 
-The maintainer's to make. Each names what it holds up.
+The maintainer's to make.
 
-1. **What Do it may do** (holds up Milestone 2). Only a fixed set of changes
-   that Split Rock knows how to undo, or anything the assistant proposes, with a
-   snapshot as the safety net.
-2. **Which assistant setup offers first** (holds up Milestone 1 for the
-   maintainer and Milestone 3 for everyone). ChatGPT through Codex, a browser
-   sign-in to an account many people already pay for; or Claude with an
-   Anthropic key, billed per use. Asking Anthropic to approve subscription
-   sign-in for Split Rock is a third path.
-3. **Whether conversations are kept** (holds up Milestone 1). Forgotten when the
-   window closes, with Keep this to file an answer; or every conversation saved
-   to the notebook.
-4. **Whether anything small may change without a card** (holds up
-   Milestone 2), such as text size.
-5. **The consumer name** (holds up a public release). Inside Shuffle it is the
-   workspace assistant for now.
+- **The consumer name** (holds up a public release). Inside Shuffle it is the
+  workspace assistant for now.
 
 Shuffle's own question, whether the assistant is in the bundle and is the reason
 to buy it, is Shuffle's and is recorded there.
