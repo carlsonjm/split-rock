@@ -73,3 +73,32 @@ To arrange windows, Split Rock asks the window manager, which decides and stays
 the only owner of window positions.
 
 Rejected: Split Rock moving windows itself, which would give windows two owners.
+
+## A background service holds the conversation; the widget only shows it
+
+A small service in the person's session runs the assistant, keeps the
+conversation and the notebook, and makes approved changes. The panel widget is a
+view of it.
+
+Rejected: running everything inside the widget. The panel would freeze while an
+assistant hangs, a panel restart would lose the conversation, and nothing could
+be tested without a desktop.
+
+## The assistant is fenced in; the card is the only way to change the computer
+
+The assistant's program runs in a sandbox: it can read what it needs to explain
+the computer, write only to the notebook and its own settings, and look at
+personal files only where setup allowed it. Every change goes through Split
+Rock's own tools, which show the card.
+
+Rejected: trusting the assistant to ask before it acts. An assistant can be
+wrong or misconfigured; the computer, not the assistant's good behavior, has to
+enforce the card.
+
+## Personal settings are copied aside before a change
+
+Before changing a settings file, Split Rock copies it into its own storage, out of
+the person's sight, and its undo puts the copy back.
+
+Rejected: relying on disk snapshots alone. They usually cover the system and
+not the person's own settings, and not every disk supports them.

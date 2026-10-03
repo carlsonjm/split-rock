@@ -78,7 +78,7 @@ holds the exact command or setting.
 | The assistant program | Any agent that speaks the Agent Client Protocol | Each agent owns its sign-in and billing |
 | What the assistant needs to run | Installed silently with Split Rock | Many agents ship as Node.js programs; Pat never sees that |
 | A place to remember | A plain folder of notes that Split Rock shows itself | Any plain-notes app can open it too |
-| A way to undo system changes | A snapshot before every system change, where the disk supports it | Btrfs supports snapshots |
+| A way to undo system changes | A snapshot before every system change, where the disk supports it, and a copy of any personal settings file it changes | Btrfs supports snapshots; snapshots usually leave personal settings out |
 | Administrator rights | KDE's own password prompt, per action | Split Rock never holds the password |
 | Acting on the desktop | Split Rock's own tools, offered to the agent over MCP | Desktop-specific tools switch on only where that desktop is installed |
 | Help from a person | "Send this to someone": a plain summary of the problem and what was tried | For the nephew |
