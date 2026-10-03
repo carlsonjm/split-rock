@@ -4,8 +4,8 @@ What is planned for Split Rock, in order, and what is not. Each milestone ends
 with what it has to prove before the next one starts. Decisions still open are
 at the end, each named with what it holds up.
 
-**Where it sits in the suite:** not scheduled. Shuffle's own 1.0 work comes
-first; Split Rock starts when the maintainer adds it to the suite record.
+**Where it sits in the suite:** scheduled in the suite record, next after
+Shuffle's current 1.0 work, starting with Milestone 0.
 
 ## Milestone 0: the conversation works
 
