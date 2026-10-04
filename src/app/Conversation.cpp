@@ -446,7 +446,21 @@ void Conversation::cancelSignIn()
 void Conversation::ask(const QString &text)
 {
     const QString question = text.trimmed();
-    if (question.isEmpty() || m_phase != QLatin1String("ready"))
+    if (question.isEmpty())
+        return;
+    // Asked before the assistant is ready, as from Search the moment it opens:
+    // the question waits, shown, and goes as soon as the assistant can take it.
+    if (!m_current.id.isEmpty() && !m_choosing
+        && (m_phase == QLatin1String("starting") || m_phase == QLatin1String("signIn")
+            || m_phase == QLatin1String("signingIn"))) {
+        keepTurn();
+        clearAnswer();
+        m_question = question;
+        m_waiting = question;
+        Q_EMIT answerChanged();
+        return;
+    }
+    if (m_phase != QLatin1String("ready"))
         return;
     if (m_current.guide) {
         answerFromGuide(question);
@@ -569,6 +583,12 @@ void Conversation::send(const QString &prompt, const QString &shown)
 
 void Conversation::stop()
 {
+    if (!m_waiting.isEmpty()) {
+        m_waiting.clear();
+        m_question.clear();
+        Q_EMIT answerChanged();
+        return;
+    }
     if (m_phase == QLatin1String("working") && m_client)
         m_client->cancel();
 }
@@ -618,7 +638,17 @@ void Conversation::setPhase(const QString &phase)
     if (m_phase == phase)
         return;
     m_phase = phase;
+    if (phase == QLatin1String("problem"))
+        m_waiting.clear();
     Q_EMIT phaseChanged();
+    if (phase == QLatin1String("ready") && !m_waiting.isEmpty()) {
+        QTimer::singleShot(0, this, [this] {
+            if (m_phase != QLatin1String("ready") || m_waiting.isEmpty())
+                return;
+            const QString question = std::exchange(m_waiting, QString());
+            ask(question);
+        });
+    }
 }
 
 void Conversation::setNotice(const QString &notice)
@@ -643,6 +673,7 @@ void Conversation::clearAnswer()
     m_tour = -1;
     m_lead.clear();
     m_question.clear();
+    m_waiting.clear();
     m_said.clear();
     m_answer = {};
     m_card.clear();

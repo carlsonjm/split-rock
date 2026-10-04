@@ -49,6 +49,14 @@
       ]
     },
     {
+      "expectPrompt": "printer",
+      "steps": [
+        {
+          "say": "1. Open System Settings.\n2. Choose Printers.\n\nThat should find it.\n\nIf not, ask me again."
+        }
+      ]
+    },
+    {
       "expectPrompt": "bigger",
       "steps": [
         {

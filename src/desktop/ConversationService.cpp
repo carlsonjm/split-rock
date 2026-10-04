@@ -59,7 +59,10 @@ QVariantMap ConversationService::state() const
         {QStringLiteral("phase"), publicPhase(c)},
         {QStringLiteral("assistant"), c.assistantName()},
         {QStringLiteral("question"), c.question()},
-        {QStringLiteral("answer"), c.headline()},
+        // An answer that opens with its steps has no headline; its first
+        // paragraph after them leads instead, and the rest follow in more.
+        {QStringLiteral("answer"), c.headline().isEmpty() ? c.more().value(0) : c.headline()},
+        {QStringLiteral("more"), c.headline().isEmpty() ? c.more().mid(1) : c.more()},
         {QStringLiteral("steps"), c.steps()},
         {QStringLiteral("suggestions"), c.suggestions()},
         // Do it is offered only for a change the assistant asked for, and in
@@ -111,8 +114,14 @@ QVariantMap ConversationService::Ask(const QString &text)
 {
     if (text.trimmed().isEmpty())
         return refuse(QDBusError::errorString(QDBusError::InvalidArgs), QStringLiteral("There is no question."));
-    if (m_conversation->phase() != QLatin1String("ready") || m_conversation->choosing())
-        return refuse(QLatin1String(NotReady), QStringLiteral("The assistant is not ready for a question."));
+    // A question asked while the assistant starts or is signed in waits for
+    // it; only with no assistant chosen, or one that failed, is there nothing
+    // to ask.
+    const QString phase = m_conversation->phase();
+    if (m_conversation->choosing() || phase == QLatin1String("choose") || phase == QLatin1String("problem"))
+        return refuse(QLatin1String(NotReady), QStringLiteral("There is no assistant ready to ask."));
+    if (phase == QLatin1String("working"))
+        return refuse(QLatin1String(NotReady), QStringLiteral("An answer is still coming."));
     m_conversation->ask(text);
     return reply();
 }

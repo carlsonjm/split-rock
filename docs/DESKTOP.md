@@ -53,13 +53,17 @@ variants:
 | `phase` | `s` | `choose`, `sign-in`, `starting`, `ready`, `answering` or `failed` |
 | `assistant` | `s` | The assistant's name, as shown; empty until one is chosen |
 | `question` | `s` | The question being answered |
-| `answer` | `s` | The answer's headline, its one short first line |
+| `answer` | `s` | The answer's headline, its one short first line; for an answer that opens with its steps, the first paragraph after them |
+| `more` | `as` | The answer's other paragraphs, in order, after the steps |
 | `steps` | `as` | The answer's numbered steps, in order |
 | `suggestions` | `as` | Questions to start from |
 | `canDoIt` | `b` | Do it would make the change the answer asks for; never in Milestone 0 |
 | `doItReason` | `s` | Why Do it is unavailable; empty when the answer asks to change nothing |
 | `kept` | `b` | Keep this was used on this answer; never in Milestone 0 |
 | `problem` | `s` | What went wrong, in plain words, while the phase is `failed` |
+
+`more` was added after the first version of this table; a version-1 caller may
+ignore it, so the version stays `1`.
 
 Search shows Do it when `canDoIt` is true or `doItReason` is not empty, and
 unavailable, with the reason, when only the reason is there.
@@ -68,8 +72,8 @@ unavailable, with the reason, when only the reason is there.
 | --- | --- |
 | `ProtocolVersion() → u` | The version, `1` |
 | `Start() → a{sv}` | Starts the conversation with the assistant the person chose last time, or resumes the one already going. With none chosen the phase is `choose`, and with the assistant not signed in it becomes `sign-in`: Search offers Expand, which opens the full window to finish it |
-| `Ask(s text) → a{sv}` | Asks, while the phase is `ready`; the reply's phase is `answering`, and the answer streams through `Changed` |
-| `Cancel() → a{sv}` | Stops the answer in progress; what was said so far stays |
+| `Ask(s text) → a{sv}` | Asks; the reply's phase is `answering`, and the answer streams through `Changed`. Asked while the assistant is `starting` or at `sign-in`, the question waits, shown in `question`, and is asked as soon as the assistant is ready, as Search asks the moment it opens |
+| `Cancel() → a{sv}` | Stops the answer in progress; what was said so far stays. A question still waiting for the assistant is dropped |
 | `Act(s action) → a{sv}` | `show-me-how`: the steps to make the asked-for change by hand. `do-it`: the Do it card in the full window, where Do it is unavailable in Milestone 0. `keep`: Keep this, which arrives with the notebook |
 | `OpenWindow(s requestToken) → b` | Opens the full window on this conversation, or brings it forward |
 
@@ -80,7 +84,7 @@ unavailable, with the reason, when only the reason is there.
 
 | Error | When |
 | --- | --- |
-| `io.github.carlsonjm.SplitRock.Error.NotReady` | `Ask` or `show-me-how` before the assistant is ready, or with nothing answered |
+| `io.github.carlsonjm.SplitRock.Error.NotReady` | `Ask` with no assistant chosen, after it failed, or while an answer is still coming; `show-me-how` before the assistant is ready or with nothing answered |
 | `io.github.carlsonjm.SplitRock.Error.NotAvailable` | `keep` in Milestone 0, and `do-it` on an answer that asks to change nothing |
 | `org.freedesktop.DBus.Error.InvalidArgs` | An empty question, or an action not listed |
 

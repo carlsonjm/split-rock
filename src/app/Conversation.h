@@ -83,6 +83,8 @@ public:
     bool signingInWithoutTerminal() const { return m_signingIn.how == SignInChoice::How::WithoutTerminal; }
     QString signInPage() const { return m_signInPage; }
     QString question() const { return m_question; }
+    // A question is waiting for the assistant to be ready.
+    bool waiting() const { return !m_waiting.isEmpty(); }
     QString headline() const { return m_answer.headline; }
     QString lead() const { return m_lead; }
     QString nextTour() const;
@@ -165,6 +167,9 @@ private:
     bool m_framed = false;
 
     QString m_question;
+    // A question asked while the assistant was starting or being signed in,
+    // sent as soon as it is ready.
+    QString m_waiting;
     QString m_said;
     AnswerText m_answer;
     QVariantMap m_card;

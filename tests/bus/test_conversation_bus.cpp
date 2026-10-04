@@ -8,6 +8,7 @@
 #include <QDBusConnection>
 #include <QDBusConnectionInterface>
 #include <QDBusInterface>
+#include <QDBusPendingCall>
 #include <QDBusReply>
 #include <QDir>
 #include <QFile>
@@ -183,6 +184,7 @@ private Q_SLOTS:
         QCOMPARE(state.value(QStringLiteral("answer")).toString(),
                  QStringLiteral("You connect from the network icon at the bottom right."));
         QCOMPARE(state.value(QStringLiteral("steps")).toStringList().size(), 3);
+        QCOMPARE(state.value(QStringLiteral("more")).toStringList(), QStringList{QStringLiteral("That is all.")});
         QCOMPARE(state.value(QStringLiteral("doItReason")).toString(), QString());
 
         // Do it is for a change; this answer asks for none.
@@ -216,6 +218,43 @@ private Q_SLOTS:
 
         // Cancel with nothing in progress leaves the conversation as it is.
         QCOMPARE(call(QStringLiteral("Cancel")).value(QStringLiteral("phase")).toString(), QStringLiteral("ready"));
+    }
+
+    // Search opens its Genie mode with Start and lets the person ask at once,
+    // without waiting for either reply (Tettegouche's GenieChat). The
+    // question asked while the assistant is still starting is answered.
+    void aQuestionAskedWhileStartingIsAnswered()
+    {
+        QVERIFY(start(QStringLiteral("signed-in.json"), QStringLiteral("pretend")));
+        QSignalSpy changed(m_conversation.get(), SIGNAL(Changed(QVariantMap)));
+        QDBusPendingCall started = m_conversation->asyncCall(QStringLiteral("Start"));
+        QDBusPendingCall asked = m_conversation->asyncCall(QStringLiteral("Ask"), QStringLiteral("How do I connect to Wi-Fi?"));
+        asked.waitForFinished();
+        QVERIFY2(!asked.isError(), qPrintable(asked.error().message()));
+        const QVariantMap reply = asMap(asked.reply().arguments().value(0));
+        QCOMPARE(reply.value(QStringLiteral("question")).toString(), QStringLiteral("How do I connect to Wi-Fi?"));
+        QCOMPARE(reply.value(QStringLiteral("problem")).toString(), QString());
+        QTRY_COMPARE_WITH_TIMEOUT(lastChange(changed).value(QStringLiteral("answer")).toString(),
+                                  QStringLiteral("You connect from the network icon at the bottom right."), 15000);
+        QTRY_COMPARE_WITH_TIMEOUT(lastChange(changed).value(QStringLiteral("phase")).toString(), QStringLiteral("ready"), 15000);
+        QCOMPARE(lastChange(changed).value(QStringLiteral("steps")).toStringList().size(), 3);
+    }
+
+    // An answer that opens with its steps still has a line to lead with, and
+    // what follows the steps reaches Search too.
+    void anAnswerThatOpensWithItsSteps()
+    {
+        QVERIFY(start(QStringLiteral("signed-in.json"), QStringLiteral("pretend")));
+        QSignalSpy changed(m_conversation.get(), SIGNAL(Changed(QVariantMap)));
+        call(QStringLiteral("Start"));
+        QTRY_COMPARE_WITH_TIMEOUT(lastChange(changed).value(QStringLiteral("phase")).toString(), QStringLiteral("ready"), 15000);
+        changed.clear();
+        call(QStringLiteral("Ask"), {QStringLiteral("Where is my printer?")});
+        QTRY_COMPARE_WITH_TIMEOUT(lastChange(changed).value(QStringLiteral("phase")).toString(), QStringLiteral("ready"), 15000);
+        const QVariantMap state = lastChange(changed);
+        QCOMPARE(state.value(QStringLiteral("answer")).toString(), QStringLiteral("That should find it."));
+        QCOMPARE(state.value(QStringLiteral("steps")).toStringList().size(), 2);
+        QCOMPARE(state.value(QStringLiteral("more")).toStringList(), QStringList{QStringLiteral("If not, ask me again.")});
     }
 
     // An assistant that is not signed in says so; the full window finishes it.

@@ -84,6 +84,34 @@ private Q_SLOTS:
         QCOMPARE(turn.value(QStringLiteral("steps")).toStringList().size(), 3);
     }
 
+    // Asked while the assistant is still starting, as Search asks the moment
+    // it opens: the question waits, shown, and is answered once it is ready.
+    void aQuestionAskedWhileStartingWaits()
+    {
+        PretendFixture f;
+        QVERIFY(f.isValid());
+        Conversation c({f.assistant(QStringLiteral("signed-in.json"))});
+        c.chooseAssistant(QStringLiteral("pretend"));
+        QCOMPARE(c.phase(), QStringLiteral("starting"));
+        c.ask(QStringLiteral("How do I connect to Wi-Fi?"));
+        QVERIFY(c.waiting());
+        QCOMPARE(c.question(), QStringLiteral("How do I connect to Wi-Fi?"));
+        QVERIFY(QTest::qWaitFor([&] { return !c.headline().isEmpty() && c.phase() == QLatin1String("ready"); }, 15000));
+        QCOMPARE(c.headline(), QStringLiteral("You connect from the network icon at the bottom right."));
+        QVERIFY(!c.waiting());
+
+        // Stopped before the assistant was ready, it is never asked.
+        Conversation d({f.assistant(QStringLiteral("signed-in.json"))});
+        d.chooseAssistant(QStringLiteral("pretend"));
+        d.ask(QStringLiteral("Make the writing bigger"));
+        d.stop();
+        QVERIFY(!d.waiting());
+        QCOMPARE(d.question(), QString());
+        QVERIFY(reaches(d, QStringLiteral("ready")));
+        QTest::qWait(300);
+        QCOMPARE(d.question(), QString());
+    }
+
     void aChangeIsRefusedAndShownOnTheCard()
     {
         PretendFixture f;
