@@ -347,6 +347,9 @@ bool Notebook::forget(const QString &path, QString *error)
             *error = QStringLiteral("Only a kept note can be forgotten.");
         return false;
     }
+    // The trash lives in the person's data folder, which Qt does not make
+    // when it is missing, as on a new account; without it nothing is trashed.
+    QDir().mkpath(QStandardPaths::writableLocation(QStandardPaths::GenericDataLocation));
     if (!QFile::moveToTrash(canonical)) {
         if (error)
             *error = QStringLiteral("The note could not be moved to the trash.");
