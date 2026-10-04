@@ -54,7 +54,8 @@ Rejected: storing credentials to avoid repeated prompts.
 
 ## Useful before any account
 
-A built-in guide to the desktop works with no assistant connected.
+The tour and the troubleshooting guide work with no assistant connected (see
+"Two layers: the guide in the box, the butler unlocked").
 
 Rejected: an assistant that does nothing until the person signs up for
 something.
@@ -213,3 +214,80 @@ wins where they disagree. (The maintainer, 4 October.)
 The assistant is called Jack in the interface and in documents until a consumer
 name is settled. A web search found other assistants called Jack, so it waits on
 a registered trademark search, as Shuffle Ace does. (The maintainer, 4 October.)
+
+## The person is leaving decades of Windows
+
+Split Rock is for someone who has used Windows for decades and has just moved to
+Linux: at ease with a computer, new to this one. Age is not the point, and
+nothing in Split Rock is framed by it. Scam questions stay first-class, framed
+by what decades of Windows taught: that a warning in a window can be real, that
+support may phone, and that a fix is a program to download. (The maintainer,
+3 October.)
+
+Rejected: a senior in their seventies, set up by a relative, as the person
+tested against. It framed the product by frailty rather than by the switch, and
+missed what the person brings: decades of habits from another system.
+
+## Keeping an unusual device working is a core job
+
+Troubleshooting the device Split Rock runs on is one of its main jobs, not a side
+case, including unusual hardware such as a tablet like the ASUS ROG Flow Z13,
+with its own power firmware and kernel quirks. Milestone 1 proves it on that
+kind of device. (The maintainer, 3 October.)
+
+Rejected: treating hardware problems as out of scope for an assistant about the
+desktop. They are what a person leaving Windows meets first, and what they can
+least fix alone.
+
+## Two layers: the guide in the box, the butler unlocked
+
+In the box, with no account, Split Rock offers a tour and a troubleshooting
+guide of known problems and their fixes, written ahead of time, shipped with
+Split Rock and updated with each release. A desktop that installs Split Rock's
+extras adds entries of its own. The person's own assistant account unlocks the
+rest: Jack becomes a butler on the desktop that answers anything and makes
+changes through the Do it card, at the person's own cost. Split Rock sells no
+account and pays for no use. It is for someone who already pays for a chatbot
+in daily life, most often ChatGPT. What the account costs is the person's
+choice, not a risk for Split Rock to manage. (The maintainer, 3 October.)
+
+Rejected: Split Rock selling, bundling or paying for assistant use, which would
+make it responsible for accounts and billing; and an assistant that is only
+useful with an account.
+
+## The guide's entries: plain files in shared folders, one per problem
+
+Split Rock owns the format of the troubleshooting guide and its general Plasma
+entries. A desktop adds its own entries without Split Rock depending on it.
+(Engineering, 4 October.)
+
+- **An entry** is one Markdown file for one known problem. Its header gives an
+  `id`, unique in its folder; a `title`, the problem as a person would say it;
+  `also`, other ways people say it; `applies`, which may name a desktop or a
+  device by the name its hardware reports, and is left out for an entry that
+  holds on every Plasma desktop; `checked`, the release it was last checked
+  against; and `format`, the version of this format, now 1. Its body says what
+  the person sees, why it happens, and what to do, in numbered steps.
+- **Where entries live:** in `split-rock/guide/<source>/` inside the system's
+  shared data folders, normally `/usr/share`. Split Rock's own general entries
+  are `split-rock/guide/plasma/`. Split Rock reads every source folder it
+  finds there, and none from the person's home.
+- **How a release updates them:** the entries are part of Split Rock's package.
+  Each release checks every entry it ships, raises its `checked`, and removes
+  one that no longer holds rather than leaving it. Nothing is downloaded
+  between releases; what is fixed on one computer goes in its
+  `This computer.md`, never into the guide.
+- **How a desktop adds entries:** the desktop's own package installs
+  `split-rock/guide/<desktop>/` beside Split Rock's folder, and removing the
+  desktop removes them. Split Rock never names a desktop in its code. A
+  desktop's entry may say that it `replaces` a general entry, as
+  `plasma/<id>`, when the general fix does not hold on that desktop; Split Rock
+  then shows the desktop's entry instead. An entry in a format version Split
+  Rock does not know is skipped, so an older Split Rock is never misled by a
+  newer desktop.
+
+Rejected: a database or an online service, which needs a network, cannot be
+read as plain files, and would be a second kind of storage beside the notebook;
+Split Rock carrying each desktop's entries, which would make it depend on that
+desktop and release with it; and updating entries over the network between
+releases, which would ship fixes not checked against the release in hand.

@@ -38,8 +38,9 @@ Nothing on the computer changes yet. The assistant can look and explain.
 - The assistant runs fenced in: it can read what it needs to explain the
   computer, and can write only to the notebook.
 
-**Proves:** a week of the maintainer's own daily use, including real hardware
-troubleshooting, with the history landing in `This computer.md`.
+**Proves:** a week of the maintainer's own daily use, including troubleshooting
+an unusual device: a tablet such as the ASUS ROG Flow Z13, with its own power
+firmware and kernel quirks. The history lands in `This computer.md`.
 
 ## Milestone 2: changes, with a card
 
@@ -60,7 +61,9 @@ one real change is undone on the maintainer's machine.
 ## Milestone 3: safe to hand to someone else
 
 - First run: Split Rock opens once after installation and says hello.
-- The built-in guide to the desktop, which works with no account.
+- The tour and the troubleshooting guide, in the box and working with no
+  account: Split Rock's general Plasma entries in the guide's format
+  (`DECISIONS.md`), read alongside any entries a desktop adds.
 - Setup in three screens: choose an assistant, choose the notebook folder,
   choose what the assistant may look at.
 - Says "I don't know", and offers Send this to someone: a plain summary of the
@@ -70,8 +73,8 @@ one real change is undone on the maintainer's machine.
 - An installable package, with what the assistant needs to run installed
   silently.
 
-**Proves:** someone who has never used Linux gets through the first five minutes
-alone, watched and not helped.
+**Proves:** someone leaving Windows who has never used Linux gets through the
+first five minutes alone, watched and not helped.
 
 ## Milestone 4: everyday help
 
@@ -96,6 +99,7 @@ being needed.
 
 - An AI model of Split Rock's own.
 - Handling anyone's account, payment or password.
+- Selling an assistant account, or paying for anyone's use.
 - Acting without a card.
 
 ## Open decisions
@@ -104,6 +108,10 @@ The maintainer's to make.
 
 - **The consumer name** (holds up a public release). The working name is Jack,
   pending a registered trademark search.
+- **Who writes a device's guide entries** (holds up the device entries in
+  Milestone 3's guide). Split Rock owns the general Plasma entries and a
+  desktop adds its own; neither ruling says whose entries for a particular
+  device, such as the Z13, are.
 
 Shuffle's own question, whether the assistant is in the bundle and is the reason
 to buy it, is Shuffle's and is recorded there.
