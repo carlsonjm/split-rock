@@ -11,6 +11,7 @@ the widget does.
 | Choose an assistant | Tap the assistant at the top, then one in the list | None yet |
 | Sign in | Tap a way to sign in | None yet |
 | Ask | Type, then tap Send | `Enter` |
+| Take the tour | Tap Show me around, then Next | None yet |
 | Stop an answer | Tap Send while it shows a square | `Esc` |
 | Approve a change | Tap Do it on its card | None yet |
 | Decline a change | Tap Not now on its card | `Esc` |
@@ -44,6 +45,13 @@ the widget does.
 | --- | --- |
 | Type, then tap or click Send | The answer arrives under the field: one short line, then steps. |
 | `Enter` in the field | The same as Send. |
+
+## Take the tour
+
+| Input | What happens |
+| --- | --- |
+| Tap or click Show me around, with Jack's guide chosen | The first tour opens: what it shows, then its steps. A desktop's own tours come first. |
+| Tap or click Next | The next tour opens, until the last. |
 
 ## Stop an answer
 

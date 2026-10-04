@@ -107,7 +107,14 @@ QStringList Conversation::suggestions() const
 {
     if (m_current.guide) {
         QStringList titles;
-        for (const GuideEntry &entry : m_guide.entries(m_guideContext, GuideEntry::Kind::Guide)) {
+        if (!tours().isEmpty())
+            titles.append(QStringLiteral("Show me around"));
+        QList<GuideEntry> entries = m_guide.entries(m_guideContext, GuideEntry::Kind::Guide);
+        // A desktop's own problems first, as for the tours.
+        std::stable_sort(entries.begin(), entries.end(), [](const GuideEntry &a, const GuideEntry &b) {
+            return a.source != QLatin1String("plasma") && b.source == QLatin1String("plasma");
+        });
+        for (const GuideEntry &entry : entries) {
             if (titles.size() == 3)
                 break;
             titles.append(entry.title);
@@ -423,8 +430,57 @@ void Conversation::ask(const QString &text)
     send(question, question);
 }
 
+QList<GuideEntry> Conversation::tours() const
+{
+    // A desktop's own tours first, as they show what the person will see
+    // first, then the general ones.
+    QList<GuideEntry> list = m_guide.entries(m_guideContext, GuideEntry::Kind::Tour);
+    std::stable_sort(list.begin(), list.end(), [](const GuideEntry &a, const GuideEntry &b) {
+        const bool aGeneral = a.source == QLatin1String("plasma");
+        const bool bGeneral = b.source == QLatin1String("plasma");
+        if (aGeneral != bGeneral)
+            return !aGeneral;
+        return a.key() < b.key();
+    });
+    return list;
+}
+
+QString Conversation::nextTour() const
+{
+    const QList<GuideEntry> list = tours();
+    return m_tour >= 0 && m_tour + 1 < list.size() ? list.at(m_tour + 1).title : QString();
+}
+
+void Conversation::showTour()
+{
+    if (!m_current.guide || m_phase != QLatin1String("ready"))
+        return;
+    const QList<GuideEntry> list = tours();
+    if (list.isEmpty())
+        return;
+    const int next = m_tour + 1 < list.size() ? m_tour + 1 : 0;
+    const QString question = m_question.isEmpty() ? QStringLiteral("Show me around") : m_question;
+    clearAnswer();
+    setNotice({});
+    m_question = question;
+    m_tour = next;
+    const GuideEntry &tour = list.at(next);
+    m_answer.headline = tour.title;
+    m_lead = tour.intro;
+    m_answer.steps = tour.steps;
+    Q_EMIT answerChanged();
+}
+
 void Conversation::answerFromGuide(const QString &question)
 {
+    static const QRegularExpression tourWords(QStringLiteral("\\b(show me around|tour)\\b"),
+                                              QRegularExpression::CaseInsensitiveOption);
+    if (tourWords.match(question).hasMatch() && !tours().isEmpty()) {
+        clearAnswer();
+        m_question = question;
+        showTour();
+        return;
+    }
     clearAnswer();
     setNotice({});
     m_question = question;
@@ -553,6 +609,8 @@ void Conversation::setProblem(const QString &problem, const QString &details)
 
 void Conversation::clearAnswer()
 {
+    m_tour = -1;
+    m_lead.clear();
     m_question.clear();
     m_said.clear();
     m_answer = {};

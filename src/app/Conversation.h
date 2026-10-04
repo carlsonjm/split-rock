@@ -40,6 +40,10 @@ class Conversation : public QObject
     Q_PROPERTY(QString signInPage READ signInPage NOTIFY signInChanged)
     Q_PROPERTY(QString question READ question NOTIFY answerChanged)
     Q_PROPERTY(QString headline READ headline NOTIFY answerChanged)
+    // A line under the headline, such as a tour's opening words.
+    Q_PROPERTY(QString lead READ lead NOTIFY answerChanged)
+    // The tour that follows the one shown, or empty.
+    Q_PROPERTY(QString nextTour READ nextTour NOTIFY answerChanged)
     Q_PROPERTY(QStringList steps READ steps NOTIFY answerChanged)
     Q_PROPERTY(QStringList more READ more NOTIFY answerChanged)
     Q_PROPERTY(QVariantMap card READ card NOTIFY cardChanged)
@@ -74,6 +78,8 @@ public:
     QString signInPage() const { return m_signInPage; }
     QString question() const { return m_question; }
     QString headline() const { return m_answer.headline; }
+    QString lead() const { return m_lead; }
+    QString nextTour() const;
     QStringList steps() const { return m_answer.steps; }
     QStringList more() const { return m_answer.more; }
     QVariantMap card() const { return m_card; }
@@ -94,6 +100,8 @@ public:
     Q_INVOKABLE void notNow();
     Q_INVOKABLE void openCard();
     Q_INVOKABLE void newQuestion();
+    // The guide's tour: the first, or the one after the tour shown.
+    Q_INVOKABLE void showTour();
 
 Q_SIGNALS:
     void assistantsChanged();
@@ -120,11 +128,14 @@ private:
     void setProblem(const QString &problem, const QString &details);
     void clearAnswer();
     void answerFromGuide(const QString &question);
+    QList<GuideEntry> tours() const;
     QString recentDiagnostics() const;
 
     QList<Assistant> m_assistants;
     GuideLibrary m_guide;
     GuideContext m_guideContext;
+    int m_tour = -1;
+    QString m_lead;
     Assistant m_current;
     acp::Client *m_client = nullptr;
     std::unique_ptr<QTemporaryDir> m_workDir;

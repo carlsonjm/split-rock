@@ -283,7 +283,8 @@ private Q_SLOTS:
         QCOMPARE(c.phase(), QStringLiteral("ready"));
         QVERIFY(c.isGuide());
         QVERIFY(f.received().isEmpty());
-        QCOMPARE(c.suggestions().size(), 2);
+        QCOMPARE(c.suggestions().size(), 3);
+        QCOMPARE(c.suggestions().first(), QStringLiteral("Show me around"));
 
         c.ask(QStringLiteral("my internet keeps cutting out"));
         QCOMPARE(c.phase(), QStringLiteral("ready"));
@@ -299,6 +300,35 @@ private Q_SLOTS:
         c.newQuestion();
         QCOMPARE(c.question(), QString());
         QCOMPARE(c.phase(), QStringLiteral("ready"));
+
+        c.ask(QStringLiteral("Show me around"));
+        QCOMPARE(c.headline(), QStringLiteral("A first look"));
+        QCOMPARE(c.lead(), QStringLiteral("Windows had a taskbar; so does this desktop."));
+        QCOMPARE(c.steps().size(), 2);
+        QCOMPARE(c.nextTour(), QString());
+    }
+
+    void aDesktopsToursComeFirstAndFollowOnFromEachOther()
+    {
+        PretendFixture f;
+        QVERIFY(f.isValid());
+        Conversation c({f.assistant(QStringLiteral("signed-in.json"))});
+        GuideLibrary guide;
+        guide.load({QStringLiteral(GUIDE_FIXTURES "/system")});
+        c.setGuide(guide, {{QStringLiteral("plasma"), QStringLiteral("shuffle")}, {}});
+        c.chooseAssistant(QStringLiteral("guide"));
+
+        c.ask(QStringLiteral("give me the tour"));
+        QCOMPARE(c.headline(), QStringLiteral("Your windows as cards"));
+        QCOMPARE(c.nextTour(), QStringLiteral("A first look"));
+        c.showTour();
+        QCOMPARE(c.headline(), QStringLiteral("A first look"));
+        QCOMPARE(c.question(), QStringLiteral("give me the tour"));
+        QCOMPARE(c.nextTour(), QString());
+        // A plain question after the tour is answered from the guide again.
+        c.ask(QStringLiteral("my internet keeps cutting out"));
+        QCOMPARE(c.headline(), QStringLiteral("The Wi-Fi keeps dropping"));
+        QCOMPARE(c.lead(), QString());
     }
 
     void noGuideEntriesMeansNoGuide()

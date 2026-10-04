@@ -109,6 +109,9 @@ private Q_SLOTS:
         c.ask(QStringLiteral("it won't take my password"));
         QTRY_VERIFY(find(window, QStringLiteral("headline")));
         shoot(window, QStringLiteral("8-guide-answer"));
+        c.ask(QStringLiteral("Show me around"));
+        QTRY_COMPARE(c.headline(), QStringLiteral("Moving between virtual desktops"));
+        shoot(window, QStringLiteral("9-guide-tour"));
     }
 
     void refusedChangeShowsDoItUnavailable()

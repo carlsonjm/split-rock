@@ -73,6 +73,16 @@ Rectangle {
             lineHeight: 1.3
         }
 
+        Text {
+            visible: text !== ""
+            width: parent.width
+            wrapMode: Text.WordWrap
+            text: jack.lead
+            color: theme.text
+            font.pixelSize: 15
+            lineHeight: 1.3
+        }
+
         Repeater {
             model: jack.steps
             Row {
@@ -129,6 +139,13 @@ Rectangle {
                 visible: card.hasCard
                 text: "Show me how"
                 onClicked: jack.showMeHow()
+            }
+            Pill {
+                objectName: "nextTourPill"
+                visible: jack.nextTour !== ""
+                filled: true
+                text: "Next: " + jack.nextTour
+                onClicked: jack.showTour()
             }
             Pill {
                 text: "New question"
