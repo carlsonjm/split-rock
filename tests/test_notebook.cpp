@@ -161,6 +161,39 @@ private Q_SLOTS:
         QVERIFY(!notebook.memory().contains(QStringLiteral("(Device/DEVICE.md)\n")));
     }
 
+    // What the window shows of the device: each fix, by its title, with why
+    // and its steps; and each line still open, which a new page starts empty.
+    void theDevicesFixesAndWhatIsStillOpen()
+    {
+        QTemporaryDir home;
+        Notebook notebook(home.filePath(QStringLiteral("Notebook")));
+        QVERIFY(notebook.prepare(fixture()));
+        QVERIFY(notebook.deviceFixes().isEmpty());
+        QVERIFY(notebook.deviceStillOpen().isEmpty());
+        QFile entry(home.filePath(QStringLiteral("Notebook/Device/sleep-wakes-black.md")));
+        QVERIFY(entry.open(QIODevice::WriteOnly));
+        entry.write("---\nid: sleep-wakes-black\ntitle: The screen stays black after sleep\nchecked: 2026-10-04\nformat: 1\n---\n\n"
+                    "## What you see\n\nBlack.\n\n## Why\n\nThe panel sleeps.\n\n## What to do\n\n1. Close the lid.\n2. Open it.\n");
+        entry.close();
+        const auto fixes = notebook.deviceFixes();
+        QCOMPARE(fixes.size(), 1);
+        QCOMPARE(fixes.first().title, QStringLiteral("The screen stays black after sleep"));
+        QCOMPARE(fixes.first().steps, (QStringList{QStringLiteral("Close the lid."), QStringLiteral("Open it.")}));
+
+        QFile page(home.filePath(QStringLiteral("Notebook/Device/DEVICE.md")));
+        QVERIFY(page.open(QIODevice::ReadOnly));
+        QString text = QString::fromUtf8(page.readAll());
+        page.close();
+        QVERIFY(text.contains(QStringLiteral("## Still open\n\nNothing yet.")));
+        text.replace(QStringLiteral("## Still open\n\nNothing yet."),
+                     QStringLiteral("## Still open\n\n- The fan runs at full speed\n  after sleep.\n- The pen stops."));
+        QVERIFY(page.open(QIODevice::WriteOnly | QIODevice::Truncate));
+        page.write(text.toUtf8());
+        page.close();
+        QCOMPARE(notebook.deviceStillOpen(), (QStringList{QStringLiteral("The fan runs at full speed after sleep."),
+                                                          QStringLiteral("The pen stops.")}));
+    }
+
     void topicsAreChosenFromTheWords()
     {
         QCOMPARE(Notebook::topicFor(QStringLiteral("Make the writing bigger"), {}), QStringLiteral("Display"));

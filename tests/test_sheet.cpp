@@ -273,6 +273,22 @@ private Q_SLOTS:
         QVERIFY(notebook.prepare(DeviceFacts::read(QStringLiteral(FIXTURES_DIR "/computer"))));
         PretendFixture f;
         QVERIFY(f.isValid());
+        // A fix the device's page holds, and a problem still open.
+        QFile fix(folder.filePath(QStringLiteral("Notebook/Device/touchscreen-off.md")));
+        QVERIFY(fix.open(QIODevice::WriteOnly));
+        fix.write("---\nid: touchscreen-off\ntitle: The touchscreen is dead with the keyboard cover on\nchecked: 2026-10-04\nformat: 1\n---\n\n"
+                  "## What you see\n\nNo touch.\n\n## Why\n\nThe posture service turns it off on purpose in laptop posture.\n\n"
+                  "## What to do\n\n1. Open the tablet kit's settings and set disable_touchscreen_in_desktop to false.\n2. Touch the screen to check.\n");
+        fix.close();
+        QFile page(folder.filePath(QStringLiteral("Notebook/Device/DEVICE.md")));
+        QVERIFY(page.open(QIODevice::ReadOnly));
+        QString text = QString::fromUtf8(page.readAll());
+        page.close();
+        text.replace(QStringLiteral("## Still open\n\nNothing yet."),
+                     QStringLiteral("## Still open\n\n- Sign-in froze twice as the power tool applied its preset at start."));
+        QVERIFY(page.open(QIODevice::WriteOnly | QIODevice::Truncate));
+        page.write(text.toUtf8());
+        page.close();
         Conversation c({f.assistant(QStringLiteral("signed-in.json"))});
         c.setNotebook(&notebook);
         QQmlApplicationEngine engine;
@@ -289,6 +305,10 @@ private Q_SLOTS:
         QTRY_VERIFY(shell->full() && shell->full()->isVisible());
         QQuickWindow *full = shell->full();
         QQuickItem *view = find(full, QStringLiteral("fullView"));
+        // The device's fix opens to show what to do.
+        QTRY_VERIFY(find(full, QStringLiteral("deviceFix-0")));
+        QVERIFY(find(full, QStringLiteral("deviceOpen-0")));
+        find(full, QStringLiteral("deviceFix-0"))->setProperty("open", true);
         // Bento, or the person, sizes it; it is no longer maximized.
         full->showNormal();
         for (const int width : {1280, 900, 700, 560, 420, 360}) {

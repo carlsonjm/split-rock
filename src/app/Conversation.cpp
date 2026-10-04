@@ -903,6 +903,22 @@ QVariantList Conversation::fixedProblems() const
     return list;
 }
 
+QVariantList Conversation::deviceFixes() const
+{
+    QVariantList list;
+    if (!m_notebook)
+        return list;
+    for (const Notebook::DeviceFix &fix : m_notebook->deviceFixes())
+        list.append(QVariantMap{{QStringLiteral("title"), fix.title}, {QStringLiteral("why"), fix.why},
+                                {QStringLiteral("steps"), fix.steps}});
+    return list;
+}
+
+QStringList Conversation::deviceStillOpen() const
+{
+    return m_notebook ? m_notebook->deviceStillOpen() : QStringList();
+}
+
 bool Conversation::rememberYes()
 {
     const QString sentence = remember();

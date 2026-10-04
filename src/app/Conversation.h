@@ -67,6 +67,8 @@ class Conversation : public QObject
     // The fixed problems in This computer.md, and the kept notes: title,
     // topic, path and date, newest first.
     Q_PROPERTY(QVariantList fixedProblems READ fixedProblems NOTIFY notebookChanged)
+    Q_PROPERTY(QVariantList deviceFixes READ deviceFixes NOTIFY notebookChanged)
+    Q_PROPERTY(QStringList deviceStillOpen READ deviceStillOpen NOTIFY notebookChanged)
     // What the assistant offers to remember about the person, until the
     // person answers; and whether That fixed it was used on this answer.
     Q_PROPERTY(QString remember READ remember NOTIFY rememberChanged)
@@ -128,6 +130,8 @@ public:
     bool kept() const { return m_kept; }
     bool canKeep() const { return m_notebook != nullptr; }
     QVariantList fixedProblems() const;
+    QVariantList deviceFixes() const;
+    QStringList deviceStillOpen() const;
     QString remember() const { return m_rememberAnswered || m_phase == QLatin1String("working") ? QString() : m_answer.remember; }
     bool fixed() const { return m_fixed; }
     // "Remember that?": yes writes it into About me.md; no lets it go.

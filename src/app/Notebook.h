@@ -72,6 +72,17 @@ public:
     };
     // The fixed problems in This computer.md, newest first.
     QList<Fixed> fixedProblems() const;
+    struct DeviceFix {
+        QString title;
+        QString why;
+        QStringList steps;
+    };
+    // The device's own problems with a known fix, one to a page beside
+    // DEVICE.md, by title.
+    QList<DeviceFix> deviceFixes() const;
+    // The device's problems met and not yet fixed: the lines under "Still
+    // open" in DEVICE.md.
+    QStringList deviceStillOpen() const;
 
     // "Remember that?", answered yes: the sentence goes into About me.md,
     // dated. False, with why in error, when it may not be written.

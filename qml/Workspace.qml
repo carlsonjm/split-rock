@@ -140,6 +140,75 @@ Item {
         }
     }
 
+    // A fix the device's own page holds: its problem, and, tapped open, why
+    // and what to do.
+    component DeviceFix: Rectangle {
+        id: fix
+        property string title
+        property string why
+        property var steps: []
+        property bool open: false
+        width: parent ? parent.width : 0
+        height: fixColumn.implicitHeight + 24
+        radius: 12
+        color: theme.panel
+        Accessible.role: Accessible.Button
+        Accessible.name: title
+        Column {
+            id: fixColumn
+            x: 14; y: 12
+            width: parent.width - 28
+            spacing: 8
+            Item {
+                width: parent.width
+                height: Math.max(fixTitle.implicitHeight, 24)
+                Text {
+                    id: fixTitle
+                    width: parent.width - 34
+                    wrapMode: Text.WordWrap
+                    text: fix.title
+                    color: theme.text
+                    font.pixelSize: 15
+                    font.weight: Font.DemiBold
+                    lineHeight: 1.3
+                }
+                Icon {
+                    anchors.right: parent.right
+                    y: 2
+                    width: 18; height: 18
+                    path: Icons.chevron
+                    color: theme.quiet
+                    rotation: fix.open ? 180 : 0
+                }
+            }
+            Text {
+                visible: fix.open && fix.why !== ""
+                width: parent.width
+                wrapMode: Text.WordWrap
+                text: fix.why
+                color: theme.quiet
+                font.pixelSize: 14
+                lineHeight: 1.3
+            }
+            Repeater {
+                model: fix.open ? fix.steps : []
+                Text {
+                    width: fixColumn.width
+                    wrapMode: Text.WordWrap
+                    text: (index + 1) + ". " + modelData
+                    color: theme.text
+                    font.pixelSize: 14
+                    lineHeight: 1.3
+                }
+            }
+        }
+        MouseArea {
+            anchors.fill: parent
+            cursorShape: Qt.PointingHandCursor
+            onClicked: fix.open = !fix.open
+        }
+    }
+
     component Heading: Text {
         color: theme.quiet
         font.pixelSize: 12
@@ -622,6 +691,36 @@ Item {
                         width: parent.width
                         when: full.shortDate(modelData.when)
                         text: modelData.text
+                    }
+                }
+
+                // What is known about this device: its fixes, and what is
+                // still open.
+                Heading { text: "THIS DEVICE" }
+                Column {
+                    objectName: "deviceKnown"
+                    width: parent.width
+                    spacing: 8
+                    Line {
+                        visible: conversation.deviceFixes.length === 0 && conversation.deviceStillOpen.length === 0
+                        text: "Nothing learned about this device yet. Its problems, and what fixed them, are kept here."
+                    }
+                    Repeater {
+                        model: conversation.deviceFixes
+                        DeviceFix {
+                            objectName: "deviceFix-" + index
+                            title: modelData.title
+                            why: modelData.why
+                            steps: modelData.steps
+                        }
+                    }
+                    Repeater {
+                        model: conversation.deviceStillOpen
+                        Line {
+                            objectName: "deviceOpen-" + index
+                            text: modelData
+                            status: "Still open"
+                        }
                     }
                 }
             }

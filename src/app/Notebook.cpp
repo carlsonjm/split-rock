@@ -3,6 +3,7 @@
 
 #include "app/NeverWritten.h"
 #include "app/Product.h"
+#include "guide/GuideLibrary.h"
 
 #include <QDir>
 #include <QDirIterator>
@@ -77,9 +78,10 @@ rules you follow here.
 - `Device/` is this computer's own manual. When you learn something about this
   device, such as a problem and what fixed it, add an entry beside
   `Device/DEVICE.md` in the guide's format: a header with id, title, also,
-  applies, checked and format, then What you see, Why and What to do. Add the
-  maker's documentation you find under "The maker's documentation" in
-  `Device/DEVICE.md`.
+  applies, checked and format, then What you see, Why and What to do. A problem
+  met and not yet fixed goes on a line of its own under "Still open" in
+  `Device/DEVICE.md`, until a fix is proven. Add the maker's documentation you
+  find under "The maker's documentation" in `Device/DEVICE.md`.
 - `Notes/` holds answers the person kept. Change one only when asked.
 - When something here helps answer a question, say so: "Last time, the printer
   needed its driver reinstalled."
@@ -238,6 +240,7 @@ bool Notebook::prepare(const DeviceFacts &facts, QString *error)
         "## What is known\n\n"
         "Nothing yet. Problems met on this computer, and what fixed them, are kept\n"
         "beside this page, one to a file, in the guide's format.\n\n"
+        "## Still open\n\nNothing yet.\n\n"
         "## The maker's documentation\n\nNone found yet.\n")
         .arg(id.isEmpty() ? QStringLiteral("this-computer") : id, yamlQuoted(name), yamlQuoted(facts.maker),
              yamlQuoted(facts.model), today,
@@ -400,6 +403,45 @@ QString Notebook::memory() const
                           "that? \" and one short sentence to remember; %2 asks them and writes it only after a yes. "
                           "Do not write About me.md yourself. What the notebook holds now:\n\n%3")
         .arg(m_folder, productName(), parts.join(QStringLiteral("\n\n")));
+}
+
+QList<Notebook::DeviceFix> Notebook::deviceFixes() const
+{
+    QList<DeviceFix> fixes;
+    const QDir folder(QDir(m_folder).filePath(QStringLiteral("Device")));
+    for (const QString &name : folder.entryList({QStringLiteral("*.md")}, QDir::Files, QDir::Name)) {
+        if (name == QLatin1String("DEVICE.md"))
+            continue;
+        QFile file(folder.filePath(name));
+        if (!file.open(QIODevice::ReadOnly))
+            continue;
+        QString problem;
+        const GuideEntry entry = GuideLibrary::parse(file.fileName(), QString::fromUtf8(file.readAll()),
+                                                     QStringLiteral("device"), GuideEntry::Kind::Guide, &problem);
+        if (!problem.isEmpty() || entry.title.isEmpty())
+            continue;
+        fixes.append({entry.title, entry.why, entry.steps});
+    }
+    return fixes;
+}
+
+QStringList Notebook::deviceStillOpen() const
+{
+    const QString page = read(QStringLiteral("Device/DEVICE.md"));
+    const qsizetype start = page.indexOf(QLatin1String("\n## Still open"));
+    if (start < 0)
+        return {};
+    QStringList open;
+    const QStringList lines = page.mid(start + 1).split(QLatin1Char('\n')).mid(1);
+    for (const QString &line : lines) {
+        if (line.startsWith(QLatin1String("## ")))
+            break;
+        if (line.startsWith(QLatin1String("- ")))
+            open.append(line.mid(2).trimmed());
+        else if (!open.isEmpty() && line.startsWith(QLatin1String("  ")))
+            open.last() += QLatin1Char(' ') + line.trimmed();
+    }
+    return open;
 }
 
 QList<Notebook::Fixed> Notebook::fixedProblems() const
