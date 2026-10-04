@@ -1,0 +1,12 @@
+<!-- SPDX-License-Identifier: GPL-2.0-or-later -->
+<!-- The assistant's mark: a genie lamp in the suite's line style. Every surface
+     that draws the assistant reads this one file, so it is swapped here. -->
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+  <path d="M5 12h8.5c3 0 5.5-1.5 8-3.5-.8 5-4.3 8.5-9.5 8.5C7.5 17 5 15 5 12Z"/>
+  <path d="M7.5 12a3 3 0 0 1 6 0"/>
+  <path d="M10.5 7.4h.01"/>
+  <path d="M5.2 12.8C2.6 11.6 1 13.2 1.5 15c.5 1.7 2.5 2 4.4 1"/>
+  <path d="M12 17v1.5M9 21.5a3 3 0 0 1 6 0Z"/>
+  <path d="M21.5 8.5c.7-1.8-.2-3.6-1.9-4"/>
+  <path d="M17.4 1.6Q17.8 3 19.2 3.4Q17.8 3.8 17.4 5.2Q17 3.8 15.6 3.4Q17 3 17.4 1.6Z"/>
+</svg>

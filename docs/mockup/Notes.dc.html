@@ -39,8 +39,8 @@ input{font-family:Manrope,sans-serif}
 
   <div style="position: absolute; left: 10px; top: 10px; right: 10px; bottom: 74px; background: #141414; border-radius: 8px; overflow: hidden; display: flex; flex-direction: column">
     <div class="tb">
-      <div style="width: 160px; display: flex; align-items: center; color: #C7B8F5"><svg class="ico s" viewBox="0 0 24 24"><path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"/></svg></div>
-      <span>Jack</span>
+      <div style="width: 160px; display: flex; align-items: center; color: #C7B8F5"><svg class="ico s" viewBox="0 0 24 24" style="stroke-width: 2"><path d="M5 12h8.5c3 0 5.5-1.5 8-3.5-.8 5-4.3 8.5-9.5 8.5C7.5 17 5 15 5 12Z"/><path d="M7.5 12a3 3 0 0 1 6 0"/><path d="M10.5 7.4h.01"/><path d="M5.2 12.8C2.6 11.6 1 13.2 1.5 15c.5 1.7 2.5 2 4.4 1"/><path d="M12 17v1.5M9 21.5a3 3 0 0 1 6 0Z"/><path d="M21.5 8.5c.7-1.8-.2-3.6-1.9-4"/><path d="M17.4 1.6Q17.8 3 19.2 3.4Q17.8 3.8 17.4 5.2Q17 3.8 15.6 3.4Q17 3 17.4 1.6Z"/></svg></div>
+      <span>Genie</span>
       <div style="display: flex; justify-content: flex-end; width: 160px">
         <button class="tbb" aria-label="Minimize"><svg class="ico xs" viewBox="0 0 24 24"><path d="M5 12h14"/></svg></button>
         <button class="tbb" aria-label="Maximize"><svg class="ico xs" viewBox="0 0 24 24"><rect width="14" height="14" x="5" y="5" rx="2"/></svg></button>
@@ -50,7 +50,7 @@ input{font-family:Manrope,sans-serif}
     <div style="flex: 1; display: flex; min-height: 0">
       <section aria-label="Conversation" style="width: 420px; border-right: 1px solid #262626; display: flex; flex-direction: column; padding: 18px; box-sizing: border-box; gap: 12px">
         <div style="flex: 1; display: flex; flex-direction: column; gap: 12px">
-          <span class="read" style="align-self: flex-start"><svg class="ico xs" viewBox="0 0 24 24"><path d="M16 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V8Z"/><path d="M15 3v4a2 2 0 0 0 2 2h4"/></svg>Jack sees only this note</span>
+          <span class="read" style="align-self: flex-start"><svg class="ico xs" viewBox="0 0 24 24"><path d="M16 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V8Z"/><path d="M15 3v4a2 2 0 0 0 2 2h4"/></svg>Genie sees only this note</span>
           <div class="me">Turn this into a plan for Monday</div>
           <div class="jack">Here is a checklist. The three new lines are marked on the note; nothing changes until you accept.</div>
           <div class="jack">I can also remind you Monday at 9:00, or when you next open SpreadGesture.qml.</div>
@@ -60,7 +60,7 @@ input{font-family:Manrope,sans-serif}
           </div>
         </div>
         <label style="display: flex; align-items: center; gap: 10px; height: 52px; border-radius: 26px; background: #1C1C1C; border: 1px solid #5A5A5A; padding: 0 6px 0 18px; box-sizing: border-box">
-          <input placeholder="Ask about this note" aria-label="Ask Jack" style="flex: 1; background: transparent; border: 0; outline: none; color: #F8F8FF; font-size: 15px">
+          <input placeholder="Ask about this note" aria-label="Ask Genie" style="flex: 1; background: transparent; border: 0; outline: none; color: #F8F8FF; font-size: 15px">
           <button aria-label="Send" style="width: 40px; height: 40px; border-radius: 20px; border: 0; background: #F8F8FF; color: #141414; display: flex; align-items: center; justify-content: center"><svg class="ico s" viewBox="0 0 24 24"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></button>
         </label>
       </section>
@@ -72,7 +72,7 @@ input{font-family:Manrope,sans-serif}
           <div class="li add"><span class="bx"></span>Log flick speed from ten real swipes</div>
           <div class="li add"><span class="bx"></span>Compare them with 1400 px/s</div>
           <div class="li add"><span class="bx"></span>Take the numbers to the next review</div>
-          <div style="font-size: 12px; font-weight: 700; opacity: 0.6; margin-top: 14px">3 lines proposed by Jack</div>
+          <div style="font-size: 12px; font-weight: 700; opacity: 0.6; margin-top: 14px">3 lines proposed by Genie</div>
         </div>
         <div style="display: flex; gap: 10px">
           <button style="height: 52px; border-radius: 26px; padding: 0 26px; border: 0; background: #F8F8FF; color: #141414; font-size: 15px; font-weight: 800">Accept</button>
@@ -94,7 +94,7 @@ input{font-family:Manrope,sans-serif}
       <button class="dk" aria-label="Firefox"><svg class="ico" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/></svg></button>
       <button class="dk" aria-label="Kate"><svg class="ico" viewBox="0 0 24 24"><path d="m16 18 6-6-6-6"/><path d="m8 6-6 6 6 6"/></svg></button>
       <button class="dk" aria-label="Notes" style="background: #F2D98A; color: #1A1A1A"><svg class="ico" viewBox="0 0 24 24"><path d="M16 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V8Z"/><path d="M15 3v4a2 2 0 0 0 2 2h4"/></svg></button>
-      <button class="dk" aria-label="Jack" style="background: #C7B8F5; color: #1A1A1A"><svg class="ico" viewBox="0 0 24 24"><path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"/></svg><span style="position: absolute; bottom: 3px; width: 4px; height: 4px; border-radius: 2px; background: #1A1A1A"></span></button>
+      <button class="dk" aria-label="Genie" style="background: #C7B8F5; color: #1A1A1A"><svg class="ico" viewBox="0 0 24 24" style="stroke-width: 2"><path d="M5 12h8.5c3 0 5.5-1.5 8-3.5-.8 5-4.3 8.5-9.5 8.5C7.5 17 5 15 5 12Z"/><path d="M7.5 12a3 3 0 0 1 6 0"/><path d="M10.5 7.4h.01"/><path d="M5.2 12.8C2.6 11.6 1 13.2 1.5 15c.5 1.7 2.5 2 4.4 1"/><path d="M12 17v1.5M9 21.5a3 3 0 0 1 6 0Z"/><path d="M21.5 8.5c.7-1.8-.2-3.6-1.9-4"/><path d="M17.4 1.6Q17.8 3 19.2 3.4Q17.8 3.8 17.4 5.2Q17 3.8 15.6 3.4Q17 3 17.4 1.6Z"/></svg><span style="position: absolute; bottom: 3px; width: 4px; height: 4px; border-radius: 2px; background: #1A1A1A"></span></button>
     </div>
     <div class="status">
       <svg class="ico s" viewBox="0 0 24 24"><path d="M12 20h.01"/><path d="M2 8.82a15 15 0 0 1 20 0"/><path d="M5 12.859a10 10 0 0 1 14 0"/><path d="M8.5 16.429a5 5 0 0 1 7 0"/></svg>

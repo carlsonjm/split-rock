@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Keep the guide and the tour in the format Jack reads.
+"""Keep the guide and the tour in the format Split Rock reads.
 
 The same script runs in Split Rock and in any desktop that adds entries of its
 own. It reads every entry under guide/<source>/ and tour/<source>/ from the
