@@ -10,7 +10,7 @@ Paths are from the repository root.
 | `TRADEMARKS.md` | What the licence does not cover: the names and marks |
 | `docs/CONCEPT.md` | Who Split Rock is for, what it does, its rules, and what it relies on |
 | `docs/ASSISTANTS.md` | What each assistant offers: how it starts, how a person signs in, what it costs |
-| `docs/MEMORY.md` | How Split Rock remembers: the notebook's four kinds of memory, and what is never written down |
+| `docs/MEMORY.md` | How Split Rock remembers: the notebook's five kinds of memory, and what is never written down |
 | `docs/mockup/` | The approved mock-up: five screens as design source, and which milestone each applies to |
 | `docs/DECISIONS.md` | Every settled ruling and what it rejected |
 | `docs/ROADMAP.md` | What is planned, in order, and what is not |
