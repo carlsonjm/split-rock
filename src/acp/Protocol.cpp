@@ -67,6 +67,15 @@ QString refusalOptionId(const QList<PermissionOption> &options)
     return {};
 }
 
+QString allowOnceOptionId(const QList<PermissionOption> &options)
+{
+    for (const PermissionOption &option : options) {
+        if (option.kind == QLatin1String("allow_once") && !option.id.isEmpty())
+            return option.id;
+    }
+    return {};
+}
+
 QString ToolCall::command() const
 {
     const QJsonObject input = rawInput.toObject();

@@ -404,7 +404,7 @@ Item {
                 Text {
                     anchors.right: parent.right
                     anchors.verticalCenter: parent.verticalCenter
-                    text: "Nothing is kept yet"
+                    text: conversation.canKeep ? "Kept in your notebook · plain notes" : "Nothing is kept yet"
                     color: theme.quiet
                     font.pixelSize: 12
                     font.weight: Font.DemiBold
@@ -458,22 +458,34 @@ Item {
 
                 Heading { text: "FIXED PROBLEMS" }
                 Line {
+                    visible: conversation.fixedProblems.length === 0
                     width: parent.width
-                    text: "Problems " + productName + " helps fix are written down here, once it has a notebook to keep them in."
+                    text: "None yet. Problems " + productName + " helps fix are written down here."
+                }
+                Repeater {
+                    model: conversation.fixedProblems
+                    Line {
+                        width: parent.width
+                        text: modelData
+                    }
                 }
             }
 
             Line {
                 visible: full.tab === 1
                 width: parent.width
-                text: "How you like to be helped, and who helps you. " + productName
-                      + " writes this only after you say yes, once it has a notebook to keep it in."
+                text: conversation.aboutMe !== "" ? conversation.aboutMe
+                    : "How you like to be helped, and who helps you. " + productName
+                      + " writes this only after you say yes."
             }
 
             Line {
                 visible: full.tab === 2
                 width: parent.width
-                text: "Answers you keep, filed by topic. Keep this arrives with the notebook."
+                text: conversation.keptNotes.length === 0
+                    ? "Answers you keep, filed by topic in the notebook. Nothing is kept yet."
+                    : "Answers you keep, filed by topic in the notebook: " + conversation.keptNotes.length
+                      + " so far."
             }
         }
     }

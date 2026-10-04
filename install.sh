@@ -18,6 +18,11 @@ for tool in cmake node npm; do
         exit 1
     fi
 done
+# The sandbox the assistant runs in, so that it can write only to the notebook.
+if ! command -v bwrap >/dev/null 2>&1; then
+    echo "Split Rock keeps the assistant in a sandbox, bubblewrap, which this computer does not have. Nothing was changed." >&2
+    exit 1
+fi
 
 # Every check first: nothing is installed from a checkout that fails one.
 "${project_root}/verify.sh"

@@ -15,12 +15,14 @@
 //               developer install put them)
 // --state       where each assistant keeps its own sign-in
 //               (default: Split Rock's folder in the person's data folder)
+// --notebook    the notebook folder (default: Notebook in the Documents folder)
 // --pretend     also offer the pretend assistant, following SCRIPT
 // --guide       also read the guide and tour under DIR, which holds guide/
 //               and tour/ as a checkout does (repeatable)
 
 #include "app/Assistants.h"
 #include "app/Conversation.h"
+#include "app/Notebook.h"
 #include "app/QmlContext.h"
 #include "desktop/ConversationService.h"
 #include "desktop/Entry.h"
@@ -91,13 +93,16 @@ int main(int argc, char **argv)
     const QCommandLineOption stateOption(QStringLiteral("state"),
                                          QStringLiteral("Where each assistant keeps its own sign-in."),
                                          QStringLiteral("dir"));
+    const QCommandLineOption notebookOption(QStringLiteral("notebook"),
+                                            QStringLiteral("The notebook folder (default: Notebook in the Documents folder)."),
+                                            QStringLiteral("dir"));
     const QCommandLineOption pretendOption(QStringLiteral("pretend"),
                                            QStringLiteral("Also offer the pretend assistant, following this script."),
                                            QStringLiteral("script"));
     const QCommandLineOption guideOption(QStringLiteral("guide"),
                                          QStringLiteral("Also read the guide and tour under this folder."),
                                          QStringLiteral("dir"));
-    parser.addOptions({askOption, backgroundOption, assistantsOption, stateOption, pretendOption, guideOption});
+    parser.addOptions({askOption, backgroundOption, assistantsOption, stateOption, notebookOption, pretendOption, guideOption});
     parser.process(app);
 
     // The one running Split Rock answers instead.
@@ -129,7 +134,15 @@ int main(int argc, char **argv)
                                                       QDir(parser.value(pretendOption)).absolutePath(), state));
     }
 
+    // The notebook: made, with what Split Rock writes at setup, where missing.
+    splitrock::Notebook notebook(parser.isSet(notebookOption) ? parser.value(notebookOption)
+                                                              : splitrock::Notebook::defaultFolder());
+    QString notebookProblem;
+    if (!notebook.prepare(splitrock::DeviceFacts::read(), &notebookProblem))
+        qWarning().noquote() << notebookProblem;
+
     splitrock::Conversation conversation(assistants);
+    conversation.setNotebook(&notebook);
 
     // The guide in the box: what is installed for every person, and any folder
     // named here, such as a checkout.
@@ -137,7 +150,8 @@ int main(int argc, char **argv)
     for (const QString &dir : parser.values(guideOption))
         guideRoots.append(QDir(dir).absolutePath());
     splitrock::GuideLibrary guide;
-    guide.load(guideRoots);
+    // The device's own entries, learned on this computer, sit in the notebook.
+    guide.load(guideRoots, QDir(notebook.folder()).filePath(QStringLiteral("Device")));
     splitrock::GuideContext context;
     context.desktops = guide.sources();
     // What the hardware says it is: read, never written.
@@ -155,7 +169,7 @@ int main(int argc, char **argv)
 
     const auto handle = [&](const QStringList &arguments) {
         QCommandLineParser request;
-        request.addOptions({askOption, backgroundOption, assistantsOption, stateOption, pretendOption, guideOption});
+        request.addOptions({askOption, backgroundOption, assistantsOption, stateOption, notebookOption, pretendOption, guideOption});
         request.parse(arguments);
         if (request.isSet(backgroundOption))
             return;
@@ -194,5 +208,8 @@ int main(int argc, char **argv)
     quitOnSignals(app);
 
     handle(app.arguments());
-    return app.exec();
+    const int code = app.exec();
+    // The windows go first, while everything they show is still there.
+    qDeleteAll(engine.rootObjects());
+    return code;
 }

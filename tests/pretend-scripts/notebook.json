@@ -1,0 +1,79 @@
+{
+  "agent": {"name": "pretend", "title": "Pretend assistant", "version": "1"},
+  "signedIn": true,
+  "authMethods": [],
+  "turns": [
+    {
+      "expectPrompt": "pen",
+      "steps": [
+        {"say": "The pen stops when its battery is flat.\n\n"},
+        {
+          "ask": {
+            "toolCall": {
+              "toolCallId": "learn-1",
+              "title": "Write Device/pen-stops.md",
+              "kind": "edit",
+              "status": "pending",
+              "locations": [{"path": "${HOME}/Documents/Notebook/Device/pen-stops.md"}],
+              "rawInput": {"file_path": "${HOME}/Documents/Notebook/Device/pen-stops.md", "content": "The pen stops when its battery is flat."}
+            },
+            "options": [
+              {"optionId": "yes", "name": "Allow", "kind": "allow_once"},
+              {"optionId": "no", "name": "Reject", "kind": "reject_once"}
+            ]
+          },
+          "expect": "allow_once"
+        },
+        {"write": {"path": "${HOME}/Documents/Notebook/Device/pen-stops.md", "text": "The pen stops when its battery is flat.\n"}},
+        {"write": {"path": "${HOME}/outside-the-notebook.txt", "text": "Not to be kept.\n"}},
+        {"write": {"path": "/usr/local/split-rock-was-here", "text": "Not to be kept.\n"}}
+      ]
+    },
+    {
+      "expectPrompt": "PIN",
+      "steps": [
+        {
+          "ask": {
+            "toolCall": {
+              "toolCallId": "remember-1",
+              "title": "Write About me.md",
+              "kind": "edit",
+              "status": "pending",
+              "locations": [{"path": "${HOME}/Documents/Notebook/About me.md"}],
+              "rawInput": {"file_path": "${HOME}/Documents/Notebook/About me.md", "content": "Their bank PIN is 4821!"}
+            },
+            "options": [
+              {"optionId": "yes", "name": "Allow", "kind": "allow_once"},
+              {"optionId": "no", "name": "Reject", "kind": "reject_once"}
+            ]
+          },
+          "expect": "reject_once"
+        },
+        {"say": "I won't write that down."}
+      ]
+    },
+    {
+      "expectPrompt": "record",
+      "steps": [
+        {
+          "ask": {
+            "toolCall": {
+              "toolCallId": "record-1",
+              "title": "Edit This computer.md",
+              "kind": "edit",
+              "status": "pending",
+              "locations": [{"path": "${HOME}/Documents/Notebook/This computer.md"}],
+              "rawInput": {"file_path": "${HOME}/Documents/Notebook/This computer.md"}
+            },
+            "options": [
+              {"optionId": "yes", "name": "Allow", "kind": "allow_once"},
+              {"optionId": "no", "name": "Reject", "kind": "reject_once"}
+            ]
+          },
+          "expect": "reject_once"
+        },
+        {"say": "That page is Split Rock's own."}
+      ]
+    }
+  ]
+}

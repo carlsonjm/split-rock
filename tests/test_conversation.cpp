@@ -1,8 +1,13 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 #include "app/Conversation.h"
 #include "PretendFixture.h"
+#include "app/Fence.h"
+#include "app/Notebook.h"
 #include "guide/GuideLibrary.h"
 
+#include <QDir>
+#include <QFile>
+#include <QJsonArray>
 #include <QSignalSpy>
 #include <QTest>
 
@@ -110,6 +115,63 @@ private Q_SLOTS:
         QVERIFY(reaches(d, QStringLiteral("ready")));
         QTest::qWait(300);
         QCOMPARE(d.question(), QString());
+    }
+
+    // The assistant runs fenced in: it may write in the notebook, through a
+    // request Split Rock allows, and anything it writes elsewhere is lost. What
+    // is never written down, and Split Rock's own record, are refused.
+    void theAssistantIsFencedToTheNotebook()
+    {
+        if (fenceProgram().isEmpty())
+            QSKIP("This computer has no bubblewrap to fence the assistant in.");
+        const QString folder = QDir::homePath() + QStringLiteral("/Documents/Notebook");
+        QDir(folder).removeRecursively();
+        QFile::remove(QDir::homePath() + QStringLiteral("/outside-the-notebook.txt"));
+        Notebook notebook(folder);
+        QVERIFY(notebook.prepare(DeviceFacts::read(QStringLiteral(FIXTURES_DIR "/computer"))));
+
+        PretendFixture f;
+        QVERIFY(f.isValid());
+        Conversation c({f.assistant(QStringLiteral("notebook.json"))});
+        c.setNotebook(&notebook);
+        c.chooseAssistant(QStringLiteral("pretend"));
+        QVERIFY(reaches(c, QStringLiteral("ready")));
+
+        c.ask(QStringLiteral("Why does my pen stop?"));
+        QVERIFY(reaches(c, QStringLiteral("ready")));
+        QVERIFY(!c.cardOpen());
+        QCOMPARE(QFile(folder + QStringLiteral("/Device/pen-stops.md")).size(), qint64(40));
+        QVERIFY(c.notice().contains(QStringLiteral("wrote in the notebook: Device/pen-stops.md")));
+        QVERIFY(!QFile::exists(QDir::homePath() + QStringLiteral("/outside-the-notebook.txt")));
+        QVERIFY(!QFile::exists(QStringLiteral("/usr/local/split-rock-was-here")));
+
+        // The notebook's memory went with the first question.
+        const auto first = f.received(QStringLiteral("session/prompt")).first();
+        const QJsonArray blocks = first.value(QStringLiteral("params")).toObject().value(QStringLiteral("prompt")).toArray();
+        QCOMPARE(blocks.size(), 3);
+        const QString memory = blocks.at(1).toObject().value(QStringLiteral("text")).toString();
+        QVERIFY(memory.contains(QStringLiteral("This computer (the top of This computer.md)")));
+        QVERIFY(memory.contains(QStringLiteral("ROG Flow Z13")));
+
+        // Kept, it is a note; forgotten, it is in the trash.
+        QVERIFY(c.keep());
+        QVERIFY(c.kept());
+        QCOMPARE(c.keptNotes().size(), 1);
+        const QString kept = c.keptNotes().first().toMap().value(QStringLiteral("path")).toString();
+        QVERIFY(kept.endsWith(QStringLiteral("/Notes/Keyboard, pen and touch/Why does my pen stop.md")));
+        QVERIFY(c.forget(kept));
+        QVERIFY(!QFile::exists(kept));
+        QCOMPARE(c.keptNotes().size(), 0);
+
+        c.ask(QStringLiteral("Remember my PIN"));
+        QVERIFY(reaches(c, QStringLiteral("ready")));
+        QVERIFY(c.cardOpen());
+        QVERIFY(!QFile::exists(folder + QStringLiteral("/About me.md")));
+
+        c.ask(QStringLiteral("Change the record"));
+        QVERIFY(reaches(c, QStringLiteral("ready")));
+        QVERIFY(c.cardOpen());
+        QVERIFY(!c.more().join(QLatin1Char(' ')).contains(QStringLiteral("UNEXPECTED")));
     }
 
     void aChangeIsRefusedAndShownOnTheCard()

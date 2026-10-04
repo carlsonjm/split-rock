@@ -37,6 +37,7 @@ split_rock_test(test_change_card)
 split_rock_test(test_assistants)
 split_rock_test(test_protocol)
 split_rock_test(test_conversation)
+split_rock_test(test_notebook)
 split_rock_test(test_guide)
 
 split_rock_test(test_kadunce)

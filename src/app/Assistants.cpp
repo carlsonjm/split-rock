@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 #include "app/Assistants.h"
 
+#include "app/Fence.h"
 #include "app/Product.h"
 
 #include <QDir>
@@ -49,7 +50,11 @@ Assistant nodeAssistant(const QString &id, const QString &name, const QString &a
     const QString script = QDir(adapterDir).filePath(entry);
     a.program = node;
     a.arguments = {script};
-    if (node.isEmpty()) {
+    a.readable = {QDir(adapterDir).absolutePath()};
+    if (fenceProgram().isEmpty()) {
+        a.unavailable = QStringLiteral("%1 can't be kept to the notebook on this computer, which lacks the "
+                                       "sandbox it runs in (bubblewrap).").arg(productName());
+    } else if (node.isEmpty()) {
         a.unavailable = QStringLiteral("%1 runs on Node.js, which this computer does not have.").arg(name);
     } else if (!QFileInfo::exists(script)) {
         a.unavailable = QStringLiteral("%1 has not been fetched onto this computer yet.").arg(name);
@@ -156,6 +161,8 @@ Assistant pretendAssistant(const QString &program, const QString &script, const 
     a.home = QDir(stateDir).filePath(a.id);
     a.environment.insert(QStringLiteral("SPLIT_ROCK_PRETEND_HOME"), a.home);
     a.hiddenMethods = {{QStringLiteral("pretend-key"), keyReason()}};
+    a.readable = {QFileInfo(program).absolutePath(), QFileInfo(script).absoluteFilePath()};
+    a.mayRunUnfenced = true;
     a.askFirstMode = QStringLiteral("ask-first");
     a.conversationLeftovers = {QStringLiteral("transcripts")};
     if (!QFileInfo::exists(program))

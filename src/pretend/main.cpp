@@ -26,11 +26,14 @@
 // Steps: {say}, {think}, {tool: ToolCall}, {update: ToolCallUpdate},
 //        {ask: {toolCall, options}, expect: optionKind}, {wait: ms},
 //        {waitForCancel: true}, {stop: reason}, {error: {code, message}},
-//        {exit: code}
+//        {exit: code}, {write: {path, text}}: writes the file itself, as an
+//        agent does after asking, and says whether it could.
+// ${HOME} in any step is the home folder the pretend assistant sees.
 
 #include <QCoreApplication>
 #include <QDir>
 #include <QFile>
+#include <QFileInfo>
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
@@ -242,7 +245,9 @@ private:
     void next()
     {
         while (m_step < m_steps.size()) {
-            const QJsonObject step = m_steps.at(m_step++).toObject();
+            QString text = QString::fromUtf8(QJsonDocument(m_steps.at(m_step++).toObject()).toJson(QJsonDocument::Compact));
+            text.replace(QStringLiteral("${HOME}"), QDir::homePath());
+            const QJsonObject step = QJsonDocument::fromJson(text.toUtf8()).object();
             if (step.contains(QStringLiteral("say"))) {
                 say(QStringLiteral("agent_message_chunk"), step.value(QStringLiteral("say")).toString());
             } else if (step.contains(QStringLiteral("think"))) {
@@ -282,6 +287,16 @@ private:
                       {QStringLiteral("error"), step.value(QStringLiteral("error"))}});
                 m_promptId = QJsonValue();
                 return;
+            } else if (step.contains(QStringLiteral("write"))) {
+                const QJsonObject write = step.value(QStringLiteral("write")).toObject();
+                const QString path = write.value(QStringLiteral("path")).toString();
+                QDir().mkpath(QFileInfo(path).absolutePath());
+                QFile file(path);
+                const bool wrote = file.open(QIODevice::WriteOnly)
+                    && file.write(write.value(QStringLiteral("text")).toString().toUtf8()) >= 0;
+                file.close();
+                say(QStringLiteral("agent_message_chunk"),
+                    (wrote ? QStringLiteral("Wrote %1.\n") : QStringLiteral("Could not write %1.\n")).arg(path));
             } else if (step.contains(QStringLiteral("exit"))) {
                 std::fflush(stdout);
                 std::_Exit(step.value(QStringLiteral("exit")).toInt());

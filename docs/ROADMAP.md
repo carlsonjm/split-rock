@@ -59,6 +59,20 @@ Nothing on the computer changes yet. The assistant can look and explain.
 - The assistant runs fenced in: it can read what it needs to explain the
   computer, and can write only to the notebook.
 
+**Built so far:** the developer install; the notebook with `ASSISTANT.md`,
+`This computer.md` and `Device/DEVICE.md` written at the first start from what
+the computer reports; the device's own entries offered by the guide; the
+notebook's memory given to the assistant as a conversation starts; Keep this;
+Forget, without its place on screen; the refusal to write down passwords, card
+numbers, bank details and codes; and the fence (`DECISIONS.md`, The fence is
+bubblewrap). Codex's ChatGPT sign-in and Claude's Anthropic Console sign-in are
+offered as in Milestone 0.
+
+**Waiting on the maintainer:** the panel widget; where Forget and the list of
+kept notes sit; how "Remember that?" asks before `About me.md` is written; and
+how a fixed problem reaches `This computer.md`. Each is something to see that
+no mock-up draws.
+
 **Proves:** a week of the maintainer's own daily use, including troubleshooting
 an unusual device: a tablet such as the ASUS ROG Flow Z13, with its own power
 firmware and kernel quirks. The history lands in `This computer.md`, and what

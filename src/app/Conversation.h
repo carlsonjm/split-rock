@@ -18,6 +18,8 @@ class QTimer;
 
 namespace splitrock {
 
+class Notebook;
+
 // One conversation with one assistant, as Genie's window shows it.
 //
 // Nothing here is written to disk. The assistant works in an empty folder made
@@ -58,6 +60,16 @@ class Conversation : public QObject
     // What the assistant asked to change in this conversation and was refused,
     // oldest first: heading and question.
     Q_PROPERTY(QVariantList refusedChanges READ refusedChanges NOTIFY turnsChanged)
+    // Keep this was used on this answer.
+    Q_PROPERTY(bool kept READ kept NOTIFY answerChanged)
+    // There is a notebook to keep answers in.
+    Q_PROPERTY(bool canKeep READ canKeep NOTIFY notebookChanged)
+    // The fixed problems in This computer.md, and the kept notes: title,
+    // topic, path and date, newest first.
+    Q_PROPERTY(QStringList fixedProblems READ fixedProblems NOTIFY notebookChanged)
+    Q_PROPERTY(QVariantList keptNotes READ keptNotes NOTIFY notebookChanged)
+    // About me.md, as written.
+    Q_PROPERTY(QString aboutMe READ aboutMe NOTIFY notebookChanged)
     Q_PROPERTY(bool isGuide READ isGuide NOTIFY assistantChanged)
 
 public:
@@ -105,6 +117,20 @@ public:
     // Starts the assistant the person chose last time, if none is chosen yet
     // and it is still offered. True when an assistant is chosen afterwards.
     bool resumeChosen();
+
+    // The notebook this conversation remembers in; none in tests that do not
+    // need one. Not owned.
+    void setNotebook(Notebook *notebook);
+    bool kept() const { return m_kept; }
+    bool canKeep() const { return m_notebook != nullptr; }
+    QStringList fixedProblems() const;
+    QVariantList keptNotes() const;
+    QString aboutMe() const;
+    // Keep this: the answer becomes a note in the notebook. False, with why in
+    // the notice, when it may not be kept.
+    Q_INVOKABLE bool keep();
+    // Forget: a kept note goes to the desktop's trash.
+    Q_INVOKABLE bool forget(const QString &path);
     Q_INVOKABLE void signIn(const QString &methodId);
     Q_INVOKABLE void cancelSignIn();
     Q_INVOKABLE void ask(const QString &text);
@@ -126,6 +152,7 @@ Q_SIGNALS:
     void cardChanged();
     void noticeChanged();
     void turnsChanged();
+    void notebookChanged();
 
 private:
     void startAssistant();
@@ -144,6 +171,10 @@ private:
     void answerFromGuide(const QString &question);
     QList<GuideEntry> tours() const;
     void keepTurn();
+    // A request the fence and the notebook's rules allow.
+    bool mayWrite(const acp::ToolCall &call) const;
+    // The answer as text, from the assistant or the guide.
+    QString answerText() const;
     void clearTurns();
     QString recentDiagnostics() const;
 
@@ -175,6 +206,9 @@ private:
     QVariantMap m_card;
     bool m_cardOpen = false;
     QSet<QString> m_refused;
+    QSet<QString> m_allowed;
+    Notebook *m_notebook = nullptr;
+    bool m_kept = false;
     QVariantList m_turns;
     QVariantList m_refusedChanges;
     QSet<QString> m_unasked;

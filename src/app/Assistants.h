@@ -44,6 +44,13 @@ struct Assistant {
     // The session mode in which the assistant asks before changing anything.
     QString askFirstMode;
 
+    // What the fence must still let it read inside the home folder, such as
+    // its adapter when that was fetched into a checkout there.
+    QStringList readable;
+    // Only the pretend assistant, which reaches nothing, may run where the
+    // computer has no fence to put it in.
+    bool mayRunUnfenced = false;
+
     // Empty when the assistant can start; otherwise why not, in plain words.
     QString unavailable;
 };

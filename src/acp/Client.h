@@ -5,6 +5,8 @@
 
 #include <QObject>
 
+#include <functional>
+
 namespace acp {
 
 // The client side of one agent connection: one program, at most one session.
@@ -54,12 +56,19 @@ public:
 
     static QJsonObject clientCapabilities();
 
+    // What may be allowed: asked of each request before it is refused. Without
+    // it, every request is refused.
+    using Allow = std::function<bool(const ToolCall &call)>;
+    void setAllow(Allow allow) { m_allow = std::move(allow); }
+
 Q_SIGNALS:
     void messageChunk(const QString &text);
     void thoughtChunk(const QString &text);
     void toolCallChanged(const acp::ToolCall &call);
     // A change the agent asked to make, already refused.
     void changeRefused(const acp::ToolCall &call, const QString &refusalOptionId);
+    // A request allowed, only this time.
+    void requestAllowed(const acp::ToolCall &call);
     void stopped(const QString &reason, bool expected);
     void diagnostic(const QString &line);
 
@@ -74,6 +83,7 @@ private:
     QList<SessionMode> m_modes;
     QString m_currentMode;
     QHash<QString, ToolCall> m_toolCalls;
+    Allow m_allow;
 };
 
 } // namespace acp

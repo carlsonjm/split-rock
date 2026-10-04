@@ -2,9 +2,14 @@
 #include "app/Conversation.h"
 
 #include "app/ChangeCard.h"
+#include "app/Fence.h"
+#include "app/NeverWritten.h"
+#include "app/Notebook.h"
 #include "app/Product.h"
 
 #include <QDir>
+#include <QFile>
+#include <QJsonDocument>
 #include <QProcess>
 #include <QRegularExpression>
 #include <QSettings>
@@ -51,7 +56,8 @@ QString Conversation::framing()
         "and name the Windows equivalent when it helps. "
         "Start with one short sentence, then give at most five short numbered steps when steps help. "
         "Do not change anything on this computer. You may look, but anything that would change a setting, "
-        "a file or the system must be asked for, and the person decides. "
+        "a file or the system must be asked for, and the person decides. The one place you may write is the "
+        "person's notebook, following the rules in its ASSISTANT.md. "
         "Never ask for a password, a card number, bank details or a code sent by text or email. "
         "If you are not sure, say you don't know.").arg(productName());
 }
@@ -238,14 +244,41 @@ void Conversation::startAssistant()
         const bool changesFiles = call.kind == QLatin1String("edit") || call.kind == QLatin1String("delete")
                                || call.kind == QLatin1String("move");
         if (changesFiles && call.status == QLatin1String("completed")
-            && !m_refused.contains(call.id) && !m_unasked.contains(call.id)) {
+            && !m_refused.contains(call.id) && !m_allowed.contains(call.id) && !m_unasked.contains(call.id)) {
             m_unasked.insert(call.id);
             setNotice(QStringLiteral("%1 changed something without asking: %2")
                           .arg(m_current.name, call.title.isEmpty() ? call.kind : call.title));
         }
     });
 
-    client->start(serveLaunch(m_current, QProcessEnvironment::systemEnvironment(), m_workDir->path()));
+    // Allowed only: a write inside the notebook, other than Split Rock's own
+    // pages, with nothing in it that is never written down. Everything else
+    // is refused, as before.
+    client->setAllow([this](const acp::ToolCall &call) { return mayWrite(call); });
+    connect(client, &acp::Client::requestAllowed, this, [this](const acp::ToolCall &call) {
+        m_allowed.insert(call.id);
+        QStringList written;
+        for (const QString &path : call.paths + call.diffPaths)
+            written.append(QDir(m_notebook->folder()).relativeFilePath(path));
+        written.removeDuplicates();
+        setNotice(QStringLiteral("%1 wrote in the notebook: %2").arg(m_current.name, written.join(QStringLiteral(", "))));
+        Q_EMIT notebookChanged();
+    });
+
+    acp::LaunchSpec launch = serveLaunch(m_current, QProcessEnvironment::systemEnvironment(), m_workDir->path());
+    if (!fenceProgram().isEmpty()) {
+        FenceRoom room;
+        room.writable = {m_current.home, m_workDir->path()};
+        if (m_notebook)
+            room.writable.append(m_notebook->folder());
+        room.readable = m_current.readable;
+        launch = fenced(launch, room);
+    } else if (!m_current.mayRunUnfenced) {
+        setProblem(QStringLiteral("%1 can't be kept to the notebook on this computer.").arg(m_current.name),
+                   QStringLiteral("The sandbox it runs in, bubblewrap, is missing."));
+        return;
+    }
+    client->start(launch);
     client->initialize(clientVersion(), productTitle(), [this](const std::optional<acp::RpcError> &error) {
         if (error) {
             setProblem(QStringLiteral("%1 didn't start.").arg(m_current.name),
@@ -555,6 +588,10 @@ void Conversation::send(const QString &prompt, const QString &shown)
     if (!m_framed) {
         blocks.append(QJsonObject{{QStringLiteral("type"), QStringLiteral("text")},
                                   {QStringLiteral("text"), framing()}});
+        // What the notebook remembers, as the conversation starts.
+        const QString memory = m_notebook ? m_notebook->memory() : QString();
+        if (!memory.isEmpty())
+            blocks.append(QJsonObject{{QStringLiteral("type"), QStringLiteral("text")}, {QStringLiteral("text"), memory}});
         m_framed = true;
     }
     blocks.append(QJsonObject{{QStringLiteral("type"), QStringLiteral("text")}, {QStringLiteral("text"), prompt}});
@@ -678,7 +715,9 @@ void Conversation::clearAnswer()
     m_answer = {};
     m_card.clear();
     m_cardOpen = false;
+    m_kept = false;
     m_refused.clear();
+    m_allowed.clear();
     m_unasked.clear();
     Q_EMIT answerChanged();
     Q_EMIT cardChanged();
@@ -700,6 +739,107 @@ void Conversation::clearTurns()
     m_turns.clear();
     m_refusedChanges.clear();
     Q_EMIT turnsChanged();
+}
+
+bool Conversation::mayWrite(const acp::ToolCall &call) const
+{
+    if (!m_notebook || call.kind != QLatin1String("edit"))
+        return false;
+    const QStringList paths = call.paths + call.diffPaths;
+    if (paths.isEmpty())
+        return false;
+    for (const QString &path : paths) {
+        if (!QDir::isAbsolutePath(path) || !m_notebook->contains(path))
+            return false;
+        // Split Rock's own pages are written by Split Rock alone.
+        const QString relative = QDir(m_notebook->folder()).relativeFilePath(path);
+        if (relative == QLatin1String("This computer.md") || relative == QLatin1String("ASSISTANT.md"))
+            return false;
+    }
+    const QString content = QString::fromUtf8(QJsonDocument(QJsonObject{{QStringLiteral("input"), call.rawInput}})
+                                                  .toJson(QJsonDocument::Compact));
+    return neverWrittenReason(content).isEmpty();
+}
+
+void Conversation::setNotebook(Notebook *notebook)
+{
+    m_notebook = notebook;
+    Q_EMIT notebookChanged();
+}
+
+QString Conversation::answerText() const
+{
+    if (!m_said.trimmed().isEmpty())
+        return m_said.trimmed();
+    // An answer from the guide, written out as it is shown.
+    QStringList parts;
+    if (!m_answer.headline.isEmpty())
+        parts.append(m_answer.headline);
+    if (!m_lead.isEmpty())
+        parts.append(m_lead);
+    QStringList steps;
+    for (int i = 0; i < m_answer.steps.size(); ++i)
+        steps.append(QStringLiteral("%1. %2").arg(i + 1).arg(m_answer.steps.at(i)));
+    if (!steps.isEmpty())
+        parts.append(steps.join(QLatin1Char('\n')));
+    parts.append(m_answer.more);
+    return parts.join(QStringLiteral("\n\n"));
+}
+
+bool Conversation::keep()
+{
+    if (!m_notebook || m_question.isEmpty() || m_phase != QLatin1String("ready") || m_kept)
+        return m_kept;
+    const QString answer = answerText();
+    if (answer.isEmpty())
+        return false;
+    QString error;
+    if (m_notebook->keep(m_question, answer, &error).isEmpty()) {
+        setNotice(error);
+        return false;
+    }
+    m_kept = true;
+    Q_EMIT answerChanged();
+    Q_EMIT notebookChanged();
+    return true;
+}
+
+bool Conversation::forget(const QString &path)
+{
+    QString error;
+    if (!m_notebook || !m_notebook->forget(path, &error)) {
+        setNotice(error);
+        return false;
+    }
+    Q_EMIT notebookChanged();
+    return true;
+}
+
+QString Conversation::aboutMe() const
+{
+    if (!m_notebook)
+        return {};
+    QFile file(QDir(m_notebook->folder()).filePath(QStringLiteral("About me.md")));
+    return file.open(QIODevice::ReadOnly) ? QString::fromUtf8(file.readAll()).trimmed() : QString();
+}
+
+QStringList Conversation::fixedProblems() const
+{
+    return m_notebook ? m_notebook->fixedProblems() : QStringList();
+}
+
+QVariantList Conversation::keptNotes() const
+{
+    QVariantList list;
+    if (!m_notebook)
+        return list;
+    for (const Notebook::Kept &note : m_notebook->kept()) {
+        list.append(QVariantMap{{QStringLiteral("title"), note.title},
+                                {QStringLiteral("topic"), note.topic},
+                                {QStringLiteral("path"), note.path},
+                                {QStringLiteral("date"), note.date}});
+    }
+    return list;
 }
 
 QString Conversation::recentDiagnostics() const

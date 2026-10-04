@@ -72,7 +72,9 @@ account on this computer: the program, its entry in the launcher, the service
 Search starts it with, the guide and the tour, and the assistants' adapters.
 It asks for the administrator password once, to write under `/usr`.
 `./uninstall.sh` removes exactly that, and leaves the notebook and every
-assistant's sign-in where they are.
+assistant's sign-in where they are. The installed Split Rock keeps its sign-ins
+in its own folder, not in this checkout, so sign in once more after installing.
+It needs bubblewrap, the sandbox the assistant runs in.
 
 This is a developer install for the maintainer's own computer, so Milestone 1
 can be used every day. It is not the package Milestone 3 brings, and nobody

@@ -121,13 +121,13 @@ belongs to Search, and this is the assistant's own window.
 
 | Input | What happens |
 | --- | --- |
-| Tap or click Keep this under it | The answer becomes a note, filed by topic in the notebook. In Milestone 0, Keep this is shown unavailable: there is no notebook yet. |
+| Tap or click Keep this under it | The answer becomes a note, filed by topic in the notebook's `Notes/` folder, and the button reads Kept. An answer with a password, a card number, bank details or a code in it is not kept, and a line says why. |
 
 ## Forget a note
 
 | Input | What happens |
 | --- | --- |
-| Tap or click Forget on the note | The note moves to the desktop's trash, where it can be restored. |
+| Tap or click Forget on the note | The note moves to the desktop's trash, where it can be restored. Split Rock can forget a note from Milestone 1; where Forget sits on screen waits on the maintainer (`ROADMAP.md`). |
 
 ## Start over
 

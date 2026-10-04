@@ -147,11 +147,12 @@ Rectangle {
                 text: "Next: " + conversation.nextTour
                 onClicked: conversation.showTour()
             }
-            // Kept answers go to the notebook, which arrives in Milestone 1.
+            // Keep this: the answer becomes a note in the notebook.
             Pill {
                 objectName: "keepPill"
-                enabled: false
-                text: "Keep this"
+                enabled: conversation.canKeep && !conversation.kept
+                text: conversation.kept ? "Kept" : "Keep this"
+                onClicked: conversation.keep()
             }
         }
     }

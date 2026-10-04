@@ -70,6 +70,8 @@ QList<PermissionOption> parsePermissionOptions(const QJsonArray &options);
 // The option that refuses, preferring "only this time" so that the agent may
 // ask again later. Empty when the agent offered no way to refuse.
 QString refusalOptionId(const QList<PermissionOption> &options);
+// The option that allows, only this time. Empty when the agent offered none.
+QString allowOnceOptionId(const QList<PermissionOption> &options);
 
 // What Split Rock keeps of a tool call: enough to describe it in plain words.
 struct ToolCall {

@@ -198,9 +198,12 @@ private Q_SLOTS:
         QVERIFY(!state.value(QStringLiteral("canDoIt")).toBool());
         QVERIFY(state.value(QStringLiteral("doItReason")).toString().contains(QStringLiteral("can't make changes yet")));
 
-        // Keep this arrives with the notebook.
-        QCOMPARE(raw(QStringLiteral("Act"), {QStringLiteral("keep")}).errorName(),
-                 QStringLiteral("io.github.carlsonjm.SplitRock.Error.NotAvailable"));
+        // Keep this: the answer becomes a note in the notebook, by topic.
+        state = call(QStringLiteral("Act"), {QStringLiteral("keep")});
+        QVERIFY(state.value(QStringLiteral("kept")).toBool());
+        QVERIFY(QFile::exists(m_home->path() + QStringLiteral("/Documents/Notebook/Notes/Display/Make the writing bigger.md")));
+        // Kept once is enough.
+        QVERIFY(call(QStringLiteral("Act"), {QStringLiteral("keep")}).value(QStringLiteral("kept")).toBool());
         QCOMPARE(raw(QStringLiteral("Act"), {QStringLiteral("frobnicate")}).errorName(),
                  QStringLiteral("org.freedesktop.DBus.Error.InvalidArgs"));
 
@@ -238,6 +241,28 @@ private Q_SLOTS:
                                   QStringLiteral("You connect from the network icon at the bottom right."), 15000);
         QTRY_COMPARE_WITH_TIMEOUT(lastChange(changed).value(QStringLiteral("phase")).toString(), QStringLiteral("ready"), 15000);
         QCOMPARE(lastChange(changed).value(QStringLiteral("steps")).toStringList().size(), 3);
+    }
+
+    // The notebook is made when Split Rock starts, and what is never written
+    // down is refused when kept, with why.
+    void theNotebookAndWhatIsNeverWrittenDown()
+    {
+        QVERIFY(start(QStringLiteral("signed-in.json"), QStringLiteral("pretend")));
+        const QString notebook = m_home->path() + QStringLiteral("/Documents/Notebook");
+        QVERIFY(QFile::exists(notebook + QStringLiteral("/This computer.md")));
+        QVERIFY(QFile::exists(notebook + QStringLiteral("/Device/DEVICE.md")));
+        QVERIFY(QFile::exists(notebook + QStringLiteral("/ASSISTANT.md")));
+
+        QSignalSpy changed(m_conversation.get(), SIGNAL(Changed(QVariantMap)));
+        call(QStringLiteral("Start"));
+        QTRY_COMPARE_WITH_TIMEOUT(lastChange(changed).value(QStringLiteral("phase")).toString(), QStringLiteral("ready"), 15000);
+        changed.clear();
+        call(QStringLiteral("Ask"), {QStringLiteral("Remember my card 4111 1111 1111 1111")});
+        QTRY_COMPARE_WITH_TIMEOUT(lastChange(changed).value(QStringLiteral("phase")).toString(), QStringLiteral("ready"), 15000);
+        const QDBusMessage refused = raw(QStringLiteral("Act"), {QStringLiteral("keep")});
+        QCOMPARE(refused.errorName(), QStringLiteral("io.github.carlsonjm.SplitRock.Error.Refused"));
+        QVERIFY(refused.errorMessage().contains(QStringLiteral("never writes down")));
+        QVERIFY(!QDir(notebook + QStringLiteral("/Notes")).exists());
     }
 
     // An answer that opens with its steps still has a line to lead with, and

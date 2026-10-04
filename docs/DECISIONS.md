@@ -226,6 +226,36 @@ There is no Back, at either size: Back belongs to Search, and this is the
 assistant's own window. Esc, or a tap beside the card, closes it.
 (The maintainer, on the tablet, 4 October.)
 
+## The fence is bubblewrap
+
+The assistant's program runs inside bubblewrap. It sees the system read-only
+and the desktop's own settings read-only; the person's home folder is hidden
+except the notebook and the assistant's own folder, which it may write; the
+desktop's message buses, the display and the person's other programs are out of
+its reach; what it writes anywhere else is lost when it stops. It keeps the
+network, to reach its provider. A request to write is allowed only inside the
+notebook, never to `This computer.md` or `ASSISTANT.md`, which are Split
+Rock's, and never with anything in it that is never written down; every other
+request is refused and shown on the Do it card, as in Milestone 0. Where the
+computer has no bubblewrap, a real assistant is not started, and `install.sh`
+says so before installing. (Engineering, 4 October, from the ruling above.)
+
+Rejected: refusing every write, which leaves the device's folder to Split Rock
+alone; and trusting an assistant's own sandbox, which differs between
+assistants and is the assistant's to switch off.
+
+## Kept answers are filed by topic from their words, in Milestone 1
+
+Keep this files the answer in `Notes/`, in a topic folder Split Rock chooses
+from the question's words, and every write is checked for what is never written
+down. Having the assistant choose the topic, and filing into Gooseberry where it
+is installed (`MEMORY.md`), come later: Gooseberry offers no way yet for another
+program to add a note, and its quick note is Search's own session. (Engineering,
+4 October.)
+
+Rejected: a turn in the conversation asking the assistant for a topic, which
+the person would see and pay for.
+
 ## The icon opens the full window; Search hosts the conversation
 
 Split Rock's icon, in a launcher, in Search or on a dock, opens the full window,

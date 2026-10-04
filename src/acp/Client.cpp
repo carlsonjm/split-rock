@@ -137,7 +137,16 @@ void Client::handleRequest(const QJsonValue &id, const QString &method, const QJ
         mergeToolCall(call, update);
         m_toolCalls.insert(call.id, call);
 
-        const QString refusal = refusalOptionId(parsePermissionOptions(params.value(QStringLiteral("options")).toArray()));
+        const QList<PermissionOption> options = parsePermissionOptions(params.value(QStringLiteral("options")).toArray());
+        const QString allowOnce = allowOnceOptionId(options);
+        if (m_allow && !allowOnce.isEmpty() && m_allow(call)) {
+            m_connection->respond(id, QJsonObject{{QStringLiteral("outcome"),
+                                                   QJsonObject{{QStringLiteral("outcome"), QStringLiteral("selected")},
+                                                               {QStringLiteral("optionId"), allowOnce}}}});
+            Q_EMIT requestAllowed(call);
+            return;
+        }
+        const QString refusal = refusalOptionId(options);
         // Answered first, so that nothing the person does, or fails to do,
         // can delay or change the answer.
         QJsonObject outcome;

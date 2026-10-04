@@ -13,6 +13,7 @@ namespace {
 
 constexpr char NotReady[] = "io.github.carlsonjm.SplitRock.Error.NotReady";
 constexpr char NotAvailable[] = "io.github.carlsonjm.SplitRock.Error.NotAvailable";
+constexpr char Refused[] = "io.github.carlsonjm.SplitRock.Error.Refused";
 
 // The conversation's phases as the interface names them.
 QString publicPhase(const Conversation &c)
@@ -69,8 +70,7 @@ QVariantMap ConversationService::state() const
         // Milestone 0 never works: the reason says why.
         {QStringLiteral("canDoIt"), false},
         {QStringLiteral("doItReason"), change ? ChangeCard::unavailable() : QString()},
-        // Keep this arrives with the notebook.
-        {QStringLiteral("kept"), false},
+        {QStringLiteral("kept"), c.kept()},
         {QStringLiteral("problem"), c.problem()},
     };
 }
@@ -134,8 +134,16 @@ QVariantMap ConversationService::Cancel()
 
 QVariantMap ConversationService::Act(const QString &action)
 {
-    if (action == QLatin1String("keep"))
-        return refuse(QLatin1String(NotAvailable), QStringLiteral("Keeping answers arrives with the notebook."));
+    if (action == QLatin1String("keep")) {
+        if (!m_conversation->canKeep())
+            return refuse(QLatin1String(NotAvailable), QStringLiteral("There is no notebook to keep answers in."));
+        if (m_conversation->phase() != QLatin1String("ready") || m_conversation->question().isEmpty())
+            return refuse(QLatin1String(NotReady), QStringLiteral("There is no answer to keep yet."));
+        // Refused for what it holds: the reason says why, as the notice does.
+        if (!m_conversation->keep())
+            return refuse(QLatin1String(Refused), m_conversation->notice());
+        return reply();
+    }
     if (action == QLatin1String("show-me-how")) {
         if (m_conversation->phase() != QLatin1String("ready") || m_conversation->question().isEmpty())
             return refuse(QLatin1String(NotReady), QStringLiteral("There is no answer to show how to do."));
