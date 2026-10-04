@@ -12,6 +12,7 @@ Canvas {
     onPathChanged: requestPaint()
     onColorChanged: requestPaint()
     onWidthChanged: requestPaint()
+    onStrokeChanged: requestPaint()
     onPaint: {
         const ctx = getContext("2d")
         ctx.reset()

@@ -22,7 +22,8 @@ function(split_rock_test name)
     target_compile_definitions(${name} PRIVATE
         PRETEND_PROGRAM="$<TARGET_FILE:split-rock-pretend-assistant>"
         SCRIPTS_DIR="${CMAKE_CURRENT_SOURCE_DIR}/pretend-scripts"
-        FIXTURES_DIR="${CMAKE_CURRENT_SOURCE_DIR}/fixtures")
+        FIXTURES_DIR="${CMAKE_CURRENT_SOURCE_DIR}/fixtures"
+        PROJECT_DIR="${PROJECT_SOURCE_DIR}")
     add_dependencies(${name} split-rock-pretend-assistant)
     add_test(NAME ${name} COMMAND ${name})
     set_tests_properties(${name} PROPERTIES ENVIRONMENT "${TEST_ENVIRONMENT}" TIMEOUT 120)
@@ -44,7 +45,8 @@ qt_add_resources(test_sheet "sheet_for_test"
         ${PROJECT_SOURCE_DIR}/qml/Theme.qml
         ${PROJECT_SOURCE_DIR}/qml/Icon.qml
         ${PROJECT_SOURCE_DIR}/qml/Icons.js
-        ${PROJECT_SOURCE_DIR}/qml/JackMark.qml
+        ${PROJECT_SOURCE_DIR}/qml/Mark.qml
+        ${PROJECT_SOURCE_DIR}/assets/mark.svg
         ${PROJECT_SOURCE_DIR}/qml/Pill.qml
         ${PROJECT_SOURCE_DIR}/qml/Fold.qml
         ${PROJECT_SOURCE_DIR}/qml/AnswerCard.qml

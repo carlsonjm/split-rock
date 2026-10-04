@@ -2,7 +2,6 @@
 .pragma library
 
 // Line icons from the mock-up, as SVG path data on a 24-unit grid.
-var sparkle = "M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"
 var arrow = "M5 12h14 M12 5l7 7-7 7"
 var stop = "M7 7h10v10H7z"
 var chevron = "M6 9l6 6 6-6"

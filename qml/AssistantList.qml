@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 import QtQuick
 
-// Choosing an assistant. Jack has no AI of its own.
+// Choosing an assistant. Split Rock has no AI of its own.
 Column {
     spacing: 12
 
@@ -15,14 +15,14 @@ Column {
     Text {
         width: parent.width
         wrapMode: Text.WordWrap
-        text: "Jack doesn't include an AI of its own. Choose one you have an account with; it signs you in through its own window."
+        text: productName + " doesn't include an AI of its own. Choose one you have an account with; it signs you in through its own window."
         color: theme.quiet
         font.pixelSize: 14
         lineHeight: 1.3
     }
 
     Repeater {
-        model: jack.assistants
+        model: conversation.assistants
         Rectangle {
             id: row
             objectName: "assistant-" + modelData.id
@@ -31,13 +31,13 @@ Column {
             height: info.implicitHeight + 28
             radius: 16
             color: theme.panel
-            border.width: jack.assistantId === modelData.id ? 2 : 1
-            border.color: jack.assistantId === modelData.id ? theme.text : theme.line
+            border.width: conversation.assistantId === modelData.id ? 2 : 1
+            border.color: conversation.assistantId === modelData.id ? theme.text : theme.line
             opacity: available ? 1 : 0.55
             activeFocusOnTab: available
             Accessible.role: Accessible.Button
             Accessible.name: modelData.name
-            Keys.onReturnPressed: jack.chooseAssistant(modelData.id)
+            Keys.onReturnPressed: conversation.chooseAssistant(modelData.id)
 
             Column {
                 id: info
@@ -62,14 +62,14 @@ Column {
                 anchors.fill: parent
                 enabled: row.available
                 cursorShape: Qt.PointingHandCursor
-                onClicked: jack.chooseAssistant(modelData.id)
+                onClicked: conversation.chooseAssistant(modelData.id)
             }
         }
     }
 
     Pill {
-        visible: jack.assistantId !== ""
+        visible: conversation.assistantId !== ""
         text: "Back"
-        onClicked: jack.hideAssistants()
+        onClicked: conversation.hideAssistants()
     }
 }

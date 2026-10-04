@@ -2,6 +2,7 @@
 #include "app/ChangeCard.h"
 
 #include "app/AnswerText.h"
+#include "app/Product.h"
 
 #include <QFileInfo>
 #include <QRegularExpression>
@@ -57,23 +58,23 @@ ChangeCard ChangeCard::describe(const acp::ToolCall &call, const QString &assist
         card.whatChanges = QStringLiteral("A file would be moved or renamed.");
     } else if (call.kind == QLatin1String("execute")) {
         card.heading = QStringLiteral("Run a command on this computer");
-        card.whatChanges = QStringLiteral("A command would run. Jack can't yet tell what it would change.");
+        card.whatChanges = QStringLiteral("A command would run. %1 can't yet tell what it would change.").arg(productName());
     } else if (call.kind == QLatin1String("fetch")) {
         card.heading = QStringLiteral("Fetch something from the internet");
         card.whatChanges = QStringLiteral("Something would be fetched from the internet.");
     } else {
         card.heading = QStringLiteral("Make a change");
-        card.whatChanges = QStringLiteral("Something on this computer would change. Jack can't yet tell exactly what.");
+        card.whatChanges = QStringLiteral("Something on this computer would change. %1 can't yet tell exactly what.").arg(productName());
     }
 
     card.why = lastSaid(assistantSaid);
     if (card.why.isEmpty())
         card.why = QStringLiteral("%1 asked for this to answer “%2”.").arg(assistantName, question);
 
-    card.undo = QStringLiteral("Jack can't undo changes yet, so it was not done.");
+    card.undo = QStringLiteral("%1 can't undo changes yet, so it was not done.").arg(productName());
     card.password = needsPassword(command)
-        ? QStringLiteral("Needed. Jack would use the system's own prompt and never see it.")
-        : QStringLiteral("Jack can't check this yet.");
+        ? QStringLiteral("Needed. %1 would use the system's own prompt and never see it.").arg(productName())
+        : QStringLiteral("%1 can't check this yet.").arg(productName());
 
     QStringList details;
     details.append(QStringLiteral("Asked by: %1").arg(assistantName));

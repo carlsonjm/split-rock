@@ -36,7 +36,7 @@ the widget does.
 
 | Input | What happens |
 | --- | --- |
-| Tap or click a way to sign in | The assistant opens its own sign-in page, usually in the browser. Jack waits, and never sees the password. Cancel stops waiting. |
+| Tap or click a way to sign in | The assistant opens its own sign-in page, usually in the browser. The window waits, and never sees the password. Cancel stops waiting. |
 
 ## Ask
 

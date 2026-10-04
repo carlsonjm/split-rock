@@ -12,37 +12,37 @@ Window {
     minimumWidth: 480
     minimumHeight: 460
     visible: true
-    title: "Jack"
+    title: productTitle
     color: theme.sheet
 
     Theme { id: theme }
 
-    readonly property bool canAsk: jack.phase === "ready"
-    readonly property bool working: jack.phase === "working"
+    readonly property bool canAsk: conversation.phase === "ready"
+    readonly property bool working: conversation.phase === "working"
     // The Do it card has the sheet to itself, as in the mock-up.
-    readonly property bool cardMode: !jack.choosing && jack.cardOpen && (canAsk || working)
+    readonly property bool cardMode: !conversation.choosing && conversation.cardOpen && (canAsk || working)
 
     Shortcut {
         sequence: "Esc"
         enabled: window.cardMode
-        onActivated: jack.notNow()
+        onActivated: conversation.notNow()
     }
     onCardModeChanged: if (!cardMode) field.forceActiveFocus()
 
     // The field shows the question being answered, however it was asked.
     Connections {
-        target: jack
+        target: conversation
         function onAnswerChanged() {
-            if (jack.question !== "" && jack.question !== "Show me how instead" && jack.question !== field.text)
-                field.text = jack.question
+            if (conversation.question !== "" && conversation.question !== "Show me how instead" && conversation.question !== field.text)
+                field.text = conversation.question
         }
     }
 
     function send() {
         if (working) {
-            jack.stop()
+            conversation.stop()
         } else if (canAsk && field.text.trim() !== "") {
-            jack.ask(field.text)
+            conversation.ask(field.text)
         }
     }
 
@@ -60,7 +60,7 @@ Window {
             width: page.width - 44
             spacing: 14
 
-            // Jack, and which assistant is answering.
+            // The assistant's name, and which assistant is answering.
             Item {
                 visible: !window.cardMode
                 width: parent.width
@@ -68,10 +68,10 @@ Window {
                 Row {
                     anchors.verticalCenter: parent.verticalCenter
                     spacing: 10
-                    JackMark { anchors.verticalCenter: parent.verticalCenter }
+                    Mark { anchors.verticalCenter: parent.verticalCenter }
                     Text {
                         anchors.verticalCenter: parent.verticalCenter
-                        text: "Jack"
+                        text: productName
                         color: theme.text
                         font.pixelSize: 15
                         font.weight: Font.ExtraBold
@@ -83,10 +83,10 @@ Window {
                     implicitHeight: 40
                     padding: 14
                     fontSize: 13
-                    visible: jack.assistantId !== "" && !jack.choosing
-                    enabled: jack.phase !== "working" && jack.phase !== "signingIn"
-                    text: jack.assistantName + "  ▾"
-                    onClicked: jack.showAssistants()
+                    visible: conversation.assistantId !== "" && !conversation.choosing
+                    enabled: conversation.phase !== "working" && conversation.phase !== "signingIn"
+                    text: conversation.assistantName + "  ▾"
+                    onClicked: conversation.showAssistants()
                 }
             }
 
@@ -118,9 +118,9 @@ Window {
                     font.weight: Font.DemiBold
                     selectByMouse: true
                     Accessible.role: Accessible.EditableText
-                    Accessible.name: "Ask Jack"
+                    Accessible.name: "Ask " + productName
                     onAccepted: window.send()
-                    Keys.onEscapePressed: jack.stop()
+                    Keys.onEscapePressed: conversation.stop()
 
                     Text {
                         anchors.verticalCenter: parent.verticalCenter
@@ -160,19 +160,19 @@ Window {
             Flow {
                 width: parent.width
                 spacing: 8
-                visible: !jack.choosing && !window.cardMode && (jack.phase === "ready" || jack.phase === "working")
+                visible: !conversation.choosing && !window.cardMode && (conversation.phase === "ready" || conversation.phase === "working")
                 Repeater {
-                    model: jack.suggestions
+                    model: conversation.suggestions
                     Pill {
                         implicitHeight: 40
                         padding: 16
-                        readonly property bool picked: jack.question === modelData
+                        readonly property bool picked: conversation.question === modelData
                         filled: picked
                         enabled: window.canAsk
                         text: modelData
                         onClicked: {
                             field.text = modelData
-                            jack.ask(modelData)
+                            conversation.ask(modelData)
                         }
                     }
                 }
@@ -183,24 +183,24 @@ Window {
                 id: body
                 width: parent.width
                 sourceComponent: {
-                    if (jack.choosing)
+                    if (conversation.choosing)
                         return assistantList
-                    switch (jack.phase) {
+                    switch (conversation.phase) {
                     case "starting": return starting
                     case "signIn":
                     case "signingIn": return signInPanel
                     case "problem": return problemPanel
-                    default: return jack.cardOpen ? doItCard : answerCard
+                    default: return conversation.cardOpen ? doItCard : answerCard
                     }
                 }
             }
 
             Text {
                 objectName: "notice"
-                visible: jack.notice !== "" && !jack.choosing
+                visible: conversation.notice !== "" && !conversation.choosing
                 width: parent.width
                 wrapMode: Text.WordWrap
-                text: jack.notice
+                text: conversation.notice
                 color: theme.text
                 font.pixelSize: 14
                 lineHeight: 1.3
@@ -220,7 +220,7 @@ Window {
             implicitHeight: 196
             Text {
                 x: 20; y: 18
-                text: "Starting " + jack.assistantName + "…"
+                text: "Starting " + conversation.assistantName + "…"
                 color: theme.text
                 font.pixelSize: 16
                 font.weight: Font.Bold
@@ -241,14 +241,14 @@ Window {
                 Text {
                     width: parent.width
                     wrapMode: Text.WordWrap
-                    text: jack.problem
+                    text: conversation.problem
                     color: theme.text
                     font.pixelSize: 16
                     font.weight: Font.Bold
                 }
                 Fold {
                     width: parent.width
-                    body: jack.problemDetails
+                    body: conversation.problemDetails
                 }
                 Flow {
                     width: parent.width
@@ -256,11 +256,11 @@ Window {
                     Pill {
                         filled: true
                         text: "Try again"
-                        onClicked: jack.chooseAssistant(jack.assistantId)
+                        onClicked: conversation.chooseAssistant(conversation.assistantId)
                     }
                     Pill {
                         text: "Choose another assistant"
-                        onClicked: jack.showAssistants()
+                        onClicked: conversation.showAssistants()
                     }
                 }
             }

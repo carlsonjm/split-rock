@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# Builds Milestone 0 and opens Jack's window.
+# Builds Milestone 0 and opens its window: Genie inside Shuffle, Split Rock
+# elsewhere.
 #
 # The first run downloads the three assistants' adapters into this checkout's
 # build folder. Everything this program fetches, and every assistant's sign-in,
@@ -15,7 +16,7 @@ build_dir="${project_root}/build/m0"
 
 for tool in cmake node npm; do
     if ! command -v "${tool}" >/dev/null 2>&1; then
-        echo "Jack needs ${tool}, which this computer does not have. Nothing was changed." >&2
+        echo "Split Rock needs ${tool}, which this computer does not have. Nothing was changed." >&2
         exit 1
     fi
 done

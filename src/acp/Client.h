@@ -39,7 +39,7 @@ public:
 
     // Negotiates the protocol version. Fails when the agent answers with any
     // version other than the one Split Rock speaks.
-    void initialize(const QString &clientVersion, Done done);
+    void initialize(const QString &clientVersion, const QString &clientTitle, Done done);
     void authenticate(const QString &methodId, Done done);
     void newSession(const QString &workingDirectory, Done done);
     void setMode(const QString &modeId, Done done);

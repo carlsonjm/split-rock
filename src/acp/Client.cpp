@@ -34,13 +34,13 @@ QJsonObject Client::clientCapabilities()
             {QStringLiteral("auth"), QJsonObject{{QStringLiteral("terminal"), true}}}};
 }
 
-void Client::initialize(const QString &clientVersion, Done done)
+void Client::initialize(const QString &clientVersion, const QString &clientTitle, Done done)
 {
     const QJsonObject params{
         {QStringLiteral("protocolVersion"), ProtocolVersion},
         {QStringLiteral("clientCapabilities"), clientCapabilities()},
         {QStringLiteral("clientInfo"), QJsonObject{{QStringLiteral("name"), QStringLiteral("split-rock")},
-                                                   {QStringLiteral("title"), QStringLiteral("Jack")},
+                                                   {QStringLiteral("title"), clientTitle},
                                                    {QStringLiteral("version"), clientVersion}}},
     };
     m_connection->request(QStringLiteral("initialize"), params,

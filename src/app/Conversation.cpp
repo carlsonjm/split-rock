@@ -2,6 +2,7 @@
 #include "app/Conversation.h"
 
 #include "app/ChangeCard.h"
+#include "app/Product.h"
 
 #include <QDir>
 #include <QProcess>
@@ -37,14 +38,14 @@ Conversation::~Conversation()
 QString Conversation::framing()
 {
     return QStringLiteral(
-        "You are helping through Jack, a desktop assistant on a Linux computer with the KDE Plasma desktop. "
+        "You are helping through %1, a desktop assistant on a Linux computer with the KDE Plasma desktop. "
         "The person has used Windows for years and is new to Linux. Answer in plain words, with no jargon, "
         "and name the Windows equivalent when it helps. "
         "Start with one short sentence, then give at most five short numbered steps when steps help. "
         "Do not change anything on this computer. You may look, but anything that would change a setting, "
         "a file or the system must be asked for, and the person decides. "
         "Never ask for a password, a card number, bank details or a code sent by text or email. "
-        "If you are not sure, say you don't know.");
+        "If you are not sure, say you don't know.").arg(productName());
 }
 
 QVariantList Conversation::assistants() const
@@ -178,7 +179,7 @@ void Conversation::startAssistant()
     });
 
     client->start(serveLaunch(m_current, QProcessEnvironment::systemEnvironment(), m_workDir->path()));
-    client->initialize(clientVersion(), [this](const std::optional<acp::RpcError> &error) {
+    client->initialize(clientVersion(), productTitle(), [this](const std::optional<acp::RpcError> &error) {
         if (error) {
             setProblem(QStringLiteral("%1 didn't start.").arg(m_current.name),
                        error->message + QLatin1Char('\n') + recentDiagnostics());
@@ -244,7 +245,7 @@ void Conversation::enterSignIn(const acp::RpcError &error)
         for (const SignInChoice &choice : m_choices)
             why.append(choice.method.name + QStringLiteral(": ") + choice.whyNot);
         setProblem(QStringLiteral("None of %1's ways to sign in work without a terminal or a key that "
-                                  "Jack would hold, so Jack can't offer it.").arg(m_current.name),
+                                  "%2 would hold, so %2 can't offer it.").arg(m_current.name, productName()),
                    why.join(QLatin1Char('\n')));
         return;
     }
@@ -252,7 +253,7 @@ void Conversation::enterSignIn(const acp::RpcError &error)
         // The adapter gives this reason whether or not a subscription is
         // signed in, so the words must hold either way.
         setNotice(QStringLiteral("%1 needs an Anthropic Console sign-in here. "
-                                 "A Claude subscription can't be used in Jack.").arg(m_current.name));
+                                 "A Claude subscription can't be used in %2.").arg(m_current.name, productName()));
     setPhase(QStringLiteral("signIn"));
 }
 

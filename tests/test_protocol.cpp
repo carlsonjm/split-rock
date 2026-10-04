@@ -39,7 +39,7 @@ private Q_SLOTS:
         QVERIFY(fixture.isValid());
         acp::Client client;
         client.start(serveLaunch(fixture.assistant(QStringLiteral("needs-sign-in.json")), {}, fixture.state.path()));
-        QVERIFY_OK(wait([&](auto done) { client.initialize(QStringLiteral("test"), done); }));
+        QVERIFY_OK(wait([&](auto done) { client.initialize(QStringLiteral("test"), QStringLiteral("Split Rock"), done); }));
         QCOMPARE(client.agentInfo().title, QStringLiteral("Pretend assistant"));
         QCOMPARE(client.authMethods().size(), 5);
 
@@ -57,7 +57,7 @@ private Q_SLOTS:
         QVERIFY(fixture.isValid());
         acp::Client client;
         client.start(serveLaunch(fixture.assistant(QStringLiteral("wrong-version.json")), {}, fixture.state.path()));
-        const auto error = wait([&](auto done) { client.initialize(QStringLiteral("test"), done); });
+        const auto error = wait([&](auto done) { client.initialize(QStringLiteral("test"), QStringLiteral("Split Rock"), done); });
         QVERIFY(error);
         QVERIFY(error->message.contains(QStringLiteral("version 2")));
     }
@@ -68,7 +68,7 @@ private Q_SLOTS:
         QVERIFY(fixture.isValid());
         acp::Client client;
         client.start(serveLaunch(fixture.assistant(QStringLiteral("needs-sign-in.json")), {}, fixture.state.path()));
-        QVERIFY_OK(wait([&](auto done) { client.initialize(QStringLiteral("test"), done); }));
+        QVERIFY_OK(wait([&](auto done) { client.initialize(QStringLiteral("test"), QStringLiteral("Split Rock"), done); }));
         const auto first = wait([&](auto done) { client.newSession(fixture.state.path(), done); });
         QVERIFY(first);
         QCOMPARE(first->code, acp::AuthRequiredCode);
@@ -86,7 +86,7 @@ private Q_SLOTS:
         QString said;
         connect(&client, &acp::Client::messageChunk, this, [&said](const QString &t) { said += t; });
         client.start(serveLaunch(fixture.assistant(QStringLiteral("signed-in.json")), {}, fixture.state.path()));
-        QVERIFY_OK(wait([&](auto done) { client.initialize(QStringLiteral("test"), done); }));
+        QVERIFY_OK(wait([&](auto done) { client.initialize(QStringLiteral("test"), QStringLiteral("Split Rock"), done); }));
         QVERIFY_OK(wait([&](auto done) { client.newSession(fixture.state.path(), done); }));
 
         QString stopReason;
@@ -128,7 +128,7 @@ private Q_SLOTS:
         QString said;
         connect(&client, &acp::Client::messageChunk, this, [&said](const QString &t) { said += t; });
         client.start(serveLaunch(fixture.assistant(QStringLiteral("signed-in.json")), {}, fixture.state.path()));
-        QVERIFY_OK(wait([&](auto done) { client.initialize(QStringLiteral("test"), done); }));
+        QVERIFY_OK(wait([&](auto done) { client.initialize(QStringLiteral("test"), QStringLiteral("Split Rock"), done); }));
         QVERIFY_OK(wait([&](auto done) { client.newSession(fixture.state.path(), done); }));
         wait([&](auto done) {
             client.prompt(QJsonArray{QJsonObject{{QStringLiteral("type"), QStringLiteral("text")},
@@ -147,7 +147,7 @@ private Q_SLOTS:
         acp::Client client;
         QSignalSpy stopped(&client, &acp::Client::stopped);
         client.start(serveLaunch(fixture.assistant(QStringLiteral("signed-in.json")), {}, fixture.state.path()));
-        QVERIFY_OK(wait([&](auto done) { client.initialize(QStringLiteral("test"), done); }));
+        QVERIFY_OK(wait([&](auto done) { client.initialize(QStringLiteral("test"), QStringLiteral("Split Rock"), done); }));
         QVERIFY_OK(wait([&](auto done) { client.newSession(fixture.state.path(), done); }));
         const auto error = wait([&](auto done) {
             client.prompt(QJsonArray{QJsonObject{{QStringLiteral("type"), QStringLiteral("text")},

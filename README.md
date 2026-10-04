@@ -9,7 +9,7 @@ notes so the next problem starts from what is already known.
 **Status:** early. There is nothing to install yet. Milestone 0, a test program
 that talks to real assistants and changes nothing, is built and waiting on its
 live sign-in check. The concept is in [docs/CONCEPT.md](docs/CONCEPT.md) and the
-plan in [docs/ROADMAP.md](docs/ROADMAP.md). The working name is Jack.
+plan in [docs/ROADMAP.md](docs/ROADMAP.md). Inside Shuffle it is Shuffle Genie.
 
 ## What it does
 

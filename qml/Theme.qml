@@ -20,8 +20,8 @@ QtObject {
     readonly property color quiet: tint(0.60)
     readonly property color primary: palette.windowText
     readonly property color primaryInk: palette.window
-    // Jack's own mark, as drawn in the mock-up.
-    readonly property color jack: "#C7B8F5"
-    readonly property color jackInk: "#1A1A1A"
+    // The assistant's mark, as drawn in the mock-up.
+    readonly property color mark: "#C7B8F5"
+    readonly property color markInk: "#1A1A1A"
     readonly property string mono: "monospace"
 }
