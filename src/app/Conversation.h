@@ -132,6 +132,8 @@ public:
     QVariantList fixedProblems() const;
     QVariantList deviceFixes() const;
     QStringList deviceStillOpen() const;
+    // A problem still open, solved, in the person's own words.
+    Q_INVOKABLE bool solveStillOpen(const QString &problem, const QString &fix);
     QString remember() const { return m_rememberAnswered || m_phase == QLatin1String("working") ? QString() : m_answer.remember; }
     bool fixed() const { return m_fixed; }
     // "Remember that?": yes writes it into About me.md; no lets it go.

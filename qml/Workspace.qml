@@ -41,6 +41,18 @@ Item {
         wideField.forceActiveFocus()
     }
 
+    // A problem still open, handed to the assistant to write up its fix: the
+    // field holds the start of the sentence, for the person to finish.
+    function tellFix(problem) {
+        if (narrow) {
+            notebookChoice = false
+            notebookChosen = true
+        }
+        wideField.text = "Solved: " + problem + " What fixed it: "
+        wideField.cursorPosition = wideField.text.length
+        wideField.forceActiveFocus()
+    }
+
     function send() {
         if (working) {
             conversation.stop()
@@ -206,6 +218,126 @@ Item {
             anchors.fill: parent
             cursorShape: Qt.PointingHandCursor
             onClicked: fix.open = !fix.open
+        }
+    }
+
+    // A problem the device still has. Tapped open: hand it to the assistant
+    // to write up the fix, or write the fix here and mark it solved.
+    component OpenProblem: Rectangle {
+        id: problem
+        property string text
+        property bool open: false
+        property bool writing: false
+        width: parent ? parent.width : 0
+        height: problemColumn.implicitHeight + 24
+        radius: 12
+        color: theme.panel
+        Column {
+            id: problemColumn
+            x: 14; y: 12
+            width: parent.width - 28
+            spacing: 10
+            Item {
+                width: parent.width
+                height: Math.max(problemText.implicitHeight, problemStatus.implicitHeight)
+                Text {
+                    id: problemText
+                    width: parent.width - problemStatus.implicitWidth - 14
+                    wrapMode: Text.WordWrap
+                    text: problem.text
+                    color: theme.text
+                    font.pixelSize: 15
+                    lineHeight: 1.3
+                }
+                Text {
+                    id: problemStatus
+                    anchors.right: parent.right
+                    y: 3
+                    text: "Still open"
+                    color: theme.quiet
+                    font.pixelSize: 12
+                }
+                MouseArea {
+                    anchors.fill: parent
+                    cursorShape: Qt.PointingHandCursor
+                    Accessible.role: Accessible.Button
+                    Accessible.name: problem.text
+                    onClicked: {
+                        problem.open = !problem.open
+                        problem.writing = false
+                    }
+                }
+            }
+            Flow {
+                visible: problem.open && !problem.writing
+                width: parent.width
+                spacing: 8
+                Pill {
+                    objectName: "tellFix"
+                    implicitHeight: 40
+                    visible: !conversation.isGuide && full.canAsk
+                    text: "Tell " + productName + " the fix"
+                    onClicked: full.tellFix(problem.text)
+                }
+                Pill {
+                    objectName: "writeFix"
+                    implicitHeight: 40
+                    text: "Write the fix"
+                    onClicked: {
+                        problem.writing = true
+                        fixField.forceActiveFocus()
+                    }
+                }
+            }
+            Rectangle {
+                visible: problem.writing
+                width: parent.width
+                height: Math.max(88, fixField.implicitHeight + 24)
+                radius: 12
+                color: theme.sheet
+                border.width: 1
+                border.color: fixField.activeFocus ? theme.text : theme.edge
+                TextEdit {
+                    id: fixField
+                    objectName: "fixField"
+                    x: 12; y: 12
+                    width: parent.width - 24
+                    wrapMode: TextEdit.Wrap
+                    color: theme.text
+                    selectionColor: theme.palette.highlight
+                    selectedTextColor: theme.palette.highlightedText
+                    font.pixelSize: 15
+                    selectByMouse: true
+                    Accessible.role: Accessible.EditableText
+                    Accessible.name: "What fixed it"
+                    Text {
+                        visible: fixField.text === ""
+                        width: parent.width
+                        wrapMode: Text.WordWrap
+                        text: "What fixed it, in your own words. A line for each step."
+                        color: theme.quiet
+                        font: fixField.font
+                    }
+                }
+            }
+            Flow {
+                visible: problem.writing
+                width: parent.width
+                spacing: 8
+                Pill {
+                    objectName: "markSolved"
+                    implicitHeight: 40
+                    filled: true
+                    enabled: fixField.text.trim() !== ""
+                    text: "Mark solved"
+                    onClicked: if (conversation.solveStillOpen(problem.text, fixField.text)) problem.open = false
+                }
+                Pill {
+                    implicitHeight: 40
+                    text: "Cancel"
+                    onClicked: problem.writing = false
+                }
+            }
         }
     }
 
@@ -716,10 +848,9 @@ Item {
                     }
                     Repeater {
                         model: conversation.deviceStillOpen
-                        Line {
+                        OpenProblem {
                             objectName: "deviceOpen-" + index
                             text: modelData
-                            status: "Still open"
                         }
                     }
                 }

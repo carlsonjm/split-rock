@@ -309,6 +309,16 @@ private Q_SLOTS:
         QTRY_VERIFY(find(full, QStringLiteral("deviceFix-0")));
         QVERIFY(find(full, QStringLiteral("deviceOpen-0")));
         find(full, QStringLiteral("deviceFix-0"))->setProperty("open", true);
+        // The problem still open, opened to write its fix.
+        QQuickItem *openProblem = find(full, QStringLiteral("deviceOpen-0"));
+        openProblem->setProperty("open", true);
+        QTRY_VERIFY(find(full, QStringLiteral("tellFix"))->isVisible());
+        // Told to the assistant: the field holds the sentence to finish.
+        QMetaObject::invokeMethod(find(full, QStringLiteral("tellFix")), "clicked");
+        QCOMPARE(find(full, QStringLiteral("wideField"))->property("text").toString(),
+                 QStringLiteral("Solved: Sign-in froze twice as the power tool applied its preset at start. What fixed it: "));
+        find(full, QStringLiteral("wideField"))->setProperty("text", QString());
+        openProblem->setProperty("writing", true);
         // Bento, or the person, sizes it; it is no longer maximized.
         full->showNormal();
         for (const int width : {1280, 900, 700, 560, 420, 360}) {
@@ -346,6 +356,19 @@ private Q_SLOTS:
         QTest::qWait(300);
         QVERIFY(find(full, QStringLiteral("notebookButton"))->isVisible());
         shoot(full, QStringLiteral("15-full-1280-folded"));
+
+        // Solved, written by the person: a fix in its place.
+        view->setProperty("notebookChoice", true);
+        QTest::qWait(300);
+        QQuickItem *notebookPanel = find(full, QStringLiteral("notebook"));
+        notebookPanel->setProperty("contentY", std::max(0.0, notebookPanel->property("contentHeight").toReal() - notebookPanel->height()));
+        shoot(full, QStringLiteral("16-writing-a-fix"));
+        find(full, QStringLiteral("fixField"))->setProperty("text", QStringLiteral("Turn the power tool's preset off at start.\nSign in again."));
+        QMetaObject::invokeMethod(find(full, QStringLiteral("markSolved")), "clicked");
+        QTRY_VERIFY(c.deviceStillOpen().isEmpty());
+        QCOMPARE(c.deviceFixes().size(), 2);
+        QTRY_VERIFY(!find(full, QStringLiteral("deviceOpen-0")));
+        shoot(full, QStringLiteral("17-solved"));
     }
 
     // One card the size of Shuffle's Search, centred over the work.

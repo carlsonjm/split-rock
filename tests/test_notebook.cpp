@@ -192,6 +192,31 @@ private Q_SLOTS:
         page.close();
         QCOMPARE(notebook.deviceStillOpen(), (QStringList{QStringLiteral("The fan runs at full speed after sleep."),
                                                           QStringLiteral("The pen stops.")}));
+
+        // Solved, in the person's words: the fix becomes a page, the line goes.
+        QString error;
+        QVERIFY(!notebook.solveStillOpen(QStringLiteral("The pen stops."), QStringLiteral("  \n"), &error));
+        QVERIFY(!notebook.solveStillOpen(QStringLiteral("The pen stops."), QStringLiteral("The PIN is 4821"), &error));
+        QCOMPARE(notebook.deviceStillOpen().size(), 2);
+        QVERIFY(!notebook.solveStillOpen(QStringLiteral("Not a problem here."), QStringLiteral("Anything."), &error));
+        QVERIFY2(notebook.solveStillOpen(QStringLiteral("The fan runs at full speed after sleep."),
+                                         QStringLiteral("1. Update the firmware.\n2. Restart."), &error), qPrintable(error));
+        QCOMPARE(notebook.deviceStillOpen(), QStringList{QStringLiteral("The pen stops.")});
+        QCOMPARE(notebook.deviceFixes().size(), 2);
+        bool found = false;
+        for (const auto &fix : notebook.deviceFixes()) {
+            if (fix.title != QLatin1String("The fan runs at full speed after sleep"))
+                continue;
+            found = true;
+            QCOMPARE(fix.steps, (QStringList{QStringLiteral("Update the firmware."), QStringLiteral("Restart.")}));
+        }
+        QVERIFY(found);
+        QVERIFY(QFileInfo::exists(home.filePath(QStringLiteral("Notebook/Device/the-fan-runs-at-full-speed.md"))));
+        // The last one solved leaves Still open saying so.
+        QVERIFY(notebook.solveStillOpen(QStringLiteral("The pen stops."), QStringLiteral("Charge it."), &error));
+        QVERIFY(notebook.deviceStillOpen().isEmpty());
+        QVERIFY(page.open(QIODevice::ReadOnly));
+        QVERIFY(QString::fromUtf8(page.readAll()).contains(QStringLiteral("## Still open\n\nNothing yet.")));
     }
 
     void topicsAreChosenFromTheWords()

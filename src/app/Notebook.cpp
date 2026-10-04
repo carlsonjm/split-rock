@@ -80,7 +80,9 @@ rules you follow here.
   `Device/DEVICE.md` in the guide's format: a header with id, title, also,
   applies, checked and format, then What you see, Why and What to do. A problem
   met and not yet fixed goes on a line of its own under "Still open" in
-  `Device/DEVICE.md`, until a fix is proven. Add the maker's documentation you
+  `Device/DEVICE.md`, until a fix is proven. When the person says one is
+  solved, write its fix as an entry beside `Device/DEVICE.md` and remove its
+  line from "Still open". Add the maker's documentation you
   find under "The maker's documentation" in `Device/DEVICE.md`.
 - `Notes/` holds answers the person kept. Change one only when asked.
 - When something here helps answer a question, say so: "Last time, the printer
@@ -512,6 +514,76 @@ bool Notebook::rememberAboutPerson(const QString &sentence, QString *error)
         return false;
     }
     return rewrite(QStringLiteral("About me.md"), page, error);
+}
+
+bool Notebook::solveStillOpen(const QString &problem, const QString &fix, QString *error)
+{
+    const auto fail = [error](const QString &why) {
+        if (error)
+            *error = why;
+        return false;
+    };
+    QStringList steps;
+    static const QRegularExpression numbered(QStringLiteral("^\\s*\\d{1,2}[.)]\\s+"));
+    for (QString line : fix.split(QLatin1Char('\n'))) {
+        line = line.remove(numbered).simplified();
+        if (!line.isEmpty())
+            steps.append(line);
+    }
+    if (steps.isEmpty())
+        return fail(QStringLiteral("Say what fixed it first."));
+
+    // The problem's lines under Still open, a line and what continues it.
+    QStringList lines = read(QStringLiteral("Device/DEVICE.md")).split(QLatin1Char('\n'));
+    const qsizetype heading = lines.indexOf(QStringLiteral("## Still open"));
+    qsizetype from = -1, to = -1, bullets = 0;
+    for (qsizetype i = heading < 0 ? lines.size() : heading + 1; i < lines.size(); ++i) {
+        const QString &line = lines.at(i);
+        if (line.startsWith(QLatin1String("## ")))
+            break;
+        if (!line.startsWith(QLatin1String("- ")))
+            continue;
+        ++bullets;
+        qsizetype end = i + 1;
+        QString text = line.mid(2).trimmed();
+        while (end < lines.size() && lines.at(end).startsWith(QLatin1String("  ")))
+            text += QLatin1Char(' ') + lines.at(end++).trimmed();
+        if (from < 0 && text == problem.simplified()) {
+            from = i;
+            to = end;
+        }
+    }
+    if (from < 0)
+        return fail(QStringLiteral("That problem is no longer under Still open."));
+    lines.remove(from, to - from);
+    if (bullets == 1)
+        lines.insert(from, QStringLiteral("Nothing yet."));
+
+    // Its first sentence names it.
+    QString title = problem.simplified();
+    const qsizetype stop = title.indexOf(QLatin1String(". "));
+    if (stop > 0)
+        title = title.left(stop);
+    if (title.endsWith(QLatin1Char('.')))
+        title.chop(1);
+    static const QRegularExpression word(QStringLiteral("[a-z0-9]+"));
+    QStringList words;
+    for (auto it = word.globalMatch(title.toLower()); it.hasNext() && words.size() < 6;)
+        words.append(it.next().captured(0));
+    const QString base = words.isEmpty() ? QStringLiteral("solved") : words.join(QLatin1Char('-'));
+    QString id = base;
+    for (int n = 2; QFileInfo::exists(QDir(m_folder).filePath(QStringLiteral("Device/%1.md").arg(id))); ++n)
+        id = QStringLiteral("%1-%2").arg(base).arg(n);
+
+    QString page = QStringLiteral("---\nid: %1\ntitle: %2\nchecked: %3\nformat: 1\n---\n\n"
+                                  "## What you see\n\n%4\n\n## Why\n\nSolved on %5, in the person's own words.\n\n"
+                                  "## What to do\n\n")
+                       .arg(id, title, QDate::currentDate().toString(Qt::ISODate), problem.simplified(), today());
+    for (qsizetype i = 0; i < steps.size(); ++i)
+        page += QStringLiteral("%1. %2\n").arg(i + 1).arg(steps.at(i));
+    if (!writeNew(QStringLiteral("Device/%1.md").arg(id), page, error))
+        return false;
+    return rewrite(QStringLiteral("Device/DEVICE.md"), lines.join(QLatin1Char('\n')), error);
 }
 
 bool Notebook::recordFixed(const QString &problem, const QString &fix, QString *error)

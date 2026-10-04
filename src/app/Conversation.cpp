@@ -919,6 +919,19 @@ QStringList Conversation::deviceStillOpen() const
     return m_notebook ? m_notebook->deviceStillOpen() : QStringList();
 }
 
+bool Conversation::solveStillOpen(const QString &problem, const QString &fix)
+{
+    if (!m_notebook)
+        return false;
+    QString error;
+    if (!m_notebook->solveStillOpen(problem, fix, &error)) {
+        setNotice(error);
+        return false;
+    }
+    Q_EMIT notebookChanged();
+    return true;
+}
+
 bool Conversation::rememberYes()
 {
     const QString sentence = remember();

@@ -83,6 +83,10 @@ public:
     // The device's problems met and not yet fixed: the lines under "Still
     // open" in DEVICE.md.
     QStringList deviceStillOpen() const;
+    // A problem still open, solved: what fixed it, in the person's words,
+    // becomes the device's page for that problem, and its line leaves Still
+    // open. False, with why in error, when it may not be written.
+    bool solveStillOpen(const QString &problem, const QString &fix, QString *error = nullptr);
 
     // "Remember that?", answered yes: the sentence goes into About me.md,
     // dated. False, with why in error, when it may not be written.
