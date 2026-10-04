@@ -22,6 +22,8 @@
 #include <QTemporaryDir>
 #include <QTest>
 
+#include <functional>
+
 using namespace splitrock;
 
 class TestSheet : public QObject
@@ -82,6 +84,29 @@ class TestSheet : public QObject
     static Shell *shellOf(QQmlApplicationEngine &engine)
     {
         return qobject_cast<Shell *>(engine.rootContext()->contextProperty(QStringLiteral("shell")).value<QObject *>());
+    }
+
+    // Every piece of text drawn in the window that runs past either side of
+    // it, by its name or its first words.
+    static QStringList overflowing(QQuickWindow *window)
+    {
+        QStringList found;
+        const std::function<void(QQuickItem *)> walk = [&](QQuickItem *item) {
+            if (!item->isVisible() || item->opacity() <= 0.01)
+                return;
+            if (item->inherits("QQuickText") || item->inherits("QQuickTextInput")) {
+                const QString text = item->property("text").toString();
+                const qreal drawn = item->inherits("QQuickText") ? item->property("contentWidth").toReal()
+                                                                  : item->width();
+                const QRectF scene = item->mapRectToScene(QRectF(0, 0, std::min(drawn, item->width() > 0 ? std::max(drawn, item->width()) : drawn), item->height()));
+                if (!text.isEmpty() && (scene.left() < -0.5 || scene.right() > window->width() + 0.5))
+                    found.append(QStringLiteral("%1 [%2..%3]").arg(text.left(40)).arg(scene.left()).arg(scene.right()));
+            }
+            for (QQuickItem *child : item->childItems())
+                walk(child);
+        };
+        walk(window->contentItem());
+        return found;
     }
 
     // Waits for the card's motion to settle.
@@ -237,6 +262,70 @@ private Q_SLOTS:
         QTRY_COMPARE(c.keptNotes().size(), 0);
         view->setProperty("tab", 1);
         shoot(full, QStringLiteral("14-about-me"));
+    }
+
+    // The full window at any width a person or Bento gives it: nothing
+    // drawn runs past its sides, from a wide screen down to a narrow column.
+    void theFullViewFitsAnyWidth()
+    {
+        QTemporaryDir folder;
+        Notebook notebook(folder.filePath(QStringLiteral("Notebook")));
+        QVERIFY(notebook.prepare(DeviceFacts::read(QStringLiteral(FIXTURES_DIR "/computer"))));
+        PretendFixture f;
+        QVERIFY(f.isValid());
+        Conversation c({f.assistant(QStringLiteral("signed-in.json"))});
+        c.setNotebook(&notebook);
+        QQmlApplicationEngine engine;
+        QQuickWindow *window = open(engine, c);
+        QVERIFY(window);
+        c.chooseAssistant(QStringLiteral("pretend"));
+        QTRY_COMPARE(c.phase(), QStringLiteral("ready"));
+        c.ask(QStringLiteral("How do I connect to Wi-Fi?"));
+        QTRY_COMPARE(c.phase(), QStringLiteral("ready"));
+        c.ask(QStringLiteral("My drive won't mount and it says something about NTFS being read-only"));
+        QTRY_COMPARE(c.phase(), QStringLiteral("ready"));
+        QMetaObject::invokeMethod(window, "expand");
+        Shell *shell = shellOf(engine);
+        QTRY_VERIFY(shell->full() && shell->full()->isVisible());
+        QQuickWindow *full = shell->full();
+        QQuickItem *view = find(full, QStringLiteral("fullView"));
+        // Bento, or the person, sizes it; it is no longer maximized.
+        full->showNormal();
+        for (const int width : {1280, 900, 700, 560, 420, 360}) {
+            full->setGeometry(0, 0, width, 760);
+            QTRY_COMPARE(full->width(), width);
+            // The notebook's slide, where the width opens or folds it.
+            QTest::qWait(300);
+            // The notebook as the width opens it, then as the person turns it.
+            for (const bool turned : {false, true}) {
+                if (turned) {
+                    QMetaObject::invokeMethod(view, "toggleNotebook");
+                    QTest::qWait(300);
+                }
+                const bool open = view->property("notebookShown").toBool();
+                QCOMPARE(find(full, QStringLiteral("notebook"))->isVisible(), open);
+                QCOMPARE(find(full, QStringLiteral("notebookButton"))->isVisible(), !open);
+                for (const int tab : {0, 1, 2}) {
+                    view->setProperty("tab", tab);
+                    QTest::qWait(50);
+                    const QStringList past = overflowing(full);
+                    QVERIFY2(past.isEmpty(), qPrintable(QStringLiteral("at %1 wide, notebook %2, tab %3: %4").arg(width)
+                        .arg(open ? QStringLiteral("open") : QStringLiteral("folded")).arg(tab).arg(past.join(QStringLiteral("; ")))));
+                }
+                view->setProperty("tab", 0);
+                shoot(full, QStringLiteral("15-full-%1-%2").arg(width).arg(open ? QStringLiteral("open") : QStringLiteral("folded")));
+            }
+            // Back to what the width chooses.
+            view->setProperty("notebookChosen", false);
+        }
+        // Folded away on a wide window, the conversation keeps a reading
+        // width, centred.
+        full->setGeometry(0, 0, 1280, 760);
+        view->setProperty("notebookChosen", true);
+        view->setProperty("notebookChoice", false);
+        QTest::qWait(300);
+        QVERIFY(find(full, QStringLiteral("notebookButton"))->isVisible());
+        shoot(full, QStringLiteral("15-full-1280-folded"));
     }
 
     // One card the size of Shuffle's Search, centred over the work.

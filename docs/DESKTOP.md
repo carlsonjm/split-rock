@@ -17,7 +17,7 @@ for the maintainer's own computer, not the package.
 
 | Start | What opens |
 | --- | --- |
-| Split Rock's icon, with no arguments | The full window, the view in `mockup/Workspace.dc.html`: an ordinary resizable window that a card workspace can place beside another |
+| Split Rock's icon, with no arguments | The full window, the view in `mockup/Workspace.dc.html`: an ordinary resizable window that a card workspace can place beside another. The notebook is a panel at its right that folds away: open beside the conversation when the window is wide, folded when it is narrow, where it slides over the conversation when opened. Nothing in it runs past the window's sides at any width down to 360 points |
 | Ask, in the icon's menu, or `--ask` | The card in Search's shape; in Spread it holds the centre (`DECISIONS.md`) |
 | `--background` | Nothing: the conversation waits for Search, as when Search's first call starts Split Rock |
 

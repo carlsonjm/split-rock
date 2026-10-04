@@ -21,3 +21,5 @@ function forKind(kind) {
 }
 var expand = "M15 3h6v6 M9 21H3v-6 M21 3l-7 7 M3 21l7-7"
 var close = "M18 6 6 18 M6 6l12 12"
+// The notebook, a panel at the window's right.
+var panel = "M5 3h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z M15 3v18"

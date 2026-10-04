@@ -2,18 +2,34 @@
 import QtQuick
 import "Icons.js" as Icons
 
-// The full view, as docs/mockup/Workspace.dc.html draws it: the conversation
-// on the left, what the assistant is working on at the right. In Milestone 0
-// nothing is kept, so the right side says what this computer is, lists what
-// the assistant asked to change and was refused, and says where the notebook's
-// parts will be. Choosing an assistant, signing in and the Do it card happen
-// in the conversation's column.
+// The full view, as docs/mockup/Workspace.dc.html draws it: the conversation,
+// and the notebook in a panel at the right that folds away. A wide window
+// opens with the notebook beside the conversation; a narrow one, such as a
+// Bento column, opens with the conversation alone, and the notebook slides over
+// it when asked for. Choosing an assistant, signing in and the Do it card
+// happen in the conversation's column.
 Item {
     id: full
 
     readonly property bool canAsk: conversation.phase === "ready"
     readonly property bool working: conversation.phase === "working"
     property int tab: 0
+
+    // Too narrow for the two side by side: the notebook covers the conversation.
+    readonly property bool narrow: width < 720
+    // Open beside the conversation when there is room for both, until the
+    // person opens or folds it themselves.
+    property bool notebookChosen: false
+    property bool notebookChoice: false
+    readonly property bool notebookShown: notebookChosen ? notebookChoice : width >= 960
+    readonly property real notebookWidth: narrow ? width : Math.round(Math.min(460, Math.max(320, width * 0.36)))
+    property real notebookProgress: notebookShown ? 1 : 0
+    Behavior on notebookProgress { NumberAnimation { duration: 220; easing.type: Easing.OutCubic } }
+
+    function toggleNotebook() {
+        notebookChoice = !notebookShown
+        notebookChosen = true
+    }
 
     // "4 October" this year; with the year otherwise.
     function shortDate(when) {
@@ -39,7 +55,7 @@ Item {
         property var steps: []
         property var more: []
         property bool waiting: false
-        width: Math.min(340, talk.width - 36)
+        width: Math.min(640, talk.reading)
         height: answerColumn.implicitHeight + 24
         radius: 18
         color: theme.panel
@@ -103,11 +119,11 @@ Item {
 
     component Asked: Item {
         property string text
-        width: talk.width - 36
+        width: talk.reading
         height: askedText.implicitHeight + 20
         Rectangle {
             anchors.right: parent.right
-            width: Math.min(300, askedText.implicitWidth + 28)
+            width: Math.min(Math.min(520, Math.round(parent.width * 0.85)), askedText.implicitWidth + 28)
             height: parent.height
             radius: 18
             color: theme.primary
@@ -167,12 +183,14 @@ Item {
         property string action
         signal acted()
         width: parent ? parent.width : 0
-        height: Math.max(48, lineText.implicitHeight + 24)
+        // Too narrow for the date beside the words: it goes above them.
+        readonly property bool stacked: width < 400 && when !== ""
+        height: stacked ? lineText.implicitHeight + 46 : Math.max(48, lineText.implicitHeight + 24)
         radius: 12
         color: theme.panel
         Text {
             x: 14; y: 13
-            width: 86
+            width: line.stacked ? implicitWidth : 86
             visible: text !== ""
             text: parent.when
             color: theme.quiet
@@ -181,9 +199,9 @@ Item {
         }
         Text {
             id: lineText
-            x: parent.when !== "" ? 114 : 14
-            y: 12
-            width: parent.width - x - 14 - (statusText.visible ? statusText.implicitWidth + 14 : 0)
+            x: parent.when !== "" && !line.stacked ? 114 : 14
+            y: line.stacked ? 34 : 12
+            width: parent.width - x - 14 - (statusText.visible && !line.stacked ? statusText.implicitWidth + 14 : 0)
                    - (actionButton.visible ? actionButton.width + 14 : 0)
             wrapMode: Text.WordWrap
             text: parent.text
@@ -224,7 +242,7 @@ Item {
             id: statusText
             anchors.right: actionButton.visible ? actionButton.left : parent.right
             anchors.rightMargin: 14
-            y: 15
+            y: line.stacked ? 13 : 15
             visible: text !== ""
             text: parent.status
             color: theme.quiet
@@ -235,13 +253,34 @@ Item {
     // The conversation: what was asked in this window, and its answers.
     Item {
         id: talk
-        width: Math.min(420, Math.round(parent.width * 0.42))
+        // Beside the notebook, or the whole width when it is folded away or
+        // slides over.
+        width: full.narrow ? full.width : full.width - (full.notebookWidth + 25) * full.notebookProgress
         height: parent.height
+        // What the conversation's bubbles and field fill: all of it, up to a
+        // comfortable reading width, centred.
+        readonly property real gap: full.narrow ? 0 : 18 * full.notebookProgress
+        readonly property real reading: Math.min(width - gap, 760)
+        readonly property real readingX: Math.max(0, (width - gap - reading) / 2)
+
+        // Opens the notebook, while it is folded away.
+        Pill {
+            id: notebookButton
+            objectName: "notebookButton"
+            x: talk.readingX + talk.reading - width
+            implicitHeight: 40
+            opacity: 1 - full.notebookProgress
+            visible: opacity > 0
+            text: "Notebook"
+            iconPath: Icons.panel
+            onClicked: full.toggleNotebook()
+        }
 
         Flickable {
             id: history
+            y: notebookButton.visible ? notebookButton.height + 12 : 0
             width: parent.width
-            height: wideBox.y - 12
+            height: wideBox.y - 12 - y
             contentWidth: width
             contentHeight: bubbles.implicitHeight
             clip: true
@@ -250,12 +289,13 @@ Item {
 
             Column {
                 id: bubbles
-                width: parent.width
+                x: talk.readingX
+                width: talk.reading
                 spacing: 12
 
                 Text {
                     visible: conversation.turns.length === 0 && conversation.question === "" && !step.item
-                    width: talk.width - 36
+                    width: talk.reading
                     wrapMode: Text.WordWrap
                     text: "Ask " + (conversation.assistantName !== "" ? conversation.assistantName : productName)
                           + " anything about this computer. This conversation lasts until you start over or log out."
@@ -293,7 +333,7 @@ Item {
                 // it, and what the assistant offers to remember.
                 Column {
                     objectName: "fullAnswerActions"
-                    width: talk.width - 36
+                    width: talk.reading
                     spacing: 10
                     visible: conversation.question !== "" && full.canAsk && !conversation.choosing
                              && !conversation.cardOpen && conversation.canKeep
@@ -325,7 +365,7 @@ Item {
                 Loader {
                     id: step
                     objectName: "fullStep"
-                    width: talk.width - 18
+                    width: talk.reading
                     sourceComponent: {
                         if (conversation.choosing)
                             return chooseStep
@@ -341,7 +381,7 @@ Item {
 
                 Text {
                     visible: conversation.notice !== "" && !conversation.choosing
-                    width: talk.width - 36
+                    width: talk.reading
                     wrapMode: Text.WordWrap
                     text: conversation.notice
                     color: theme.text
@@ -353,8 +393,9 @@ Item {
 
         Rectangle {
             id: wideBox
+            x: talk.readingX
             y: parent.height - height
-            width: parent.width - 18
+            width: talk.reading
             height: 52
             radius: 26
             color: theme.panel
@@ -416,18 +457,32 @@ Item {
     }
 
     Rectangle {
+        visible: !full.narrow && full.notebookProgress > 0
         x: talk.width
         width: 1
         height: parent.height
         color: theme.line
+        opacity: full.notebookProgress
     }
 
-    // What the assistant is working on.
+    // Under the notebook where it slides over the conversation, so the
+    // conversation does not show through.
+    Rectangle {
+        visible: full.narrow && full.notebookProgress > 0
+        x: aside.x
+        width: full.width - x
+        height: parent.height
+        color: theme.sheet
+    }
+
+    // The notebook: this computer, about the person, and what was kept.
     Flickable {
         id: aside
-        x: talk.width + 25
-        width: parent.width - x
+        objectName: "notebook"
+        x: full.width - full.notebookWidth * full.notebookProgress
+        width: full.notebookWidth
         height: parent.height
+        visible: full.notebookProgress > 0
         contentWidth: width
         contentHeight: side.implicitHeight
         clip: true
@@ -440,8 +495,10 @@ Item {
 
             Item {
                 width: parent.width
-                height: 40
-                Row {
+                height: tabs.height
+                Flow {
+                    id: tabs
+                    width: parent.width - foldButton.width - 8
                     spacing: 4
                     Repeater {
                         model: ["This computer", "About me", "Kept"]
@@ -472,14 +529,38 @@ Item {
                         }
                     }
                 }
-                Text {
+                // Folds the notebook away.
+                Rectangle {
+                    id: foldButton
+                    objectName: "foldNotebook"
                     anchors.right: parent.right
-                    anchors.verticalCenter: parent.verticalCenter
-                    text: conversation.canKeep ? "Kept in your notebook · plain notes" : "Nothing is kept yet"
-                    color: theme.quiet
-                    font.pixelSize: 12
-                    font.weight: Font.DemiBold
+                    width: 40; height: 40; radius: 20
+                    color: foldArea.containsMouse ? theme.chip : "transparent"
+                    Accessible.role: Accessible.Button
+                    Accessible.name: "Fold the notebook away"
+                    Icon {
+                        anchors.centerIn: parent
+                        width: 18; height: 18
+                        path: full.narrow ? Icons.close : Icons.panel
+                        color: theme.text
+                    }
+                    MouseArea {
+                        id: foldArea
+                        anchors.fill: parent
+                        hoverEnabled: true
+                        cursorShape: Qt.PointingHandCursor
+                        onClicked: full.toggleNotebook()
+                    }
                 }
+            }
+
+            Text {
+                width: parent.width
+                wrapMode: Text.WordWrap
+                text: conversation.canKeep ? "Kept in your notebook, as plain notes." : "Nothing is kept yet."
+                color: theme.quiet
+                font.pixelSize: 12
+                font.weight: Font.DemiBold
             }
 
             // This computer.
@@ -488,21 +569,23 @@ Item {
                 width: parent.width
                 spacing: 16
 
-                Row {
+                Grid {
+                    id: tiles
                     width: parent.width
+                    columns: width >= 560 ? 3 : 1
                     spacing: 10
                     Tile {
-                        width: (parent.width - 20) / 3
+                        width: (parent.width - (tiles.columns - 1) * 10) / tiles.columns
                         label: "COMPUTER"
                         value: computerName !== "" ? computerName : "Not reported"
                     }
                     Tile {
-                        width: (parent.width - 20) / 3
+                        width: (parent.width - (tiles.columns - 1) * 10) / tiles.columns
                         label: "SYSTEM"
                         value: systemName
                     }
                     Tile {
-                        width: (parent.width - 20) / 3
+                        width: (parent.width - (tiles.columns - 1) * 10) / tiles.columns
                         label: "LAST SNAPSHOT"
                         value: "None yet"
                     }

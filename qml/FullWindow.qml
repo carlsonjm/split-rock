@@ -11,7 +11,7 @@ Window {
     color: theme.sheet
     width: 1100
     height: 720
-    minimumWidth: 640
+    minimumWidth: 360
     minimumHeight: 420
     visible: false
 
