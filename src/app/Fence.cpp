@@ -2,6 +2,7 @@
 #include "app/Fence.h"
 
 #include <QDir>
+#include <QFile>
 #include <QFileInfo>
 #include <QStandardPaths>
 
@@ -27,6 +28,35 @@ const QStringList DesktopSettings{
 };
 
 } // namespace
+
+static QString writeOpeners(const QString &requests)
+{
+    if (requests.isEmpty())
+        return {};
+    const QString folder = QFileInfo(requests).dir().filePath(QStringLiteral("openers"));
+    if (!QDir().mkpath(folder))
+        return {};
+    // Hands the page, the last argument, to Split Rock, which opens it in the
+    // person's browser while they are signing in, and otherwise never.
+    const QByteArray script =
+        "#!/bin/sh\n"
+        "for page; do :; done\n"
+        "case \"$page\" in http://*|https://*) printf '%s\\n' \"$page\" >> \"$SPLIT_ROCK_OPEN_REQUESTS\" ;; esac\n"
+        "exit 0\n";
+    for (const QString &name : {QStringLiteral("xdg-open"), QStringLiteral("kde-open"), QStringLiteral("kde-open5"),
+                                QStringLiteral("gio"), QStringLiteral("www-browser"), QStringLiteral("x-www-browser"),
+                                QStringLiteral("sensible-browser")}) {
+        QFile file(QDir(folder).filePath(name));
+        if (!file.open(QIODevice::WriteOnly | QIODevice::Truncate) || file.write(script) != script.size())
+            return {};
+        file.close();
+        file.setPermissions(QFile::ReadOwner | QFile::WriteOwner | QFile::ExeOwner);
+    }
+    QFile touch(requests);
+    if (!touch.open(QIODevice::Append))
+        return {};
+    return folder;
+}
 
 QString fenceProgram()
 {
@@ -79,7 +109,17 @@ acp::LaunchSpec fenced(const acp::LaunchSpec &launch, const FenceRoom &room)
     if (!launch.workingDirectory.isEmpty())
         args << QStringLiteral("--chdir") << launch.workingDirectory;
     args << QStringLiteral("--") << launch.program << launch.arguments;
-    return {fenceProgram(), args, launch.environment, launch.workingDirectory};
+    QProcessEnvironment environment = launch.environment;
+    const QString openers = writeOpeners(room.openRequests);
+    if (!openers.isEmpty()) {
+        // Every way an assistant opens a page finds a stand-in first: the
+        // browser variable, xdg-open, and the desktop openers behind it.
+        environment.insert(QStringLiteral("PATH"),
+                           openers + QLatin1Char(':') + environment.value(QStringLiteral("PATH"), QStringLiteral("/usr/bin:/bin")));
+        environment.insert(QStringLiteral("BROWSER"), QDir(openers).filePath(QStringLiteral("xdg-open")));
+        environment.insert(QStringLiteral("SPLIT_ROCK_OPEN_REQUESTS"), room.openRequests);
+    }
+    return {fenceProgram(), args, environment, launch.workingDirectory};
 }
 
 } // namespace splitrock

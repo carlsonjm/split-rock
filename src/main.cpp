@@ -34,7 +34,9 @@
 #include <QDBusConnectionInterface>
 #include <QDBusMessage>
 #include <QDir>
+#include <QDesktopServices>
 #include <QGuiApplication>
+#include <QUrl>
 #include <QQmlApplicationEngine>
 #include <QQmlContext>
 #include <QQuickWindow>
@@ -157,6 +159,9 @@ int main(int argc, char **argv)
     // What the hardware says it is: read, never written.
     context.deviceProduct = splitrock::computerName();
     conversation.setGuide(guide, context);
+    // A sign-in page the assistant asked for opens in the person's browser.
+    QObject::connect(&conversation, &splitrock::Conversation::signInPageReady, &app,
+                     [](const QString &page) { QDesktopServices::openUrl(QUrl(page)); });
     QQmlApplicationEngine engine;
     splitrock::Shell shell(&engine, bus);
     engine.rootContext()->setContextProperty(QStringLiteral("conversation"), &conversation);

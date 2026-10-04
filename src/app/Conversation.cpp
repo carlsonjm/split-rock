@@ -276,6 +276,12 @@ void Conversation::startAssistant()
         if (m_notebook)
             room.writable.append(m_notebook->folder());
         room.readable = m_current.readable;
+        if (!m_current.home.isEmpty()) {
+            m_openRequests = QDir(m_current.home).filePath(QStringLiteral(".split-rock/open-requests"));
+            QFile::remove(m_openRequests);
+            m_openRequestsRead = 0;
+            room.openRequests = m_openRequests;
+        }
         launch = fenced(launch, room);
     } else if (!m_current.mayRunUnfenced) {
         setProblem(QStringLiteral("%1 can't be kept to the notebook on this computer.").arg(m_current.name),
@@ -381,13 +387,52 @@ void Conversation::signIn(const QString &methodId)
         signInWithoutTerminal(*it);
         return;
     }
+    // The assistant's sign-in opens its page from inside the fence: read what
+    // it asks for while the sign-in lasts.
+    if (!m_openRequestsTimer) {
+        m_openRequestsTimer = new QTimer(this);
+        m_openRequestsTimer->setInterval(300);
+        connect(m_openRequestsTimer, &QTimer::timeout, this, &Conversation::readOpenRequests);
+    }
+    m_openRequestsTimer->start();
     m_client->authenticate(methodId, [this](const std::optional<acp::RpcError> &error) {
+        m_openRequestsTimer->stop();
+        readOpenRequests();
         if (error) {
             signInDidNotFinish(error->message);
             return;
         }
         startSession();
     });
+}
+
+void Conversation::readOpenRequests()
+{
+    if (m_openRequests.isEmpty())
+        return;
+    QFile file(m_openRequests);
+    if (!file.open(QIODevice::ReadOnly) || file.size() < m_openRequestsRead)
+        return;
+    file.seek(m_openRequestsRead);
+    const QByteArray added = file.readAll();
+    const qsizetype lastLine = added.lastIndexOf('\n');
+    if (lastLine < 0)
+        return;
+    m_openRequestsRead += lastLine + 1;
+    for (const QByteArray &line : added.left(lastLine).split('\n')) {
+        const QString page = QString::fromUtf8(line).trimmed();
+        if (!page.startsWith(QLatin1String("https://")) && !page.startsWith(QLatin1String("http://")))
+            continue;
+        // Only a sign-in opens a page: an assistant reaches no browser at any
+        // other time.
+        if (m_phase != QLatin1String("signingIn")) {
+            m_diagnostics.append(QStringLiteral("did not open a page asked for outside sign-in"));
+            continue;
+        }
+        m_signInPage = page;
+        Q_EMIT signInChanged();
+        Q_EMIT signInPageReady(page);
+    }
 }
 
 void Conversation::signInWithoutTerminal(const SignInChoice &choice)
@@ -581,6 +626,8 @@ void Conversation::answerFromGuide(const QString &question)
 
 void Conversation::send(const QString &prompt, const QString &shown)
 {
+    if (!m_client)
+        return;
     keepTurn();
     clearAnswer();
     m_question = shown;
@@ -636,7 +683,8 @@ void Conversation::stop()
 
 void Conversation::showMeHow()
 {
-    if (m_phase != QLatin1String("ready"))
+    // The guide answers from what is written; only an assistant can be asked.
+    if (m_phase != QLatin1String("ready") || m_current.guide || !m_client)
         return;
     m_cardOpen = false;
     Q_EMIT cardChanged();

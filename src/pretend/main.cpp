@@ -19,6 +19,9 @@
 //   authMethods       advertised as given
 //   signedIn          whether a session starts without signing in
 //   authenticate      {methodId: "ok" | "fail" | "hang"}
+//   authenticateOpens {methodId: page}: asks the desktop's opener for the
+//                     page first, as an agent signing in in the browser does;
+//                     only inside Split Rock's fence, so no real browser opens
 //   modes             returned with the session, as given
 //   sessionError      {code, message, data}: session/new always fails so
 //   turns             [{expectPrompt?, steps: [...]}], used in order; a turn
@@ -37,6 +40,7 @@
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
+#include <QProcess>
 #include <QTextStream>
 #include <QThread>
 #include <QTimer>
@@ -146,6 +150,10 @@ public:
                 {QStringLiteral("agentCapabilities"), QJsonObject{{QStringLiteral("loadSession"), false}}},
             });
         } else if (method == QLatin1String("authenticate")) {
+            const QString page = m_script.value(QStringLiteral("authenticateOpens")).toObject()
+                                     .value(params.value(QStringLiteral("methodId")).toString()).toString();
+            if (!page.isEmpty() && qEnvironmentVariableIsSet("SPLIT_ROCK_OPEN_REQUESTS"))
+                QProcess::execute(QStringLiteral("xdg-open"), {page});
             const QString outcome = m_script.value(QStringLiteral("authenticate")).toObject()
                                         .value(params.value(QStringLiteral("methodId")).toString()).toString(QStringLiteral("fail"));
             if (outcome == QLatin1String("ok")) {

@@ -170,6 +170,9 @@ QVariantMap ConversationService::Act(const QString &action)
         return reply();
     }
     if (action == QLatin1String("show-me-how")) {
+        if (m_conversation->isGuide())
+            return refuse(QLatin1String(NotAvailable),
+                          QStringLiteral("The guide answers from what is written; Show me how needs an assistant."));
         if (m_conversation->phase() != QLatin1String("ready") || m_conversation->question().isEmpty())
             return refuse(QLatin1String(NotReady), QStringLiteral("There is no answer to show how to do."));
         m_conversation->showMeHow();

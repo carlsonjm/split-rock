@@ -1,0 +1,63 @@
+{
+  "agent": {
+    "name": "pretend",
+    "title": "Pretend assistant",
+    "version": "1"
+  },
+  "signedIn": false,
+  "authMethods": [
+    {
+      "id": "pretend-browser",
+      "name": "Sign in in the browser",
+      "description": "Opens the pretend sign-in page"
+    },
+    {
+      "id": "pretend-terminal",
+      "name": "Sign in with the program",
+      "type": "terminal",
+      "args": [
+        "--sign-in",
+        "ok"
+      ]
+    },
+    {
+      "id": "pretend-env",
+      "name": "Use PRETEND_KEY",
+      "type": "env_var",
+      "vars": [
+        {
+          "name": "PRETEND_KEY"
+        }
+      ]
+    },
+    {
+      "id": "pretend-key",
+      "name": "A key",
+      "description": "Hidden by Split Rock"
+    },
+    {
+      "id": "pretend-meta-key",
+      "name": "Another key",
+      "_meta": {
+        "api-key": {
+          "provider": "pretend"
+        }
+      }
+    }
+  ],
+  "authenticate": {
+    "pretend-browser": "ok"
+  },
+  "turns": [
+    {
+      "steps": [
+        {
+          "say": "Hello after signing in."
+        }
+      ]
+    }
+  ],
+  "authenticateOpens": {
+    "pretend-browser": "https://sign-in.example/start"
+  }
+}

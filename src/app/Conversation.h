@@ -154,6 +154,8 @@ public:
     Q_INVOKABLE void showTour();
 
 Q_SIGNALS:
+    // A sign-in page the assistant asked to open, for the person's browser.
+    void signInPageReady(const QString &page);
     void assistantsChanged();
     void choosingChanged();
     void assistantChanged();
@@ -207,6 +209,11 @@ private:
     QList<SignInChoice> m_choices;
     SignInChoice m_signingIn;
     QString m_signInPage;
+    // The assistant's requests to open a web page, from inside its fence.
+    void readOpenRequests();
+    QString m_openRequests;
+    qint64 m_openRequestsRead = 0;
+    QTimer *m_openRequestsTimer = nullptr;
     bool m_framed = false;
 
     QString m_question;

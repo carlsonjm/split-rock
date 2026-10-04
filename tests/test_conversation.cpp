@@ -387,6 +387,25 @@ private Q_SLOTS:
         QVERIFY(c.notice().contains(QStringLiteral("A Claude subscription can't be used in Split Rock.")));
     }
 
+    // Inside the fence the assistant reaches no browser: its request to open
+    // the sign-in page reaches Split Rock, which opens it, during sign-in.
+    void theSignInPageOpensFromInsideTheFence()
+    {
+        if (fenceProgram().isEmpty())
+            QSKIP("This computer has no bubblewrap to fence the assistant in.");
+        PretendFixture f;
+        QVERIFY(f.isValid());
+        Conversation c({f.assistant(QStringLiteral("sign-in-opens-page.json"))});
+        QSignalSpy opened(&c, &Conversation::signInPageReady);
+        c.chooseAssistant(QStringLiteral("pretend"));
+        QTRY_COMPARE_WITH_TIMEOUT(c.phase(), QStringLiteral("signIn"), 10000);
+        c.signIn(QStringLiteral("pretend-browser"));
+        QTRY_COMPARE_WITH_TIMEOUT(opened.count(), 1, 10000);
+        QCOMPARE(opened.first().first().toString(), QStringLiteral("https://sign-in.example/start"));
+        QCOMPARE(c.signInPage(), QStringLiteral("https://sign-in.example/start"));
+        QTRY_COMPARE_WITH_TIMEOUT(c.phase(), QStringLiteral("ready"), 10000);
+    }
+
     void theGuideAnswersWithNoAccount()
     {
         PretendFixture f;
@@ -415,6 +434,14 @@ private Q_SLOTS:
         c.ask(QStringLiteral("how do I print a letter"));
         QCOMPARE(c.headline(), QStringLiteral("Split Rock's guide has nothing on that yet."));
         QVERIFY(c.steps().isEmpty());
+
+        // Show me how asks an assistant, and the guide has none: nothing is
+        // sent, and the answer stands.
+        c.ask(QStringLiteral("my internet keeps cutting out"));
+        c.showMeHow();
+        QCOMPARE(c.phase(), QStringLiteral("ready"));
+        QCOMPARE(c.headline(), QStringLiteral("The Wi-Fi keeps dropping"));
+        QVERIFY(f.received().isEmpty());
 
         c.newQuestion();
         QCOMPARE(c.question(), QString());
