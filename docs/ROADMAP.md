@@ -10,8 +10,10 @@ Shuffle's current 1.0 work, starting with Milestone 0.
 ## Milestone 0: the conversation works
 
 A small test program, not yet a widget, that talks to real assistants over the
-Agent Client Protocol. Built in one pass from the concept and decisions, then
-tested against the proof (`DECISIONS.md`).
+Agent Client Protocol. Its window is the Just Type sheet in `mockup/`, and a
+refused change request shows as the Do it card with Do it unavailable. Built in
+one pass from the concept, decisions and mock-up, then tested against the proof
+(`DECISIONS.md`).
 
 - Connect to Codex, Gemini CLI and Claude Agent; sign in; ask; get an answer.
 - Receive a request to change something, and refuse it.
@@ -100,8 +102,8 @@ being needed.
 
 The maintainer's to make.
 
-- **The consumer name** (holds up a public release). Inside Shuffle it is the
-  workspace assistant for now.
+- **The consumer name** (holds up a public release). The working name is Jack,
+  pending a registered trademark search.
 
 Shuffle's own question, whether the assistant is in the bundle and is the reason
 to buy it, is Shuffle's and is recorded there.

@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Split Rock — expanded workspace</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#F8F8FF}a:hover{color:#FFFFFF}
+.ico{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:1.75;stroke-linecap:round;stroke-linejoin:round;flex:none}
+.ico.s{width:16px;height:16px}
+.ico.xs{width:14px;height:14px}
+button{font-family:Manrope,sans-serif;cursor:pointer}
+input{font-family:Manrope,sans-serif}
+.band{position:absolute;left:0;right:0;bottom:0;height:64px;display:flex;align-items:center;justify-content:space-between;padding:0 14px;box-sizing:border-box;color:#F8F8FF}
+.island{height:40px;border-radius:20px;background:#141414;border:1px solid #333;display:flex;align-items:center;gap:10px;padding:0 16px 0 5px;font-size:13px;box-sizing:border-box}
+.dock{display:flex;gap:6px;align-items:center;background:#141414;border:1px solid #333;border-radius:16px;padding:5px}
+.dk{width:44px;height:44px;border-radius:12px;background:#242424;display:flex;align-items:center;justify-content:center;border:0;color:#F8F8FF;position:relative;padding:0}
+.status{display:flex;align-items:center;gap:14px;height:40px;padding:0 6px 0 14px;border-radius:20px;background:#141414;border:1px solid #333;font-size:13px;box-sizing:border-box}
+.tb{height:32px;background:#1C1C1C;display:flex;align-items:center;justify-content:space-between;padding:0 4px 0 10px;font-size:13px;color:#F8F8FF;flex:none}
+.tbb{width:34px;height:22px;border-radius:11px;background:#242424;display:inline-flex;align-items:center;justify-content:center;border:0;color:#F8F8FF;padding:0;margin:0 4px}
+.me{align-self:flex-end;max-width:300px;background:#F8F8FF;color:#141414;border-radius:18px 18px 4px 18px;padding:10px 14px;font-size:15px;font-weight:600}
+.jack{max-width:340px;background:#1C1C1C;border-radius:18px 18px 18px 4px;padding:12px 14px;font-size:15px;line-height:1.45;color:#E4E4EA}
+.tab{height:40px;padding:0 16px;border-radius:20px;border:0;background:transparent;color:#F8F8FF;font-size:14px;font-weight:600}
+.row{display:flex;align-items:center;gap:14px;padding:12px 14px;border-radius:12px;background:#1C1C1C}
+.when{width:86px;font-size:12px;font-weight:700;color:#AFAFAF;flex:none}
+.undo{height:40px;border-radius:20px;padding:0 16px;border:1px solid #5A5A5A;background:#242424;color:#F8F8FF;font-size:13px;font-weight:700;flex:none}
+.h{font-size:12px;font-weight:800;color:#8A8A90;letter-spacing:0.06em;margin:0}
+.read{display:inline-flex;align-items:center;gap:6px;height:24px;padding:0 10px;border-radius:12px;background:rgba(199,184,245,0.18);color:#D9CFFA;font-size:11px;font-weight:800}
+</style>
+</helmet>
+<div style="width: 1280px; height: 800px; position: relative; overflow: hidden; font-family: Manrope, sans-serif; color: #F8F8FF; background: #1F2F38">
+  <div style="position: absolute; inset: 0; background: linear-gradient(180deg, #4A6676 0%, #34505F 48%, #233741 80%, #3B302A 100%)"></div>
+
+  <div style="position: absolute; left: 10px; top: 10px; right: 10px; bottom: 74px; background: #141414; border-radius: 8px; overflow: hidden; display: flex; flex-direction: column">
+    <div class="tb">
+      <div style="width: 160px; display: flex; align-items: center; color: #C7B8F5"><svg class="ico s" viewBox="0 0 24 24"><path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"/></svg></div>
+      <span>Jack</span>
+      <div style="display: flex; justify-content: flex-end; width: 160px">
+        <button class="tbb" aria-label="Minimize"><svg class="ico xs" viewBox="0 0 24 24"><path d="M5 12h14"/></svg></button>
+        <button class="tbb" aria-label="Maximize"><svg class="ico xs" viewBox="0 0 24 24"><rect width="14" height="14" x="5" y="5" rx="2"/></svg></button>
+        <button class="tbb" aria-label="Close"><svg class="ico xs" viewBox="0 0 24 24"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
+      </div>
+    </div>
+    <div style="flex: 1; display: flex; min-height: 0">
+      <section aria-label="Conversation" style="width: 420px; border-right: 1px solid #262626; display: flex; flex-direction: column; padding: 18px; box-sizing: border-box; gap: 12px">
+        <div style="flex: 1; display: flex; flex-direction: column; gap: 12px">
+          <div class="me">What changed yesterday?</div>
+          <div class="jack">
+            <span class="read" style="margin-bottom: 8px"><svg class="ico xs" viewBox="0 0 24 24"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>Read: Changes</span>
+            <div style="margin-top: 8px">Two changes, both on the right with their Undo. Night Color came on at your request, and updates installed after a snapshot.</div>
+          </div>
+          <div class="me">And the headphones fix from June?</div>
+          <div class="jack">
+            <span class="read"><svg class="ico xs" viewBox="0 0 24 24"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>Read: Fixed problems</span>
+            <div style="margin-top: 8px">Still in place. Wi-Fi power saving is off, and the headphones have not dropped since.</div>
+          </div>
+        </div>
+        <label style="display: flex; align-items: center; gap: 10px; height: 52px; border-radius: 26px; background: #1C1C1C; border: 1px solid #5A5A5A; padding: 0 6px 0 18px; box-sizing: border-box">
+          <input placeholder="Ask, or say what you want done" aria-label="Ask Jack" style="flex: 1; background: transparent; border: 0; outline: none; color: #F8F8FF; font-size: 15px">
+          <button aria-label="Send" style="width: 40px; height: 40px; border-radius: 20px; border: 0; background: #F8F8FF; color: #141414; display: flex; align-items: center; justify-content: center"><svg class="ico s" viewBox="0 0 24 24"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></button>
+        </label>
+      </section>
+
+      <section aria-label="Working on" style="flex: 1; min-width: 0; padding: 18px 24px; display: flex; flex-direction: column; gap: 16px; overflow: hidden">
+        <div role="tablist" style="display: flex; gap: 4px; align-items: center">
+          <button class="tab" role="tab" aria-selected="true" style="background: #F8F8FF; color: #141414">This computer</button>
+          <button class="tab" role="tab">About me</button>
+          <button class="tab" role="tab">Kept</button>
+          <span style="flex: 1"></span>
+          <span style="font-size: 12px; color: #AFAFAF; font-weight: 600">Kept in your notebook · plain notes</span>
+        </div>
+
+        <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px">
+          <div style="background: #1C1C1C; border-radius: 12px; padding: 12px 14px"><div style="font-size: 11px; font-weight: 800; color: #8A8A90">COMPUTER</div><div style="font-size: 15px; font-weight: 700; margin-top: 4px">ROG Flow Z13</div></div>
+          <div style="background: #1C1C1C; border-radius: 12px; padding: 12px 14px"><div style="font-size: 11px; font-weight: 800; color: #8A8A90">SYSTEM</div><div style="font-size: 15px; font-weight: 700; margin-top: 4px">Plasma 6.7 · Shuffle</div></div>
+          <div style="background: #1C1C1C; border-radius: 12px; padding: 12px 14px"><div style="font-size: 11px; font-weight: 800; color: #8A8A90">LAST SNAPSHOT</div><div style="font-size: 15px; font-weight: 700; margin-top: 4px">Yesterday, 9:40 PM</div></div>
+        </div>
+
+        <div style="display: flex; align-items: center; gap: 10px"><h2 class="h">CHANGES</h2><span class="read">Jack read this</span></div>
+        <div style="display: flex; flex-direction: column; gap: 8px">
+          <div class="row" style="box-shadow: inset 0 0 0 1px rgba(199,184,245,0.5)"><span class="when">Yesterday</span><span style="flex: 1; font-size: 15px">Night Color turns on at sunset</span><span style="font-size: 12px; color: #AFAFAF">You asked</span><button class="undo">Undo</button></div>
+          <div class="row" style="box-shadow: inset 0 0 0 1px rgba(199,184,245,0.5)"><span class="when">Yesterday</span><span style="flex: 1; font-size: 15px">47 updates installed, snapshot first</span><span style="font-size: 12px; color: #AFAFAF">Snapshot</span><button class="undo">Undo</button></div>
+          <div class="row"><span class="when">12 June</span><span style="flex: 1; font-size: 15px">Wi-Fi power saving off, for the headphones</span><span style="font-size: 12px; color: #AFAFAF">Fixed a problem</span><button class="undo">Undo</button></div>
+          <div class="row"><span class="when">2 June</span><span style="flex: 1; font-size: 15px">Text scaled to 125%</span><span style="font-size: 12px; color: #00D3B8; font-weight: 700">Undone 3 June</span><span style="width: 74px"></span></div>
+        </div>
+
+        <div style="display: flex; align-items: center; gap: 10px"><h2 class="h">FIXED PROBLEMS</h2></div>
+        <div class="row" style="align-items: flex-start"><span class="when">12 June</span><span style="flex: 1; font-size: 15px; line-height: 1.45">“My headphones keep cutting out.” Wi-Fi and Bluetooth share one radio, and power saving paused it. Turned power saving off.</span></div>
+      </section>
+    </div>
+  </div>
+
+  <div class="band">
+    <div class="island">
+      <span style="width: 30px; height: 30px; border-radius: 15px; background: #242424; display: flex; align-items: center; justify-content: center"><svg class="ico xs" viewBox="0 0 24 24"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg></span>
+      <span>Low Tide · Shoreline</span>
+    </div>
+    <div class="dock">
+      <button class="dk" aria-label="Search" style="background: transparent"><span style="width: 14px; height: 14px; border-radius: 7px; background: #F8F8FF"></span></button>
+      <button class="dk" aria-label="Files"><svg class="ico" viewBox="0 0 24 24"><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/></svg></button>
+      <button class="dk" aria-label="Firefox"><svg class="ico" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/></svg></button>
+      <button class="dk" aria-label="Music"><svg class="ico" viewBox="0 0 24 24"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg></button>
+      <button class="dk" aria-label="Notes" style="background: #F2D98A; color: #1A1A1A"><svg class="ico" viewBox="0 0 24 24"><path d="M16 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V8Z"/><path d="M15 3v4a2 2 0 0 0 2 2h4"/></svg></button>
+      <button class="dk" aria-label="Jack" style="background: #C7B8F5; color: #1A1A1A"><svg class="ico" viewBox="0 0 24 24"><path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"/></svg><span style="position: absolute; bottom: 3px; width: 4px; height: 4px; border-radius: 2px; background: #1A1A1A"></span></button>
+    </div>
+    <div class="status">
+      <svg class="ico s" viewBox="0 0 24 24"><path d="M12 20h.01"/><path d="M2 8.82a15 15 0 0 1 20 0"/><path d="M5 12.859a10 10 0 0 1 14 0"/><path d="M8.5 16.429a5 5 0 0 1 7 0"/></svg>
+      <svg class="ico s" viewBox="0 0 24 24"><rect width="16" height="10" x="2" y="7" rx="2"/><path d="M22 11v2"/><path d="M6 11v2"/><path d="M10 11v2"/></svg>
+      <span style="font-weight: 600">10:14 AM</span>
+      <button class="dk" aria-label="Notifications" style="width: 30px; height: 30px; border-radius: 15px"><svg class="ico xs" viewBox="0 0 24 24"><path d="M10.268 21a2 2 0 0 0 3.464 0"/><path d="M3.262 15.326A1 1 0 0 0 4 17h16a1 1 0 0 0 .74-1.673C19.41 13.956 18 12.499 18 8A6 6 0 0 0 6 8c0 4.499-1.411 5.956-2.738 7.326"/></svg></button>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":800}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return {};
+  }
+}
+</script>
+</body>
+</html>

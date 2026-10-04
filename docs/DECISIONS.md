@@ -200,3 +200,16 @@ maintainer before it is guessed, and nothing in it may change the computer.
 (The maintainer, 4 October.)
 
 Rejected: options before each step, which the documents already settle.
+
+## The mock-up is the approved visual direction
+
+The five screens in `mockup/` are the approved layout and behaviour: the Just
+Type sheet, the expanded coworking card, the Do it card, working on a note, and
+Search's doors. An agent builds to them without asking again; a later ruling
+wins where they disagree. (The maintainer, 4 October.)
+
+## Jack is the working name
+
+The assistant is called Jack in the interface and in documents until a consumer
+name is settled. A web search found other assistants called Jack, so it waits on
+a registered trademark search, as Shuffle Ace does. (The maintainer, 4 October.)
