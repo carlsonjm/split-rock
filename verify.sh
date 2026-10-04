@@ -5,6 +5,7 @@ project_root="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 build_dir="${project_root}/build/verify"
 
 python3 "${project_root}/tests/verify-public.py"
+python3 "${project_root}/tests/verify-guide.py"
 
 # Builds Milestone 0 and runs every test. The tests use the pretend assistant
 # only, with a home folder of their own inside the build.

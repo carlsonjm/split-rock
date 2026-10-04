@@ -34,7 +34,9 @@ Nothing on the computer changes yet. The assistant can look and explain.
 - A background service that holds the conversation, so closing the widget or
   restarting the panel loses nothing.
 - The notebook and its memory (`MEMORY.md`): `This computer.md` with the
-  hardware and fixed problems, `About me.md`, Keep this, Forget, and the
+  hardware and fixed problems, the `Device/` folder that starts from what Jack
+  reads on the computer and grows with use, `About me.md`, Keep this, Forget,
+  and the
   refusal to write down passwords and card numbers.
 - Sign-in with ChatGPT through Codex, and with an Anthropic key for Claude.
 - The assistant runs fenced in: it can read what it needs to explain the
@@ -42,7 +44,8 @@ Nothing on the computer changes yet. The assistant can look and explain.
 
 **Proves:** a week of the maintainer's own daily use, including troubleshooting
 an unusual device: a tablet such as the ASUS ROG Flow Z13, with its own power
-firmware and kernel quirks. The history lands in `This computer.md`.
+firmware and kernel quirks. The history lands in `This computer.md`, and what
+was learned about the device in its `Device/` folder.
 
 ## Milestone 2: changes, with a card
 
@@ -65,7 +68,8 @@ one real change is undone on the maintainer's machine.
 - First run: Split Rock opens once after installation and says hello.
 - The tour and the troubleshooting guide, in the box and working with no
   account: Split Rock's general Plasma entries in the guide's format
-  (`DECISIONS.md`), read alongside any entries a desktop adds.
+  (`DECISIONS.md`), read alongside any entries a desktop adds and the
+  computer's own `Device/` folder.
 - Setup in three screens: choose an assistant, choose the notebook folder,
   choose what the assistant may look at.
 - Says "I don't know", and offers Send this to someone: a plain summary of the
@@ -110,10 +114,6 @@ The maintainer's to make.
 
 - **The consumer name** (holds up a public release). The working name is Jack,
   pending a registered trademark search.
-- **Who writes a device's guide entries** (holds up the device entries in
-  Milestone 3's guide). Split Rock owns the general Plasma entries and a
-  desktop adds its own; neither ruling says whose entries for a particular
-  device, such as the Z13, are.
 
 Shuffle's own question, whether the assistant is in the bundle and is the reason
 to buy it, is Shuffle's and is recorded there.

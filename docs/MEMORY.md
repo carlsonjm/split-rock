@@ -1,16 +1,17 @@
 # Memory
 
 How Split Rock remembers. Think of a household binder kept by the computer: a
-scratch pad for today, a log of every repair, a page about the person, and a
-folder of things worth keeping. Conversations themselves are not saved; what is
+scratch pad for today, a log of every repair, the computer's own manual, a page
+about the person, and a folder of things worth keeping. Conversations themselves are not saved; what is
 worth remembering is written into the binder, which is the notebook folder.
 
-## The four kinds of memory
+## The five kinds of memory
 
 | What | Where | Who writes it | When |
 | --- | --- | --- | --- |
 | The conversation | Held by Split Rock's service only | — | While it lasts |
 | The record of this computer | `This computer.md` | Split Rock itself | Automatically, at every change and every fix |
+| The device | `Device/`: `DEVICE.md` and the device's problems and fixes | Split Rock at setup, from what it reads on the computer; the assistant after | At setup, then whenever something about the device is learned |
 | About the person | `About me.md` | The assistant, after the person says yes | When something worth knowing comes up |
 | Kept notes | Gooseberry, where it is installed; otherwise `Notes/`, one folder per topic | The assistant | When the person taps Keep this |
 
@@ -39,6 +40,17 @@ record and has to be right.
 
 Changes older than a year move to `Earlier changes.md`, so the page stays short
 enough to read.
+
+## The device
+
+The computer's own manual, written on this computer and nowhere else. At setup
+Split Rock reads what the hardware reports, such as the maker, the model and the
+firmware, into `Device/DEVICE.md`. Each problem met on this device, and its fix,
+becomes an entry beside it in the guide's format, and the guide offers those
+entries like its own. With an account, the assistant also adds the maker's
+documentation it finds for that hardware. Without one, `Device/` holds only what
+Jack can read on the computer. It starts fresh on every computer: nothing in it
+comes from, or goes to, anyone else's.
 
 ## About the person
 
@@ -69,7 +81,7 @@ either way. Split Rock looks for Gooseberry when it starts, and never needs it.
 ## Remembering in a conversation
 
 When a conversation starts, the assistant gets `About me.md`, the top of
-`This computer.md` and the list of kept note titles, from Gooseberry where it is
+`This computer.md`, `Device/DEVICE.md` and the list of kept note titles, from Gooseberry where it is
 installed. It opens a note only when the question touches it, and says when it does: "Last time, the printer needed its
 driver reinstalled." Memory that is used is memory that is shown.
 
