@@ -36,7 +36,7 @@ private Q_SLOTS:
                                                                                          QStringLiteral("/home/test/.config/kdeglobals")}}}}});
         const ChangeCard card = ChangeCard::describe(call, QStringLiteral("Codex"), {}, QStringLiteral("Bigger text"));
         QCOMPARE(card.heading, QStringLiteral("Change kdeglobals"));
-        QCOMPARE(card.password, QStringLiteral("Jack can't check this yet."));
+        QCOMPARE(card.password, QStringLiteral("Split Rock can't check this yet."));
         QVERIFY(card.why.contains(QStringLiteral("Bigger text")));
         QVERIFY(card.details.contains(QStringLiteral("File: /home/test/.config/kdeglobals")));
     }
@@ -47,7 +47,7 @@ private Q_SLOTS:
         call.kind = QStringLiteral("execute");
         call.rawInput = QJsonObject{{QStringLiteral("command"), QJsonArray{QStringLiteral("echo"), QStringLiteral("pseudosu")}}};
         QCOMPARE(call.command(), QStringLiteral("echo pseudosu"));
-        QCOMPARE(ChangeCard::describe(call, {}, {}, {}).password, QStringLiteral("Jack can't check this yet."));
+        QCOMPARE(ChangeCard::describe(call, {}, {}, {}).password, QStringLiteral("Split Rock can't check this yet."));
     }
 };
 

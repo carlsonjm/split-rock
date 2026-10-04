@@ -34,7 +34,7 @@ Nothing on the computer changes yet. The assistant can look and explain.
 - A background service that holds the conversation, so closing the widget or
   restarting the panel loses nothing.
 - The notebook and its memory (`MEMORY.md`): `This computer.md` with the
-  hardware and fixed problems, the `Device/` folder that starts from what Jack
+  hardware and fixed problems, the `Device/` folder that starts from what Split Rock
   reads on the computer and grows with use, `About me.md`, Keep this, Forget,
   and the
   refusal to write down passwords and card numbers.
@@ -83,7 +83,7 @@ one real change is undone on the maintainer's machine.
 first five minutes alone, watched and not helped.
 
 **Built ahead, in Milestone 0's test program:** the guide reader and the tour.
-Jack's guide answers from the general and a desktop's entries with no account,
+The guide answers from the general and a desktop's entries with no account,
 and Show me around steps through the tours.
 
 ## Milestone 4: everyday help
@@ -116,8 +116,9 @@ being needed.
 
 The maintainer's to make.
 
-- **The consumer name** (holds up a public release). The working name is Jack,
-  pending a registered trademark search.
+- **The consumer name** (holds up a public release). Inside Shuffle it is
+  Shuffle Genie, and on its own Split Rock; Genie waits on a registered
+  trademark search, since other AI assistants are already called Genie.
 
 Shuffle's own question, whether the assistant is in the bundle and is the reason
 to buy it, is Shuffle's and is recorded there.

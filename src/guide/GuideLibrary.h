@@ -44,7 +44,7 @@ struct GuideContext {
     QString deviceProduct;
 };
 
-// The guide and the tour, read from plain files. Jack's in-box layer: it needs
+// The guide and the tour, read from plain files. The in-box layer: it needs
 // no account and no network.
 class GuideLibrary
 {

@@ -37,7 +37,7 @@ the widget does.
 
 | Input | What happens |
 | --- | --- |
-| Tap or click a way to sign in | The assistant opens its own sign-in page, usually in the browser. Jack waits, and never sees the password. Cancel stops waiting. |
+| Tap or click a way to sign in | The assistant opens its own sign-in page, usually in the browser. The window waits, and never sees the password. Cancel stops waiting. |
 
 ## Ask
 
@@ -50,7 +50,7 @@ the widget does.
 
 | Input | What happens |
 | --- | --- |
-| Tap or click Show me around, with Jack's guide chosen | The first tour opens: what it shows, then its steps. A desktop's own tours come first. |
+| Tap or click Show me around, with the guide chosen | The first tour opens: what it shows, then its steps. A desktop's own tours come first. |
 | Tap or click Next | The next tour opens, until the last. |
 
 ## Stop an answer

@@ -68,7 +68,7 @@ private Q_SLOTS:
         QVERIFY(c.card().isEmpty());
         QCOMPARE(c.notice(), QString());
 
-        // Only the first question of a conversation carries Jack's framing.
+        // Only the first question of a conversation carries the framing.
         const auto first = f.received(QStringLiteral("session/prompt")).first();
         QCOMPARE(first.value(QStringLiteral("params")).toObject().value(QStringLiteral("prompt")).toArray().size(), 2);
         c.ask(QStringLiteral("Something else"));
@@ -265,7 +265,7 @@ private Q_SLOTS:
         Conversation c({f.assistant(QStringLiteral("subscription.json"))});
         c.chooseAssistant(QStringLiteral("pretend"));
         QVERIFY(reaches(c, QStringLiteral("signIn")));
-        QVERIFY(c.notice().contains(QStringLiteral("A Claude subscription can't be used in Jack.")));
+        QVERIFY(c.notice().contains(QStringLiteral("A Claude subscription can't be used in Split Rock.")));
     }
 
     void theGuideAnswersWithNoAccount()
@@ -294,7 +294,7 @@ private Q_SLOTS:
         QCOMPARE(c.more(), QStringList{QStringLiteral("The radio saves power by pausing.")});
 
         c.ask(QStringLiteral("how do I print a letter"));
-        QCOMPARE(c.headline(), QStringLiteral("Jack's guide has nothing on that yet."));
+        QCOMPARE(c.headline(), QStringLiteral("Split Rock's guide has nothing on that yet."));
         QVERIFY(c.steps().isEmpty());
 
         c.newQuestion();

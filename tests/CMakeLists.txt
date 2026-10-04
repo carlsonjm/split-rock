@@ -47,7 +47,8 @@ qt_add_resources(test_sheet "sheet_for_test"
         ${PROJECT_SOURCE_DIR}/qml/Theme.qml
         ${PROJECT_SOURCE_DIR}/qml/Icon.qml
         ${PROJECT_SOURCE_DIR}/qml/Icons.js
-        ${PROJECT_SOURCE_DIR}/qml/JackMark.qml
+        ${PROJECT_SOURCE_DIR}/qml/Mark.qml
+        ${PROJECT_SOURCE_DIR}/assets/mark.svg
         ${PROJECT_SOURCE_DIR}/qml/Pill.qml
         ${PROJECT_SOURCE_DIR}/qml/Fold.qml
         ${PROJECT_SOURCE_DIR}/qml/AnswerCard.qml

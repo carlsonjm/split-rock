@@ -5,6 +5,7 @@
 #include "app/Conversation.h"
 #include "PretendFixture.h"
 #include "guide/GuideLibrary.h"
+#include "app/QmlContext.h"
 
 #include <QDir>
 #include <QGuiApplication>
@@ -74,7 +75,8 @@ private Q_SLOTS:
         QVERIFY(f.isValid());
         Conversation c({f.assistant(QStringLiteral("needs-sign-in.json"))});
         QQmlApplicationEngine engine;
-        engine.rootContext()->setContextProperty(QStringLiteral("jack"), &c);
+        engine.rootContext()->setContextProperty(QStringLiteral("conversation"), &c);
+        exposeProduct(engine.rootContext());
         engine.load(QUrl(QStringLiteral("qrc:/qml/Main.qml")));
         auto *window = qobject_cast<QQuickWindow *>(engine.rootObjects().value(0));
         QVERIFY(window);
@@ -96,7 +98,8 @@ private Q_SLOTS:
         guide.load({QStringLiteral(PROJECT_DIR)});
         c.setGuide(guide, {{QStringLiteral("plasma")}, {}});
         QQmlApplicationEngine engine;
-        engine.rootContext()->setContextProperty(QStringLiteral("jack"), &c);
+        engine.rootContext()->setContextProperty(QStringLiteral("conversation"), &c);
+        exposeProduct(engine.rootContext());
         engine.load(QUrl(QStringLiteral("qrc:/qml/Main.qml")));
         auto *window = qobject_cast<QQuickWindow *>(engine.rootObjects().value(0));
         QVERIFY(window);
@@ -120,7 +123,8 @@ private Q_SLOTS:
         QVERIFY(f.isValid());
         Conversation c({f.assistant(QStringLiteral("signed-in.json"))});
         QQmlApplicationEngine engine;
-        engine.rootContext()->setContextProperty(QStringLiteral("jack"), &c);
+        engine.rootContext()->setContextProperty(QStringLiteral("conversation"), &c);
+        exposeProduct(engine.rootContext());
         engine.load(QUrl(QStringLiteral("qrc:/qml/Main.qml")));
         QCOMPARE(engine.rootObjects().size(), 1);
         auto *window = qobject_cast<QQuickWindow *>(engine.rootObjects().first());

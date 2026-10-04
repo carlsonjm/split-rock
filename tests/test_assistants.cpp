@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 #include "app/Assistants.h"
+#include "app/Product.h"
 
 #include <QFile>
 #include <QJsonDocument>
@@ -38,6 +39,14 @@ QStringList offered(const QList<SignInChoice> &choices)
 }
 
 } // namespace
+
+bool keyReasonNamesGenie()
+{
+    const QList<Assistant> list = realAssistants(QStringLiteral("/nonexistent/a"), QStringLiteral("/nonexistent/s"));
+    const QJsonArray methods{QJsonObject{{QStringLiteral("id"), QStringLiteral("codex-api-key")},
+                                         {QStringLiteral("name"), QStringLiteral("Key")}}};
+    return classifySignIn(list.first(), acp::parseAuthMethods(methods)).first().whyNot.contains(QStringLiteral("Genie"));
+}
 
 class TestAssistants : public QObject
 {
@@ -132,6 +141,29 @@ private Q_SLOTS:
         QCOMPARE(spec.arguments, (QStringList{QStringLiteral("/s.json"), QStringLiteral("--sign-in"), QStringLiteral("ok")}));
         QCOMPARE(spec.environment.value(QStringLiteral("SPLIT_ROCK_PRETEND_HOME")), QStringLiteral("/nonexistent/state/pretend"));
         QCOMPARE(spec.environment.value(QStringLiteral("EXTRA")), QStringLiteral("1"));
+    }
+
+    void theNameFollowsWhereItRuns()
+    {
+        QCOMPARE(productName(), QStringLiteral("Split Rock"));
+        QCOMPARE(productTitle(), QStringLiteral("Split Rock"));
+        setInsideShuffle(true);
+        QCOMPARE(productName(), QStringLiteral("Genie"));
+        QCOMPARE(productTitle(), QStringLiteral("Shuffle Genie"));
+        QVERIFY(keyReasonNamesGenie());
+        setInsideShuffle(false);
+        // The test home has no Shuffle in it.
+        QVERIFY(!shuffleInstalled());
+    }
+
+    void theMarkIsReadFromItsOneFile()
+    {
+        QFile file(QStringLiteral(PROJECT_DIR "/assets/mark.svg"));
+        QVERIFY(file.open(QIODevice::ReadOnly));
+        const QString path = markPath(QString::fromUtf8(file.readAll()));
+        QCOMPARE(path.count(QLatin1Char('M')), 8);
+        QVERIFY(path.startsWith(QStringLiteral("M5 12h8.5")));
+        QVERIFY(path.endsWith(QStringLiteral("Q17 3 17.4 1.6Z")));
     }
 
     void leftoversAreRemovedOnlyInsideTheFolder()

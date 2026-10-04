@@ -46,7 +46,7 @@ Split Rock comes in two layers.
   each release. A desktop that installs Split Rock's extras adds entries of its
   own. Nothing here needs an account or a network.
 - **Unlocked by Pat's own assistant account.** Pat signs in to an assistant they
-  already pay for, and Jack becomes a butler on the desktop: it answers
+  already pay for, and Split Rock becomes a butler on the desktop: it answers
   anything, troubleshoots what the guide does not cover, and makes changes
   through the Do it card. The use is billed to Pat's own account, at Pat's
   choice. Split Rock sells no account and pays for no use.
@@ -62,7 +62,7 @@ a tablet such as the ASUS ROG Flow Z13, with its own power firmware and kernel
 quirks, breaks in ways a plain laptop never does, and Windows used to hide that
 behind the maker's own software.
 
-So Jack learns the computer it is on. Jack is local: it starts fresh on every
+So Split Rock learns the computer it is on. It is local: it starts fresh on every
 computer, reads what the hardware reports at setup, and keeps what it learns
 about the device in the notebook's `Device/` folder, which grows with use. With
 an account, the assistant troubleshoots what the guide does not cover and finds
@@ -151,7 +151,7 @@ Inside it:
 - `This computer.md`: the hardware, what has been fixed, and every change made,
   with how to undo it. Split Rock writes it itself.
 - `Device/`: what this computer is and what has been learned about it, starting
-  from what Jack reads on the computer and growing with use.
+  from what Split Rock reads on the computer and growing with use.
 - `About me.md`: how Pat likes to be helped and who helps Pat, written only
   after Pat says yes.
 - `Notes/`: every answer Pat kept, filed by topic without Pat filing anything,

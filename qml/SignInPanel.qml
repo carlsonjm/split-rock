@@ -2,13 +2,13 @@
 import QtQuick
 
 // Signing in to the chosen assistant. Each assistant signs the person in
-// through its own window; Jack only offers the ways that need no terminal and
-// no key held by Jack.
+// through its own window; only the ways that need no terminal and no key held
+// by Split Rock are offered.
 Rectangle {
     color: theme.panel
     radius: 16
     implicitHeight: Math.max(196, column.implicitHeight + 36)
-    readonly property bool waiting: jack.phase === "signingIn"
+    readonly property bool waiting: conversation.phase === "signingIn"
 
     Column {
         id: column
@@ -19,8 +19,8 @@ Rectangle {
         Text {
             width: parent.width
             wrapMode: Text.WordWrap
-            text: waiting ? "Finish signing in to " + jack.assistantName + " in the window that opened."
-                          : "Sign in to " + jack.assistantName
+            text: waiting ? "Finish signing in to " + conversation.assistantName + " in the window that opened."
+                          : "Sign in to " + conversation.assistantName
             color: theme.text
             font.pixelSize: 16
             font.weight: Font.Bold
@@ -28,8 +28,8 @@ Rectangle {
         Text {
             width: parent.width
             wrapMode: Text.WordWrap
-            text: waiting ? "Jack is waiting. It never sees your password, your account or your bill."
-                          : jack.assistantCost
+            text: waiting ? productName + " is waiting. It never sees your password, your account or your bill."
+                          : conversation.assistantCost
             color: theme.text
             font.pixelSize: 15
             lineHeight: 1.3
@@ -38,13 +38,13 @@ Rectangle {
             visible: !waiting
             width: parent.width
             wrapMode: Text.WordWrap
-            text: jack.assistantName + " signs you in through its own window. Jack never sees your password, your account or your bill."
+            text: conversation.assistantName + " signs you in through its own window. " + productName + " never sees your password, your account or your bill."
             color: theme.quiet
             font.pixelSize: 14
             lineHeight: 1.3
         }
         Text {
-            visible: waiting && jack.signingInWithoutTerminal
+            visible: waiting && conversation.signingInWithoutTerminal
             width: parent.width
             wrapMode: Text.WordWrap
             text: "If the page gives you a code to paste somewhere, this way of signing in needs a terminal. Tap Cancel."
@@ -59,12 +59,12 @@ Rectangle {
             spacing: 8
             topPadding: 4
             Repeater {
-                model: jack.signInChoices
+                model: conversation.signInChoices
                 Pill {
                     objectName: "signIn-" + modelData.id
                     filled: index === 0
                     text: modelData.name
-                    onClicked: jack.signIn(modelData.id)
+                    onClicked: conversation.signIn(modelData.id)
                 }
             }
         }
@@ -75,29 +75,29 @@ Rectangle {
             spacing: 8
             topPadding: 4
             Pill {
-                visible: jack.signInPage !== ""
+                visible: conversation.signInPage !== ""
                 filled: true
                 text: "Open the sign-in page again"
-                onClicked: Qt.openUrlExternally(jack.signInPage)
+                onClicked: Qt.openUrlExternally(conversation.signInPage)
             }
             Pill {
                 objectName: "cancelSignIn"
                 text: "Cancel"
-                onClicked: jack.cancelSignIn()
+                onClicked: conversation.cancelSignIn()
             }
         }
 
         Fold {
-            visible: !waiting && jack.notice !== "" && body !== ""
+            visible: !waiting && conversation.notice !== "" && body !== ""
             width: parent.width
-            body: jack.problemDetails
+            body: conversation.problemDetails
         }
 
         Fold {
-            visible: !waiting && jack.notOffered.length > 0
+            visible: !waiting && conversation.notOffered.length > 0
             width: parent.width
-            title: "Not offered here (" + jack.notOffered.length + ")"
-            body: jack.notOffered.map(m => m.name + ": " + m.whyNot).join("\n")
+            title: "Not offered here (" + conversation.notOffered.length + ")"
+            body: conversation.notOffered.map(m => m.name + ": " + m.whyNot).join("\n")
         }
     }
 }

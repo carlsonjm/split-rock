@@ -8,9 +8,9 @@ Rectangle {
     radius: 16
     implicitHeight: Math.max(196, content.implicitHeight + 36)
 
-    readonly property bool working: jack.phase === "working"
-    readonly property bool empty: jack.question === ""
-    readonly property bool hasCard: jack.card.heading !== undefined
+    readonly property bool working: conversation.phase === "working"
+    readonly property bool empty: conversation.question === ""
+    readonly property bool hasCard: conversation.card.heading !== undefined
 
     Column {
         id: content
@@ -23,8 +23,8 @@ Rectangle {
             visible: card.empty
             width: parent.width
             wrapMode: Text.WordWrap
-            text: jack.isGuide ? "Say what's wrong, in your own words."
-                               : "Ask " + jack.assistantName + " anything about this computer."
+            text: conversation.isGuide ? "Say what's wrong, in your own words."
+                                       : "Ask " + conversation.assistantName + " anything about this computer."
             color: theme.text
             font.pixelSize: 16
             font.weight: Font.Bold
@@ -33,17 +33,17 @@ Rectangle {
             visible: card.empty
             width: parent.width
             wrapMode: Text.WordWrap
-            text: jack.isGuide
-                  ? "Jack's guide knows the common problems and how to fix them. It needs no account and no internet."
-                  : "Jack can't change anything on this computer yet. If " + jack.assistantName
-                    + " asks to, Jack says no and shows you what it wanted."
+            text: conversation.isGuide
+                  ? conversation.assistantName + " knows the common problems and how to fix them. It needs no account and no internet."
+                  : productName + " can't change anything on this computer yet. If " + conversation.assistantName
+                    + " asks to, " + productName + " says no and shows you what it wanted."
             color: theme.quiet
             font.pixelSize: 15
             lineHeight: 1.3
         }
 
         Row {
-            visible: card.working && jack.headline === "" && jack.steps.length === 0
+            visible: card.working && conversation.headline === "" && conversation.steps.length === 0
             spacing: 10
             Repeater {
                 model: 3
@@ -66,7 +66,7 @@ Rectangle {
             visible: text !== ""
             width: parent.width
             wrapMode: Text.WordWrap
-            text: jack.headline
+            text: conversation.headline
             color: theme.text
             font.pixelSize: 16
             font.weight: Font.Bold
@@ -77,14 +77,14 @@ Rectangle {
             visible: text !== ""
             width: parent.width
             wrapMode: Text.WordWrap
-            text: jack.lead
+            text: conversation.lead
             color: theme.text
             font.pixelSize: 15
             lineHeight: 1.3
         }
 
         Repeater {
-            model: jack.steps
+            model: conversation.steps
             Row {
                 width: content.width
                 spacing: 12
@@ -112,7 +112,7 @@ Rectangle {
         }
 
         Repeater {
-            model: jack.more
+            model: conversation.more
             Text {
                 width: content.width
                 wrapMode: Text.WordWrap
@@ -132,24 +132,24 @@ Rectangle {
                 objectName: "doItPill"
                 visible: card.hasCard
                 filled: true
-                text: card.hasCard ? "Do it: " + jack.card.heading.charAt(0).toLowerCase() + jack.card.heading.slice(1) : ""
-                onClicked: jack.openCard()
+                text: card.hasCard ? "Do it: " + conversation.card.heading.charAt(0).toLowerCase() + conversation.card.heading.slice(1) : ""
+                onClicked: conversation.openCard()
             }
             Pill {
                 visible: card.hasCard
                 text: "Show me how"
-                onClicked: jack.showMeHow()
+                onClicked: conversation.showMeHow()
             }
             Pill {
                 objectName: "nextTourPill"
-                visible: jack.nextTour !== ""
+                visible: conversation.nextTour !== ""
                 filled: true
-                text: "Next: " + jack.nextTour
-                onClicked: jack.showTour()
+                text: "Next: " + conversation.nextTour
+                onClicked: conversation.showTour()
             }
             Pill {
                 text: "New question"
-                onClicked: jack.newQuestion()
+                onClicked: conversation.newQuestion()
             }
         }
     }

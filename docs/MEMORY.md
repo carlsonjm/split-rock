@@ -49,7 +49,7 @@ firmware, into `Device/DEVICE.md`. Each problem met on this device, and its fix,
 becomes an entry beside it in the guide's format, and the guide offers those
 entries like its own. With an account, the assistant also adds the maker's
 documentation it finds for that hardware. Without one, `Device/` holds only what
-Jack can read on the computer. It starts fresh on every computer: nothing in it
+Split Rock can read on the computer. It starts fresh on every computer: nothing in it
 comes from, or goes to, anyone else's.
 
 ## About the person

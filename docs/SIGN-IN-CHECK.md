@@ -15,7 +15,7 @@ the sign-in table in `ASSISTANTS.md`.
   don't have and say so in the report.
 - **What it touches:** only the `build/m0` folder in this checkout. The first
   run downloads the three assistants' programs there, about 600 MB, and each
-  assistant keeps its sign-in there. Jack's Claude never reads or replaces the
+  assistant keeps its sign-in there. Split Rock's Claude never reads or replaces the
   sign-in of any Claude Code already on the computer, and the same holds for
   Codex and Gemini. Delete `build/m0` to remove all of it.
 - **What it cannot do:** change anything on the computer. Every request to
@@ -28,6 +28,9 @@ From this checkout:
 ```
 ./run.sh
 ```
+
+With Shuffle installed the window is called Genie; on a desktop without it,
+Split Rock.
 
 To rehearse without any account first, run
 `./run.sh --pretend tests/pretend-scripts/signed-in.json` and choose
@@ -46,7 +49,7 @@ Choose it from the list, then note:
      page? (For Claude Agent: did the page give you a code to paste? If so,
      this sign-in needs a terminal; tap Cancel.)
    - Did a terminal window appear at any point?
-   - Did Jack go on to show the field when you finished?
+   - Did the window go on to show the field when you finished?
 3. **What it costs.** What did the sign-in pages say about plans, trials or
    billing? Were you asked for card details?
 4. **Ask.** Tap How do I connect to Wi-Fi?. Did an answer arrive as one short

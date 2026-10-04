@@ -12,6 +12,7 @@ Paths are from the repository root.
 | `docs/ASSISTANTS.md` | What each assistant offers: how it starts, how a person signs in, what it costs |
 | `docs/SIGN-IN-CHECK.md` | Milestone 0's live check: signing in to each assistant, step by step |
 | `docs/MEMORY.md` | How Split Rock remembers: the notebook's five kinds of memory, and what is never written down |
+| `assets/mark.svg` | The assistant's mark, the genie lamp: the one file every surface draws it from |
 | `docs/mockup/` | The approved mock-up: five screens as design source, and which milestone each applies to |
 | `docs/DECISIONS.md` | Every settled ruling and what it rejected |
 | `docs/ROADMAP.md` | What is planned, in order, and what is not |
@@ -21,7 +22,7 @@ Paths are from the repository root.
 | `tests/` | The tests, each against the pretend assistant only, and its scripts in `tests/pretend-scripts/` |
 | `guide/plasma/` | The troubleshooting guide's general Plasma entries, one known problem each |
 | `tour/plasma/` | The tour's general Plasma steps |
-| `tests/verify-guide.py` | Keeps the guide and the tour in the format Jack reads, with nothing that shows a terminal; the same script as a desktop's own |
+| `tests/verify-guide.py` | Keeps the guide and the tour in the format Split Rock reads, with nothing that shows a terminal; the same script as a desktop's own |
 | `tests/verify-public.py` | Keeps public text fit to publish; the same script as the other components |
 | `tools/fetch-assistants.sh` | Downloads the pinned assistant adapters into one folder |
 | `run.sh` | Builds Milestone 0 and opens its window |

@@ -21,6 +21,7 @@ add_library(splitrock_core STATIC
     src/app/ChangeCard.cpp
     src/app/Conversation.cpp
     src/guide/GuideLibrary.cpp
+    src/app/Product.cpp
 )
 target_include_directories(splitrock_core PUBLIC src)
 target_link_libraries(splitrock_core PUBLIC Qt6::Core)
@@ -31,11 +32,12 @@ qt_add_executable(split-rock-m0 src/main.cpp)
 qt_add_resources(split-rock-m0 "sheet"
     PREFIX "/"
     FILES
+        assets/mark.svg
         qml/Main.qml
         qml/Theme.qml
         qml/Icon.qml
         qml/Icons.js
-        qml/JackMark.qml
+        qml/Mark.qml
         qml/Pill.qml
         qml/Fold.qml
         qml/AnswerCard.qml

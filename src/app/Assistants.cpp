@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 #include "app/Assistants.h"
 
+#include "app/Product.h"
+
 #include <QDir>
 #include <QFileInfo>
 #include <QProcess>
@@ -11,7 +13,10 @@ namespace splitrock {
 
 namespace {
 
-const QString KeyReason = QStringLiteral("It needs a key that Jack would have to hold, and Jack never holds one.");
+QString keyReason()
+{
+    return QStringLiteral("It needs a key that %1 would have to hold, and %1 never holds one.").arg(productName());
+}
 
 // The major version of the Node.js on this computer, or 0 when there is none.
 int nodeMajorVersion(const QString &node)
@@ -65,13 +70,13 @@ QList<SignInChoice> classifySignIn(const Assistant &assistant, const QList<acp::
         if (assistant.hiddenMethods.contains(method.id)) {
             choice.whyNot = assistant.hiddenMethods.value(method.id);
         } else if (method.meta.contains(QStringLiteral("api-key")) || method.meta.contains(QStringLiteral("gateway"))) {
-            choice.whyNot = KeyReason;
+            choice.whyNot = keyReason();
         } else if (method.kind == acp::AuthMethod::Kind::Agent) {
             choice.how = SignInChoice::How::Agent;
         } else if (method.kind == acp::AuthMethod::Kind::Terminal) {
             choice.how = SignInChoice::How::WithoutTerminal;
         } else {
-            choice.whyNot = KeyReason;
+            choice.whyNot = keyReason();
         }
         choices.append(choice);
     }
@@ -89,7 +94,7 @@ QList<Assistant> realAssistants(const QString &adaptersDir, const QString &state
                                     QStringLiteral("node_modules/@zed-industries/codex-acp/bin/codex-acp.js"), 18, stateDir);
     codex.cost = QStringLiteral("Needs a paid ChatGPT plan. You sign in to ChatGPT in your browser.");
     codex.environment.insert(QStringLiteral("CODEX_HOME"), codex.home);
-    codex.hiddenMethods = {{QStringLiteral("codex-api-key"), KeyReason}, {QStringLiteral("openai-api-key"), KeyReason}};
+    codex.hiddenMethods = {{QStringLiteral("codex-api-key"), keyReason()}, {QStringLiteral("openai-api-key"), keyReason()}};
     codex.askFirstMode = QStringLiteral("read-only");
     codex.conversationLeftovers = {QStringLiteral("sessions"), QStringLiteral("archived_sessions"),
                                    QStringLiteral("history.jsonl"), QStringLiteral("log"),
@@ -107,11 +112,11 @@ QList<Assistant> realAssistants(const QString &adaptersDir, const QString &state
     claude.serveArguments = {QStringLiteral("--hide-claude-auth")};
     claude.environment.insert(QStringLiteral("CLAUDE_CONFIG_DIR"), claude.home);
     claude.environment.insert(QStringLiteral("DISABLE_AUTOUPDATER"), QStringLiteral("1"));
-    const QString subscription = QStringLiteral("Anthropic does not allow a Claude subscription to be used in Jack.");
+    const QString subscription = QStringLiteral("Anthropic does not allow a Claude subscription to be used in %1.").arg(productName());
     claude.hiddenMethods = {{QStringLiteral("claude-ai-login"), subscription},
                             {QStringLiteral("claude-login"), subscription},
-                            {QStringLiteral("gateway"), KeyReason},
-                            {QStringLiteral("gateway-bedrock"), KeyReason}};
+                            {QStringLiteral("gateway"), keyReason()},
+                            {QStringLiteral("gateway-bedrock"), keyReason()}};
     claude.askFirstMode = QStringLiteral("default");
     claude.conversationLeftovers = {QStringLiteral("projects"), QStringLiteral("history.jsonl"),
                                     QStringLiteral("todos"), QStringLiteral("shell-snapshots"),
@@ -130,9 +135,9 @@ QList<Assistant> realAssistants(const QString &adaptersDir, const QString &state
     // Keeps its sign-in in its own folder rather than the desktop's keyring,
     // where it would be shared with any other copy of Gemini CLI.
     gemini.environment.insert(QStringLiteral("GEMINI_FORCE_FILE_STORAGE"), QStringLiteral("true"));
-    gemini.hiddenMethods = {{QStringLiteral("gemini-api-key"), KeyReason},
-                            {QStringLiteral("vertex-ai"), KeyReason},
-                            {QStringLiteral("gateway"), KeyReason}};
+    gemini.hiddenMethods = {{QStringLiteral("gemini-api-key"), keyReason()},
+                            {QStringLiteral("vertex-ai"), keyReason()},
+                            {QStringLiteral("gateway"), keyReason()}};
     gemini.askFirstMode = QStringLiteral("default");
     gemini.conversationLeftovers = {QStringLiteral(".gemini/tmp"), QStringLiteral(".gemini/history")};
     list.append(gemini);
@@ -150,7 +155,7 @@ Assistant pretendAssistant(const QString &program, const QString &script, const 
     a.arguments = {script};
     a.home = QDir(stateDir).filePath(a.id);
     a.environment.insert(QStringLiteral("SPLIT_ROCK_PRETEND_HOME"), a.home);
-    a.hiddenMethods = {{QStringLiteral("pretend-key"), KeyReason}};
+    a.hiddenMethods = {{QStringLiteral("pretend-key"), keyReason()}};
     a.askFirstMode = QStringLiteral("ask-first");
     a.conversationLeftovers = {QStringLiteral("transcripts")};
     if (!QFileInfo::exists(program))

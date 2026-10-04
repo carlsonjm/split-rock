@@ -16,6 +16,7 @@
 #include "app/Assistants.h"
 #include "app/Conversation.h"
 #include "guide/GuideLibrary.h"
+#include "app/QmlContext.h"
 
 #include <QCommandLineParser>
 #include <QDir>
@@ -29,12 +30,14 @@ int main(int argc, char **argv)
 {
     QGuiApplication app(argc, argv);
     QGuiApplication::setApplicationName(QStringLiteral("split-rock"));
-    QGuiApplication::setApplicationDisplayName(QStringLiteral("Jack"));
+    // Genie inside Shuffle, Split Rock on any other Plasma desktop.
+    splitrock::setInsideShuffle(splitrock::shuffleInstalled());
+    QGuiApplication::setApplicationDisplayName(splitrock::productTitle());
     QGuiApplication::setApplicationVersion(QStringLiteral(PROJECT_VERSION));
     QGuiApplication::setDesktopFileName(QStringLiteral("split-rock"));
 
     QCommandLineParser parser;
-    parser.setApplicationDescription(QStringLiteral("Jack, Milestone 0: the conversation works."));
+    parser.setApplicationDescription(QStringLiteral("Split Rock, Milestone 0: the conversation works."));
     parser.addHelpOption();
     const QCommandLineOption assistantsOption(QStringLiteral("assistants"),
                                               QStringLiteral("Where the assistants' adapters were fetched."),
@@ -82,7 +85,8 @@ int main(int argc, char **argv)
         context.deviceProduct = QString::fromUtf8(product.readAll()).trimmed();
     conversation.setGuide(guide, context);
     QQmlApplicationEngine engine;
-    engine.rootContext()->setContextProperty(QStringLiteral("jack"), &conversation);
+    engine.rootContext()->setContextProperty(QStringLiteral("conversation"), &conversation);
+    splitrock::exposeProduct(engine.rootContext());
     engine.load(QUrl(QStringLiteral("qrc:/qml/Main.qml")));
     if (engine.rootObjects().isEmpty())
         return 1;

@@ -14,13 +14,13 @@ Column {
         height: bubble.implicitHeight + 20
         radius: 18
         color: theme.primary
-        visible: jack.question !== ""
+        visible: conversation.question !== ""
         Text {
             id: bubble
             x: 14; y: 10
             width: parent.width - 28
             wrapMode: Text.WordWrap
-            text: jack.question
+            text: conversation.question
             color: theme.primaryInk
             font.pixelSize: 15
             font.weight: Font.DemiBold
@@ -44,16 +44,16 @@ Column {
             Row {
                 spacing: 12
                 bottomPadding: 8
-                JackMark {
+                Mark {
                     width: 40; height: 40
                     radius: 12
-                    path: Icons.forKind(jack.card.kind || "")
+                    path: Icons.forKind(conversation.card.kind || "")
                 }
                 Text {
                     anchors.verticalCenter: parent.verticalCenter
                     width: article.width - 52
                     wrapMode: Text.WordWrap
-                    text: jack.card.heading || ""
+                    text: conversation.card.heading || ""
                     color: theme.text
                     font.pixelSize: 22
                     font.weight: Font.ExtraBold
@@ -62,10 +62,10 @@ Column {
 
             Repeater {
                 model: [
-                    { label: "WHAT CHANGES", value: jack.card.whatChanges },
-                    { label: "WHY", value: jack.card.why },
-                    { label: "UNDO", value: jack.card.undo },
-                    { label: "PASSWORD", value: jack.card.password }
+                    { label: "WHAT CHANGES", value: conversation.card.whatChanges },
+                    { label: "WHY", value: conversation.card.why },
+                    { label: "UNDO", value: conversation.card.undo },
+                    { label: "PASSWORD", value: conversation.card.password }
                 ]
                 Item {
                     width: article.width
@@ -98,7 +98,7 @@ Column {
             Item { width: 1; height: 12 }
             Fold {
                 width: article.width
-                body: jack.card.details || ""
+                body: conversation.card.details || ""
             }
 
             Item { width: 1; height: 18 }
@@ -120,7 +120,7 @@ Column {
                     padding: 22
                     fontSize: 15
                     text: "Show me how instead"
-                    onClicked: jack.showMeHow()
+                    onClicked: conversation.showMeHow()
                 }
                 Pill {
                     objectName: "notNowButton"
@@ -128,14 +128,14 @@ Column {
                     padding: 22
                     fontSize: 15
                     text: "Not now"
-                    onClicked: jack.notNow()
+                    onClicked: conversation.notNow()
                 }
             }
             Item { width: 1; height: 10 }
             Text {
                 width: article.width
                 wrapMode: Text.WordWrap
-                text: "Jack can't make changes yet, so nothing was changed."
+                text: productName + " can't make changes yet, so nothing was changed."
                 color: theme.quiet
                 font.pixelSize: 14
             }

@@ -7,6 +7,6 @@ checked: unreleased
 format: 1
 ---
 
-## How Jack recognises it
+## How it is recognised
 
 By name.
