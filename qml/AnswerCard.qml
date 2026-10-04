@@ -23,7 +23,8 @@ Rectangle {
             visible: card.empty
             width: parent.width
             wrapMode: Text.WordWrap
-            text: "Ask " + jack.assistantName + " anything about this computer."
+            text: jack.isGuide ? "Say what's wrong, in your own words."
+                               : "Ask " + jack.assistantName + " anything about this computer."
             color: theme.text
             font.pixelSize: 16
             font.weight: Font.Bold
@@ -32,8 +33,10 @@ Rectangle {
             visible: card.empty
             width: parent.width
             wrapMode: Text.WordWrap
-            text: "Jack can't change anything on this computer yet. If " + jack.assistantName
-                  + " asks to, Jack says no and shows you what it wanted."
+            text: jack.isGuide
+                  ? "Jack's guide knows the common problems and how to fix them. It needs no account and no internet."
+                  : "Jack can't change anything on this computer yet. If " + jack.assistantName
+                    + " asks to, Jack says no and shows you what it wanted."
             color: theme.quiet
             font.pixelSize: 15
             lineHeight: 1.3

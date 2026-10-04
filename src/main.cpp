@@ -3,19 +3,23 @@
 // Milestone 0's test program: the Just Type sheet, talking to real assistants
 // over the Agent Client Protocol.
 //
-//   split-rock-m0 [--assistants DIR] [--state DIR] [--pretend SCRIPT]
+//   split-rock-m0 [--assistants DIR] [--state DIR] [--pretend SCRIPT] [--guide DIR]...
 //
 // --assistants  where the assistants' adapters were fetched
 //               (default: "assistants" beside the program)
 // --state       where each assistant keeps its own sign-in
 //               (default: Split Rock's folder in the person's data folder)
 // --pretend     also offer the pretend assistant, following SCRIPT
+// --guide       also read the guide and tour under DIR, which holds guide/
+//               and tour/ as a checkout does (repeatable)
 
 #include "app/Assistants.h"
 #include "app/Conversation.h"
+#include "guide/GuideLibrary.h"
 
 #include <QCommandLineParser>
 #include <QDir>
+#include <QFile>
 #include <QGuiApplication>
 #include <QQmlApplicationEngine>
 #include <QQmlContext>
@@ -41,7 +45,10 @@ int main(int argc, char **argv)
     const QCommandLineOption pretendOption(QStringLiteral("pretend"),
                                            QStringLiteral("Also offer the pretend assistant, following this script."),
                                            QStringLiteral("script"));
-    parser.addOptions({assistantsOption, stateOption, pretendOption});
+    const QCommandLineOption guideOption(QStringLiteral("guide"),
+                                         QStringLiteral("Also read the guide and tour under this folder."),
+                                         QStringLiteral("dir"));
+    parser.addOptions({assistantsOption, stateOption, pretendOption, guideOption});
     parser.process(app);
 
     const QDir programDir(QCoreApplication::applicationDirPath());
@@ -59,6 +66,21 @@ int main(int argc, char **argv)
     }
 
     splitrock::Conversation conversation(assistants);
+
+    // The guide in the box: what is installed for every person, and any folder
+    // named here, such as a checkout.
+    QStringList guideRoots = splitrock::GuideLibrary::systemRoots();
+    for (const QString &dir : parser.values(guideOption))
+        guideRoots.append(QDir(dir).absolutePath());
+    splitrock::GuideLibrary guide;
+    guide.load(guideRoots);
+    splitrock::GuideContext context;
+    context.desktops = guide.sources();
+    // What the hardware says it is: read, never written.
+    QFile product(QStringLiteral("/sys/class/dmi/id/product_name"));
+    if (product.open(QIODevice::ReadOnly))
+        context.deviceProduct = QString::fromUtf8(product.readAll()).trimmed();
+    conversation.setGuide(guide, context);
     QQmlApplicationEngine engine;
     engine.rootContext()->setContextProperty(QStringLiteral("jack"), &conversation);
     engine.load(QUrl(QStringLiteral("qrc:/qml/Main.qml")));

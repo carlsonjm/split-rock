@@ -15,7 +15,10 @@ Column {
     Text {
         width: parent.width
         wrapMode: Text.WordWrap
-        text: "Jack doesn't include an AI of its own. Choose one you have an account with; it signs you in through its own window."
+        text: (jack.assistants.length > 0 && jack.assistants[0].id === "guide"
+               ? "Jack's guide works with no account. For anything else, Jack uses an assistant you already have an account with; "
+               : "Jack doesn't include an AI of its own. Choose one you have an account with; ")
+              + "it signs you in through its own window."
         color: theme.quiet
         font.pixelSize: 14
         lineHeight: 1.3

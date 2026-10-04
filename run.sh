@@ -38,7 +38,15 @@ for arg in "$@"; do
     args+=("${arg}")
 done
 
+# The guide in the box: this checkout's own entries, and Shuffle's when its
+# checkout sits beside this one.
+guides=(--guide "${project_root}")
+if [[ -d "${project_root}/../shuffle/guide" ]]; then
+    guides+=(--guide "$(cd "${project_root}/../shuffle" && pwd)")
+fi
+
 exec "${build_dir}/split-rock-m0" \
     --assistants "${build_dir}/assistants" \
     --state "${build_dir}/sign-ins" \
+    "${guides[@]}" \
     "${args[@]}"

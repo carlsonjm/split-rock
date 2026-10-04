@@ -4,6 +4,7 @@
 #include "acp/Client.h"
 #include "app/AnswerText.h"
 #include "app/Assistants.h"
+#include "guide/GuideLibrary.h"
 
 #include <QObject>
 #include <QSet>
@@ -25,7 +26,7 @@ namespace splitrock {
 class Conversation : public QObject
 {
     Q_OBJECT
-    Q_PROPERTY(QVariantList assistants READ assistants CONSTANT)
+    Q_PROPERTY(QVariantList assistants READ assistants NOTIFY assistantsChanged)
     Q_PROPERTY(bool choosing READ choosing NOTIFY choosingChanged)
     Q_PROPERTY(QString assistantId READ assistantId NOTIFY assistantChanged)
     Q_PROPERTY(QString assistantName READ assistantName NOTIFY assistantChanged)
@@ -46,7 +47,8 @@ class Conversation : public QObject
     Q_PROPERTY(QString notice READ notice NOTIFY noticeChanged)
     Q_PROPERTY(QString problem READ problem NOTIFY noticeChanged)
     Q_PROPERTY(QString problemDetails READ problemDetails NOTIFY noticeChanged)
-    Q_PROPERTY(QStringList suggestions READ suggestions CONSTANT)
+    Q_PROPERTY(QStringList suggestions READ suggestions NOTIFY assistantChanged)
+    Q_PROPERTY(bool isGuide READ isGuide NOTIFY assistantChanged)
 
 public:
     explicit Conversation(QList<Assistant> assistants, QObject *parent = nullptr);
@@ -54,6 +56,10 @@ public:
 
     // What the assistant is told with the first question of a conversation.
     static QString framing();
+
+    // Offers the guide in the box, first in the list, when it has entries.
+    void setGuide(const GuideLibrary &library, const GuideContext &context);
+    bool isGuide() const { return m_current.guide; }
 
     QVariantList assistants() const;
     bool choosing() const { return m_choosing; }
@@ -90,6 +96,7 @@ public:
     Q_INVOKABLE void newQuestion();
 
 Q_SIGNALS:
+    void assistantsChanged();
     void choosingChanged();
     void assistantChanged();
     void phaseChanged();
@@ -112,9 +119,12 @@ private:
     void setNotice(const QString &notice);
     void setProblem(const QString &problem, const QString &details);
     void clearAnswer();
+    void answerFromGuide(const QString &question);
     QString recentDiagnostics() const;
 
     QList<Assistant> m_assistants;
+    GuideLibrary m_guide;
+    GuideContext m_guideContext;
     Assistant m_current;
     acp::Client *m_client = nullptr;
     std::unique_ptr<QTemporaryDir> m_workDir;

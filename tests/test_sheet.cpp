@@ -4,6 +4,7 @@
 // assistant.
 #include "app/Conversation.h"
 #include "PretendFixture.h"
+#include "guide/GuideLibrary.h"
 
 #include <QDir>
 #include <QGuiApplication>
@@ -84,6 +85,30 @@ private Q_SLOTS:
         QTRY_VERIFY(find(window, QStringLiteral("signIn-pretend-browser")));
         QVERIFY(!find(window, QStringLiteral("signIn-pretend-env")));
         shoot(window, QStringLiteral("2-sign-in"));
+    }
+
+    void theGuideAnswersInTheSheet()
+    {
+        PretendFixture f;
+        QVERIFY(f.isValid());
+        Conversation c({f.assistant(QStringLiteral("signed-in.json"))});
+        GuideLibrary guide;
+        guide.load({QStringLiteral(PROJECT_DIR)});
+        c.setGuide(guide, {{QStringLiteral("plasma")}, {}});
+        QQmlApplicationEngine engine;
+        engine.rootContext()->setContextProperty(QStringLiteral("jack"), &c);
+        engine.load(QUrl(QStringLiteral("qrc:/qml/Main.qml")));
+        auto *window = qobject_cast<QQuickWindow *>(engine.rootObjects().value(0));
+        QVERIFY(window);
+        QVERIFY(QTest::qWaitForWindowExposed(window));
+        QTRY_VERIFY(find(window, QStringLiteral("assistant-guide")));
+        shoot(window, QStringLiteral("6-guide-first"));
+        c.chooseAssistant(QStringLiteral("guide"));
+        QTRY_VERIFY(find(window, QStringLiteral("field")));
+        shoot(window, QStringLiteral("7-guide-ready"));
+        c.ask(QStringLiteral("it won't take my password"));
+        QTRY_VERIFY(find(window, QStringLiteral("headline")));
+        shoot(window, QStringLiteral("8-guide-answer"));
     }
 
     void refusedChangeShowsDoItUnavailable()

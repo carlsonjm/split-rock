@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 #include "app/Conversation.h"
 #include "PretendFixture.h"
+#include "guide/GuideLibrary.h"
 
 #include <QSignalSpy>
 #include <QTest>
@@ -265,6 +266,47 @@ private Q_SLOTS:
         c.chooseAssistant(QStringLiteral("pretend"));
         QVERIFY(reaches(c, QStringLiteral("signIn")));
         QVERIFY(c.notice().contains(QStringLiteral("A Claude subscription can't be used in Jack.")));
+    }
+
+    void theGuideAnswersWithNoAccount()
+    {
+        PretendFixture f;
+        QVERIFY(f.isValid());
+        Conversation c({f.assistant(QStringLiteral("signed-in.json"))});
+        GuideLibrary guide;
+        guide.load({QStringLiteral(GUIDE_FIXTURES "/system")});
+        c.setGuide(guide, {{QStringLiteral("plasma")}, {}});
+
+        // Offered first, and ready at once: nothing starts, no sign-in.
+        QCOMPARE(c.assistants().first().toMap().value(QStringLiteral("id")).toString(), QStringLiteral("guide"));
+        c.chooseAssistant(QStringLiteral("guide"));
+        QCOMPARE(c.phase(), QStringLiteral("ready"));
+        QVERIFY(c.isGuide());
+        QVERIFY(f.received().isEmpty());
+        QCOMPARE(c.suggestions().size(), 2);
+
+        c.ask(QStringLiteral("my internet keeps cutting out"));
+        QCOMPARE(c.phase(), QStringLiteral("ready"));
+        QCOMPARE(c.headline(), QStringLiteral("The Wi-Fi keeps dropping"));
+        QCOMPARE(c.steps(), (QStringList{QStringLiteral("Open the network icon."),
+                                         QStringLiteral("Turn power saving off, then on again.")}));
+        QCOMPARE(c.more(), QStringList{QStringLiteral("The radio saves power by pausing.")});
+
+        c.ask(QStringLiteral("how do I print a letter"));
+        QCOMPARE(c.headline(), QStringLiteral("Jack's guide has nothing on that yet."));
+        QVERIFY(c.steps().isEmpty());
+
+        c.newQuestion();
+        QCOMPARE(c.question(), QString());
+        QCOMPARE(c.phase(), QStringLiteral("ready"));
+    }
+
+    void noGuideEntriesMeansNoGuide()
+    {
+        PretendFixture f;
+        Conversation c({f.assistant(QStringLiteral("signed-in.json"))});
+        c.setGuide(GuideLibrary(), {{QStringLiteral("plasma")}, {}});
+        QCOMPARE(c.assistants().size(), 1);
     }
 
     void anEndedConversationLeavesNothing()

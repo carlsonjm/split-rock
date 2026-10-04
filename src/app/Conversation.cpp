@@ -85,8 +85,35 @@ QVariantList Conversation::notOffered() const
     return list;
 }
 
+void Conversation::setGuide(const GuideLibrary &library, const GuideContext &context)
+{
+    m_guide = library;
+    m_guideContext = context;
+    m_assistants.erase(std::remove_if(m_assistants.begin(), m_assistants.end(),
+                                      [](const Assistant &a) { return a.guide; }),
+                       m_assistants.end());
+    if (!m_guide.entries(m_guideContext, GuideEntry::Kind::Guide).isEmpty()) {
+        Assistant guide;
+        guide.id = QStringLiteral("guide");
+        guide.name = QStringLiteral("Jack's guide");
+        guide.cost = QStringLiteral("Free, with no account: known problems and their fixes, written ahead of time.");
+        guide.guide = true;
+        m_assistants.prepend(guide);
+    }
+    Q_EMIT assistantsChanged();
+}
+
 QStringList Conversation::suggestions() const
 {
+    if (m_current.guide) {
+        QStringList titles;
+        for (const GuideEntry &entry : m_guide.entries(m_guideContext, GuideEntry::Kind::Guide)) {
+            if (titles.size() == 3)
+                break;
+            titles.append(entry.title);
+        }
+        return titles;
+    }
     return {QStringLiteral("How do I connect to Wi-Fi?"),
             QStringLiteral("Make the writing bigger"),
             QStringLiteral("A window says my computer is infected")};
@@ -121,6 +148,13 @@ void Conversation::chooseAssistant(const QString &id)
     Q_EMIT assistantChanged();
     Q_EMIT choosingChanged();
     clearAnswer();
+    if (m_current.guide) {
+        // The guide starts nothing: it is ready at once.
+        setNotice({});
+        setProblem({}, {});
+        setPhase(QStringLiteral("ready"));
+        return;
+    }
     startAssistant();
 }
 
@@ -378,9 +412,35 @@ void Conversation::cancelSignIn()
 void Conversation::ask(const QString &text)
 {
     const QString question = text.trimmed();
-    if (question.isEmpty() || m_phase != QLatin1String("ready") || !m_client)
+    if (question.isEmpty() || m_phase != QLatin1String("ready"))
+        return;
+    if (m_current.guide) {
+        answerFromGuide(question);
+        return;
+    }
+    if (!m_client)
         return;
     send(question, question);
+}
+
+void Conversation::answerFromGuide(const QString &question)
+{
+    clearAnswer();
+    setNotice({});
+    m_question = question;
+    const QList<GuideEntry> found = m_guide.find(question, m_guideContext);
+    if (found.isEmpty()) {
+        m_answer.headline = QStringLiteral("Jack's guide has nothing on that yet.");
+        m_answer.more = {QStringLiteral("Try it in other words, or one of the problems above. With an assistant "
+                                        "account, Jack can answer anything about this computer.")};
+    } else {
+        const GuideEntry &entry = found.first();
+        m_answer.headline = entry.title;
+        m_answer.steps = entry.steps;
+        if (!entry.why.isEmpty())
+            m_answer.more = entry.why.split(QStringLiteral("\n\n"));
+    }
+    Q_EMIT answerChanged();
 }
 
 void Conversation::send(const QString &prompt, const QString &shown)
@@ -455,6 +515,10 @@ void Conversation::newQuestion()
 {
     if (m_current.id.isEmpty() || m_phase == QLatin1String("signingIn"))
         return;
+    if (m_current.guide) {
+        clearAnswer();
+        return;
+    }
     // The conversation ends here and is not saved: the assistant starts over
     // and its own record of the conversation is removed.
     stopAssistant();
