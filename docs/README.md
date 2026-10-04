@@ -16,7 +16,6 @@ Paths are from the repository root.
 | `docs/ROADMAP.md` | What is planned, in order, and what is not |
 | `docs/INPUT.md` | Every input, opening with its controls map |
 | `guide/plasma/` | The troubleshooting guide's general Plasma entries, one known problem each |
-| `guide/device/` | One folder per device Split Rock has learned: its `DEVICE.md` and its guide entries |
 | `tour/plasma/` | The tour's general Plasma steps |
 | `tests/verify-public.py` | Keeps public text fit to publish; the same script as the other components |
 | `verify.sh` | Runs every check |

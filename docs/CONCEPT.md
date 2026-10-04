@@ -62,10 +62,13 @@ a tablet such as the ASUS ROG Flow Z13, with its own power firmware and kernel
 quirks, breaks in ways a plain laptop never does, and Windows used to hide that
 behind the maker's own software.
 
-So Split Rock knows the computer it is on. The guide carries known problems for
-particular devices, matched to the hardware it finds. With an account, the
-assistant troubleshoots what the guide does not cover, and every fix lands in
-`This computer.md`, so the next time starts from what worked.
+So Jack learns the computer it is on. Jack is local: it starts fresh on every
+computer, reads what the hardware reports at setup, and keeps what it learns
+about the device in the notebook's `Device/` folder, which grows with use. With
+an account, the assistant troubleshoots what the guide does not cover and finds
+the maker's documentation for that hardware; every fix lands in
+`This computer.md` and the device's folder, so the next time starts from what
+worked. Nothing learned on one computer reaches another.
 
 ## The first five minutes
 
@@ -147,6 +150,8 @@ Inside it:
 
 - `This computer.md`: the hardware, what has been fixed, and every change made,
   with how to undo it. Split Rock writes it itself.
+- `Device/`: what this computer is and what has been learned about it, starting
+  from what Jack reads on the computer and growing with use.
 - `About me.md`: how Pat likes to be helped and who helps Pat, written only
   after Pat says yes.
 - `Notes/`: every answer Pat kept, filed by topic without Pat filing anything,
@@ -166,7 +171,7 @@ Conversations are not saved. How memory works is in `MEMORY.md`.
   change under Split Rock.
 - **Unusual hardware breaks in new ways.** A kernel or firmware update can
   change how a device such as the Z13 behaves overnight. Snapshots before
-  updates are the safety net, and the guide's device entries have to keep up.
+  updates are the safety net, and the device's folder has to keep up.
 - **Rolling-release systems break things.** Snapshots before updates are the
   safety net, and an update Split Rock runs is one Pat can undo.
 - **Trust.** One bad change, or one confident wrong answer about a scam, loses

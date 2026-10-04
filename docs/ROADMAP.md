@@ -32,7 +32,9 @@ Nothing on the computer changes yet. The assistant can look and explain.
 - A background service that holds the conversation, so closing the widget or
   restarting the panel loses nothing.
 - The notebook and its memory (`MEMORY.md`): `This computer.md` with the
-  hardware and fixed problems, `About me.md`, Keep this, Forget, and the
+  hardware and fixed problems, the `Device/` folder that starts from what Jack
+  reads on the computer and grows with use, `About me.md`, Keep this, Forget,
+  and the
   refusal to write down passwords and card numbers.
 - Sign-in with ChatGPT through Codex, and with an Anthropic key for Claude.
 - The assistant runs fenced in: it can read what it needs to explain the
@@ -40,7 +42,8 @@ Nothing on the computer changes yet. The assistant can look and explain.
 
 **Proves:** a week of the maintainer's own daily use, including troubleshooting
 an unusual device: a tablet such as the ASUS ROG Flow Z13, with its own power
-firmware and kernel quirks. The history lands in `This computer.md`.
+firmware and kernel quirks. The history lands in `This computer.md`, and what
+was learned about the device in its `Device/` folder.
 
 ## Milestone 2: changes, with a card
 
@@ -62,10 +65,9 @@ one real change is undone on the maintainer's machine.
 
 - First run: Split Rock opens once after installation and says hello.
 - The tour and the troubleshooting guide, in the box and working with no
-  account: Split Rock's general Plasma entries and its device folder in the
-  guide's format (`DECISIONS.md`), read alongside any entries a desktop adds.
-- Jack recognises the device it runs on from what it can read on the computer,
-  and offers that device's entries.
+  account: Split Rock's general Plasma entries in the guide's format
+  (`DECISIONS.md`), read alongside any entries a desktop adds and the
+  computer's own `Device/` folder.
 - Setup in three screens: choose an assistant, choose the notebook folder,
   choose what the assistant may look at.
 - Says "I don't know", and offers Send this to someone: a plain summary of the
