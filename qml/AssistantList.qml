@@ -15,7 +15,11 @@ Column {
     Text {
         width: parent.width
         wrapMode: Text.WordWrap
-        text: productName + " doesn't include an AI of its own. Choose one you have an account with; it signs you in through its own window."
+        text: (conversation.assistants.length > 0 && conversation.assistants[0].id === "guide"
+               ? conversation.assistants[0].name + " works with no account. For anything else, " + productName
+                 + " uses an assistant you already have an account with; "
+               : productName + " doesn't include an AI of its own. Choose one you have an account with; ")
+              + "it signs you in through its own window."
         color: theme.quiet
         font.pixelSize: 14
         lineHeight: 1.3

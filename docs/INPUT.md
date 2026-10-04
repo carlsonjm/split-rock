@@ -24,6 +24,7 @@ belongs to Search, and this is the assistant's own window.
 | Choose an assistant | Tap the assistant's name under the answer, then one in the list | None yet |
 | Sign in | Tap a way to sign in | None yet |
 | Ask | Type in the question field, then tap Send | `Enter` |
+| Take the tour | Tap Show me around | None yet |
 | Stop an answer | Tap Send while it shows a square | None yet |
 | Approve a change | Tap Do it on its card | None yet |
 | Decline a change | Tap Not now on its card | None yet |
@@ -65,6 +66,13 @@ belongs to Search, and this is the assistant's own window.
 | --- | --- |
 | Type in the question field, then tap or click Send | The answer arrives below the header: one short line, then steps. The question stays in the field. |
 | `Enter` in the field | The same as Send. |
+
+## Take the tour
+
+| Input | What happens |
+| --- | --- |
+| Tap or click Show me around, with the guide chosen | The first tour opens: what it shows, then its steps. A desktop's own tours come first. |
+| Tap or click Next | The next tour opens, until the last. |
 
 ## Stop an answer
 

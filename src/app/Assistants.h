@@ -15,6 +15,9 @@ namespace splitrock {
 struct Assistant {
     QString id;
     QString name;
+    // The guide in the box: answers from known problems, with no program to
+    // start, no account and no network.
+    bool guide = false;
     // What it costs, in plain words; shown before signing in.
     QString cost;
 

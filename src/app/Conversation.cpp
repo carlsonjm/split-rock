@@ -94,8 +94,42 @@ QVariantList Conversation::notOffered() const
     return list;
 }
 
+void Conversation::setGuide(const GuideLibrary &library, const GuideContext &context)
+{
+    m_guide = library;
+    m_guideContext = context;
+    m_assistants.erase(std::remove_if(m_assistants.begin(), m_assistants.end(),
+                                      [](const Assistant &a) { return a.guide; }),
+                       m_assistants.end());
+    if (!m_guide.entries(m_guideContext, GuideEntry::Kind::Guide).isEmpty()) {
+        Assistant guide;
+        guide.id = QStringLiteral("guide");
+        guide.name = QStringLiteral("%1's guide").arg(productName());
+        guide.cost = QStringLiteral("Free, with no account: known problems and their fixes, written ahead of time.");
+        guide.guide = true;
+        m_assistants.prepend(guide);
+    }
+    Q_EMIT assistantsChanged();
+}
+
 QStringList Conversation::suggestions() const
 {
+    if (m_current.guide) {
+        QStringList titles;
+        if (!tours().isEmpty())
+            titles.append(QStringLiteral("Show me around"));
+        QList<GuideEntry> entries = m_guide.entries(m_guideContext, GuideEntry::Kind::Guide);
+        // A desktop's own problems first, as for the tours.
+        std::stable_sort(entries.begin(), entries.end(), [](const GuideEntry &a, const GuideEntry &b) {
+            return a.source != QLatin1String("plasma") && b.source == QLatin1String("plasma");
+        });
+        for (const GuideEntry &entry : entries) {
+            if (titles.size() == 3)
+                break;
+            titles.append(entry.title);
+        }
+        return titles;
+    }
     return {QStringLiteral("How do I connect to Wi-Fi?"),
             QStringLiteral("Make the writing bigger"),
             QStringLiteral("A window says my computer is infected")};
@@ -135,6 +169,13 @@ void Conversation::chooseAssistant(const QString &id)
     Q_EMIT choosingChanged();
     clearAnswer();
     clearTurns();
+    if (m_current.guide) {
+        // The guide starts nothing: it is ready at once.
+        setNotice({});
+        setProblem({}, {});
+        setPhase(QStringLiteral("ready"));
+        return;
+    }
     startAssistant();
 }
 
@@ -405,20 +446,91 @@ void Conversation::cancelSignIn()
 void Conversation::ask(const QString &text)
 {
     const QString question = text.trimmed();
-    if (question.isEmpty() || m_phase != QLatin1String("ready") || !m_client)
+    if (question.isEmpty() || m_phase != QLatin1String("ready"))
+        return;
+    if (m_current.guide) {
+        answerFromGuide(question);
+        return;
+    }
+    if (!m_client)
         return;
     send(question, question);
 }
 
+QList<GuideEntry> Conversation::tours() const
+{
+    // A desktop's own tours first, as they show what the person will see
+    // first, then the general ones.
+    QList<GuideEntry> list = m_guide.entries(m_guideContext, GuideEntry::Kind::Tour);
+    std::stable_sort(list.begin(), list.end(), [](const GuideEntry &a, const GuideEntry &b) {
+        const bool aGeneral = a.source == QLatin1String("plasma");
+        const bool bGeneral = b.source == QLatin1String("plasma");
+        if (aGeneral != bGeneral)
+            return !aGeneral;
+        return a.key() < b.key();
+    });
+    return list;
+}
+
+QString Conversation::nextTour() const
+{
+    const QList<GuideEntry> list = tours();
+    return m_tour >= 0 && m_tour + 1 < list.size() ? list.at(m_tour + 1).title : QString();
+}
+
+void Conversation::showTour()
+{
+    if (!m_current.guide || m_phase != QLatin1String("ready"))
+        return;
+    const QList<GuideEntry> list = tours();
+    if (list.isEmpty())
+        return;
+    const int next = m_tour + 1 < list.size() ? m_tour + 1 : 0;
+    const QString question = m_question.isEmpty() ? QStringLiteral("Show me around") : m_question;
+    keepTurn();
+    clearAnswer();
+    setNotice({});
+    m_question = question;
+    m_tour = next;
+    const GuideEntry &tour = list.at(next);
+    m_answer.headline = tour.title;
+    m_lead = tour.intro;
+    m_answer.steps = tour.steps;
+    Q_EMIT answerChanged();
+}
+
+void Conversation::answerFromGuide(const QString &question)
+{
+    static const QRegularExpression tourWords(QStringLiteral("\\b(show me around|tour)\\b"),
+                                              QRegularExpression::CaseInsensitiveOption);
+    keepTurn();
+    if (tourWords.match(question).hasMatch() && !tours().isEmpty()) {
+        clearAnswer();
+        m_question = question;
+        showTour();
+        return;
+    }
+    clearAnswer();
+    setNotice({});
+    m_question = question;
+    const QList<GuideEntry> found = m_guide.find(question, m_guideContext);
+    if (found.isEmpty()) {
+        m_answer.headline = QStringLiteral("%1's guide has nothing on that yet.").arg(productName());
+        m_answer.more = {QStringLiteral("Try it in other words, or one of the problems above. With an assistant "
+                                        "account, %1 can answer anything about this computer.").arg(productName())};
+    } else {
+        const GuideEntry &entry = found.first();
+        m_answer.headline = entry.title;
+        m_answer.steps = entry.steps;
+        if (!entry.why.isEmpty())
+            m_answer.more = entry.why.split(QStringLiteral("\n\n"));
+    }
+    Q_EMIT answerChanged();
+}
+
 void Conversation::send(const QString &prompt, const QString &shown)
 {
-    if (!m_question.isEmpty()) {
-        m_turns.append(QVariantMap{{QStringLiteral("question"), m_question},
-                                   {QStringLiteral("headline"), m_answer.headline},
-                                   {QStringLiteral("steps"), m_answer.steps},
-                                   {QStringLiteral("more"), m_answer.more}});
-        Q_EMIT turnsChanged();
-    }
+    keepTurn();
     clearAnswer();
     m_question = shown;
     Q_EMIT answerChanged();
@@ -489,6 +601,10 @@ void Conversation::newQuestion()
 {
     if (m_current.id.isEmpty() || m_phase == QLatin1String("signingIn"))
         return;
+    if (m_current.guide) {
+        clearAnswer();
+        return;
+    }
     // The conversation ends here and is not saved: the assistant starts over
     // and its own record of the conversation is removed.
     stopAssistant();
@@ -524,6 +640,8 @@ void Conversation::setProblem(const QString &problem, const QString &details)
 
 void Conversation::clearAnswer()
 {
+    m_tour = -1;
+    m_lead.clear();
     m_question.clear();
     m_said.clear();
     m_answer = {};
@@ -533,6 +651,17 @@ void Conversation::clearAnswer()
     m_unasked.clear();
     Q_EMIT answerChanged();
     Q_EMIT cardChanged();
+}
+
+void Conversation::keepTurn()
+{
+    if (m_question.isEmpty() || (m_answer.headline.isEmpty() && m_answer.steps.isEmpty() && m_answer.more.isEmpty()))
+        return;
+    m_turns.append(QVariantMap{{QStringLiteral("question"), m_question},
+                               {QStringLiteral("headline"), m_answer.headline},
+                               {QStringLiteral("steps"), m_answer.steps},
+                               {QStringLiteral("more"), m_answer.more}});
+    Q_EMIT turnsChanged();
 }
 
 void Conversation::clearTurns()

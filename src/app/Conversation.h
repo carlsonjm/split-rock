@@ -4,6 +4,7 @@
 #include "acp/Client.h"
 #include "app/AnswerText.h"
 #include "app/Assistants.h"
+#include "guide/GuideLibrary.h"
 
 #include <QObject>
 #include <QSet>
@@ -25,7 +26,7 @@ namespace splitrock {
 class Conversation : public QObject
 {
     Q_OBJECT
-    Q_PROPERTY(QVariantList assistants READ assistants CONSTANT)
+    Q_PROPERTY(QVariantList assistants READ assistants NOTIFY assistantsChanged)
     Q_PROPERTY(bool choosing READ choosing NOTIFY choosingChanged)
     Q_PROPERTY(QString assistantId READ assistantId NOTIFY assistantChanged)
     Q_PROPERTY(QString assistantName READ assistantName NOTIFY assistantChanged)
@@ -39,6 +40,10 @@ class Conversation : public QObject
     Q_PROPERTY(QString signInPage READ signInPage NOTIFY signInChanged)
     Q_PROPERTY(QString question READ question NOTIFY answerChanged)
     Q_PROPERTY(QString headline READ headline NOTIFY answerChanged)
+    // A line under the headline, such as a tour's opening words.
+    Q_PROPERTY(QString lead READ lead NOTIFY answerChanged)
+    // The tour that follows the one shown, or empty.
+    Q_PROPERTY(QString nextTour READ nextTour NOTIFY answerChanged)
     Q_PROPERTY(QStringList steps READ steps NOTIFY answerChanged)
     Q_PROPERTY(QStringList more READ more NOTIFY answerChanged)
     Q_PROPERTY(QVariantMap card READ card NOTIFY cardChanged)
@@ -46,13 +51,14 @@ class Conversation : public QObject
     Q_PROPERTY(QString notice READ notice NOTIFY noticeChanged)
     Q_PROPERTY(QString problem READ problem NOTIFY noticeChanged)
     Q_PROPERTY(QString problemDetails READ problemDetails NOTIFY noticeChanged)
-    Q_PROPERTY(QStringList suggestions READ suggestions CONSTANT)
+    Q_PROPERTY(QStringList suggestions READ suggestions NOTIFY assistantChanged)
     // The questions asked earlier in this conversation, each with its answer:
     // question, headline, steps and more. The one being answered is not here.
     Q_PROPERTY(QVariantList turns READ turns NOTIFY turnsChanged)
     // What the assistant asked to change in this conversation and was refused,
     // oldest first: heading and question.
     Q_PROPERTY(QVariantList refusedChanges READ refusedChanges NOTIFY turnsChanged)
+    Q_PROPERTY(bool isGuide READ isGuide NOTIFY assistantChanged)
 
 public:
     explicit Conversation(QList<Assistant> assistants, QObject *parent = nullptr);
@@ -60,6 +66,10 @@ public:
 
     // What the assistant is told with the first question of a conversation.
     static QString framing();
+
+    // Offers the guide in the box, first in the list, when it has entries.
+    void setGuide(const GuideLibrary &library, const GuideContext &context);
+    bool isGuide() const { return m_current.guide; }
 
     QVariantList assistants() const;
     bool choosing() const { return m_choosing; }
@@ -74,6 +84,8 @@ public:
     QString signInPage() const { return m_signInPage; }
     QString question() const { return m_question; }
     QString headline() const { return m_answer.headline; }
+    QString lead() const { return m_lead; }
+    QString nextTour() const;
     QStringList steps() const { return m_answer.steps; }
     QStringList more() const { return m_answer.more; }
     QVariantMap card() const { return m_card; }
@@ -99,8 +111,11 @@ public:
     Q_INVOKABLE void notNow();
     Q_INVOKABLE void openCard();
     Q_INVOKABLE void newQuestion();
+    // The guide's tour: the first, or the one after the tour shown.
+    Q_INVOKABLE void showTour();
 
 Q_SIGNALS:
+    void assistantsChanged();
     void choosingChanged();
     void assistantChanged();
     void phaseChanged();
@@ -124,10 +139,17 @@ private:
     void setNotice(const QString &notice);
     void setProblem(const QString &problem, const QString &details);
     void clearAnswer();
+    void answerFromGuide(const QString &question);
+    QList<GuideEntry> tours() const;
+    void keepTurn();
     void clearTurns();
     QString recentDiagnostics() const;
 
     QList<Assistant> m_assistants;
+    GuideLibrary m_guide;
+    GuideContext m_guideContext;
+    int m_tour = -1;
+    QString m_lead;
     Assistant m_current;
     acp::Client *m_client = nullptr;
     std::unique_ptr<QTemporaryDir> m_workDir;

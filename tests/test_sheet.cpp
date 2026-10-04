@@ -7,6 +7,7 @@
 #include "PretendFixture.h"
 #include "app/QmlContext.h"
 #include "desktop/Shell.h"
+#include "guide/GuideLibrary.h"
 
 #include <QDir>
 #include <QGuiApplication>
@@ -116,6 +117,38 @@ private Q_SLOTS:
         QTRY_VERIFY(find(window, QStringLiteral("signIn-pretend-browser")));
         QVERIFY(!find(window, QStringLiteral("signIn-pretend-env")));
         shoot(window, QStringLiteral("2-sign-in"));
+    }
+
+    void theGuideAnswersInTheSheet()
+    {
+        PretendFixture f;
+        QVERIFY(f.isValid());
+        Conversation c({f.assistant(QStringLiteral("signed-in.json"))});
+        GuideLibrary guide;
+        guide.load({QStringLiteral(PROJECT_DIR)});
+        c.setGuide(guide, {{QStringLiteral("plasma")}, {}});
+        QQmlApplicationEngine engine;
+        QQuickWindow *window = open(engine, c);
+        QVERIFY(window);
+        QTRY_VERIFY(find(window, QStringLiteral("assistant-guide")));
+        shoot(window, QStringLiteral("6-guide-first"));
+        c.chooseAssistant(QStringLiteral("guide"));
+        QTRY_VERIFY(find(window, QStringLiteral("field")));
+        shoot(window, QStringLiteral("7-guide-ready"));
+        c.ask(QStringLiteral("it won't take my password"));
+        QTRY_VERIFY(find(window, QStringLiteral("headline")));
+        shoot(window, QStringLiteral("8-guide-answer"));
+        c.ask(QStringLiteral("Show me around"));
+        QTRY_COMPARE(c.headline(), QStringLiteral("Moving between virtual desktops"));
+        shoot(window, QStringLiteral("9-guide-tour"));
+        // The guide's answers stay in the window, for the full view.
+        QCOMPARE(c.turns().size(), 1);
+        QMetaObject::invokeMethod(window, "expand");
+        Shell *shell = shellOf(engine);
+        QTRY_VERIFY(shell->full() && shell->full()->isVisible());
+        QVERIFY(find(shell->full(), QStringLiteral("fullView")));
+        shell->full()->setGeometry(0, 0, 1280, 768);
+        shoot(shell->full(), QStringLiteral("11-guide-full-view"));
     }
 
     void refusedChangeShowsDoItUnavailable()
@@ -239,7 +272,7 @@ private Q_SLOTS:
         // The refused change's card is still the person's to decide on.
         QVERIFY(find(full, QStringLiteral("doItCard")));
         full->setGeometry(0, 0, 1280, 768);
-        shoot(full, QStringLiteral("6-full-view"));
+        shoot(full, QStringLiteral("10-full-view"));
 
         // Closing the full window ends the program.
         full->close();

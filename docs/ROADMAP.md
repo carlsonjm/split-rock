@@ -96,6 +96,10 @@ one real change is undone on the maintainer's machine.
 **Proves:** someone leaving Windows who has never used Linux gets through the
 first five minutes alone, watched and not helped.
 
+**Built ahead, in Milestone 0's test program:** the guide reader and the tour.
+The guide answers from the general and a desktop's entries with no account,
+and Show me around steps through the tours.
+
 ## Milestone 4: everyday help
 
 More changes for the card, each with its undo: text size, Wi-Fi, printers,

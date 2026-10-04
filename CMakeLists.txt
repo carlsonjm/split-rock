@@ -23,6 +23,7 @@ add_library(splitrock_core STATIC
     src/app/AnswerText.cpp
     src/app/ChangeCard.cpp
     src/app/Conversation.cpp
+    src/guide/GuideLibrary.cpp
     src/app/Product.cpp
 )
 target_include_directories(splitrock_core PUBLIC src)

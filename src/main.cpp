@@ -3,7 +3,7 @@
 // Milestone 0's program: Split Rock, talking to real assistants over the Agent
 // Client Protocol, and offering its conversation to Search on the session bus.
 //
-//   split-rock-m0 [--ask | --background] [--assistants DIR] [--state DIR] [--pretend SCRIPT]
+//   split-rock-m0 [--ask | --background] [--assistants DIR] [--state DIR] [--pretend SCRIPT] [--guide DIR]...
 //
 // With no arguments, as from its entry, it opens the full window. --ask opens
 // the card in Search's shape; --background opens nothing, as when Search's
@@ -15,6 +15,8 @@
 // --state       where each assistant keeps its own sign-in
 //               (default: Split Rock's folder in the person's data folder)
 // --pretend     also offer the pretend assistant, following SCRIPT
+// --guide       also read the guide and tour under DIR, which holds guide/
+//               and tour/ as a checkout does (repeatable)
 
 #include "app/Assistants.h"
 #include "app/Conversation.h"
@@ -22,6 +24,7 @@
 #include "desktop/ConversationService.h"
 #include "desktop/Entry.h"
 #include "desktop/Shell.h"
+#include "guide/GuideLibrary.h"
 
 #include <QCommandLineParser>
 #include <QDBusConnection>
@@ -90,7 +93,10 @@ int main(int argc, char **argv)
     const QCommandLineOption pretendOption(QStringLiteral("pretend"),
                                            QStringLiteral("Also offer the pretend assistant, following this script."),
                                            QStringLiteral("script"));
-    parser.addOptions({askOption, backgroundOption, assistantsOption, stateOption, pretendOption});
+    const QCommandLineOption guideOption(QStringLiteral("guide"),
+                                         QStringLiteral("Also read the guide and tour under this folder."),
+                                         QStringLiteral("dir"));
+    parser.addOptions({askOption, backgroundOption, assistantsOption, stateOption, pretendOption, guideOption});
     parser.process(app);
 
     // The one running Split Rock answers instead.
@@ -121,6 +127,19 @@ int main(int argc, char **argv)
     }
 
     splitrock::Conversation conversation(assistants);
+
+    // The guide in the box: what is installed for every person, and any folder
+    // named here, such as a checkout.
+    QStringList guideRoots = splitrock::GuideLibrary::systemRoots();
+    for (const QString &dir : parser.values(guideOption))
+        guideRoots.append(QDir(dir).absolutePath());
+    splitrock::GuideLibrary guide;
+    guide.load(guideRoots);
+    splitrock::GuideContext context;
+    context.desktops = guide.sources();
+    // What the hardware says it is: read, never written.
+    context.deviceProduct = splitrock::computerName();
+    conversation.setGuide(guide, context);
     QQmlApplicationEngine engine;
     splitrock::Shell shell(&engine, bus);
     engine.rootContext()->setContextProperty(QStringLiteral("conversation"), &conversation);
@@ -133,7 +152,7 @@ int main(int argc, char **argv)
 
     const auto handle = [&](const QStringList &arguments) {
         QCommandLineParser request;
-        request.addOptions({askOption, backgroundOption, assistantsOption, stateOption, pretendOption});
+        request.addOptions({askOption, backgroundOption, assistantsOption, stateOption, pretendOption, guideOption});
         request.parse(arguments);
         if (request.isSet(backgroundOption))
             return;

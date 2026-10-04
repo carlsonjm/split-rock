@@ -23,7 +23,8 @@ Rectangle {
             visible: card.empty
             width: parent.width
             wrapMode: Text.WordWrap
-            text: "Ask " + conversation.assistantName + " anything about this computer."
+            text: conversation.isGuide ? "Say what's wrong, in your own words."
+                                       : "Ask " + conversation.assistantName + " anything about this computer."
             color: theme.text
             font.pixelSize: 16
             font.weight: Font.Bold
@@ -32,8 +33,10 @@ Rectangle {
             visible: card.empty
             width: parent.width
             wrapMode: Text.WordWrap
-            text: productName + " can't change anything on this computer yet. If " + conversation.assistantName
-                  + " asks to, " + productName + " says no and shows you what it wanted."
+            text: conversation.isGuide
+                  ? conversation.assistantName + " knows the common problems and how to fix them. It needs no account and no internet."
+                  : productName + " can't change anything on this computer yet. If " + conversation.assistantName
+                    + " asks to, " + productName + " says no and shows you what it wanted."
             color: theme.quiet
             font.pixelSize: 15
             lineHeight: 1.3
@@ -67,6 +70,16 @@ Rectangle {
             color: theme.text
             font.pixelSize: 16
             font.weight: Font.Bold
+            lineHeight: 1.3
+        }
+
+        Text {
+            visible: text !== ""
+            width: parent.width
+            wrapMode: Text.WordWrap
+            text: conversation.lead
+            color: theme.text
+            font.pixelSize: 15
             lineHeight: 1.3
         }
 
@@ -126,6 +139,13 @@ Rectangle {
                 visible: card.hasCard
                 text: "Show me how"
                 onClicked: conversation.showMeHow()
+            }
+            Pill {
+                objectName: "nextTourPill"
+                visible: conversation.nextTour !== ""
+                filled: true
+                text: "Next: " + conversation.nextTour
+                onClicked: conversation.showTour()
             }
             // Kept answers go to the notebook, which arrives in Milestone 1.
             Pill {

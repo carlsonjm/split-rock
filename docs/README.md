@@ -19,7 +19,7 @@ Paths are from the repository root.
 | `docs/INPUT.md` | Every input, opening with its controls map |
 | `docs/DESKTOP.md` | The entry, the card, and the conversation offered to Search on the session bus |
 | `data/` | The desktop file and the session bus's service file, filled in at build time |
-| `src/` | Milestone 0: the protocol layer (`acp/`), the assistants and the conversation (`app/`), where the card stands and Kadunce's companion guest (`desktop/`), the pretend assistant (`pretend/`) |
+| `src/` | Milestone 0: the protocol layer (`acp/`), the assistants and the conversation (`app/`), the guide reader (`guide/`), where the card stands and Kadunce's companion guest (`desktop/`), the pretend assistant (`pretend/`) |
 | `qml/` | Milestone 0's windows: the card in Search's shape, the full window, and the Do it card |
 | `tests/` | The tests, each against the pretend assistant only, and its scripts in `tests/pretend-scripts/`; `tests/bus/` drives the conversation's bus interface on a private bus |
 | `guide/plasma/` | The troubleshooting guide's general Plasma entries, one known problem each |
