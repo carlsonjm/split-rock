@@ -20,6 +20,7 @@ add_library(splitrock_core STATIC
     src/app/AnswerText.cpp
     src/app/ChangeCard.cpp
     src/app/Conversation.cpp
+    src/guide/GuideLibrary.cpp
 )
 target_include_directories(splitrock_core PUBLIC src)
 target_link_libraries(splitrock_core PUBLIC Qt6::Core)

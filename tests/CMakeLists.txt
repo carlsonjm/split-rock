@@ -22,7 +22,9 @@ function(split_rock_test name)
     target_compile_definitions(${name} PRIVATE
         PRETEND_PROGRAM="$<TARGET_FILE:split-rock-pretend-assistant>"
         SCRIPTS_DIR="${CMAKE_CURRENT_SOURCE_DIR}/pretend-scripts"
-        FIXTURES_DIR="${CMAKE_CURRENT_SOURCE_DIR}/fixtures")
+        FIXTURES_DIR="${CMAKE_CURRENT_SOURCE_DIR}/fixtures"
+        GUIDE_FIXTURES="${CMAKE_CURRENT_SOURCE_DIR}/guide-fixtures"
+        PROJECT_DIR="${PROJECT_SOURCE_DIR}")
     add_dependencies(${name} split-rock-pretend-assistant)
     add_test(NAME ${name} COMMAND ${name})
     set_tests_properties(${name} PROPERTIES ENVIRONMENT "${TEST_ENVIRONMENT}" TIMEOUT 120)
@@ -33,6 +35,7 @@ split_rock_test(test_change_card)
 split_rock_test(test_assistants)
 split_rock_test(test_protocol)
 split_rock_test(test_conversation)
+split_rock_test(test_guide)
 
 split_rock_test(test_sheet)
 target_link_libraries(test_sheet PRIVATE Qt6::Gui Qt6::Quick)
