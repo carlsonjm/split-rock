@@ -291,3 +291,16 @@ read as plain files, and would be a second kind of storage beside the notebook;
 Split Rock carrying each desktop's entries, which would make it depend on that
 desktop and release with it; and updating entries over the network between
 releases, which would ship fixes not checked against the release in hand.
+
+## The tour is written like the guide
+
+The tour's stops are plain Markdown files in `split-rock/tour/<source>/`, read
+from the same shared data folders as the guide and kept the same way: the same
+header (`id`, `title`, `applies`, `checked`, `format`), and a body of numbered
+steps, each one action and what the person will see. In this repository Split
+Rock's own entries live in `guide/plasma/` and `tour/plasma/`, installed as they
+are; `checked` reads `unreleased` until the first release checks them.
+(Engineering, 4 October.)
+
+Rejected: a second format for the tour, which would give a desktop two ways to
+add its own and two to keep up to date.
