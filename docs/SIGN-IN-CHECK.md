@@ -49,9 +49,8 @@ Choose it from the list, then note:
      page? (For Claude Agent: did the page give you a code to paste? If so,
      this sign-in needs a terminal; tap Cancel.)
    - Did a terminal window appear at any point?
-   - Did the window go on to show the field when you finished? If the browser
-     stayed in front of it, could you bring the window back from the task
-     bar?
+   - Did Genie's full window open before the browser, and could you get back
+     to it when you finished?
 3. **What it costs.** What did the sign-in pages say about plans, trials or
    billing? Were you asked for card details?
 4. **Ask.** Tap How do I connect to Wi-Fi?. Did an answer arrive as one short
@@ -72,11 +71,14 @@ With any assistant signed in, and the on-screen keys:
 1. **The keys.** Tap the question field so the keys come up. Did the card stay
    clear of them, with the field and the answer still readable? Did it move
    smoothly?
-2. **Expand.** Tap Expand. Did the card grow to fill the screen above the
-   panel, then show the conversation on the left and This computer on the
-   right? Did it feel like the same window grown?
-3. **Closing.** Tap the desktop around the card, or press Esc. Did the window
+2. **Spread.** Open Spread, then open Genie. Did the card take Spread's centre,
+   with the cards beside it moving aside? Tap a card beside it: did Genie
    close?
+3. **Expand.** Tap Expand, in Spread and over an open application. Did the
+   card grow to fill the screen above the panel, then become the full window,
+   with the conversation on the left and This computer on the right, with no
+   flash between them? Did it feel like the same window grown?
+4. **Closing.** Tap beside the card, or press Esc. Did it close?
 
 ## Report
 
@@ -88,8 +90,8 @@ Copy this and fill it in; one row per assistant.
 | Claude Agent | | | | | | |
 | Gemini CLI | | | | | | |
 
-And for the window: clear of the keys? Expand feels like the same window? Closes
-on a tap outside and on Esc?
+And for the window: clear of the keys? Holds Spread's centre? Expand feels like
+the same window, with no flash? Closes on a tap beside it and on Esc?
 
 ## Signing out again
 

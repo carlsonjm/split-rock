@@ -11,8 +11,9 @@ Shuffle's current 1.0 work, starting with Milestone 0.
 
 A small test program, not yet a widget, that talks to real assistants over the
 Agent Client Protocol. Its window is one card the size of Shuffle's Search,
-centred over the work, with the answer as `mockup/JustType.dc.html` draws it and
-an Expand into the full view of `mockup/Workspace.dc.html` (`DECISIONS.md`). A
+centred over the work or holding Spread's centre under Kadunce, with the answer
+as `mockup/JustType.dc.html` draws it, and an Expand that hands over to a full
+window with the full view of `mockup/Workspace.dc.html` (`DECISIONS.md`). A
 refused change request shows as the Do it card with Do it unavailable. Built in
 one pass from the concept, decisions and mock-up, then tested against the proof
 (`DECISIONS.md`).
@@ -25,11 +26,11 @@ one pass from the concept, decisions and mock-up, then tested against the proof
 **Proves:** the sign-in table in `ASSISTANTS.md`, checked live: for each
 assistant, whether a person can sign in without ever seeing a terminal, and
 what it costs. And, on the tablet, that the card keeps clear of the on-screen
-keys while a question is typed, and that Expand reads as the same window grown.
+keys while a question is typed, that it holds Spread's centre, and that Expand
+reads as the same window grown.
 
-The window is an ordinary one in Milestone 0, so that the browser a sign-in
-opens can come in front of it; where it lives on the desktop is settled with
-the widget in Milestone 1.
+Signing in happens in the full window, so the browser a sign-in opens can come
+in front of it; the card sits above every window.
 
 **Status:** built. Waiting on the live sign-in check (`SIGN-IN-CHECK.md`).
 
