@@ -209,11 +209,17 @@ Type sheet, the expanded coworking card, the Do it card, working on a note, and
 Search's doors. An agent builds to them without asking again; a later ruling
 wins where they disagree. (The maintainer, 4 October.)
 
-## Jack is the working name
+## Shuffle Genie inside Shuffle, Split Rock on its own
 
-The assistant is called Jack in the interface and in documents until a consumer
-name is settled. A web search found other assistants called Jack, so it waits on
-a registered trademark search, as Shuffle Ace does. (The maintainer, 4 October.)
+Jack is retired. Inside Shuffle the product is Shuffle Genie, and Search's pill
+and the window's header say Genie. On its own, on any Plasma desktop, the
+application is Split Rock. The repository stays Split Rock. Its mark is a genie
+lamp in the suite's line style, kept as one file, `assets/mark.svg`, which every
+surface that draws the assistant uses, so that it is swapped in one place. Genie
+waits on a registered trademark search, as Shuffle Ace does: other AI
+assistants are already called Genie. (The maintainer, 4 October.)
+
+Rejected: Jack, the working name until now.
 
 ## The person is leaving decades of Windows
 
@@ -245,7 +251,7 @@ In the box, with no account, Split Rock offers a tour and a troubleshooting
 guide of known problems and their fixes, written ahead of time, shipped with
 Split Rock and updated with each release. A desktop that installs Split Rock's
 extras adds entries of its own. The person's own assistant account unlocks the
-rest: Jack becomes a butler on the desktop that answers anything and makes
+rest: Split Rock becomes a butler on the desktop that answers anything and makes
 changes through the Do it card, at the person's own cost. Split Rock sells no
 account and pays for no use. It is for someone who already pays for a chatbot
 in daily life, most often ChatGPT. What the account costs is the person's
@@ -271,7 +277,8 @@ entries. A desktop adds its own entries without Split Rock depending on it.
 - **Where entries live:** in `split-rock/guide/<source>/` inside the system's
   shared data folders, normally `/usr/share`. Split Rock's own general entries
   are `split-rock/guide/plasma/`. Split Rock reads every source folder it
-  finds there, and none from the person's home.
+  finds there and, from the person's home, only the notebook's `Device/`
+  folder, which is this computer's own (see "Split Rock is local").
 - **How a release updates them:** the entries are part of Split Rock's package.
   Each release checks every entry it ships, raises its `checked`, and removes
   one that no longer holds rather than leaving it. Nothing is downloaded
@@ -323,3 +330,45 @@ not saved".)
 
 Rejected: letting each assistant keep its history on disk, which would save the
 conversation the person was promised is not saved.
+
+## The tour is written like the guide
+
+The tour's stops are plain Markdown files in `split-rock/tour/<source>/`, read
+from the same shared data folders as the guide and kept the same way: the same
+header (`id`, `title`, `applies`, `checked`, `format`), and a body of numbered
+steps, each one action and what the person will see. In this repository Split
+Rock's own entries live in `guide/plasma/` and `tour/plasma/`, installed as they
+are; `checked` reads `unreleased` until the first release checks them.
+(Engineering, 4 October.)
+
+Rejected: a second format for the tour, which would give a desktop two ways to
+add its own and two to keep up to date.
+
+## Split Rock is local: each computer learns its own device
+
+Split Rock is local by default and starts fresh on every computer. Its device folder
+lives on that computer, in the notebook as `Device/`, and grows with use: at
+setup, what Split Rock can read on the computer itself, such as the maker, model and
+firmware the hardware reports; then the device's problems and their fixes as
+they are met, in the guide's format; and, with an assistant account, the maker's
+documentation the assistant finds for that hardware. Without an account, Split
+Rock knows only what it can read on the computer. Nothing learned on one computer
+reaches another: releases update the general Plasma entries and a desktop's own
+entries, never device knowledge gathered from people's computers. The ASUS ROG
+Flow Z13's lessons are the test machine's own `Device/`, not shipped content.
+(The maintainer, 4 October.)
+
+Rejected: shipping device folders learned on one machine, which gives every
+person someone else's setup; and collecting what each copy learns for future
+releases, which needs each person's permission and carries a security risk.
+
+## A device folder describes the device
+
+`Device/DEVICE.md` has a header like a guide entry's, with `id`, `name`,
+`maker`, `matches` (the text the hardware's product name contains), `checked`
+and `format`, and says how the device was recognised, what it is, what is known
+about it, and the maker's documentation found so far. The device's entries sit
+beside it in the guide's format. (Engineering, 4 October.)
+
+Rejected: folding device knowledge into `This computer.md`, which is the undo
+record and has to stay short enough to read.
