@@ -62,8 +62,10 @@ one real change is undone on the maintainer's machine.
 
 - First run: Split Rock opens once after installation and says hello.
 - The tour and the troubleshooting guide, in the box and working with no
-  account: Split Rock's general Plasma entries in the guide's format
-  (`DECISIONS.md`), read alongside any entries a desktop adds.
+  account: Split Rock's general Plasma entries and its device folder in the
+  guide's format (`DECISIONS.md`), read alongside any entries a desktop adds.
+- Jack recognises the device it runs on from what it can read on the computer,
+  and offers that device's entries.
 - Setup in three screens: choose an assistant, choose the notebook folder,
   choose what the assistant may look at.
 - Says "I don't know", and offers Send this to someone: a plain summary of the
@@ -108,10 +110,6 @@ The maintainer's to make.
 
 - **The consumer name** (holds up a public release). The working name is Jack,
   pending a registered trademark search.
-- **Who writes a device's guide entries** (holds up the device entries in
-  Milestone 3's guide). Split Rock owns the general Plasma entries and a
-  desktop adds its own; neither ruling says whose entries for a particular
-  device, such as the Z13, are.
 
 Shuffle's own question, whether the assistant is in the bundle and is the reason
 to buy it, is Shuffle's and is recorded there.

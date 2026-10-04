@@ -270,8 +270,9 @@ entries. A desktop adds its own entries without Split Rock depending on it.
   the person sees, why it happens, and what to do, in numbered steps.
 - **Where entries live:** in `split-rock/guide/<source>/` inside the system's
   shared data folders, normally `/usr/share`. Split Rock's own general entries
-  are `split-rock/guide/plasma/`. Split Rock reads every source folder it
-  finds there, and none from the person's home.
+  are `split-rock/guide/plasma/`, and its device entries are
+  `split-rock/guide/device/<device>/`, one folder per device. Split Rock reads
+  every source folder it finds there, and none from the person's home.
 - **How a release updates them:** the entries are part of Split Rock's package.
   Each release checks every entry it ships, raises its `checked`, and removes
   one that no longer holds rather than leaving it. Nothing is downloaded
@@ -304,3 +305,34 @@ are; `checked` reads `unreleased` until the first release checks them.
 
 Rejected: a second format for the tour, which would give a desktop two ways to
 add its own and two to keep up to date.
+
+## Split Rock keeps a device folder, and learns the device it runs on
+
+Split Rock always ships a device folder in its guide, one folder for each
+device it has learned, and adds to it in each release. The first is the ASUS
+ROG Flow Z13, from what was learned on the test machine. Each device's folder
+holds a `DEVICE.md`, which says how the device is recognised by the names its
+hardware reports and what is known about it, including the maker's
+documentation, and the device's guide entries in the guide's format.
+
+Split Rock learns which device it is on. Without an assistant account, Jack
+knows only what it can read on the computer itself, such as the maker, model and
+firmware the hardware reports, and matches that against its device folders.
+With an account, the assistant can also look up the maker's documentation for
+that hardware. What is learned about this particular computer goes into its
+`This computer.md`, as `MEMORY.md` describes. (The maintainer, 4 October.)
+
+Rejected: leaving a device's entries to whichever desktop runs on it, which
+would tie keeping a device working to that desktop; and a guide with no device
+entries, when unusual hardware is what a person leaving Windows meets first.
+
+## A device's folder describes the device
+
+A device folder's `DEVICE.md` has a header like a guide entry's, with `id`,
+`name`, `maker` and `matches` (the text the hardware's product name contains),
+`checked` and `format`, and says how Jack recognises the device, what it is,
+what is known about it, and the maker's documentation. Its entries name the
+device in `applies`. (Engineering, 4 October.)
+
+Rejected: listing devices in a table inside Split Rock, which would need a code
+change to add one.
