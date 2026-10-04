@@ -11,7 +11,7 @@ the widget does.
 | Choose an assistant | Tap the assistant at the top, then one in the list | None yet |
 | Sign in | Tap a way to sign in | None yet |
 | Ask | Type, then tap Send | `Enter` |
-| Take the tour | Tap Show me around, then Next | None yet |
+| Take the tour | Tap Show me around | None yet |
 | Stop an answer | Tap Send while it shows a square | `Esc` |
 | Approve a change | Tap Do it on its card | None yet |
 | Decline a change | Tap Not now on its card | `Esc` |
