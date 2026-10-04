@@ -22,6 +22,7 @@
 #include <QTemporaryDir>
 #include <QTest>
 
+#include <algorithm>
 #include <functional>
 
 using namespace splitrock;
@@ -369,6 +370,76 @@ private Q_SLOTS:
         QCOMPARE(c.deviceFixes().size(), 2);
         QTRY_VERIFY(!find(full, QStringLiteral("deviceOpen-0")));
         shoot(full, QStringLiteral("17-solved"));
+    }
+
+    // Every problem still open opens to its two ways of solving it, tapped
+    // as the person taps it, however many there are and however long.
+    void eachStillOpenProblemOpens()
+    {
+        QTemporaryDir folder;
+        Notebook notebook(folder.filePath(QStringLiteral("Notebook")));
+        QVERIFY(notebook.prepare(DeviceFacts::read(QStringLiteral(FIXTURES_DIR "/computer"))));
+        QFile page(folder.filePath(QStringLiteral("Notebook/Device/DEVICE.md")));
+        QVERIFY(page.open(QIODevice::ReadOnly));
+        QString text = QString::fromUtf8(page.readAll());
+        page.close();
+        text.replace(QStringLiteral("## Still open\n\nNothing yet."),
+                     QStringLiteral("## Still open\n\nOffer no fix for these until one is proven.\n\n"
+                                    "- Sign-in froze twice, and the splash or wallpaper hung, as the power tool\n"
+                                    "  applied its preset at start. The kernel log showed the power firmware (SMU)\n"
+                                    "  locking up; check for SMU errors there first.\n"
+                                    "- The Gaming preset hung the computer in use.\n"
+                                    "- The rotation sensor once stopped working and \"needed a reset\". The steps were\n"
+                                    "  not recorded.\n"
+                                    "- The memory card labelled RECOVERY stays hidden. No fix is known."));
+        QVERIFY(page.open(QIODevice::WriteOnly | QIODevice::Truncate));
+        page.write(text.toUtf8());
+        page.close();
+        PretendFixture f;
+        QVERIFY(f.isValid());
+        Conversation c({f.assistant(QStringLiteral("signed-in.json"))});
+        c.setNotebook(&notebook);
+        QCOMPARE(c.deviceStillOpen().size(), 4);
+        QQmlApplicationEngine engine;
+        QQuickWindow *window = open(engine, c);
+        QVERIFY(window);
+        c.chooseAssistant(QStringLiteral("pretend"));
+        QTRY_COMPARE(c.phase(), QStringLiteral("ready"));
+        QMetaObject::invokeMethod(window, "expand");
+        Shell *shell = shellOf(engine);
+        QTRY_VERIFY(shell->full() && shell->full()->isVisible());
+        QQuickWindow *full = shell->full();
+        full->showNormal();
+        full->setGeometry(0, 0, 1280, 760);
+        QQuickItem *panel = find(full, QStringLiteral("notebook"));
+        QTRY_VERIFY(panel->isVisible() && panel->x() < 1280 - panel->width() + 1);
+        QTest::qWait(300);
+        for (int i = 0; i < 4; ++i) {
+            QQuickItem *row = find(full, QStringLiteral("deviceOpen-%1").arg(i));
+            QVERIFY2(row, qPrintable(QStringLiteral("row %1").arg(i)));
+            QVERIFY(row->isVisible());
+            // Scrolled to, then tapped near its top, where its words are.
+            panel->setProperty("contentY", std::clamp(row->mapToItem(panel->childItems().first(), QPointF(0, 0)).y() - 40, 0.0,
+                std::max(0.0, panel->property("contentHeight").toReal() - panel->height())));
+            QTest::qWait(50);
+            const QPoint at = row->mapToScene(QPointF(row->width() / 3, 20)).toPoint();
+            QTest::mouseClick(full, Qt::LeftButton, {}, at);
+            QTRY_VERIFY2(row->property("open").toBool(), qPrintable(QStringLiteral("row %1 did not open").arg(i)));
+            QQuickItem *write = find(row, QStringLiteral("writeFix"));
+            QVERIFY(write);
+            QTRY_VERIFY(write->isVisible());
+            shoot(full, QStringLiteral("18-open-%1").arg(i));
+            QTest::mouseClick(full, Qt::LeftButton, {}, at);
+            QTRY_VERIFY(!row->property("open").toBool());
+            // And by a finger.
+            static QPointingDevice *finger = QTest::createTouchDevice();
+            QTest::touchEvent(full, finger).press(0, at);
+            QTest::touchEvent(full, finger).release(0, at);
+            QTRY_VERIFY2(row->property("open").toBool(), qPrintable(QStringLiteral("row %1 did not open by touch").arg(i)));
+            QTest::touchEvent(full, finger).press(0, at);
+            QTest::touchEvent(full, finger).release(0, at);
+            QTRY_VERIFY(!row->property("open").toBool());
+        }
     }
 
     // One card the size of Shuffle's Search, centred over the work.
