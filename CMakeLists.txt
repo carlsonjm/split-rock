@@ -70,6 +70,7 @@ qt_add_resources(split-rock "sheet"
         qml/FullWindow.qml
         qml/StartingPanel.qml
         qml/ProblemPanel.qml
+        qml/RememberLine.qml
 )
 target_link_libraries(split-rock PRIVATE splitrock_core splitrock_desktop Qt6::Gui Qt6::Quick)
 

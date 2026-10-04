@@ -66,8 +66,19 @@ public:
     // the person, the top of the record of this computer, the device's page and
     // the kept notes' titles.
     QString memory() const;
-    // The fixed problems in This computer.md, newest first, one line each.
-    QStringList fixedProblems() const;
+    struct Fixed {
+        QString when;
+        QString text;
+    };
+    // The fixed problems in This computer.md, newest first.
+    QList<Fixed> fixedProblems() const;
+
+    // "Remember that?", answered yes: the sentence goes into About me.md,
+    // dated. False, with why in error, when it may not be written.
+    bool rememberAboutPerson(const QString &sentence, QString *error = nullptr);
+    // "That fixed it": the problem, in the person's words, and what fixed it
+    // go at the top of the fixed problems in This computer.md.
+    bool recordFixed(const QString &problem, const QString &fix, QString *error = nullptr);
 
     // The topic folder an answer is kept in.
     static QString topicFor(const QString &question, const QString &answer);
@@ -75,6 +86,8 @@ public:
 private:
     QString read(const QString &relative) const;
     bool writeNew(const QString &relative, const QString &text, QString *error);
+    // Replaces a file of the notebook's with text, checked first.
+    bool rewrite(const QString &relative, const QString &text, QString *error);
 
     QString m_folder;
 };

@@ -12,6 +12,9 @@ struct AnswerText {
     QString headline;
     QStringList steps;
     QStringList more;
+    // What the assistant offers to remember about the person, from a line
+    // "Remember that? ..." in its answer; empty when it offers nothing.
+    QString remember;
 
     // Reads an assistant's Markdown, which may be cut off mid-way while it is
     // still arriving, and keeps only plain words.

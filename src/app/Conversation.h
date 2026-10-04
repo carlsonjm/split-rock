@@ -66,7 +66,11 @@ class Conversation : public QObject
     Q_PROPERTY(bool canKeep READ canKeep NOTIFY notebookChanged)
     // The fixed problems in This computer.md, and the kept notes: title,
     // topic, path and date, newest first.
-    Q_PROPERTY(QStringList fixedProblems READ fixedProblems NOTIFY notebookChanged)
+    Q_PROPERTY(QVariantList fixedProblems READ fixedProblems NOTIFY notebookChanged)
+    // What the assistant offers to remember about the person, until the
+    // person answers; and whether That fixed it was used on this answer.
+    Q_PROPERTY(QString remember READ remember NOTIFY rememberChanged)
+    Q_PROPERTY(bool fixed READ fixed NOTIFY answerChanged)
     Q_PROPERTY(QVariantList keptNotes READ keptNotes NOTIFY notebookChanged)
     // About me.md, as written.
     Q_PROPERTY(QString aboutMe READ aboutMe NOTIFY notebookChanged)
@@ -123,7 +127,14 @@ public:
     void setNotebook(Notebook *notebook);
     bool kept() const { return m_kept; }
     bool canKeep() const { return m_notebook != nullptr; }
-    QStringList fixedProblems() const;
+    QVariantList fixedProblems() const;
+    QString remember() const { return m_rememberAnswered || m_phase == QLatin1String("working") ? QString() : m_answer.remember; }
+    bool fixed() const { return m_fixed; }
+    // "Remember that?": yes writes it into About me.md; no lets it go.
+    Q_INVOKABLE bool rememberYes();
+    Q_INVOKABLE void rememberNo();
+    // That fixed it: the problem and what fixed it go into This computer.md.
+    Q_INVOKABLE bool markFixed();
     QVariantList keptNotes() const;
     QString aboutMe() const;
     // Keep this: the answer becomes a note in the notebook. False, with why in
@@ -153,6 +164,7 @@ Q_SIGNALS:
     void noticeChanged();
     void turnsChanged();
     void notebookChanged();
+    void rememberChanged();
 
 private:
     void startAssistant();
@@ -209,6 +221,8 @@ private:
     QSet<QString> m_allowed;
     Notebook *m_notebook = nullptr;
     bool m_kept = false;
+    bool m_fixed = false;
+    bool m_rememberAnswered = false;
     QVariantList m_turns;
     QVariantList m_refusedChanges;
     QSet<QString> m_unasked;

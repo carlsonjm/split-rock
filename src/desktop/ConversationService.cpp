@@ -71,6 +71,11 @@ QVariantMap ConversationService::state() const
         {QStringLiteral("canDoIt"), false},
         {QStringLiteral("doItReason"), change ? ChangeCard::unavailable() : QString()},
         {QStringLiteral("kept"), c.kept()},
+        // Added after version 1's first table; a version-1 caller may ignore
+        // them: what the assistant offers to remember, until answered, and
+        // whether That fixed it was used.
+        {QStringLiteral("remember"), c.remember()},
+        {QStringLiteral("fixed"), c.fixed()},
         {QStringLiteral("problem"), c.problem()},
     };
 }
@@ -141,6 +146,26 @@ QVariantMap ConversationService::Act(const QString &action)
             return refuse(QLatin1String(NotReady), QStringLiteral("There is no answer to keep yet."));
         // Refused for what it holds: the reason says why, as the notice does.
         if (!m_conversation->keep())
+            return refuse(QLatin1String(Refused), m_conversation->notice());
+        return reply();
+    }
+    if (action == QLatin1String("remember") || action == QLatin1String("dont-remember")) {
+        if (m_conversation->remember().isEmpty())
+            return refuse(QLatin1String(NotAvailable), QStringLiteral("Nothing is offered to remember."));
+        if (action == QLatin1String("dont-remember")) {
+            m_conversation->rememberNo();
+            return reply();
+        }
+        if (!m_conversation->rememberYes())
+            return refuse(QLatin1String(Refused), m_conversation->notice());
+        return reply();
+    }
+    if (action == QLatin1String("fixed")) {
+        if (!m_conversation->canKeep())
+            return refuse(QLatin1String(NotAvailable), QStringLiteral("There is no notebook to record it in."));
+        if (m_conversation->phase() != QLatin1String("ready") || m_conversation->question().isEmpty())
+            return refuse(QLatin1String(NotReady), QStringLiteral("There is no answer yet."));
+        if (!m_conversation->markFixed())
             return refuse(QLatin1String(Refused), m_conversation->notice());
         return reply();
     }

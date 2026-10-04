@@ -36,7 +36,9 @@ record and has to be right.
 - **Changes:** newest first. Each has the date, what changed in plain words,
   why, how to undo it, and whether it was undone.
 - **Fixed problems:** the problem in the person's words, what caused it, and
-  what fixed it. This is what makes the next problem faster.
+  what fixed it. This is what makes the next problem faster. That fixed it,
+  under an answer, writes one: the question the conversation began with, and
+  the answer's lead.
 
 Changes older than a year move to `Earlier changes.md`, so the page stays short
 enough to read.
@@ -56,8 +58,9 @@ comes from, or goes to, anyone else's.
 
 How they like to be helped (bigger text, one step at a time), the apps they use,
 and who helps them, so Send this to someone knows where to send it. When
-something worth knowing comes up, the assistant asks "Remember that?" and writes
-it only after a yes.
+something worth knowing comes up, the assistant offers it, and Split Rock asks
+"Remember that?" under the answer, with Remember and Not now. Split Rock writes
+it, dated, only after Remember; the assistant never writes this page itself.
 
 ## Kept notes
 

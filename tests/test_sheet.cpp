@@ -5,6 +5,7 @@
 #include "app/Conversation.h"
 #include "FakeKadunce.h"
 #include "PretendFixture.h"
+#include "app/Notebook.h"
 #include "app/QmlContext.h"
 #include "desktop/Shell.h"
 #include "guide/GuideLibrary.h"
@@ -18,6 +19,7 @@
 #include <QQuickWindow>
 #include <QScreen>
 #include <QSignalSpy>
+#include <QTemporaryDir>
 #include <QTest>
 
 using namespace splitrock;
@@ -194,6 +196,47 @@ private Q_SLOTS:
         shoot(window, QStringLiteral("3-answer"));
         QVERIFY(find(window, QStringLiteral("keepPill")));
         QVERIFY(!find(window, QStringLiteral("keepPill"))->isEnabled());
+    }
+
+    // Under an answer: Keep this, That fixed it and "Remember that?"; in the
+    // full window, the kept answers, each with Forget.
+    void rememberKeepAndForget()
+    {
+        QTemporaryDir folder;
+        Notebook notebook(folder.filePath(QStringLiteral("Notebook")));
+        QVERIFY(notebook.prepare(DeviceFacts::read(QStringLiteral(FIXTURES_DIR "/computer"))));
+        PretendFixture f;
+        QVERIFY(f.isValid());
+        Conversation c({f.assistant(QStringLiteral("notebook.json"))});
+        c.setNotebook(&notebook);
+        QQmlApplicationEngine engine;
+        QQuickWindow *window = open(engine, c);
+        QVERIFY(window);
+        c.chooseAssistant(QStringLiteral("pretend"));
+        QTRY_COMPARE(c.phase(), QStringLiteral("ready"));
+        c.ask(QStringLiteral("Can you go one step at a time?"));
+        QTRY_VERIFY(find(window, QStringLiteral("rememberLine")) && find(window, QStringLiteral("rememberLine"))->isVisible());
+        QVERIFY(find(window, QStringLiteral("fixedPill"))->isVisible());
+        shoot(window, QStringLiteral("12-remember"));
+        QQuickItem *remember = find(window, QStringLiteral("rememberPill"));
+        QTest::mouseClick(window, Qt::LeftButton, {}, remember->mapToScene(QPointF(remember->width() / 2, remember->height() / 2)).toPoint());
+        QTRY_VERIFY(c.aboutMe().contains(QStringLiteral("one step at a time")));
+        QTRY_VERIFY(!find(window, QStringLiteral("rememberLine")) || !find(window, QStringLiteral("rememberLine"))->isVisible());
+        QVERIFY(c.keep());
+
+        QMetaObject::invokeMethod(window, "expand");
+        Shell *shell = shellOf(engine);
+        QTRY_VERIFY(shell->full() && shell->full()->isVisible());
+        QQuickWindow *full = shell->full();
+        full->setGeometry(0, 0, 1280, 768);
+        QQuickItem *view = find(full, QStringLiteral("fullView"));
+        view->setProperty("tab", 2);
+        QTRY_VERIFY(find(full, QStringLiteral("kept-0")));
+        shoot(full, QStringLiteral("13-kept"));
+        QMetaObject::invokeMethod(find(full, QStringLiteral("kept-0")), "acted");
+        QTRY_COMPARE(c.keptNotes().size(), 0);
+        view->setProperty("tab", 1);
+        shoot(full, QStringLiteral("14-about-me"));
     }
 
     // One card the size of Shuffle's Search, centred over the work.

@@ -34,13 +34,15 @@ belongs to Search, and this is the assistant's own window.
 | Undo a past change | Tap a change in the notebook, then Undo | None yet |
 | Keep an answer | Tap Keep this under it | None yet |
 | Forget a note | Tap Forget on the note | None yet |
+| Remember something | Tap Remember under "Remember that?" | None yet |
+| Record a fix | Tap That fixed it under the answer | None yet |
 | Start over | Tap the cross in the question field | None yet |
 
 ## Open the assistant
 
 | Input | What happens |
 | --- | --- |
-| Tap or click its icon, in a launcher, in Search or on a dock | The full window opens: an ordinary window, which can be resized or placed beside another. With Split Rock already running, its window comes forward on the same conversation. |
+| Tap or click its icon, in a launcher, in Search, on a dock or pinned to the panel | The full window opens: an ordinary window, which can be resized or placed beside another. With Split Rock already running, its window comes forward on the same conversation. |
 
 ## Open the card
 
@@ -127,7 +129,20 @@ belongs to Search, and this is the assistant's own window.
 
 | Input | What happens |
 | --- | --- |
-| Tap or click Forget on the note | The note moves to the desktop's trash, where it can be restored. Split Rock can forget a note from Milestone 1; where Forget sits on screen waits on the maintainer (`ROADMAP.md`). |
+| Tap or click Forget on the note, in the full window's Kept tab | The note moves to the desktop's trash, where it can be restored, and leaves the list. |
+
+## Remember something
+
+| Input | What happens |
+| --- | --- |
+| Tap or click Remember under "Remember that?" | The sentence is written into `About me.md`, dated, and the line goes. The assistant offers it; Split Rock asks, and writes only after this tap. |
+| Tap or click Not now | Nothing is written, and the line goes. |
+
+## Record a fix
+
+| Input | What happens |
+| --- | --- |
+| Tap or click That fixed it under the answer | The problem, in the words the conversation began with, and what fixed it go at the top of the fixed problems in `This computer.md`, dated, and the button reads Fixed. |
 
 ## Start over
 

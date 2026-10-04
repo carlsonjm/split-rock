@@ -172,6 +172,24 @@ private Q_SLOTS:
         QVERIFY(reaches(c, QStringLiteral("ready")));
         QVERIFY(c.cardOpen());
         QVERIFY(!c.more().join(QLatin1Char(' ')).contains(QStringLiteral("UNEXPECTED")));
+
+        // "Remember that?" is Split Rock's question; only a yes writes it.
+        c.ask(QStringLiteral("Can you go one step at a time?"));
+        QVERIFY(reaches(c, QStringLiteral("ready")));
+        QCOMPARE(c.remember(), QStringLiteral("You like one step at a time."));
+        QVERIFY(c.more().isEmpty());
+        QVERIFY(!QFile::exists(folder + QStringLiteral("/About me.md")));
+        QVERIFY(c.rememberYes());
+        QCOMPARE(c.remember(), QString());
+        QVERIFY(c.aboutMe().contains(QStringLiteral("- You like one step at a time.")));
+
+        // That fixed it: the first question of the conversation and this
+        // answer's lead go into the record.
+        QVERIFY(c.markFixed());
+        QVERIFY(c.fixed());
+        const QVariantMap fixed = c.fixedProblems().first().toMap();
+        QCOMPARE(fixed.value(QStringLiteral("text")).toString(),
+                 QStringLiteral("\u201CWhy does my pen stop?\u201D I will go one step at a time."));
     }
 
     void aChangeIsRefusedAndShownOnTheCard()

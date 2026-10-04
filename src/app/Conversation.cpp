@@ -40,6 +40,10 @@ Conversation::Conversation(QList<Assistant> assistants, QObject *parent)
     : QObject(parent)
     , m_assistants(std::move(assistants))
 {
+    // The offer is shown once the answer is complete, so it follows the
+    // phase as well as the answer.
+    connect(this, &Conversation::answerChanged, this, &Conversation::rememberChanged);
+    connect(this, &Conversation::phaseChanged, this, &Conversation::rememberChanged);
 }
 
 Conversation::~Conversation()
@@ -716,6 +720,8 @@ void Conversation::clearAnswer()
     m_card.clear();
     m_cardOpen = false;
     m_kept = false;
+    m_fixed = false;
+    m_rememberAnswered = false;
     m_refused.clear();
     m_allowed.clear();
     m_unasked.clear();
@@ -753,7 +759,9 @@ bool Conversation::mayWrite(const acp::ToolCall &call) const
             return false;
         // Split Rock's own pages are written by Split Rock alone.
         const QString relative = QDir(m_notebook->folder()).relativeFilePath(path);
-        if (relative == QLatin1String("This computer.md") || relative == QLatin1String("ASSISTANT.md"))
+        // About me.md is written by Split Rock too, after the person's yes.
+        if (relative == QLatin1String("This computer.md") || relative == QLatin1String("ASSISTANT.md")
+            || relative == QLatin1String("About me.md"))
             return false;
     }
     const QString content = QString::fromUtf8(QJsonDocument(QJsonObject{{QStringLiteral("input"), call.rawInput}})
@@ -823,9 +831,64 @@ QString Conversation::aboutMe() const
     return file.open(QIODevice::ReadOnly) ? QString::fromUtf8(file.readAll()).trimmed() : QString();
 }
 
-QStringList Conversation::fixedProblems() const
+QVariantList Conversation::fixedProblems() const
 {
-    return m_notebook ? m_notebook->fixedProblems() : QStringList();
+    QVariantList list;
+    if (!m_notebook)
+        return list;
+    for (const Notebook::Fixed &fixed : m_notebook->fixedProblems())
+        list.append(QVariantMap{{QStringLiteral("when"), fixed.when}, {QStringLiteral("text"), fixed.text}});
+    return list;
+}
+
+bool Conversation::rememberYes()
+{
+    const QString sentence = remember();
+    if (!m_notebook || sentence.isEmpty())
+        return false;
+    QString error;
+    if (!m_notebook->rememberAboutPerson(sentence, &error)) {
+        setNotice(error);
+        return false;
+    }
+    m_rememberAnswered = true;
+    setNotice(QStringLiteral("Remembered in About me."));
+    Q_EMIT answerChanged();
+    Q_EMIT notebookChanged();
+    return true;
+}
+
+void Conversation::rememberNo()
+{
+    if (remember().isEmpty())
+        return;
+    m_rememberAnswered = true;
+    Q_EMIT answerChanged();
+}
+
+bool Conversation::markFixed()
+{
+    if (!m_notebook || m_question.isEmpty() || m_phase != QLatin1String("ready") || m_fixed)
+        return m_fixed;
+    // The problem in the person's own words is what they first asked; what
+    // fixed it is this answer's lead.
+    QString problem = m_turns.isEmpty() ? m_question : m_turns.first().toMap().value(QStringLiteral("question")).toString();
+    if (problem == QLatin1String("Show me how instead"))
+        problem = m_question;
+    QString fix = m_answer.headline.isEmpty() ? m_answer.more.value(0) : m_answer.headline;
+    if (fix.isEmpty() && !m_answer.steps.isEmpty())
+        fix = m_answer.steps.join(QStringLiteral(" "));
+    if (fix.isEmpty())
+        return false;
+    QString error;
+    if (!m_notebook->recordFixed(problem, fix, &error)) {
+        setNotice(error);
+        return false;
+    }
+    m_fixed = true;
+    Q_EMIT answerChanged();
+    Q_EMIT notebookChanged();
+    return true;
 }
 
 QVariantList Conversation::keptNotes() const

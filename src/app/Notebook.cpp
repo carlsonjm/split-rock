@@ -8,6 +8,7 @@
 #include <QDirIterator>
 #include <QFile>
 #include <QFileInfo>
+#include <QLocale>
 #include <QRegularExpression>
 #include <QSaveFile>
 #include <QStandardPaths>
@@ -68,8 +69,11 @@ rules you follow here.
   or email, even when asked. %1 refuses them too.
 - `This computer.md` is %1's own record of this computer and its undo record.
   Read it; do not change it.
-- `About me.md` is about the person. Write to it only after asking "Remember
-  that?" and hearing yes.
+- `About me.md` is about the person, and %1 writes it. When something worth
+  remembering about the person comes up, such as how they like to be helped,
+  the apps they use or who helps them, end your answer with a line of its own:
+  "Remember that? " and one short sentence to remember. %1 asks the person and
+  writes it only after a yes.
 - `Device/` is this computer's own manual. When you learn something about this
   device, such as a problem and what fixed it, add an entry beside
   `Device/DEVICE.md` in the guide's format: a header with id, title, also,
@@ -371,25 +375,110 @@ QString Notebook::memory() const
                          .arg(titles.join(QLatin1Char('\n'))));
     if (parts.isEmpty())
         return {};
-    return QStringLiteral("The person's notebook is at %1. Its rules are in ASSISTANT.md there. What it holds now:\n\n%2")
-        .arg(m_folder, parts.join(QStringLiteral("\n\n")));
+    return QStringLiteral("The person's notebook is at %1. Its rules are in ASSISTANT.md there. When something worth "
+                          "remembering about the person comes up, end your answer with a line of its own: \"Remember "
+                          "that? \" and one short sentence to remember; %2 asks them and writes it only after a yes. "
+                          "Do not write About me.md yourself. What the notebook holds now:\n\n%3")
+        .arg(m_folder, productName(), parts.join(QStringLiteral("\n\n")));
 }
 
-QStringList Notebook::fixedProblems() const
+QList<Notebook::Fixed> Notebook::fixedProblems() const
 {
     const QString record = read(QStringLiteral("This computer.md"));
     const qsizetype start = record.indexOf(QLatin1String("\n## Fixed problems"));
     if (start < 0)
         return {};
-    QStringList problems;
+    static const QRegularExpression dated(QStringLiteral("^(\\d{1,2} [A-Za-z]+ \\d{4}): (.+)$"));
+    QList<Fixed> problems;
     const QStringList lines = record.mid(start + 1).split(QLatin1Char('\n')).mid(1);
     for (const QString &line : lines) {
         if (line.startsWith(QLatin1String("## ")))
             break;
-        if (line.startsWith(QLatin1String("- ")))
-            problems.append(line.mid(2).trimmed());
+        if (!line.startsWith(QLatin1String("- ")))
+            continue;
+        const QString entry = line.mid(2).trimmed();
+        const QRegularExpressionMatch match = dated.match(entry);
+        problems.append(match.hasMatch() ? Fixed{match.captured(1), match.captured(2)} : Fixed{QString(), entry});
     }
     return problems;
+}
+
+bool Notebook::rewrite(const QString &relative, const QString &text, QString *error)
+{
+    const QString refused = neverWrittenReason(text);
+    if (!refused.isEmpty()) {
+        if (error)
+            *error = refused;
+        return false;
+    }
+    const QString path = QDir(m_folder).filePath(relative);
+    QDir().mkpath(QFileInfo(path).absolutePath());
+    QSaveFile file(path);
+    if (!contains(path) || !file.open(QIODevice::WriteOnly) || file.write(text.toUtf8()) < 0 || !file.commit()) {
+        if (error)
+            *error = QStringLiteral("The notebook could not be written.");
+        return false;
+    }
+    return true;
+}
+
+namespace {
+QString today()
+{
+    return QLocale::c().toString(QDate::currentDate(), QStringLiteral("d MMMM yyyy"));
+}
+} // namespace
+
+bool Notebook::rememberAboutPerson(const QString &sentence, QString *error)
+{
+    const QString line = sentence.simplified();
+    if (line.isEmpty())
+        return false;
+    QString page = read(QStringLiteral("About me.md"));
+    if (page.trimmed().isEmpty())
+        page = QStringLiteral("# About me\n\nWhat %1 remembers about you, each written only after you said yes.\n\n")
+                   .arg(productName());
+    if (!page.endsWith(QLatin1Char('\n')))
+        page += QLatin1Char('\n');
+    page += QStringLiteral("- %1 (%2)\n").arg(line, today());
+    // Only the new line is judged: what is already there was judged when it
+    // was written.
+    const QString refused = neverWrittenReason(line);
+    if (!refused.isEmpty()) {
+        if (error)
+            *error = refused;
+        return false;
+    }
+    return rewrite(QStringLiteral("About me.md"), page, error);
+}
+
+bool Notebook::recordFixed(const QString &problem, const QString &fix, QString *error)
+{
+    const QString entry = QStringLiteral("- %1: “%2” %3").arg(today(), problem.simplified(), fix.simplified());
+    const QString refused = neverWrittenReason(problem + QLatin1Char('\n') + fix);
+    if (!refused.isEmpty()) {
+        if (error)
+            *error = refused;
+        return false;
+    }
+    QString record = read(QStringLiteral("This computer.md"));
+    const QString heading = QStringLiteral("## Fixed problems");
+    qsizetype at = record.indexOf(QLatin1Char('\n') + heading);
+    if (at < 0) {
+        if (!record.endsWith(QLatin1Char('\n')))
+            record += QLatin1Char('\n');
+        record += QLatin1Char('\n') + heading + QStringLiteral("\n\n");
+        at = record.indexOf(QLatin1Char('\n') + heading);
+    }
+    // Newest first, under the heading; "None yet." goes with the first.
+    qsizetype body = at + 1 + heading.size();
+    while (body < record.size() && record.at(body) == QLatin1Char('\n'))
+        ++body;
+    if (record.mid(body).startsWith(QLatin1String("None yet.")))
+        record.remove(body, record.indexOf(QLatin1Char('\n'), body) < 0 ? record.size() - body
+                                                                        : record.indexOf(QLatin1Char('\n'), body) + 1 - body);
+    record.insert(body, entry + QLatin1Char('\n'));
+    return rewrite(QStringLiteral("This computer.md"), record, error);
 }
 
 } // namespace splitrock

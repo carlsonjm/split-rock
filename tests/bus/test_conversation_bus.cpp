@@ -265,6 +265,36 @@ private Q_SLOTS:
         QVERIFY(!QDir(notebook + QStringLiteral("/Notes")).exists());
     }
 
+    // Search asks "Remember that?" with what the assistant offered, and
+    // records a fix, through the same conversation.
+    void rememberAndThatFixedIt()
+    {
+        QVERIFY(start(QStringLiteral("notebook.json"), QStringLiteral("pretend")));
+        QSignalSpy changed(m_conversation.get(), SIGNAL(Changed(QVariantMap)));
+        call(QStringLiteral("Start"));
+        QTRY_COMPARE_WITH_TIMEOUT(lastChange(changed).value(QStringLiteral("phase")).toString(), QStringLiteral("ready"), 15000);
+        changed.clear();
+        call(QStringLiteral("Ask"), {QStringLiteral("Can you go one step at a time?")});
+        QTRY_COMPARE_WITH_TIMEOUT(lastChange(changed).value(QStringLiteral("phase")).toString(), QStringLiteral("ready"), 15000);
+        QCOMPARE(lastChange(changed).value(QStringLiteral("remember")).toString(), QStringLiteral("You like one step at a time."));
+
+        const QString notebook = m_home->path() + QStringLiteral("/Documents/Notebook");
+        QVERIFY(!QFile::exists(notebook + QStringLiteral("/About me.md")));
+        QVariantMap state = call(QStringLiteral("Act"), {QStringLiteral("remember")});
+        QCOMPARE(state.value(QStringLiteral("remember")).toString(), QString());
+        QFile about(notebook + QStringLiteral("/About me.md"));
+        QVERIFY(about.open(QIODevice::ReadOnly));
+        QVERIFY(about.readAll().contains("- You like one step at a time."));
+        QCOMPARE(raw(QStringLiteral("Act"), {QStringLiteral("remember")}).errorName(),
+                 QStringLiteral("io.github.carlsonjm.SplitRock.Error.NotAvailable"));
+
+        state = call(QStringLiteral("Act"), {QStringLiteral("fixed")});
+        QVERIFY(state.value(QStringLiteral("fixed")).toBool());
+        QFile record(notebook + QStringLiteral("/This computer.md"));
+        QVERIFY(record.open(QIODevice::ReadOnly));
+        QVERIFY(QString::fromUtf8(record.readAll()).contains(QStringLiteral("\u201CCan you go one step at a time?\u201D I will go one step at a time.")));
+    }
+
     // An answer that opens with its steps still has a line to lead with, and
     // what follows the steps reaches Search too.
     void anAnswerThatOpensWithItsSteps()

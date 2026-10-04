@@ -15,6 +15,12 @@ Item {
     readonly property bool working: conversation.phase === "working"
     property int tab: 0
 
+    // "4 October" this year; with the year otherwise.
+    function shortDate(when) {
+        const year = " " + new Date().getFullYear()
+        return when.endsWith(year) ? when.slice(0, -year.length) : when
+    }
+
     function focusField() {
         wideField.forceActiveFocus()
     }
@@ -153,9 +159,13 @@ Item {
     }
 
     component Line: Rectangle {
+        id: line
         property string when
         property string text
         property string status
+        // A button at the row's end, where the mock-up puts Undo.
+        property string action
+        signal acted()
         width: parent ? parent.width : 0
         height: Math.max(48, lineText.implicitHeight + 24)
         radius: 12
@@ -174,15 +184,45 @@ Item {
             x: parent.when !== "" ? 114 : 14
             y: 12
             width: parent.width - x - 14 - (statusText.visible ? statusText.implicitWidth + 14 : 0)
+                   - (actionButton.visible ? actionButton.width + 14 : 0)
             wrapMode: Text.WordWrap
             text: parent.text
             color: theme.text
             font.pixelSize: 15
             lineHeight: 1.3
         }
+        Rectangle {
+            id: actionButton
+            visible: line.action !== ""
+            anchors.right: parent.right
+            anchors.rightMargin: 14
+            anchors.verticalCenter: parent.verticalCenter
+            width: actionLabel.implicitWidth + 32
+            height: 40
+            radius: 20
+            color: actionArea.pressed ? theme.line : theme.chip
+            border.width: 1
+            border.color: theme.edge
+            Accessible.role: Accessible.Button
+            Accessible.name: line.action + " " + line.text
+            Text {
+                id: actionLabel
+                anchors.centerIn: parent
+                text: line.action
+                color: theme.text
+                font.pixelSize: 13
+                font.weight: Font.Bold
+            }
+            MouseArea {
+                id: actionArea
+                anchors.fill: parent
+                cursorShape: Qt.PointingHandCursor
+                onClicked: line.acted()
+            }
+        }
         Text {
             id: statusText
-            anchors.right: parent.right
+            anchors.right: actionButton.visible ? actionButton.left : parent.right
             anchors.rightMargin: 14
             y: 15
             visible: text !== ""
@@ -218,7 +258,7 @@ Item {
                     width: talk.width - 36
                     wrapMode: Text.WordWrap
                     text: "Ask " + (conversation.assistantName !== "" ? conversation.assistantName : productName)
-                          + " anything about this computer. This conversation ends when the window closes."
+                          + " anything about this computer. This conversation lasts until you start over or log out."
                     color: theme.quiet
                     font.pixelSize: 15
                     lineHeight: 1.3
@@ -247,6 +287,37 @@ Item {
                     steps: conversation.steps
                     more: conversation.more
                     waiting: full.working && conversation.headline === "" && conversation.steps.length === 0
+                }
+
+                // Under the answer, as under the card's: Keep this, That fixed
+                // it, and what the assistant offers to remember.
+                Column {
+                    objectName: "fullAnswerActions"
+                    width: talk.width - 36
+                    spacing: 10
+                    visible: conversation.question !== "" && full.canAsk && !conversation.choosing
+                             && !conversation.cardOpen && conversation.canKeep
+                    Flow {
+                        width: parent.width
+                        spacing: 8
+                        Pill {
+                            implicitHeight: 40
+                            enabled: !conversation.kept
+                            text: conversation.kept ? "Kept" : "Keep this"
+                            onClicked: conversation.keep()
+                        }
+                        Pill {
+                            implicitHeight: 40
+                            visible: conversation.nextTour === ""
+                            enabled: !conversation.fixed
+                            text: conversation.fixed ? "Fixed" : "That fixed it"
+                            onClicked: conversation.markFixed()
+                        }
+                    }
+                    RememberLine {
+                        width: parent.width
+                        visible: conversation.remember !== ""
+                    }
                 }
 
                 // What is asked of the person now: an assistant to choose, a
@@ -466,7 +537,8 @@ Item {
                     model: conversation.fixedProblems
                     Line {
                         width: parent.width
-                        text: modelData
+                        when: full.shortDate(modelData.when)
+                        text: modelData.text
                     }
                 }
             }
@@ -479,13 +551,30 @@ Item {
                       + " writes this only after you say yes."
             }
 
-            Line {
+            // Kept: every kept answer, newest first, with Forget where the
+            // record's rows have Undo.
+            Column {
+                objectName: "keptList"
                 visible: full.tab === 2
                 width: parent.width
-                text: conversation.keptNotes.length === 0
-                    ? "Answers you keep, filed by topic in the notebook. Nothing is kept yet."
-                    : "Answers you keep, filed by topic in the notebook: " + conversation.keptNotes.length
-                      + " so far."
+                spacing: 8
+                Line {
+                    visible: conversation.keptNotes.length === 0
+                    width: parent.width
+                    text: "Nothing is kept yet. Keep this, under an answer, files it here by topic."
+                }
+                Repeater {
+                    model: conversation.keptNotes
+                    Line {
+                        objectName: "kept-" + index
+                        width: parent.width
+                        when: full.shortDate(Qt.formatDate(modelData.date, "d MMMM yyyy"))
+                        text: modelData.title
+                        status: modelData.topic
+                        action: "Forget"
+                        onActed: conversation.forget(modelData.path)
+                    }
+                }
             }
         }
     }

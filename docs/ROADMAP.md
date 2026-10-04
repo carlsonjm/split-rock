@@ -45,7 +45,8 @@ Nothing on the computer changes yet. The assistant can look and explain.
 - A developer install for the maintainer's computer (`install.sh`), so the
   week of use runs from the launcher and Search, not a terminal. It is not
   Milestone 3's package.
-- The panel widget: open it, ask in plain words, read the answer.
+- The panel widget: open it, ask in plain words, read the answer. For the
+  week of use, Split Rock's icon pinned to the panel (`DECISIONS.md`).
 - A background service that holds the conversation, so closing the widget or
   restarting the panel loses nothing. Its first version, which Search's Genie
   mode uses, is built in Milestone 0 (`DESKTOP.md` § The conversation in
@@ -63,15 +64,11 @@ Nothing on the computer changes yet. The assistant can look and explain.
 `This computer.md` and `Device/DEVICE.md` written at the first start from what
 the computer reports; the device's own entries offered by the guide; the
 notebook's memory given to the assistant as a conversation starts; Keep this;
-Forget, without its place on screen; the refusal to write down passwords, card
-numbers, bank details and codes; and the fence (`DECISIONS.md`, The fence is
-bubblewrap). Codex's ChatGPT sign-in and Claude's Anthropic Console sign-in are
-offered as in Milestone 0.
-
-**Waiting on the maintainer:** the panel widget; where Forget and the list of
-kept notes sit; how "Remember that?" asks before `About me.md` is written; and
-how a fixed problem reaches `This computer.md`. Each is something to see that
-no mock-up draws.
+the Kept tab, with Forget; "Remember that?"; That fixed it; the refusal to
+write down passwords, card numbers, bank details and codes; and the fence
+(`DECISIONS.md`, The fence is bubblewrap). Codex's ChatGPT sign-in and Claude's
+Anthropic Console sign-in are offered as in Milestone 0. The panel widget is
+Split Rock's icon pinned to the panel, for now (`DECISIONS.md`).
 
 **Proves:** a week of the maintainer's own daily use, including troubleshooting
 an unusual device: a tablet such as the ASUS ROG Flow Z13, with its own power

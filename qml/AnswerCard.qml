@@ -154,6 +154,20 @@ Rectangle {
                 text: conversation.kept ? "Kept" : "Keep this"
                 onClicked: conversation.keep()
             }
+            // That fixed it: the problem and its fix go into This computer.md.
+            Pill {
+                objectName: "fixedPill"
+                visible: conversation.canKeep && conversation.nextTour === ""
+                enabled: !conversation.fixed
+                text: conversation.fixed ? "Fixed" : "That fixed it"
+                onClicked: conversation.markFixed()
+            }
+        }
+
+        // "Remember that?": asked by Split Rock, written only after a yes.
+        RememberLine {
+            width: parent.width
+            visible: !card.working && conversation.remember !== ""
         }
     }
 }

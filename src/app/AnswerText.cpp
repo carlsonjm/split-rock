@@ -44,8 +44,21 @@ AnswerText AnswerText::parse(const QString &markdown)
         current.clear();
     };
 
+    // The assistant offers to remember something on a line of its own; the
+    // offer is shown as a question of Split Rock's, not as part of the answer.
+    static const QRegularExpression offer(QStringLiteral("^\\s*[*_]*\\s*Remember that\\?\\s*[*_]*\\s*(.+)$"),
+                                          QRegularExpression::CaseInsensitiveOption);
+    QString remember;
+
     const QStringList lines = markdown.split(QLatin1Char('\n'));
     for (const QString &line : lines) {
+        const QRegularExpressionMatch offered = offer.match(line);
+        if (offered.hasMatch()) {
+            flush();
+            inStep = false;
+            remember = plain(offered.captured(1));
+            continue;
+        }
         // A code block or a rule stands apart from the words around it.
         if (fence.match(line).hasMatch() || rule.match(line).hasMatch()) {
             flush();
@@ -80,6 +93,7 @@ AnswerText AnswerText::parse(const QString &markdown)
         answer.headline = paragraphs.takeFirst();
     answer.steps = steps;
     answer.more = paragraphs;
+    answer.remember = remember;
     return answer;
 }
 

@@ -34,6 +34,18 @@ private Q_SLOTS:
         QCOMPARE(a.more, QStringList{QStringLiteral("Done.")});
     }
 
+    // An offer to remember something is lifted out of the answer.
+    void anOfferToRemember()
+    {
+        const AnswerText a = AnswerText::parse(QStringLiteral(
+            "Bigger text is in Display settings.\n\n1. Open Settings.\n\n**Remember that?** You like bigger text.\n"));
+        QCOMPARE(a.headline, QStringLiteral("Bigger text is in Display settings."));
+        QCOMPARE(a.steps, QStringList{QStringLiteral("Open Settings.")});
+        QVERIFY(a.more.isEmpty());
+        QCOMPARE(a.remember, QStringLiteral("You like bigger text."));
+        QCOMPARE(AnswerText::parse(QStringLiteral("No offer here.")).remember, QString());
+    }
+
     void plainParagraphs()
     {
         const AnswerText a = AnswerText::parse(QStringLiteral("# Answer\nIt is a scam.\n\nDon't click anything."));

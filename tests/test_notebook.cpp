@@ -7,6 +7,7 @@
 
 #include <QDir>
 #include <QFile>
+#include <QLocale>
 #include <QFileInfo>
 #include <QStandardPaths>
 #include <QTemporaryDir>
@@ -64,8 +65,9 @@ private Q_SLOTS:
         edited.close();
         QVERIFY(notebook.prepare(fixture()));
         QVERIFY(read(home.filePath(QStringLiteral("Notebook/This computer.md"))).contains(QStringLiteral("the pen stopped")));
-        QCOMPARE(notebook.fixedProblems(),
-                 QStringList{QStringLiteral("3 October: the pen stopped; its battery was flat. Charged it.")});
+        QCOMPARE(notebook.fixedProblems().size(), 1);
+        QCOMPARE(notebook.fixedProblems().first().text,
+                 QStringLiteral("3 October: the pen stopped; its battery was flat. Charged it."));
     }
 
     // Keep this files an answer by topic, with a plain title, the date and the
@@ -98,6 +100,49 @@ private Q_SLOTS:
         // Only kept notes are forgotten.
         QVERIFY(!notebook.forget(home.filePath(QStringLiteral("Notebook/This computer.md")), &error));
         QVERIFY(QFile::exists(home.filePath(QStringLiteral("Notebook/This computer.md"))));
+    }
+
+    // That fixed it: newest first, in place of "None yet", dated, in the
+    // person's own words.
+    void fixedProblemsAreRecorded()
+    {
+        QTemporaryDir home;
+        Notebook notebook(home.filePath(QStringLiteral("Notebook")));
+        QVERIFY(notebook.prepare(fixture()));
+        QVERIFY(notebook.recordFixed(QStringLiteral("My headphones keep cutting out."),
+                                     QStringLiteral("Turned Wi-Fi power saving off.")));
+        QVERIFY(notebook.recordFixed(QStringLiteral("The pen stops."), QStringLiteral("Charged its battery.")));
+        const QString today = QLocale::c().toString(QDate::currentDate(), QStringLiteral("d MMMM yyyy"));
+        const auto problems = notebook.fixedProblems();
+        QCOMPARE(problems.size(), 2);
+        QCOMPARE(problems.at(0).when, today);
+        QCOMPARE(problems.at(0).text, QStringLiteral("\u201CThe pen stops.\u201D Charged its battery."));
+        QCOMPARE(problems.at(1).text, QStringLiteral("\u201CMy headphones keep cutting out.\u201D Turned Wi-Fi power saving off."));
+        const QString record = read(home.filePath(QStringLiteral("Notebook/This computer.md")));
+        QVERIFY(!record.contains(QStringLiteral("## Fixed problems\n\nNone yet.")));
+        QVERIFY(record.contains(QStringLiteral("## Changes\n\nNone yet.")));
+        QVERIFY(record.contains(QStringLiteral("- Model: ROG Flow Z13")));
+        QString error;
+        QVERIFY(!notebook.recordFixed(QStringLiteral("Wi-Fi"), QStringLiteral("The password is \"hunter22\"."), &error));
+        QCOMPARE(notebook.fixedProblems().size(), 2);
+    }
+
+    // "Remember that?", answered yes: About me.md gains the line, dated.
+    void rememberedAboutThePerson()
+    {
+        QTemporaryDir home;
+        Notebook notebook(home.filePath(QStringLiteral("Notebook")));
+        QVERIFY(notebook.prepare(fixture()));
+        QVERIFY(notebook.rememberAboutPerson(QStringLiteral("Likes one step at a time.")));
+        QVERIFY(notebook.rememberAboutPerson(QStringLiteral("Their daughter helps with the printer.")));
+        const QString page = read(home.filePath(QStringLiteral("Notebook/About me.md")));
+        QVERIFY(page.startsWith(QStringLiteral("# About me\n")));
+        QVERIFY(page.contains(QStringLiteral("- Likes one step at a time. (")));
+        QVERIFY(page.contains(QStringLiteral("- Their daughter helps with the printer. (")));
+        QString error;
+        QVERIFY(!notebook.rememberAboutPerson(QStringLiteral("Their PIN is 4821!"), &error));
+        QVERIFY(!read(home.filePath(QStringLiteral("Notebook/About me.md"))).contains(QStringLiteral("4821")));
+        QVERIFY(notebook.memory().contains(QStringLiteral("Likes one step at a time.")));
     }
 
     void topicsAreChosenFromTheWords()

@@ -226,6 +226,23 @@ There is no Back, at either size: Back belongs to Search, and this is the
 assistant's own window. Esc, or a tap beside the card, closes it.
 (The maintainer, on the tablet, 4 October.)
 
+## No panel widget in Milestone 1; the rest of Milestone 1 as proposed
+
+For the week of use there is no panel widget of Split Rock's own: its icon,
+pinned to the panel, opens the full window, and Ask in its menu opens the card.
+Kept answers are listed in the full window's Kept tab, in the rows the record of
+this computer uses, newest first, with Forget where those rows have Undo.
+"Remember that?" is a line under the answer with Remember and Not now: the
+assistant offers what to remember, Split Rock asks, and Split Rock writes it to
+`About me.md` only after Remember. That fixed it, a button under the answer
+beside Keep this, records the problem and what fixed it in
+`This computer.md`. (The maintainer, 4 October.)
+
+Rejected: a panel widget of its own now, which is a Plasma add-on to build and
+only the tablet can test; Forget only by saying "forget that"; the person
+typing yes to the assistant, which leaves the writing to it; and Split Rock
+asking at the end of a troubleshooting conversation whether it was fixed.
+
 ## The fence is bubblewrap
 
 The assistant's program runs inside bubblewrap. It sees the system read-only
@@ -234,8 +251,8 @@ except the notebook and the assistant's own folder, which it may write; the
 desktop's message buses, the display and the person's other programs are out of
 its reach; what it writes anywhere else is lost when it stops. It keeps the
 network, to reach its provider. A request to write is allowed only inside the
-notebook, never to `This computer.md` or `ASSISTANT.md`, which are Split
-Rock's, and never with anything in it that is never written down; every other
+notebook, never to `This computer.md`, `ASSISTANT.md` or `About me.md`, which
+Split Rock writes, and never with anything in it that is never written down; every other
 request is refused and shown on the Do it card, as in Milestone 0. Where the
 computer has no bubblewrap, a real assistant is not started, and `install.sh`
 says so before installing. (Engineering, 4 October, from the ruling above.)
