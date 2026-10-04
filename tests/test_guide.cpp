@@ -124,6 +124,8 @@ private Q_SLOTS:
                  QStringLiteral("plasma/keyboard-needs-a-finger"));
         QCOMPARE(ids(library.find(QStringLiteral("keyboard keeps popping up by itself"), plasma)).value(0),
                  QStringLiteral("plasma/keyboard-appears-by-itself"));
+        // A word many entries share is no answer on its own.
+        QVERIFY(library.find(QStringLiteral("my screen is dim"), plasma).isEmpty());
     }
 
     void neverReadsFromTheHome()

@@ -266,15 +266,29 @@ QList<GuideEntry> GuideLibrary::find(const QString &question, const GuideContext
         int score;
         GuideEntry entry;
     };
-    QList<Scored> scored;
-    for (const GuideEntry &entry : entries(context, GuideEntry::Kind::Guide)) {
+    const QList<GuideEntry> candidates = entries(context, GuideEntry::Kind::Guide);
+    QList<QSet<QString>> namedBy;
+    QHash<QString, int> naming;
+    for (const GuideEntry &entry : candidates) {
         // The person's own wordings count most; what they see counts too.
         QSet<QString> named = topicWords(entry.title);
         for (const QString &wording : entry.also)
             named.unite(topicWords(wording));
-        const int strong = int(QSet<QString>(asked).intersect(named).size());
+        for (const QString &word : named)
+            ++naming[word];
+        namedBy.append(named);
+    }
+    QList<Scored> scored;
+    for (qsizetype i = 0; i < candidates.size(); ++i) {
+        const GuideEntry &entry = candidates.at(i);
+        const QSet<QString> shared = QSet<QString>(asked).intersect(namedBy.at(i));
+        const int strong = int(shared.size());
         const int weak = int(QSet<QString>(asked).intersect(topicWords(entry.seen)).size());
         if (strong == 0)
+            continue;
+        // One word in common answers only when no other entry uses it:
+        // "screen" alone says nothing about which problem the person has.
+        if (strong == 1 && naming.value(*shared.cbegin()) > 1)
             continue;
         const int score = 3 * strong + weak;
         if (score >= 4 || strong * 2 >= asked.size())
