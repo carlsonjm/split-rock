@@ -190,3 +190,13 @@ steps. Like every decision, it is the person's, brought to them as a question.
 
 Rejected: moving them without asking, which breaks the card; and leaving them
 silently, which leaves two places to look without the person knowing.
+
+## Milestone 0 is built in one pass
+
+The concept and these decisions are the approval for Milestone 0. It is built
+whole, then handed over for testing against its proof, rather than brought back
+step by step. A question the documents do not answer still comes to the
+maintainer before it is guessed, and nothing in it may change the computer.
+(The maintainer, 4 October.)
+
+Rejected: options before each step, which the documents already settle.

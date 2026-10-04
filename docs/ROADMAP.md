@@ -10,7 +10,8 @@ Shuffle's current 1.0 work, starting with Milestone 0.
 ## Milestone 0: the conversation works
 
 A small test program, not yet a widget, that talks to real assistants over the
-Agent Client Protocol.
+Agent Client Protocol. Built in one pass from the concept and decisions, then
+tested against the proof (`DECISIONS.md`).
 
 - Connect to Codex, Gemini CLI and Claude Agent; sign in; ask; get an answer.
 - Receive a request to change something, and refuse it.
