@@ -303,7 +303,7 @@ private Q_SLOTS:
         QTRY_VERIFY(kadunce.calls.contains(QStringLiteral("expand")));
         QTRY_COMPARE(card->size(), QSizeF(area.width() - 20, area.height() - 20));
         QTRY_VERIFY(kadunce.calls.contains(QStringLiteral("prepare")));
-        QCOMPARE(kadunce.launching, QStringList{QStringLiteral("split-rock")});
+        QCOMPARE(kadunce.launching, QStringList{QLatin1String(AppId)});
         QTRY_VERIFY(shell->full() && shell->full()->isVisible());
         // The card stays until Kadunce says the full window has arrived.
         QTest::qWait(600);
@@ -380,7 +380,7 @@ private Q_SLOTS:
         QTRY_VERIFY(shell->full() && shell->full()->isVisible());
         QTest::qWait(600);
         QVERIFY(window->isVisible());
-        kadunce.selectedApp = QStringLiteral("split-rock");
+        kadunce.selectedApp = QLatin1String(AppId);
         kadunce.presentation = QStringLiteral("active");
         kadunce.announceChange();
         QTRY_VERIFY(!window->isVisible());

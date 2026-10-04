@@ -17,9 +17,11 @@ Paths are from the repository root.
 | `docs/DECISIONS.md` | Every settled ruling and what it rejected |
 | `docs/ROADMAP.md` | What is planned, in order, and what is not |
 | `docs/INPUT.md` | Every input, opening with its controls map |
+| `docs/DESKTOP.md` | The entry, the card, and the conversation offered to Search on the session bus |
+| `data/` | The desktop file and the session bus's service file, filled in at build time |
 | `src/` | Milestone 0: the protocol layer (`acp/`), the assistants and the conversation (`app/`), where the card stands and Kadunce's companion guest (`desktop/`), the pretend assistant (`pretend/`) |
 | `qml/` | Milestone 0's windows: the card in Search's shape, the full window, and the Do it card |
-| `tests/` | The tests, each against the pretend assistant only, and its scripts in `tests/pretend-scripts/` |
+| `tests/` | The tests, each against the pretend assistant only, and its scripts in `tests/pretend-scripts/`; `tests/bus/` drives the conversation's bus interface on a private bus |
 | `guide/plasma/` | The troubleshooting guide's general Plasma entries, one known problem each |
 | `tour/plasma/` | The tour's general Plasma steps |
 | `tests/verify-guide.py` | Keeps the guide and the tour in the format Split Rock reads, with nothing that shows a terminal; the same script as a desktop's own |

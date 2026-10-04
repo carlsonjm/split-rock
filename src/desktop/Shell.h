@@ -54,6 +54,11 @@ public:
     // and the card stands alone in it.
     void open(QQuickWindow *card);
 
+    // Opens the full window as an ordinary window, as Split Rock's entry does,
+    // or brings it forward. windowShown follows with the token once it has
+    // drawn.
+    void openFull(const QString &requestToken);
+
     // Expand: the card grows, then hands over to the full window.
     Q_INVOKABLE void expand();
 
@@ -79,6 +84,8 @@ Q_SIGNALS:
     void handedOver();
     // Neither the card nor the full window is open any more.
     void quitRequested();
+    // The full window, asked for with this token, has drawn its first frame.
+    void windowShown(const QString &requestToken);
 
 private:
     void decide();
@@ -89,7 +96,8 @@ private:
     void setGuestMask();
     void handOver();
     void finishHandOver();
-    void showFull();
+    // The full window; maximized when it takes over from the grown card.
+    void showFull(bool maximized);
     void endGuest();
     QString appId() const;
 

@@ -63,3 +63,21 @@ qt_add_resources(test_sheet "sheet_for_test"
         ${PROJECT_SOURCE_DIR}/qml/StartingPanel.qml
         ${PROJECT_SOURCE_DIR}/qml/ProblemPanel.qml
 )
+
+# The conversation's bus interface, driven by a client that loads none of Split
+# Rock's code, against the real program and the pretend assistant, on a bus of
+# the test's own and in a home of its own.
+find_program(DBUS_RUN_SESSION dbus-run-session REQUIRED)
+add_executable(test_conversation_bus bus/test_conversation_bus.cpp)
+target_link_libraries(test_conversation_bus PRIVATE Qt6::DBus Qt6::Test)
+target_compile_definitions(test_conversation_bus PRIVATE
+    SPLIT_ROCK_PROGRAM="$<TARGET_FILE:split-rock-m0>"
+    SCRIPTS_DIR="${CMAKE_CURRENT_SOURCE_DIR}/pretend-scripts")
+add_dependencies(test_conversation_bus split-rock-m0 split-rock-pretend-assistant)
+add_test(NAME test_conversation_bus COMMAND ${DBUS_RUN_SESSION}
+    --config-file=${CMAKE_CURRENT_SOURCE_DIR}/bus/private-bus.conf -- $<TARGET_FILE:test_conversation_bus>)
+set_tests_properties(test_conversation_bus PROPERTIES
+    ENVIRONMENT "SPLIT_ROCK_PRIVATE_BUS=1;QT_QPA_PLATFORM=offscreen"
+    SKIP_RETURN_CODE 77
+    TIMEOUT 180)
+

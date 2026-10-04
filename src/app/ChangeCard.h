@@ -27,6 +27,9 @@ struct ChangeCard {
     static ChangeCard describe(const acp::ToolCall &call, const QString &assistantName,
                                const QString &assistantSaid, const QString &question);
     QVariantMap toMap() const;
+
+    // Why Do it is unavailable, in Milestone 0 for every change.
+    static QString unavailable();
 };
 
 } // namespace splitrock

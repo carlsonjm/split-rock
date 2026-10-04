@@ -1,0 +1,3 @@
+[D-BUS Service]
+Name=io.github.carlsonjm.splitrock
+Exec=@SPLIT_ROCK_PROGRAM@ --background

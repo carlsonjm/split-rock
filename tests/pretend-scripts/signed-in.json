@@ -38,6 +38,9 @@
           "say": "You connect from the network icon at the bottom right.\n\n"
         },
         {
+          "wait": 200
+        },
+        {
           "say": "1. Tap the **network** icon.\n2. Choose your network.\n"
         },
         {

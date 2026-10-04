@@ -5,6 +5,9 @@
 
 namespace splitrock {
 
+// The desktop file id, which is also every window's application id.
+inline constexpr char AppId[] = "io.github.carlsonjm.SplitRock";
+
 // What the person sees the assistant called. Inside Shuffle it is Genie; on any
 // other Plasma desktop it is Split Rock (docs/DECISIONS.md).
 QString productName();

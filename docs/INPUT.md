@@ -1,11 +1,15 @@
 # Input
 
-Every tap and key Split Rock answers, and what you see happen. Milestone 0's
-window answers Choose an assistant, Sign in, Ask, Stop an answer, Decline a
-change, Learn instead, Expand, Close and Start over; the rest is the plan, and it
-changes when the widget does.
+Every tap and key Split Rock answers, and what you see happen. Milestone 0
+answers Open the assistant, Open the card, Choose an assistant, Sign in, Ask,
+Stop an answer, Decline a change, Learn instead, Expand, Close and Start over;
+the rest is the plan, and it changes when the widget does.
 
-The window is one card the size of Shuffle's Search, centred over the work: the
+Split Rock's icon opens the full window, an ordinary window. Ask, in the icon's
+menu, opens the card. Inside Shuffle, Search also hosts the conversation as one
+of its modes, drawn in Search's own window (`DESKTOP.md`).
+
+The card is one card the size of Shuffle's Search, centred over the work: the
 name on the left of its header, the question in the middle, Expand on the right,
 and the answer below. In Spread it holds the centre, where Kadunce puts it. With
 the on-screen keys up the card rises only as far as it must to stay clear of
@@ -15,7 +19,8 @@ belongs to Search, and this is the assistant's own window.
 
 | Task | Touch | Keyboard |
 | --- | --- | --- |
-| Open the assistant | Tap its panel button | None yet |
+| Open the assistant | Tap its icon | None yet |
+| Open the card | Tap Ask in its icon's menu | None yet |
 | Choose an assistant | Tap the assistant's name under the answer, then one in the list | None yet |
 | Sign in | Tap a way to sign in | None yet |
 | Ask | Type in the question field, then tap Send | `Enter` |
@@ -34,7 +39,13 @@ belongs to Search, and this is the assistant's own window.
 
 | Input | What happens |
 | --- | --- |
-| Tap or click its panel button | The assistant's window opens above the panel. A second tap closes it. |
+| Tap or click its icon, in a launcher, in Search or on a dock | The full window opens: an ordinary window, which can be resized or placed beside another. With Split Rock already running, its window comes forward on the same conversation. |
+
+## Open the card
+
+| Input | What happens |
+| --- | --- |
+| Tap or click Ask in its icon's menu | The card opens: in Spread it holds the centre; otherwise it stands centred over the work. |
 
 ## Choose an assistant
 
@@ -89,7 +100,7 @@ belongs to Search, and this is the assistant's own window.
 
 | Input | What happens |
 | --- | --- |
-| Tap or click beside the card | The card closes. The conversation ends and is not saved, unless the full window is open. |
+| Tap or click beside the card | The card closes. The conversation stays with Split Rock, for its window and for Search, until Start over or the end of the session; it is never saved. |
 | `Esc` | The same. |
 
 ## Undo a past change

@@ -37,6 +37,11 @@ To rehearse without any account first, run
 Pretend assistant. Its three suggestions each have a scripted answer, and Make
 the writing bigger shows the Do it card.
 
+Split Rock keeps running after its window closes, so Search can reach the
+conversation; press Ctrl+C in the terminal to end it before starting it again
+with other arguments. It starts with the assistant chosen last time; tap the
+assistant's name to choose another.
+
 ## For each assistant: Codex, then Claude Agent, then Gemini CLI
 
 Choose it from the list, then note:
@@ -71,7 +76,8 @@ With any assistant signed in, and the on-screen keys:
 1. **The keys.** Tap the question field so the keys come up. Did the card stay
    clear of them, with the field and the answer still readable? Did it move
    smoothly?
-2. **Spread.** Open Spread, then open Genie. Did the card take Spread's centre,
+2. **Spread.** Open Spread, then open Genie's card: `./run.sh --ask`, the same
+   as Ask in its icon's menu once it is installed. Did the card take Spread's centre,
    with the cards beside it moving aside? Tap a card beside it: did Genie
    close?
 3. **Expand.** Tap Expand, in Spread and over an open application. Did the

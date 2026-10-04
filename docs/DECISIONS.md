@@ -226,6 +226,25 @@ There is no Back, at either size: Back belongs to Search, and this is the
 assistant's own window. Esc, or a tap beside the card, closes it.
 (The maintainer, on the tablet, 4 October.)
 
+## The icon opens the full window; Search hosts the conversation
+
+Split Rock's icon, in a launcher, in Search or on a dock, opens the full window,
+the view in `mockup/Workspace.dc.html`, as an ordinary window: it can be
+resized, and a card workspace can place it beside another window. The card in
+Search's shape stays, as Ask in the icon's menu, and in Spread it holds the
+centre as before. Inside Shuffle, Search hosts the conversation as one of its
+modes, drawn in Search's own window, as it hosts Gooseberry's quick note:
+Split Rock keeps the conversation and offers it on the session bus
+(`DESKTOP.md` § The conversation in Search), and Search keeps nothing. So that
+the conversation is there when Search asks, Split Rock runs once, keeps running
+after its windows close, and is started by Search's first call. The maintainer
+passed the same model for Gooseberry on the tablet, and wants Genie the same
+way. (The maintainer, 4 October.)
+
+Rejected: the card as what the icon opens, which cannot be resized or placed
+beside another window; and Search drawing the conversation from a copy of its
+own, which would leave two conversations.
+
 ## The card holds Spread's centre; the full window takes over from it
 
 Genie's card holds Spread's centre the same way Gooseberry's quick note does: as

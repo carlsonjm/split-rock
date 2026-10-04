@@ -104,7 +104,13 @@ QVariantMap ChangeCard::toMap() const
             {QStringLiteral("why"), why},
             {QStringLiteral("undo"), undo},
             {QStringLiteral("password"), password},
-            {QStringLiteral("details"), details}};
+            {QStringLiteral("details"), details},
+            {QStringLiteral("unavailable"), unavailable()}};
+}
+
+QString ChangeCard::unavailable()
+{
+    return QStringLiteral("%1 can't make changes yet, so nothing was changed.").arg(productName());
 }
 
 } // namespace splitrock

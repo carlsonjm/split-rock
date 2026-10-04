@@ -7,11 +7,19 @@
 #include <QDir>
 #include <QProcess>
 #include <QRegularExpression>
+#include <QSettings>
+#include <QStandardPaths>
 #include <QTimer>
 
 namespace splitrock {
 
 namespace {
+
+// Split Rock's own settings: which assistant the person chose, and nothing else.
+QString chosenFile()
+{
+    return QStandardPaths::writableLocation(QStandardPaths::GenericConfigLocation) + QStringLiteral("/split-rockrc");
+}
 
 constexpr int SignInLimitMs = 10 * 60 * 1000;
 constexpr int DiagnosticLines = 30;
@@ -118,12 +126,23 @@ void Conversation::chooseAssistant(const QString &id)
     stopSignInProcess();
     stopAssistant();
     m_current = *it;
+    // Remembered, so that the next time Split Rock starts, from its window or
+    // from Search, it starts with the same assistant. Only the choice is kept;
+    // the conversation is not.
+    QSettings(chosenFile(), QSettings::IniFormat).setValue(QStringLiteral("Assistant/chosen"), id);
     m_choosing = false;
     Q_EMIT assistantChanged();
     Q_EMIT choosingChanged();
     clearAnswer();
     clearTurns();
     startAssistant();
+}
+
+bool Conversation::resumeChosen()
+{
+    if (m_current.id.isEmpty())
+        chooseAssistant(QSettings(chosenFile(), QSettings::IniFormat).value(QStringLiteral("Assistant/chosen")).toString());
+    return !m_current.id.isEmpty();
 }
 
 void Conversation::startAssistant()

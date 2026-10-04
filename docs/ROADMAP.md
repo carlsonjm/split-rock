@@ -10,16 +10,20 @@ Shuffle's current 1.0 work, starting with Milestone 0.
 ## Milestone 0: the conversation works
 
 A small test program, not yet a widget, that talks to real assistants over the
-Agent Client Protocol. Its window is one card the size of Shuffle's Search,
-centred over the work or holding Spread's centre under Kadunce, with the answer
-as `mockup/JustType.dc.html` draws it, and an Expand that hands over to a full
-window with the full view of `mockup/Workspace.dc.html` (`DECISIONS.md`). A
+Agent Client Protocol. Its icon opens the full window, the view of
+`mockup/Workspace.dc.html`, as an ordinary window; Ask in its menu opens the
+card the size of Shuffle's Search, centred over the work or holding Spread's
+centre under Kadunce, with the answer as `mockup/JustType.dc.html` draws it and
+an Expand that hands over to the full window (`DECISIONS.md`). It offers the
+conversation to Search on the session bus (`DESKTOP.md`). A
 refused change request shows as the Do it card with Do it unavailable. Built in
 one pass from the concept, decisions and mock-up, then tested against the proof
 (`DECISIONS.md`).
 
 - Connect to Codex, Gemini CLI and Claude Agent; sign in; ask; get an answer.
 - Receive a request to change something, and refuse it.
+- Search's Genie mode: the conversation, version 1 of its bus interface,
+  tested with a client that is not Split Rock.
 - A pretend assistant that follows a script, so every later test runs without
   an account, a network or a real computer to change.
 
@@ -40,8 +44,9 @@ Nothing on the computer changes yet. The assistant can look and explain.
 
 - The panel widget: open it, ask in plain words, read the answer.
 - A background service that holds the conversation, so closing the widget or
-  restarting the panel loses nothing. Search's Genie mode, where Shuffle's
-  Search hosts the conversation inside its own window, needs it.
+  restarting the panel loses nothing. Its first version, which Search's Genie
+  mode uses, is built in Milestone 0 (`DESKTOP.md` § The conversation in
+  Search); this milestone carries it to the widget.
 - The notebook and its memory (`MEMORY.md`): `This computer.md` with the
   hardware and fixed problems, the `Device/` folder that starts from what Split Rock
   reads on the computer and grows with use, `About me.md`, Keep this, Forget,

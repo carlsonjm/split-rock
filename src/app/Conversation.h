@@ -88,6 +88,9 @@ public:
     Q_INVOKABLE void showAssistants();
     Q_INVOKABLE void hideAssistants();
     Q_INVOKABLE void chooseAssistant(const QString &id);
+    // Starts the assistant the person chose last time, if none is chosen yet
+    // and it is still offered. True when an assistant is chosen afterwards.
+    bool resumeChosen();
     Q_INVOKABLE void signIn(const QString &methodId);
     Q_INVOKABLE void cancelSignIn();
     Q_INVOKABLE void ask(const QString &text);

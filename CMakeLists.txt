@@ -32,6 +32,8 @@ target_compile_definitions(splitrock_core PUBLIC PROJECT_VERSION="${PROJECT_VERS
 
 # Where the card stands, and Kadunce's companion guest protocol.
 add_library(splitrock_desktop STATIC
+    src/desktop/ConversationService.cpp
+    src/desktop/Entry.h
     src/desktop/Kadunce.cpp
     src/desktop/Shell.cpp
 )
@@ -66,6 +68,14 @@ qt_add_resources(split-rock-m0 "sheet"
         qml/ProblemPanel.qml
 )
 target_link_libraries(split-rock-m0 PRIVATE splitrock_core splitrock_desktop Qt6::Gui Qt6::Quick)
+
+# The desktop file and the session bus's service file, filled in here for the
+# program in this build; the package installs them later, for its own path.
+set(SPLIT_ROCK_PROGRAM "${CMAKE_CURRENT_BINARY_DIR}/split-rock-m0")
+configure_file(data/io.github.carlsonjm.SplitRock.desktop.in
+    ${CMAKE_CURRENT_BINARY_DIR}/data/io.github.carlsonjm.SplitRock.desktop @ONLY)
+configure_file(data/io.github.carlsonjm.splitrock.service.in
+    ${CMAKE_CURRENT_BINARY_DIR}/data/io.github.carlsonjm.splitrock.service @ONLY)
 
 # The pretend assistant: speaks the protocol and follows a script, so every test
 # runs with no account, no network and nothing on the computer to change.

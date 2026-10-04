@@ -116,7 +116,7 @@ Column {
             Text {
                 width: article.width
                 wrapMode: Text.WordWrap
-                text: productName + " can't make changes yet, so nothing was changed."
+                text: conversation.card.unavailable || ""
                 color: theme.quiet
                 font.pixelSize: 14
             }

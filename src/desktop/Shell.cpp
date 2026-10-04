@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 #include "desktop/Shell.h"
 
+#include "app/Product.h"
 #include "desktop/Kadunce.h"
 
 #include <QCursor>
@@ -74,14 +75,41 @@ Shell::~Shell()
 QString Shell::appId() const
 {
     const QString id = QGuiApplication::desktopFileName();
-    return id.isEmpty() ? QStringLiteral("split-rock") : id;
+    return id.isEmpty() ? QLatin1String(AppId) : id;
 }
 
 void Shell::open(QQuickWindow *card)
 {
+    if (m_card == card && card->isVisible())
+        return;
     m_card = card;
-    connect(card, SIGNAL(finished()), this, SLOT(cardFinished()));
+    connect(card, SIGNAL(finished()), this, SLOT(cardFinished()), Qt::UniqueConnection);
+    // Each opening starts afresh: a card closed earlier, or handed over,
+    // holds nothing now.
+    m_placed = false;
+    m_expanded = false;
+    m_handingOver = false;
+    m_handedOver = false;
+    m_holdsGuest = false;
+    m_launchToken.clear();
+    m_mode = QStringLiteral("standalone");
+    Q_EMIT expandedChanged();
     decide();
+}
+
+void Shell::openFull(const QString &requestToken)
+{
+    showFull(false);
+    if (!m_full)
+        return;
+    // The next frame drawn is the one the caller waits for.
+    auto *connection = new QMetaObject::Connection;
+    *connection = connect(m_full, &QQuickWindow::frameSwapped, this, [this, connection, requestToken] {
+        disconnect(*connection);
+        delete connection;
+        Q_EMIT windowShown(requestToken);
+    });
+    m_full->requestUpdate();
 }
 
 void Shell::decide()
@@ -269,12 +297,12 @@ void Shell::handOver()
         ask(m_bus, this, QStringLiteral("prepareLauncherGuestLaunch"), arguments, 700, [this, token](const QDBusMessage &reply) {
             if (!m_holdsGuest || !answered(reply) || !reply.arguments().first().toBool()) {
                 endGuest();
-                showFull();
+                showFull(true);
                 QTimer::singleShot(300, this, &Shell::finishHandOver);
                 return;
             }
             m_launchToken = token;
-            showFull();
+            showFull(true);
             QTimer::singleShot(HandOverLimitMs, this, [this, token] {
                 if (m_launchToken != token || m_handedOver)
                     return;
@@ -291,13 +319,13 @@ void Shell::handOver()
         // until Kadunce shows that window, so nothing flashes between them.
         m_bus.connect(QLatin1String(kadunce::Service), QLatin1String(kadunce::Path), QLatin1String(kadunce::Interface),
                       QStringLiteral("workspaceContextChanged"), this, SLOT(workspaceChanged()));
-        showFull();
+        showFull(true);
         workspaceChanged();
         QTimer::singleShot(HandOverLimitMs, this, &Shell::finishHandOver);
         return;
     }
 
-    showFull();
+    showFull(true);
     QTimer::singleShot(300, this, &Shell::finishHandOver);
 }
 
@@ -324,7 +352,7 @@ void Shell::finishHandOver()
         QMetaObject::invokeMethod(m_card, "finish");
 }
 
-void Shell::showFull()
+void Shell::showFull(bool maximized)
 {
     if (!m_full) {
         QQmlComponent component(m_engine, QUrl(QStringLiteral("qrc:/qml/FullWindow.qml")));
@@ -339,7 +367,12 @@ void Shell::showFull()
     }
     m_fullOpen = true;
     Q_EMIT fullChanged();
-    m_full->showMaximized();
+    if (m_full->isVisible())
+        m_full->raise();
+    else if (maximized)
+        m_full->showMaximized();
+    else
+        m_full->show();
     m_full->requestActivate();
 }
 

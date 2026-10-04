@@ -1,6 +1,10 @@
 #!/usr/bin/env bash
-# Builds Milestone 0 and opens its window: Genie inside Shuffle, Split Rock
-# elsewhere.
+# Builds Milestone 0 and opens its full window: Genie inside Shuffle, Split
+# Rock elsewhere. --ask opens the card instead.
+#
+# Split Rock keeps running after its windows close, so Shuffle's Search can
+# reach the conversation; Ctrl+C here ends it. Running this again while it runs
+# goes to the one running.
 #
 # The first run downloads the three assistants' adapters into this checkout's
 # build folder. Everything this program fetches, and every assistant's sign-in,
