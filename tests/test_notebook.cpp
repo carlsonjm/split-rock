@@ -1,11 +1,13 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 //
 // The notebook and what is never written down, in a folder of the test's own.
+#include "app/Fence.h"
 #include "app/NeverWritten.h"
 #include "app/Notebook.h"
 
 #include <QDir>
 #include <QFile>
+#include <QFileInfo>
 #include <QStandardPaths>
 #include <QTemporaryDir>
 #include <QTest>
@@ -142,6 +144,34 @@ private Q_SLOTS:
         QVERIFY(notebook.keep(QStringLiteral("Remember my card"), QStringLiteral("It is 4111 1111 1111 1111."), &error).isEmpty());
         QVERIFY(error.contains(QStringLiteral("never writes down")));
         QVERIFY(!QDir(home.filePath(QStringLiteral("Notebook/Notes"))).exists());
+    }
+
+    // The fence hides the home folder, then shows the notebook and the
+    // assistant's own folder to write, after everything that could cover
+    // them.
+    void theFenceIsBuiltInOrder()
+    {
+        QTemporaryDir home;
+        const QString notebook = home.filePath(QStringLiteral("Notebook"));
+        const QString own = home.filePath(QStringLiteral("state/codex"));
+        const acp::LaunchSpec launch = fenced({QStringLiteral("/usr/bin/node"), {QStringLiteral("adapter.js")}, {}, home.path()},
+                                              {{own, notebook}, {home.filePath(QStringLiteral("adapters"))}});
+        const QStringList args = launch.arguments;
+        QCOMPARE(args.mid(0, 3), (QStringList{QStringLiteral("--ro-bind"), QStringLiteral("/"), QStringLiteral("/")}));
+        const qsizetype hidden = args.indexOf(QDir::homePath(), args.indexOf(QStringLiteral("--tmpfs")));
+        QVERIFY(hidden > 0);
+        QCOMPARE(args.at(hidden - 1), QStringLiteral("--tmpfs"));
+        const qsizetype writes = args.indexOf(notebook);
+        QVERIFY(writes > hidden);
+        QCOMPARE(args.at(writes - 1), QStringLiteral("--bind"));
+        QCOMPARE(args.at(args.indexOf(own) - 1), QStringLiteral("--bind"));
+        QVERIFY(args.contains(QStringLiteral("--unshare-pid")));
+        QVERIFY(args.contains(QStringLiteral("--die-with-parent")));
+        QCOMPARE(args.mid(args.size() - 3),
+                 (QStringList{QStringLiteral("--"), QStringLiteral("/usr/bin/node"), QStringLiteral("adapter.js")}));
+        // Nothing the computer lacks is asked to be hidden.
+        if (!QFileInfo(QStringLiteral("/run/dbus")).isDir())
+            QVERIFY(!args.contains(QStringLiteral("/run/dbus")));
     }
 
     // Inside means inside, links and climbing out included.

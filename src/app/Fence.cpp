@@ -46,14 +46,18 @@ acp::LaunchSpec fenced(const acp::LaunchSpec &launch, const FenceRoom &room)
         QStringLiteral("--proc"), QStringLiteral("/proc"),
         // Scratch space of its own, gone when it stops.
         QStringLiteral("--tmpfs"), QStringLiteral("/tmp"),
-        QStringLiteral("--tmpfs"), QStringLiteral("/var/tmp"),
-        // No message bus of the system's.
-        QStringLiteral("--tmpfs"), QStringLiteral("/run/dbus"),
     };
+    // Only over folders that exist: the system is read-only, so none can be
+    // made for them.
+    for (const QString &hidden : {QStringLiteral("/var/tmp"), QStringLiteral("/run/dbus")}) {
+        // /run/dbus holds the system's message bus.
+        if (QFileInfo(hidden).isDir())
+            args << QStringLiteral("--tmpfs") << hidden;
+    }
     // The home folder, hidden: an empty folder of its own in its place.
     args << QStringLiteral("--tmpfs") << home;
     // The session's sockets, the bus and the display among them, hidden too.
-    if (!runtime.isEmpty())
+    if (!runtime.isEmpty() && QFileInfo(runtime).isDir())
         args << QStringLiteral("--tmpfs") << runtime;
     // The desktop's settings, read-only.
     for (const QString &setting : DesktopSettings) {
