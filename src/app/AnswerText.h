@@ -6,7 +6,7 @@
 
 namespace splitrock {
 
-// An answer laid out as the Just Type sheet shows it: one short line, then
+// An answer laid out as the assistant's window shows it: one short line, then
 // numbered steps, then anything else the assistant said.
 struct AnswerText {
     QString headline;

@@ -53,4 +53,5 @@ qt_add_resources(test_sheet "sheet_for_test"
         ${PROJECT_SOURCE_DIR}/qml/DoItCard.qml
         ${PROJECT_SOURCE_DIR}/qml/SignInPanel.qml
         ${PROJECT_SOURCE_DIR}/qml/AssistantList.qml
+        ${PROJECT_SOURCE_DIR}/qml/Workspace.qml
 )

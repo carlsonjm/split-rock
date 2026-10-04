@@ -43,6 +43,7 @@ qt_add_resources(split-rock-m0 "sheet"
         qml/DoItCard.qml
         qml/SignInPanel.qml
         qml/AssistantList.qml
+        qml/Workspace.qml
 )
 target_link_libraries(split-rock-m0 PRIVATE splitrock_core Qt6::Gui Qt6::Quick)
 

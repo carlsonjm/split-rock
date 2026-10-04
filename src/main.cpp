@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 //
-// Milestone 0's test program: the Just Type sheet, talking to real assistants
-// over the Agent Client Protocol.
+// Milestone 0's test program: Genie's window, talking to real assistants over
+// the Agent Client Protocol.
 //
 //   split-rock-m0 [--assistants DIR] [--state DIR] [--pretend SCRIPT]
 //
@@ -13,6 +13,7 @@
 
 #include "app/Assistants.h"
 #include "app/Conversation.h"
+#include "app/Placement.h"
 #include "app/QmlContext.h"
 
 #include <QCommandLineParser>
@@ -20,6 +21,7 @@
 #include <QGuiApplication>
 #include <QQmlApplicationEngine>
 #include <QQmlContext>
+#include <QQuickWindow>
 #include <QStandardPaths>
 
 int main(int argc, char **argv)
@@ -66,7 +68,10 @@ int main(int argc, char **argv)
     engine.rootContext()->setContextProperty(QStringLiteral("conversation"), &conversation);
     splitrock::exposeProduct(engine.rootContext());
     engine.load(QUrl(QStringLiteral("qrc:/qml/Main.qml")));
-    if (engine.rootObjects().isEmpty())
+    auto *window = qobject_cast<QQuickWindow *>(engine.rootObjects().value(0));
+    if (!window)
         return 1;
+    QObject::connect(window, SIGNAL(finished()), &app, SLOT(quit()));
+    splitrock::openOverWork(window);
     return app.exec();
 }

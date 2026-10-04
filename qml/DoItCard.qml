@@ -9,25 +9,6 @@ Column {
     spacing: 14
 
     Rectangle {
-        anchors.right: parent.right
-        width: Math.min(420, bubble.implicitWidth + 28)
-        height: bubble.implicitHeight + 20
-        radius: 18
-        color: theme.primary
-        visible: conversation.question !== ""
-        Text {
-            id: bubble
-            x: 14; y: 10
-            width: parent.width - 28
-            wrapMode: Text.WordWrap
-            text: conversation.question
-            color: theme.primaryInk
-            font.pixelSize: 15
-            font.weight: Font.DemiBold
-        }
-    }
-
-    Rectangle {
         objectName: "doItCard"
         width: parent.width
         height: article.implicitHeight + 38

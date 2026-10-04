@@ -49,7 +49,9 @@ Choose it from the list, then note:
      page? (For Claude Agent: did the page give you a code to paste? If so,
      this sign-in needs a terminal; tap Cancel.)
    - Did a terminal window appear at any point?
-   - Did the window go on to show the field when you finished?
+   - Did the window go on to show the field when you finished? If the browser
+     stayed in front of it, could you bring the window back from the task
+     bar?
 3. **What it costs.** What did the sign-in pages say about plans, trials or
    billing? Were you asked for card details?
 4. **Ask.** Tap How do I connect to Wi-Fi?. Did an answer arrive as one short
@@ -63,6 +65,19 @@ Choose it from the list, then note:
 7. **Anything odd.** Did a line ever say the assistant changed something
    without asking? Did anything else surprise you?
 
+## The window, once, on the tablet
+
+With any assistant signed in, and the on-screen keys:
+
+1. **The keys.** Tap the question field so the keys come up. Did the card stay
+   clear of them, with the field and the answer still readable? Did it move
+   smoothly?
+2. **Expand.** Tap Expand. Did the card grow to fill the screen above the
+   panel, then show the conversation on the left and This computer on the
+   right? Did it feel like the same window grown?
+3. **Closing.** Tap the desktop around the card, or press Esc. Did the window
+   close?
+
 ## Report
 
 Copy this and fill it in; one row per assistant.
@@ -72,6 +87,9 @@ Copy this and fill it in; one row per assistant.
 | Codex | | | | | | |
 | Claude Agent | | | | | | |
 | Gemini CLI | | | | | | |
+
+And for the window: clear of the keys? Expand feels like the same window? Closes
+on a tap outside and on Esc?
 
 ## Signing out again
 

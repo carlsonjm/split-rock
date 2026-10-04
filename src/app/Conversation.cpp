@@ -122,6 +122,7 @@ void Conversation::chooseAssistant(const QString &id)
     Q_EMIT assistantChanged();
     Q_EMIT choosingChanged();
     clearAnswer();
+    clearTurns();
     startAssistant();
 }
 
@@ -160,10 +161,16 @@ void Conversation::startAssistant()
         Q_EMIT answerChanged();
     });
     connect(client, &acp::Client::changeRefused, this, [this](const acp::ToolCall &call, const QString &) {
+        const bool first = !m_refused.contains(call.id);
         m_refused.insert(call.id);
         m_card = ChangeCard::describe(call, m_current.name, m_said, m_question).toMap();
         m_cardOpen = true;
         Q_EMIT cardChanged();
+        if (first) {
+            m_refusedChanges.append(QVariantMap{{QStringLiteral("heading"), m_card.value(QStringLiteral("heading"))},
+                                                {QStringLiteral("question"), m_question}});
+            Q_EMIT turnsChanged();
+        }
     });
     connect(client, &acp::Client::toolCallChanged, this, [this](const acp::ToolCall &call) {
         // A change that finished without being asked for is what the fence in
@@ -386,6 +393,13 @@ void Conversation::ask(const QString &text)
 
 void Conversation::send(const QString &prompt, const QString &shown)
 {
+    if (!m_question.isEmpty()) {
+        m_turns.append(QVariantMap{{QStringLiteral("question"), m_question},
+                                   {QStringLiteral("headline"), m_answer.headline},
+                                   {QStringLiteral("steps"), m_answer.steps},
+                                   {QStringLiteral("more"), m_answer.more}});
+        Q_EMIT turnsChanged();
+    }
     clearAnswer();
     m_question = shown;
     Q_EMIT answerChanged();
@@ -460,6 +474,7 @@ void Conversation::newQuestion()
     // and its own record of the conversation is removed.
     stopAssistant();
     clearAnswer();
+    clearTurns();
     startAssistant();
 }
 
@@ -499,6 +514,13 @@ void Conversation::clearAnswer()
     m_unasked.clear();
     Q_EMIT answerChanged();
     Q_EMIT cardChanged();
+}
+
+void Conversation::clearTurns()
+{
+    m_turns.clear();
+    m_refusedChanges.clear();
+    Q_EMIT turnsChanged();
 }
 
 QString Conversation::recentDiagnostics() const

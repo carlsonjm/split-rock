@@ -1,9 +1,10 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 //
-// The Just Type sheet itself, shown off screen and driven against the pretend
+// Genie's window itself, shown off screen and driven against the pretend
 // assistant.
 #include "app/Conversation.h"
 #include "PretendFixture.h"
+#include "app/Placement.h"
 #include "app/QmlContext.h"
 
 #include <QDir>
@@ -13,6 +14,8 @@
 #include <QQmlContext>
 #include <QQuickItem>
 #include <QQuickWindow>
+#include <QScreen>
+#include <QSignalSpy>
 #include <QTest>
 
 using namespace splitrock;
@@ -50,6 +53,25 @@ class TestSheet : public QObject
         window->grabWindow().save(dir + QLatin1Char('/') + name + QStringLiteral(".png"));
     }
 
+    // The window loaded and opened over a work area the size of the mock-up's,
+    // a 1280 by 800 screen less Shuffle's bottom band.
+    static QQuickWindow *open(QQmlApplicationEngine &engine, Conversation &c)
+    {
+        engine.rootContext()->setContextProperty(QStringLiteral("conversation"), &c);
+        exposeProduct(engine.rootContext());
+        engine.load(QUrl(QStringLiteral("qrc:/qml/Main.qml")));
+        auto *window = qobject_cast<QQuickWindow *>(engine.rootObjects().value(0));
+        if (!window)
+            return nullptr;
+        window->setGeometry(0, 0, 1280, 736);
+        window->show();
+        QMetaObject::invokeMethod(window, "open");
+        return QTest::qWaitForWindowExposed(window) ? window : nullptr;
+    }
+
+    // Waits for the card's motion to settle.
+    static void settle() { QTest::qWait(400); }
+
 private Q_SLOTS:
     void initTestCase()
     {
@@ -74,12 +96,8 @@ private Q_SLOTS:
         QVERIFY(f.isValid());
         Conversation c({f.assistant(QStringLiteral("needs-sign-in.json"))});
         QQmlApplicationEngine engine;
-        engine.rootContext()->setContextProperty(QStringLiteral("conversation"), &c);
-        exposeProduct(engine.rootContext());
-        engine.load(QUrl(QStringLiteral("qrc:/qml/Main.qml")));
-        auto *window = qobject_cast<QQuickWindow *>(engine.rootObjects().value(0));
+        QQuickWindow *window = open(engine, c);
         QVERIFY(window);
-        QVERIFY(QTest::qWaitForWindowExposed(window));
         shoot(window, QStringLiteral("1-choose"));
         c.chooseAssistant(QStringLiteral("pretend"));
         QTRY_COMPARE(c.phase(), QStringLiteral("signIn"));
@@ -94,13 +112,8 @@ private Q_SLOTS:
         QVERIFY(f.isValid());
         Conversation c({f.assistant(QStringLiteral("signed-in.json"))});
         QQmlApplicationEngine engine;
-        engine.rootContext()->setContextProperty(QStringLiteral("conversation"), &c);
-        exposeProduct(engine.rootContext());
-        engine.load(QUrl(QStringLiteral("qrc:/qml/Main.qml")));
-        QCOMPARE(engine.rootObjects().size(), 1);
-        auto *window = qobject_cast<QQuickWindow *>(engine.rootObjects().first());
+        QQuickWindow *window = open(engine, c);
         QVERIFY(window);
-        QVERIFY(QTest::qWaitForWindowExposed(window));
 
         QVERIFY(find(window, QStringLiteral("assistant-pretend")));
         c.chooseAssistant(QStringLiteral("pretend"));
@@ -134,6 +147,128 @@ private Q_SLOTS:
         QTRY_COMPARE(c.phase(), QStringLiteral("ready"));
         QTRY_VERIFY(find(window, QStringLiteral("headline")));
         shoot(window, QStringLiteral("3-answer"));
+        QVERIFY(find(window, QStringLiteral("keepPill")));
+        QVERIFY(!find(window, QStringLiteral("keepPill"))->isEnabled());
+    }
+
+    // One card the size of Shuffle's Search, centred over the work.
+    void theCardTakesSearchsShape()
+    {
+        PretendFixture f;
+        QVERIFY(f.isValid());
+        Conversation c({f.assistant(QStringLiteral("signed-in.json"))});
+        QQmlApplicationEngine engine;
+        QQuickWindow *window = open(engine, c);
+        QVERIFY(window);
+        settle();
+        QQuickItem *card = find(window, QStringLiteral("card"));
+        QVERIFY(card);
+        QCOMPARE(card->width(), 819.0);  // 64% of 1280
+        QCOMPARE(card->height(), 471.0); // 64% of 736
+        QCOMPARE(card->x(), (1280 - 819) / 2.0);
+        QCOMPARE(card->y(), 133.0); // centred, rounded
+        QCOMPARE(card->property("radius").toReal(), 8.0);
+        QCOMPARE(find(window, QStringLiteral("header"))->height(), 44.0);
+        QQuickItem *expand = find(window, QStringLiteral("expandButton"));
+        QVERIFY(expand && expand->isVisible());
+        // 14 from the header's edge, as Search's header controls are.
+        QCOMPARE(expand->mapToItem(card, QPointF(expand->width(), 0)).x(), 819.0 - 22 - 14);
+
+        // With the keys up the card rises just clear of them, then shortens,
+        // never below 160.
+        window->setProperty("keysRect", QRectF(0, 436, 1280, 300));
+        settle();
+        QCOMPARE(card->y() + card->height(), 436.0 - 10);
+        QCOMPARE(card->height(), 416.0);
+        window->setProperty("keysRect", QRectF(0, 100, 1280, 636));
+        settle();
+        QCOMPARE(card->height(), 160.0);
+        window->setProperty("keysRect", QRectF());
+        settle();
+        QCOMPARE(card->height(), 471.0);
+    }
+
+    // Expand grows the card to the whole work area, less a 10 px gutter, and
+    // shows the full view: the conversation, and what is being worked on.
+    void expandShowsTheFullView()
+    {
+        PretendFixture f;
+        QVERIFY(f.isValid());
+        Conversation c({f.assistant(QStringLiteral("signed-in.json"))});
+        QQmlApplicationEngine engine;
+        QQuickWindow *window = open(engine, c);
+        QVERIFY(window);
+        c.chooseAssistant(QStringLiteral("pretend"));
+        QTRY_COMPARE(c.phase(), QStringLiteral("ready"));
+        c.ask(QStringLiteral("How do I connect to Wi-Fi?"));
+        QTRY_COMPARE(c.phase(), QStringLiteral("ready"));
+        c.ask(QStringLiteral("Make the writing bigger"));
+        QTRY_COMPARE(c.phase(), QStringLiteral("ready"));
+        QTRY_VERIFY(find(window, QStringLiteral("doItCard")));
+
+        QQuickItem *full = find(window, QStringLiteral("fullView"));
+        QVERIFY(full && !full->isVisible());
+        QMetaObject::invokeMethod(window, "expand");
+        settle();
+        QQuickItem *card = find(window, QStringLiteral("card"));
+        QCOMPARE(card->width(), 1260.0);
+        QCOMPARE(card->height(), 716.0);
+        QCOMPARE(card->x(), 10.0);
+        QCOMPARE(card->y(), 10.0);
+        QTRY_VERIFY(full->isVisible());
+        QTRY_COMPARE(full->opacity(), 1.0);
+        QVERIFY(!find(window, QStringLiteral("expandButton"))->isVisible());
+        QVERIFY(!find(window, QStringLiteral("field"))->isVisible());
+        QVERIFY(find(window, QStringLiteral("wideField"))->isVisible());
+        QQuickItem *changes = find(window, QStringLiteral("changes"));
+        QVERIFY(changes);
+        shoot(window, QStringLiteral("6-full-view"));
+    }
+
+    // Esc, or a tap on the work around the card, closes the window.
+    void escOrATapOutsideCloses()
+    {
+        PretendFixture f;
+        QVERIFY(f.isValid());
+        Conversation c({f.assistant(QStringLiteral("signed-in.json"))});
+        {
+            QQmlApplicationEngine engine;
+            QQuickWindow *window = open(engine, c);
+            QVERIFY(window);
+            QSignalSpy finished(window, SIGNAL(finished()));
+            // A tap on the card leaves it open.
+            QTest::mouseClick(window, Qt::LeftButton, {}, QPoint(640, 300));
+            QTest::qWait(300);
+            QCOMPARE(finished.size(), 0);
+            QTest::mouseClick(window, Qt::LeftButton, {}, QPoint(40, 40));
+            QTRY_COMPARE(finished.size(), 1);
+        }
+        {
+            QQmlApplicationEngine engine;
+            QQuickWindow *window = open(engine, c);
+            QVERIFY(window);
+            QSignalSpy finished(window, SIGNAL(finished()));
+            QTest::keyClick(window, Qt::Key_Escape);
+            QTRY_COMPARE(finished.size(), 1);
+        }
+    }
+
+    // The program opens the window across the screen's work area.
+    void opensOverTheWork()
+    {
+        PretendFixture f;
+        QVERIFY(f.isValid());
+        Conversation c({f.assistant(QStringLiteral("signed-in.json"))});
+        QQmlApplicationEngine engine;
+        engine.rootContext()->setContextProperty(QStringLiteral("conversation"), &c);
+        exposeProduct(engine.rootContext());
+        engine.load(QUrl(QStringLiteral("qrc:/qml/Main.qml")));
+        auto *window = qobject_cast<QQuickWindow *>(engine.rootObjects().value(0));
+        QVERIFY(window);
+        openOverWork(window);
+        QVERIFY(QTest::qWaitForWindowExposed(window));
+        QTRY_COMPARE(window->geometry(), window->screen()->availableGeometry());
+        QVERIFY(window->flags() & Qt::FramelessWindowHint);
     }
 };
 
