@@ -13,10 +13,11 @@
 
 #include "app/Assistants.h"
 #include "app/Conversation.h"
-#include "app/Placement.h"
 #include "app/QmlContext.h"
+#include "desktop/Shell.h"
 
 #include <QCommandLineParser>
+#include <QDBusConnection>
 #include <QDir>
 #include <QGuiApplication>
 #include <QQmlApplicationEngine>
@@ -65,13 +66,15 @@ int main(int argc, char **argv)
 
     splitrock::Conversation conversation(assistants);
     QQmlApplicationEngine engine;
+    splitrock::Shell shell(&engine, QDBusConnection::sessionBus());
     engine.rootContext()->setContextProperty(QStringLiteral("conversation"), &conversation);
+    engine.rootContext()->setContextProperty(QStringLiteral("shell"), &shell);
     splitrock::exposeProduct(engine.rootContext());
     engine.load(QUrl(QStringLiteral("qrc:/qml/Main.qml")));
-    auto *window = qobject_cast<QQuickWindow *>(engine.rootObjects().value(0));
-    if (!window)
+    auto *card = qobject_cast<QQuickWindow *>(engine.rootObjects().value(0));
+    if (!card)
         return 1;
-    QObject::connect(window, SIGNAL(finished()), &app, SLOT(quit()));
-    splitrock::openOverWork(window);
+    QObject::connect(&shell, &splitrock::Shell::quitRequested, &app, &QCoreApplication::quit);
+    shell.open(card);
     return app.exec();
 }

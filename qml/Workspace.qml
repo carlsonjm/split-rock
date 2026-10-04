@@ -6,13 +6,18 @@ import "Icons.js" as Icons
 // on the left, what the assistant is working on at the right. In Milestone 0
 // nothing is kept, so the right side says what this computer is, lists what
 // the assistant asked to change and was refused, and says where the notebook's
-// parts will be.
+// parts will be. Choosing an assistant, signing in and the Do it card happen
+// in the conversation's column.
 Item {
     id: full
 
     readonly property bool canAsk: conversation.phase === "ready"
     readonly property bool working: conversation.phase === "working"
     property int tab: 0
+
+    function focusField() {
+        wideField.forceActiveFocus()
+    }
 
     function send() {
         if (working) {
@@ -209,7 +214,7 @@ Item {
                 spacing: 12
 
                 Text {
-                    visible: conversation.turns.length === 0 && conversation.question === ""
+                    visible: conversation.turns.length === 0 && conversation.question === "" && !step.item
                     width: talk.width - 36
                     wrapMode: Text.WordWrap
                     text: "Ask " + (conversation.assistantName !== "" ? conversation.assistantName : productName)
@@ -237,11 +242,40 @@ Item {
                     text: conversation.question
                 }
                 Answer {
-                    visible: conversation.question !== ""
+                    visible: conversation.question !== "" && !conversation.choosing
                     headline: conversation.headline
                     steps: conversation.steps
                     more: conversation.more
                     waiting: full.working && conversation.headline === "" && conversation.steps.length === 0
+                }
+
+                // What is asked of the person now: an assistant to choose, a
+                // way to sign in, a change to decide on.
+                Loader {
+                    id: step
+                    objectName: "fullStep"
+                    width: talk.width - 18
+                    sourceComponent: {
+                        if (conversation.choosing)
+                            return chooseStep
+                        switch (conversation.phase) {
+                        case "starting": return startingStep
+                        case "signIn":
+                        case "signingIn": return signInStep
+                        case "problem": return problemStep
+                        default: return conversation.cardOpen ? doItStep : null
+                        }
+                    }
+                }
+
+                Text {
+                    visible: conversation.notice !== "" && !conversation.choosing
+                    width: talk.width - 36
+                    wrapMode: Text.WordWrap
+                    text: conversation.notice
+                    color: theme.text
+                    font.pixelSize: 14
+                    lineHeight: 1.3
                 }
             }
         }
@@ -443,4 +477,10 @@ Item {
             }
         }
     }
+
+    Component { id: chooseStep; AssistantList {} }
+    Component { id: startingStep; StartingPanel {} }
+    Component { id: signInStep; SignInPanel {} }
+    Component { id: problemStep; ProblemPanel {} }
+    Component { id: doItStep; DoItCard {} }
 }

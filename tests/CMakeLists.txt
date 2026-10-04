@@ -11,7 +11,9 @@ set(TEST_ENVIRONMENT
     "XDG_STATE_HOME=${TEST_HOME}/.local/state"
     "XDG_CACHE_HOME=${TEST_HOME}/.cache"
     "XDG_RUNTIME_DIR=${TEST_HOME}/runtime"
-    "QT_QPA_PLATFORM=offscreen"
+    # One named 1280 by 800 screen, as a tablet's, so Kadunce's replies can
+    # name it.
+    "QT_QPA_PLATFORM=offscreen:configfile=${CMAKE_CURRENT_SOURCE_DIR}/offscreen-screen.json"
     "DBUS_SESSION_BUS_ADDRESS=disabled:"
     "SPLIT_ROCK_TEST_HOME=${TEST_HOME}"
 )
@@ -35,8 +37,11 @@ split_rock_test(test_assistants)
 split_rock_test(test_protocol)
 split_rock_test(test_conversation)
 
-split_rock_test(test_sheet)
-target_link_libraries(test_sheet PRIVATE Qt6::Gui Qt6::Quick)
+split_rock_test(test_kadunce)
+target_link_libraries(test_kadunce PRIVATE splitrock_desktop)
+
+split_rock_test(test_sheet FakeKadunce.h)
+target_link_libraries(test_sheet PRIVATE splitrock_desktop Qt6::Gui Qt6::Quick)
 qt_add_resources(test_sheet "sheet_for_test"
     PREFIX "/"
     BASE "${PROJECT_SOURCE_DIR}"
@@ -54,4 +59,7 @@ qt_add_resources(test_sheet "sheet_for_test"
         ${PROJECT_SOURCE_DIR}/qml/SignInPanel.qml
         ${PROJECT_SOURCE_DIR}/qml/AssistantList.qml
         ${PROJECT_SOURCE_DIR}/qml/Workspace.qml
+        ${PROJECT_SOURCE_DIR}/qml/FullWindow.qml
+        ${PROJECT_SOURCE_DIR}/qml/StartingPanel.qml
+        ${PROJECT_SOURCE_DIR}/qml/ProblemPanel.qml
 )

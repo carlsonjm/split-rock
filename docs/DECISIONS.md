@@ -220,10 +220,40 @@ below, as `mockup/JustType.dc.html` draws them. With the on-screen keys up the
 card rises only as far as it must to stay 10 px above them, then gets shorter,
 never below 160 px, reading where the keys lie from the input method as
 Gooseberry's quick-note card does. Expand grows the card to the whole work area
-less a 10 px gutter and shows the full view of `mockup/Workspace.dc.html`.
+less a 10 px gutter, and the full window, with the full view of
+`mockup/Workspace.dc.html`, takes over from it (below).
 There is no Back, at either size: Back belongs to Search, and this is the
-assistant's own window. Esc, or a tap on the work around the card, closes it.
+assistant's own window. Esc, or a tap beside the card, closes it.
 (The maintainer, on the tablet, 4 October.)
+
+## The card holds Spread's centre; the full window takes over from it
+
+Genie's card holds Spread's centre the same way Gooseberry's quick note does: as
+a companion guest of Kadunce (Kadunce's `docs/TETTEGOUCHE-CONTEXT.md`
+§ Companion guests). With Spread shown, the card asks for the centre and is
+drawn at the rectangle Kadunce gives; a tap beside it is Kadunce's, which
+closes it. Over an Active card there is no guest: the card stands over the
+work by itself. On a desktop without Kadunce it stands centred over the work,
+as before. So the card can hold the centre at all, it is a surface of the
+desktop's own, as Search's is: Kadunce makes an ordinary window a card, and a
+card cannot hold the centre.
+
+Expand grows the card, then opens the full window, an ordinary window that
+Kadunce makes the Active card: in Spread Kadunce grows the centre and hands it
+to that window when it arrives, and over an Active card the card stays up until
+Kadunce shows the full window as the selected card, then fades. The full view
+of `mockup/Workspace.dc.html` lives in that window, under the desktop's own
+title bar. (The maintainer, 4 October.)
+
+It follows that signing in happens in the full window. The card sits above
+every window, so a browser an assistant opens for its sign-in could not come in
+front of it; a way to sign in chosen in the card opens the full window first,
+and the sign-in starts once it has the conversation. (Engineering, following
+from the card's surface.)
+
+Rejected: an ordinary window for the card, which Kadunce makes a card of its
+own; and the full view inside the grown card, which would leave the
+conversation on a surface above every window.
 
 Search hosting the assistant's conversation inside its own window is a
 different thing, and waits on the background service of Milestone 1

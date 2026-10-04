@@ -5,6 +5,10 @@ import QtQuick
 // through its own window; only the ways that need no terminal and no key held
 // by Split Rock are offered.
 Rectangle {
+    id: panel
+    // What a chosen way to sign in does. The card hands over to the full
+    // window first, so the assistant's browser can come in front.
+    property var signInWith: id => conversation.signIn(id)
     color: theme.panel
     radius: 16
     implicitHeight: Math.max(196, column.implicitHeight + 36)
@@ -64,7 +68,7 @@ Rectangle {
                     objectName: "signIn-" + modelData.id
                     filled: index === 0
                     text: modelData.name
-                    onClicked: conversation.signIn(modelData.id)
+                    onClicked: panel.signInWith(modelData.id)
                 }
             }
         }

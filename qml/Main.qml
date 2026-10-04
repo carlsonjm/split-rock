@@ -3,11 +3,12 @@ import QtQuick
 import QtQuick.Window
 import "Icons.js" as Icons
 
-// Genie's own window, in the shape of Shuffle's Search: one card centred over
-// the work, with the question in its header and the answer below. Expand grows
-// the card to the whole work area and shows the full view. With the on-screen
-// keys up the card rises only as far as it must to stay above them, then
-// shortens. Esc, or a tap on the work around the card, closes it.
+// Genie's card, in the shape of Shuffle's Search: the question in its header
+// and the answer below. In Spread it holds the centre, where Kadunce draws it;
+// otherwise it stands centred over the work. Expand grows the card, then the
+// full window takes over from it. With the on-screen keys up the card rises
+// only as far as it must to stay above them, then shortens. Esc, or a tap
+// beside the card, closes it. The shell places it (src/desktop/Shell.h).
 Window {
     id: window
     title: productTitle
@@ -17,11 +18,17 @@ Window {
 
     Theme { id: theme }
 
-    // The window has gone; the program ends with it.
+    // The card has faded, closed or handed over to the full window.
     signal finished()
 
     property bool shown: false
-    property bool expanded: false
+    readonly property bool expanded: shell.expanded
+    readonly property bool guest: shell.mode === "guest"
+    // The room the panels leave, in this window.
+    readonly property rect area: shell.workArea.width > 0 ? shell.workArea : Qt.rect(0, 0, width, height)
+    // A way to sign in, chosen in the card: it opens in the full window, so
+    // the browser it brings can come in front.
+    property string pendingSignIn: ""
     // Where the on-screen keys lie over this window, as the input method
     // reports them; empty while they are down. The keys hold no room of their
     // own, so the card keeps above them itself.
@@ -39,7 +46,6 @@ Window {
     readonly property bool cardMode: !conversation.choosing && conversation.cardOpen && (canAsk || working)
 
     function open() {
-        expanded = false
         shown = true
         field.forceActiveFocus()
     }
@@ -53,8 +59,23 @@ Window {
     }
 
     function expand() {
-        expanded = true
+        shell.expand()
         Qt.inputMethod.hide()
+    }
+
+    function signInThroughFull(methodId) {
+        pendingSignIn = methodId
+        expand()
+    }
+
+    Connections {
+        target: shell
+        function onHandedOver() {
+            if (window.pendingSignIn !== "") {
+                conversation.signIn(window.pendingSignIn)
+                window.pendingSignIn = ""
+            }
+        }
     }
 
     function send() {
@@ -92,7 +113,8 @@ Window {
         }
     }
 
-    // The work around the card: a tap there closes it.
+    // The work around the card: a tap there closes it. In Spread a tap beside
+    // the card is Kadunce's, which closes it the same way.
     Item {
         id: around
         anchors.fill: parent
@@ -109,20 +131,30 @@ Window {
         id: card
         objectName: "card"
 
-        readonly property real restHeight: window.expanded ? Math.max(1, window.height - 20) : Math.round(window.height * 0.64)
+        // As a guest the card is where Kadunce puts it, and grows to where
+        // Kadunce says; otherwise 64% of the work, growing to all of it less a
+        // 10 px gutter.
+        readonly property rect guestPlace: window.expanded ? shell.guestActive : shell.guestCard
+        readonly property real restHeight: window.guest ? guestPlace.height
+            : window.expanded ? Math.max(1, window.area.height - 20) : Math.round(window.area.height * 0.64)
         readonly property real keysLine: window.height - window.keysReach
-        readonly property real highest: Math.min(10, Math.round((window.height - restHeight) / 2))
-        // Grown all the way, so the full view can show.
-        readonly property bool full: window.expanded && width >= window.width - 21 && !heightMotion.running
+        // A guest never rises out of its place; it only shortens.
+        readonly property real highest: window.guest ? guestPlace.y
+            : window.area.y + Math.min(10, Math.round((window.area.height - restHeight) / 2))
 
-        width: window.expanded ? Math.max(1, window.width - 20)
-                               : Math.min(window.width - 20, Math.max(Math.round(window.width * 0.64), 420))
+        width: window.guest ? guestPlace.width
+            : window.expanded ? Math.max(1, window.area.width - 20)
+            : Math.min(window.area.width - 20, Math.max(Math.round(window.area.width * 0.64), 420))
         height: Math.max(Math.min(restHeight, 160), Math.min(restHeight, keysLine - highest))
-        x: (window.width - width) / 2
-        y: Math.max(highest, Math.min(keysLine - height, window.expanded ? 10 : Math.round((window.height - height) / 2)))
-        Behavior on width { NumberAnimation { duration: 220; easing.type: Easing.OutCubic } }
+        x: window.guest ? guestPlace.x : window.area.x + (window.area.width - width) / 2
+        y: Math.max(highest, Math.min(keysLine - height, window.guest ? guestPlace.y
+            : window.area.y + (window.expanded ? 10 : Math.round((window.area.height - height) / 2))))
+        // Nothing moves until the card is shown: it opens at its place.
+        Behavior on x { enabled: window.guest && window.shown; NumberAnimation { duration: 220; easing.type: Easing.OutCubic } }
+        Behavior on y { enabled: window.guest && window.shown && !keysMotion.running; NumberAnimation { duration: 220; easing.type: Easing.OutCubic } }
+        Behavior on width { enabled: window.shown; NumberAnimation { duration: 220; easing.type: Easing.OutCubic } }
         // The keys' own easing already moves the card; chasing it would lag.
-        Behavior on height { enabled: !keysMotion.running; NumberAnimation { id: heightMotion; duration: 220; easing.type: Easing.OutCubic } }
+        Behavior on height { enabled: window.shown && !keysMotion.running; NumberAnimation { duration: 220; easing.type: Easing.OutCubic } }
 
         radius: 8
         color: theme.sheet
@@ -380,77 +412,13 @@ Window {
                     }
                 }
             }
-
-            // The full view, once the card has grown to the work area.
-            Workspace {
-                objectName: "fullView"
-                y: header.height + 16
-                width: parent.width
-                height: parent.height - y
-                opacity: card.full ? 1 : 0
-                visible: opacity > 0
-                enabled: card.full
-                Behavior on opacity { NumberAnimation { duration: 160; easing.type: Easing.OutCubic } }
-            }
         }
     }
 
     Component { id: assistantList; AssistantList {} }
     Component { id: answerCard; AnswerCard {} }
     Component { id: doItCard; DoItCard {} }
-    Component { id: signInPanel; SignInPanel {} }
-    Component {
-        id: starting
-        Rectangle {
-            color: theme.panel
-            radius: 16
-            implicitHeight: 196
-            Text {
-                x: 20; y: 18
-                text: "Starting " + conversation.assistantName + "…"
-                color: theme.text
-                font.pixelSize: 16
-                font.weight: Font.Bold
-            }
-        }
-    }
-    Component {
-        id: problemPanel
-        Rectangle {
-            color: theme.panel
-            radius: 16
-            implicitHeight: Math.max(196, problemColumn.implicitHeight + 36)
-            Column {
-                id: problemColumn
-                x: 20; y: 18
-                width: parent.width - 40
-                spacing: 12
-                Text {
-                    width: parent.width
-                    wrapMode: Text.WordWrap
-                    text: conversation.problem
-                    color: theme.text
-                    font.pixelSize: 16
-                    font.weight: Font.Bold
-                }
-                Fold {
-                    width: parent.width
-                    body: conversation.problemDetails
-                }
-                Flow {
-                    width: parent.width
-                    spacing: 8
-                    Pill {
-                        filled: true
-                        text: "Try again"
-                        onClicked: conversation.chooseAssistant(conversation.assistantId)
-                    }
-                    Pill {
-                        text: "Choose another assistant"
-                        onClicked: conversation.showAssistants()
-                    }
-                }
-            }
-        }
-    }
+    Component { id: signInPanel; SignInPanel { signInWith: id => window.signInThroughFull(id) } }
+    Component { id: starting; StartingPanel {} }
+    Component { id: problemPanel; ProblemPanel {} }
 }
