@@ -370,6 +370,23 @@ QString Notebook::memory() const
     const QString device = read(QStringLiteral("Device/DEVICE.md")).trimmed();
     if (!device.isEmpty())
         parts.append(QStringLiteral("The device (Device/DEVICE.md):\n%1").arg(clip(device, 60)));
+    // The device's own problems and fixes, one to a file beside DEVICE.md.
+    QStringList known;
+    const QDir deviceFolder(QDir(m_folder).filePath(QStringLiteral("Device")));
+    for (const QString &name : deviceFolder.entryList({QStringLiteral("*.md")}, QDir::Files, QDir::Name)) {
+        if (name == QLatin1String("DEVICE.md"))
+            continue;
+        QFile file(deviceFolder.filePath(name));
+        if (!file.open(QIODevice::ReadOnly))
+            continue;
+        QString title = headerValue(QString::fromUtf8(file.read(4096)), QStringLiteral("title"));
+        if (title.isEmpty())
+            title = QFileInfo(name).completeBaseName();
+        known.append(QStringLiteral("- %1 (Device/%2)").arg(title, name));
+    }
+    if (!known.isEmpty())
+        parts.append(QStringLiteral("What is known about this device; open one when the question touches it:\n%1")
+                         .arg(known.mid(0, 50).join(QLatin1Char('\n'))));
     QStringList titles;
     for (const Kept &note : kept().mid(0, 50))
         titles.append(QStringLiteral("- %1 (%2)").arg(note.title, QDir(m_folder).relativeFilePath(note.path)));

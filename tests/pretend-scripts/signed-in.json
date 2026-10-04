@@ -21,6 +21,16 @@
   },
   "turns": [
     {
+      "expectPrompt": "drive",
+      "steps": [
+        {"say": "I'll check the drive list, then explain what it shows."},
+        {"tool": {"toolCallId": "look-drive", "title": "List drives", "kind": "execute", "status": "completed"}},
+        {"say": "The drive is visible. I'll do one more check."},
+        {"tool": {"toolCallId": "look-mount", "title": "Read mounts", "kind": "read", "status": "completed"}},
+        {"say": "Your drive is mounted read-only.\n\n1. Shut Windows down fully.\n2. Try the drive here again."}
+      ]
+    },
+    {
       "expectPrompt": "Wi-Fi",
       "steps": [
         {

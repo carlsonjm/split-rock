@@ -89,6 +89,23 @@ private Q_SLOTS:
         QCOMPARE(turn.value(QStringLiteral("steps")).toStringList().size(), 3);
     }
 
+    // An assistant that works aloud, checking things between, answers with
+    // what it says after its last check, not with its working.
+    void theAnswerIsWhatFollowsTheLastLook()
+    {
+        PretendFixture f;
+        QVERIFY(f.isValid());
+        Conversation c({f.assistant(QStringLiteral("signed-in.json"))});
+        c.chooseAssistant(QStringLiteral("pretend"));
+        QVERIFY(reaches(c, QStringLiteral("ready")));
+        c.ask(QStringLiteral("My drive won't mount"));
+        QVERIFY(reaches(c, QStringLiteral("ready")));
+        QCOMPARE(c.headline(), QStringLiteral("Your drive is mounted read-only."));
+        QCOMPARE(c.steps(), (QStringList{QStringLiteral("Shut Windows down fully."),
+                                         QStringLiteral("Try the drive here again.")}));
+        QVERIFY(c.more().isEmpty());
+    }
+
     // Asked while the assistant is still starting, as Search asks the moment
     // it opens: the question waits, shown, and is answered once it is ready.
     void aQuestionAskedWhileStartingWaits()

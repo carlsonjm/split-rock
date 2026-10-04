@@ -226,6 +226,13 @@ void Conversation::startAssistant()
         setProblem(QStringLiteral("%1 stopped.").arg(m_current.name), reason + QLatin1Char('\n') + recentDiagnostics());
     });
     connect(client, &acp::Client::messageChunk, this, [this](const QString &text) {
+        // What the assistant says before it looks something up is it working
+        // aloud; the answer is what it says after its last look.
+        if (m_saidBefore == SaidBefore::Look)
+            m_said.clear();
+        else if (m_saidBefore == SaidBefore::Tool && !m_said.isEmpty())
+            m_said += QStringLiteral("\n\n");
+        m_saidBefore = SaidBefore::Nothing;
         m_said += text;
         m_answer = AnswerText::parse(m_said);
         Q_EMIT answerChanged();
@@ -243,6 +250,12 @@ void Conversation::startAssistant()
         }
     });
     connect(client, &acp::Client::toolCallChanged, this, [this](const acp::ToolCall &call) {
+        const bool writes = call.kind == QLatin1String("edit") || call.kind == QLatin1String("delete")
+                         || call.kind == QLatin1String("move");
+        if (call.status == QLatin1String("completed") && !writes && !m_refused.contains(call.id))
+            m_saidBefore = SaidBefore::Look;
+        else if (m_saidBefore == SaidBefore::Nothing)
+            m_saidBefore = SaidBefore::Tool;
         // A change that finished without being asked for is what the fence in
         // Milestone 1 exists to stop; until then it is reported, plainly.
         const bool changesFiles = call.kind == QLatin1String("edit") || call.kind == QLatin1String("delete")
@@ -764,6 +777,7 @@ void Conversation::clearAnswer()
     m_question.clear();
     m_waiting.clear();
     m_said.clear();
+    m_saidBefore = SaidBefore::Nothing;
     m_answer = {};
     m_card.clear();
     m_cardOpen = false;

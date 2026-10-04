@@ -221,6 +221,10 @@ private:
     // sent as soon as it is ready.
     QString m_waiting;
     QString m_said;
+    // What came between the last words said and the next: nothing, a tool
+    // call, or a look that finished, after which the answer starts afresh.
+    enum class SaidBefore { Nothing, Tool, Look };
+    SaidBefore m_saidBefore = SaidBefore::Nothing;
     AnswerText m_answer;
     QVariantMap m_card;
     bool m_cardOpen = false;

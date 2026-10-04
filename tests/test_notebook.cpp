@@ -145,6 +145,22 @@ private Q_SLOTS:
         QVERIFY(notebook.memory().contains(QStringLiteral("Likes one step at a time.")));
     }
 
+    // The device's own entries are named to the assistant, so it opens the
+    // fix already found before looking again.
+    void theDevicesEntriesAreNamed()
+    {
+        QTemporaryDir home;
+        Notebook notebook(home.filePath(QStringLiteral("Notebook")));
+        QVERIFY(notebook.prepare(fixture()));
+        QFile entry(home.filePath(QStringLiteral("Notebook/Device/sleep-wakes-black.md")));
+        QVERIFY(entry.open(QIODevice::WriteOnly));
+        entry.write("---\nid: sleep-wakes-black\ntitle: The screen stays black after sleep\nformat: 1\n---\n");
+        entry.close();
+        QVERIFY(notebook.memory().contains(
+            QStringLiteral("- The screen stays black after sleep (Device/sleep-wakes-black.md)")));
+        QVERIFY(!notebook.memory().contains(QStringLiteral("(Device/DEVICE.md)\n")));
+    }
+
     void topicsAreChosenFromTheWords()
     {
         QCOMPARE(Notebook::topicFor(QStringLiteral("Make the writing bigger"), {}), QStringLiteral("Display"));
