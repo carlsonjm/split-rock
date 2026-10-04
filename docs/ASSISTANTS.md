@@ -25,6 +25,30 @@ The registry accepts two kinds of sign-in:
 Several others in the registry ship as programs that need nothing installed
 beside them; none is a first candidate.
 
+### What Milestone 0 offers, and the live check
+
+Milestone 0 starts each assistant's pinned adapter and offers only the sign-in
+methods that need no terminal and no key held by Split Rock. On 4 October 2026,
+before any account was used, each pinned adapter offered this:
+
+| Assistant | Pinned version | Offered | Not offered, and why |
+| --- | --- | --- | --- |
+| Codex | codex-acp 0.16.0 | Login with ChatGPT, in the browser | Two key methods: the key would have to be handed over by Split Rock |
+| Claude Agent | claude-agent-acp 0.85.1, subscription sign-in hidden | Anthropic Console, which the adapter marks as a terminal sign-in; Split Rock runs it without one | Nothing else is advertised |
+| Gemini CLI | gemini-cli 0.62.0 | Log in with Google, in the browser | Gemini key, Vertex AI and gateway: each needs a key Split Rock would hold |
+
+Claude's Console sign-in opens the browser, but falls back to asking for a
+pasted code when the browser cannot hand the sign-in back. Whether it finishes
+without that is the open question the live check answers.
+
+The live check (`SIGN-IN-CHECK.md`) fills in the rest:
+
+| Assistant | Signed in without a terminal | What it costs | Checked |
+| --- | --- | --- | --- |
+| Codex | Not yet checked live | Not yet checked live | — |
+| Claude Agent | Not yet checked live | Not yet checked live | — |
+| Gemini CLI | Not yet checked live | Not yet checked live | — |
+
 ## Claude
 
 Anthropic does not allow a third-party product to offer sign-in with a Claude

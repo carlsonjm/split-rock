@@ -1,0 +1,6 @@
+{
+  "agent": {"name": "pretend", "title": "Pretend assistant", "version": "1"},
+  "protocolVersion": 2,
+  "signedIn": true,
+  "turns": []
+}

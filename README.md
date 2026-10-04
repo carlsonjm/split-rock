@@ -6,8 +6,10 @@ Ask a question in your own words. Split Rock explains the answer, or makes the
 change after you approve it, and keeps what it learns in a notebook of plain
 notes so the next problem starts from what is already known.
 
-**Status:** early. There is nothing to install yet. The concept is in
-[docs/CONCEPT.md](docs/CONCEPT.md) and the plan in [docs/ROADMAP.md](docs/ROADMAP.md).
+**Status:** early. There is nothing to install yet. Milestone 0, a test program
+that talks to real assistants and changes nothing, is built and waiting on its
+live sign-in check. The concept is in [docs/CONCEPT.md](docs/CONCEPT.md) and the
+plan in [docs/ROADMAP.md](docs/ROADMAP.md). The working name is Jack.
 
 ## What it does
 
@@ -55,7 +57,12 @@ assistant, and it can also arrange your workspace when Shuffle is installed.
 
 Read [AGENTS.md](AGENTS.md) before working in this repository. The documentation
 index is [docs/README.md](docs/README.md). Run `./verify.sh` before proposing a
-change.
+change; it needs CMake, a C++20 compiler and Qt 6.4 or later.
+
+`./run.sh` builds Milestone 0 and opens its window. Its first run downloads the
+assistants' adapters into `build/m0`, which needs Node.js and npm.
+`./run.sh --pretend tests/pretend-scripts/signed-in.json` adds the pretend
+assistant, which needs no account.
 
 ## License
 

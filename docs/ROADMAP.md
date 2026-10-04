@@ -24,6 +24,8 @@ one pass from the concept, decisions and mock-up, then tested against the proof
 assistant, whether a person can sign in without ever seeing a terminal, and
 what it costs.
 
+**Status:** built. Waiting on the live sign-in check (`SIGN-IN-CHECK.md`).
+
 ## Milestone 1: ask and remember, on the maintainer's machine
 
 Nothing on the computer changes yet. The assistant can look and explain.

@@ -1,0 +1,214 @@
+{
+  "agent": {
+    "name": "pretend",
+    "title": "Pretend assistant",
+    "version": "1"
+  },
+  "signedIn": true,
+  "authMethods": [],
+  "modes": {
+    "currentModeId": "act-freely",
+    "availableModes": [
+      {
+        "id": "act-freely",
+        "name": "Act freely"
+      },
+      {
+        "id": "ask-first",
+        "name": "Ask first"
+      }
+    ]
+  },
+  "turns": [
+    {
+      "expectPrompt": "Wi-Fi",
+      "steps": [
+        {
+          "think": "The person wants Wi-Fi."
+        },
+        {
+          "tool": {
+            "toolCallId": "look-1",
+            "title": "Read network settings",
+            "kind": "read",
+            "status": "completed"
+          }
+        },
+        {
+          "say": "You connect from the network icon at the bottom right.\n\n"
+        },
+        {
+          "say": "1. Tap the **network** icon.\n2. Choose your network.\n"
+        },
+        {
+          "say": "3. Type its password when the `system` asks.\n\nThat is all."
+        }
+      ]
+    },
+    {
+      "expectPrompt": "bigger",
+      "steps": [
+        {
+          "say": "Scaling to 125% makes everything bigger on this screen."
+        },
+        {
+          "tool": {
+            "toolCallId": "change-1",
+            "title": "Run kscreen-doctor",
+            "kind": "execute",
+            "status": "pending",
+            "rawInput": {
+              "command": "sudo kscreen-doctor output.1.scale.1.25"
+            }
+          }
+        },
+        {
+          "ask": {
+            "toolCall": {
+              "toolCallId": "change-1"
+            },
+            "options": [
+              {
+                "optionId": "yes",
+                "name": "Allow",
+                "kind": "allow_once"
+              },
+              {
+                "optionId": "always",
+                "name": "Always allow",
+                "kind": "allow_always"
+              },
+              {
+                "optionId": "no",
+                "name": "Reject",
+                "kind": "reject_once"
+              }
+            ]
+          },
+          "expect": "reject_once"
+        },
+        {
+          "update": {
+            "toolCallId": "change-1",
+            "status": "failed"
+          }
+        },
+        {
+          "say": "\n\nI wasn't allowed to change it."
+        }
+      ]
+    },
+    {
+      "expectPrompt": "how to do that myself",
+      "steps": [
+        {
+          "say": "You can change it in System Settings.\n\n1. Open System Settings.\n2. Choose Display.\n3. Set Scale to 125%."
+        }
+      ]
+    },
+    {
+      "expectPrompt": "infected",
+      "steps": [
+        {
+          "say": "That window is almost certainly a scam. Your computer is not infected.\n\n1. Don't call any number it shows, and don't click anything in it.\n2. Close the browser tab, or the whole browser.\n3. If it won't close, restart the computer.\n\nNo real warning ever asks you to call or to pay."
+        }
+      ]
+    },
+    {
+      "expectPrompt": "only a cancel",
+      "steps": [
+        {
+          "ask": {
+            "toolCall": {
+              "toolCallId": "change-2",
+              "title": "Edit notes.txt",
+              "kind": "edit",
+              "locations": [
+                {
+                  "path": "/home/test/notes.txt"
+                }
+              ]
+            },
+            "options": [
+              {
+                "optionId": "yes",
+                "name": "Allow",
+                "kind": "allow_once"
+              }
+            ]
+          },
+          "expect": "cancelled"
+        },
+        {
+          "say": "Understood."
+        }
+      ]
+    },
+    {
+      "expectPrompt": "without asking",
+      "steps": [
+        {
+          "tool": {
+            "toolCallId": "sneaky-1",
+            "title": "Edit settings.ini",
+            "kind": "edit",
+            "status": "in_progress"
+          }
+        },
+        {
+          "update": {
+            "toolCallId": "sneaky-1",
+            "status": "completed"
+          }
+        },
+        {
+          "say": "Done."
+        }
+      ]
+    },
+    {
+      "expectPrompt": "take your time",
+      "steps": [
+        {
+          "say": "Thinking about it"
+        },
+        {
+          "waitForCancel": true
+        }
+      ]
+    },
+    {
+      "expectPrompt": "crash",
+      "steps": [
+        {
+          "say": "Oh no"
+        },
+        {
+          "exit": 3
+        }
+      ]
+    },
+    {
+      "expectPrompt": "file a request",
+      "steps": [
+        {
+          "error": {
+            "code": -32603,
+            "message": "The pretend model is busy."
+          }
+        }
+      ]
+    },
+    {
+      "expectPrompt": "sign me out",
+      "steps": [
+        {
+          "error": {
+            "code": -32000,
+            "message": "Authentication required"
+          }
+        }
+      ]
+    }
+  ]
+}

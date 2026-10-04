@@ -1,0 +1,12 @@
+{
+  "agent": {"name": "pretend", "title": "Pretend assistant", "version": "1"},
+  "signedIn": false,
+  "authMethods": [
+    {"id": "pretend-browser", "name": "Sign in in the browser"},
+    {"id": "pretend-terminal", "name": "Sign in with the program", "type": "terminal", "args": ["--sign-in", "fail"]},
+    {"id": "pretend-waits", "name": "Sign in and wait", "type": "terminal", "args": ["--sign-in", "hang"]},
+    {"id": "pretend-agent-waits", "name": "Agent sign-in that waits"}
+  ],
+  "authenticate": {"pretend-browser": "fail", "pretend-agent-waits": "hang"},
+  "turns": []
+}

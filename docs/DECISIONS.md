@@ -291,3 +291,35 @@ read as plain files, and would be a second kind of storage beside the notebook;
 Split Rock carrying each desktop's entries, which would make it depend on that
 desktop and release with it; and updating entries over the network between
 releases, which would ship fixes not checked against the release in hand.
+
+## Each assistant keeps its own sign-in, apart from the person's own copies
+
+Split Rock starts each assistant with a folder of its own for its sign-in and
+settings, and without any key, token or assistant setting from the
+person's environment. A copy of the same assistant the person uses elsewhere is
+never read or changed, and none of its settings can loosen how Split Rock's
+copy behaves. (Engineering, 4 October; Milestone 0.)
+
+Rejected: sharing the person's existing sign-ins, which would let Split Rock's
+copy replace them, and could carry over settings that let an assistant act
+without asking.
+
+## A sign-in the agent runs in its own program is tried without a terminal
+
+Some agents advertise sign-in as running their own program again. Split Rock
+runs it hidden, with nothing typed into it, and offers the page it opens; if it
+needs anything typed, it fails, and that assistant's sign-in counts as needing
+a terminal. (Engineering, 4 October; Milestone 0 checks it live.)
+
+Rejected: leaving such methods out without trying, which would drop Claude
+before knowing whether its Console sign-in finishes in the browser.
+
+## An assistant's own record of a conversation is removed when it ends
+
+Assistants write their own transcripts and logs into their folders. Split Rock
+removes those whenever the assistant stops, and again before it starts, keeping
+only the sign-in. (Engineering, 4 October; it carries out "Conversations are
+not saved".)
+
+Rejected: letting each assistant keep its history on disk, which would save the
+conversation the person was promised is not saved.
