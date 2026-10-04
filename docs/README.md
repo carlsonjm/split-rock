@@ -17,5 +17,6 @@ Paths are from the repository root.
 | `docs/INPUT.md` | Every input, opening with its controls map |
 | `guide/plasma/` | The troubleshooting guide's general Plasma entries, one known problem each |
 | `tour/plasma/` | The tour's general Plasma steps |
+| `tests/verify-guide.py` | Keeps the guide and the tour in the format Jack reads, with nothing that shows a terminal; the same script as a desktop's own |
 | `tests/verify-public.py` | Keeps public text fit to publish; the same script as the other components |
 | `verify.sh` | Runs every check |
