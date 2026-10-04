@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 //
-// Milestone 0's test program: the Just Type sheet, talking to real assistants
-// over the Agent Client Protocol.
+// Milestone 0's test program: Genie's window, talking to real assistants over
+// the Agent Client Protocol.
 //
 //   split-rock-m0 [--assistants DIR] [--state DIR] [--pretend SCRIPT] [--guide DIR]...
 //
@@ -15,15 +15,16 @@
 
 #include "app/Assistants.h"
 #include "app/Conversation.h"
-#include "guide/GuideLibrary.h"
+#include "app/Placement.h"
 #include "app/QmlContext.h"
+#include "guide/GuideLibrary.h"
 
 #include <QCommandLineParser>
 #include <QDir>
-#include <QFile>
 #include <QGuiApplication>
 #include <QQmlApplicationEngine>
 #include <QQmlContext>
+#include <QQuickWindow>
 #include <QStandardPaths>
 
 int main(int argc, char **argv)
@@ -80,15 +81,16 @@ int main(int argc, char **argv)
     splitrock::GuideContext context;
     context.desktops = guide.sources();
     // What the hardware says it is: read, never written.
-    QFile product(QStringLiteral("/sys/class/dmi/id/product_name"));
-    if (product.open(QIODevice::ReadOnly))
-        context.deviceProduct = QString::fromUtf8(product.readAll()).trimmed();
+    context.deviceProduct = splitrock::computerName();
     conversation.setGuide(guide, context);
     QQmlApplicationEngine engine;
     engine.rootContext()->setContextProperty(QStringLiteral("conversation"), &conversation);
     splitrock::exposeProduct(engine.rootContext());
     engine.load(QUrl(QStringLiteral("qrc:/qml/Main.qml")));
-    if (engine.rootObjects().isEmpty())
+    auto *window = qobject_cast<QQuickWindow *>(engine.rootObjects().value(0));
+    if (!window)
         return 1;
+    QObject::connect(window, SIGNAL(finished()), &app, SLOT(quit()));
+    splitrock::openOverWork(window);
     return app.exec();
 }

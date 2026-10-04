@@ -76,6 +76,12 @@ private Q_SLOTS:
         const auto second = f.received(QStringLiteral("session/prompt")).last();
         QCOMPARE(second.value(QStringLiteral("params")).toObject().value(QStringLiteral("prompt")).toArray().size(), 1);
         QCOMPARE(c.headline(), QStringLiteral("I have nothing scripted for that."));
+
+        // The earlier question stays in the window, for the full view.
+        QCOMPARE(c.turns().size(), 1);
+        const QVariantMap turn = c.turns().first().toMap();
+        QCOMPARE(turn.value(QStringLiteral("question")).toString(), QStringLiteral("How do I connect to Wi-Fi?"));
+        QCOMPARE(turn.value(QStringLiteral("steps")).toStringList().size(), 3);
     }
 
     void aChangeIsRefusedAndShownOnTheCard()
@@ -97,6 +103,11 @@ private Q_SLOTS:
         QVERIFY(card.value(QStringLiteral("details")).toString().contains(QStringLiteral("sudo kscreen-doctor")));
         QVERIFY(!c.more().join(QLatin1Char(' ')).contains(QStringLiteral("UNEXPECTED")));
         QVERIFY(c.more().contains(QStringLiteral("I wasn't allowed to change it.")));
+
+        // The full view lists what was asked for and not changed.
+        QCOMPARE(c.refusedChanges().size(), 1);
+        QCOMPARE(c.refusedChanges().first().toMap().value(QStringLiteral("question")).toString(),
+                 QStringLiteral("Make the writing bigger"));
 
         c.notNow();
         QVERIFY(!c.cardOpen());
@@ -351,10 +362,14 @@ private Q_SLOTS:
             c.ask(QStringLiteral("How do I connect to Wi-Fi?"));
             QVERIFY(reaches(c, QStringLiteral("ready")));
             QVERIFY(QFileInfo::exists(transcript));
+            c.ask(QStringLiteral("Something else"));
+            QVERIFY(reaches(c, QStringLiteral("ready")));
+            QCOMPARE(c.turns().size(), 1);
 
             c.newQuestion();
             QVERIFY(!QFileInfo::exists(transcript));
             QCOMPARE(c.question(), QString());
+            QVERIFY(c.turns().isEmpty());
             QCOMPARE(c.headline(), QString());
             QVERIFY(reaches(c, QStringLiteral("ready")));
             QCOMPARE(f.received(QStringLiteral("session/new")).size(), 2);

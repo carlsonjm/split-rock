@@ -205,9 +205,32 @@ Rejected: options before each step, which the documents already settle.
 ## The mock-up is the approved visual direction
 
 The five screens in `mockup/` are the approved layout and behaviour: the Just
-Type sheet, the expanded coworking card, the Do it card, working on a note, and
+Type answer, the expanded coworking card, the Do it card, working on a note, and
 Search's doors. An agent builds to them without asking again; a later ruling
 wins where they disagree. (The maintainer, 4 October.)
+
+## The window takes Search's shape
+
+The assistant's own window is one card the size of Shuffle's Search: 64% of the
+work area's width and height, centred over the work, with 8 px corners, a 1 px
+outline and a 22 px inner margin. Its 44 px header holds the lamp in its tile
+and the name on the left, the question in the middle and an Expand pill on the
+right; the answer, its numbered steps and Do it, Show me how and Keep this sit
+below, as `mockup/JustType.dc.html` draws them. With the on-screen keys up the
+card rises only as far as it must to stay 10 px above them, then gets shorter,
+never below 160 px, reading where the keys lie from the input method as
+Gooseberry's quick-note card does. Expand grows the card to the whole work area
+less a 10 px gutter and shows the full view of `mockup/Workspace.dc.html`.
+There is no Back, at either size: Back belongs to Search, and this is the
+assistant's own window. Esc, or a tap on the work around the card, closes it.
+(The maintainer, on the tablet, 4 October.)
+
+Search hosting the assistant's conversation inside its own window is a
+different thing, and waits on the background service of Milestone 1
+(`ROADMAP.md`).
+
+Rejected: the Just Type sheet rising from the bottom, which the on-screen keys
+covered.
 
 ## Shuffle Genie inside Shuffle, Split Rock on its own
 

@@ -19,3 +19,5 @@ function forKind(kind) {
         return globe
     return bolt
 }
+var expand = "M15 3h6v6 M9 21H3v-6 M21 3l-7 7 M3 21l7-7"
+var close = "M18 6 6 18 M6 6l12 12"

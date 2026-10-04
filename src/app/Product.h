@@ -18,6 +18,14 @@ bool insideShuffle();
 // looks; it never depends on Shuffle.
 bool shuffleInstalled();
 
+// What the full view shows of the computer it runs on. Both only read; neither
+// changes anything. The maker's name for the hardware, as the computer reports
+// it, or empty where it reports none.
+QString computerName();
+// The desktop, as the session names it: KDE Plasma and its version where it is
+// Plasma, with Shuffle beside it where Shuffle is installed.
+QString systemName();
+
 // The mark's drawing, read from the one SVG file every surface uses: each
 // path's data, joined, ready for a canvas that draws SVG paths.
 QString markPath(const QString &svg);

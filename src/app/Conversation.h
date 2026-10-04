@@ -18,7 +18,7 @@ class QTimer;
 
 namespace splitrock {
 
-// One conversation with one assistant, as the Just Type sheet shows it.
+// One conversation with one assistant, as Genie's window shows it.
 //
 // Nothing here is written to disk. The assistant works in an empty folder made
 // for it and removed with it, and what it writes about the conversation in its
@@ -52,6 +52,12 @@ class Conversation : public QObject
     Q_PROPERTY(QString problem READ problem NOTIFY noticeChanged)
     Q_PROPERTY(QString problemDetails READ problemDetails NOTIFY noticeChanged)
     Q_PROPERTY(QStringList suggestions READ suggestions NOTIFY assistantChanged)
+    // The questions asked earlier in this conversation, each with its answer:
+    // question, headline, steps and more. The one being answered is not here.
+    Q_PROPERTY(QVariantList turns READ turns NOTIFY turnsChanged)
+    // What the assistant asked to change in this conversation and was refused,
+    // oldest first: heading and question.
+    Q_PROPERTY(QVariantList refusedChanges READ refusedChanges NOTIFY turnsChanged)
     Q_PROPERTY(bool isGuide READ isGuide NOTIFY assistantChanged)
 
 public:
@@ -88,6 +94,8 @@ public:
     QString problem() const { return m_problem; }
     QString problemDetails() const { return m_problemDetails; }
     QStringList suggestions() const;
+    QVariantList turns() const { return m_turns; }
+    QVariantList refusedChanges() const { return m_refusedChanges; }
 
     Q_INVOKABLE void showAssistants();
     Q_INVOKABLE void hideAssistants();
@@ -112,6 +120,7 @@ Q_SIGNALS:
     void answerChanged();
     void cardChanged();
     void noticeChanged();
+    void turnsChanged();
 
 private:
     void startAssistant();
@@ -129,6 +138,8 @@ private:
     void clearAnswer();
     void answerFromGuide(const QString &question);
     QList<GuideEntry> tours() const;
+    void keepTurn();
+    void clearTurns();
     QString recentDiagnostics() const;
 
     QList<Assistant> m_assistants;
@@ -156,6 +167,8 @@ private:
     QVariantMap m_card;
     bool m_cardOpen = false;
     QSet<QString> m_refused;
+    QVariantList m_turns;
+    QVariantList m_refusedChanges;
     QSet<QString> m_unasked;
     QString m_notice;
     QString m_problem;

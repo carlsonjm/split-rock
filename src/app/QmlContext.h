@@ -9,7 +9,8 @@
 namespace splitrock {
 
 // What every screen reads besides the conversation: the name the person sees,
-// and the mark drawn from its one file.
+// the mark drawn from its one file, and what the full view says of this
+// computer.
 inline void exposeProduct(QQmlContext *context)
 {
     context->setContextProperty(QStringLiteral("productName"), productName());
@@ -17,6 +18,8 @@ inline void exposeProduct(QQmlContext *context)
     QFile mark(QStringLiteral(":/assets/mark.svg"));
     const QString svg = mark.open(QIODevice::ReadOnly) ? QString::fromUtf8(mark.readAll()) : QString();
     context->setContextProperty(QStringLiteral("markPath"), markPath(svg));
+    context->setContextProperty(QStringLiteral("computerName"), computerName());
+    context->setContextProperty(QStringLiteral("systemName"), systemName());
 }
 
 } // namespace splitrock

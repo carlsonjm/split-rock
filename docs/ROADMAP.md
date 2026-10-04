@@ -10,7 +10,9 @@ Shuffle's current 1.0 work, starting with Milestone 0.
 ## Milestone 0: the conversation works
 
 A small test program, not yet a widget, that talks to real assistants over the
-Agent Client Protocol. Its window is the Just Type sheet in `mockup/`, and a
+Agent Client Protocol. Its window is one card the size of Shuffle's Search,
+centred over the work, with the answer as `mockup/JustType.dc.html` draws it and
+an Expand into the full view of `mockup/Workspace.dc.html` (`DECISIONS.md`). A
 refused change request shows as the Do it card with Do it unavailable. Built in
 one pass from the concept, decisions and mock-up, then tested against the proof
 (`DECISIONS.md`).
@@ -22,7 +24,12 @@ one pass from the concept, decisions and mock-up, then tested against the proof
 
 **Proves:** the sign-in table in `ASSISTANTS.md`, checked live: for each
 assistant, whether a person can sign in without ever seeing a terminal, and
-what it costs.
+what it costs. And, on the tablet, that the card keeps clear of the on-screen
+keys while a question is typed, and that Expand reads as the same window grown.
+
+The window is an ordinary one in Milestone 0, so that the browser a sign-in
+opens can come in front of it; where it lives on the desktop is settled with
+the widget in Milestone 1.
 
 **Status:** built. Waiting on the live sign-in check (`SIGN-IN-CHECK.md`).
 
@@ -32,7 +39,8 @@ Nothing on the computer changes yet. The assistant can look and explain.
 
 - The panel widget: open it, ask in plain words, read the answer.
 - A background service that holds the conversation, so closing the widget or
-  restarting the panel loses nothing.
+  restarting the panel loses nothing. Search's Genie mode, where Shuffle's
+  Search hosts the conversation inside its own window, needs it.
 - The notebook and its memory (`MEMORY.md`): `This computer.md` with the
   hardware and fixed problems, the `Device/` folder that starts from what Split Rock
   reads on the computer and grows with use, `About me.md`, Keep this, Forget,

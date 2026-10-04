@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 #include "app/Product.h"
 
+#include <QFile>
 #include <QRegularExpression>
 #include <QStandardPaths>
 #include <QStringList>
@@ -37,6 +38,33 @@ bool shuffleInstalled()
     return !QStandardPaths::locate(QStandardPaths::GenericDataLocation,
                                    QStringLiteral("plasma/plasmoids/studio.warbler.shuffle.bottomsurface"),
                                    QStandardPaths::LocateDirectory).isEmpty();
+}
+
+QString computerName()
+{
+    QFile product(QStringLiteral("/sys/class/dmi/id/product_name"));
+    if (!product.open(QIODevice::ReadOnly))
+        return {};
+    const QString name = QString::fromUtf8(product.readAll()).trimmed();
+    // What a maker leaves when it fills in nothing.
+    static const QStringList blanks{QStringLiteral("System Product Name"), QStringLiteral("To be filled by O.E.M."),
+                                    QStringLiteral("Default string"), QStringLiteral("Not Specified")};
+    return blanks.contains(name, Qt::CaseInsensitive) ? QString() : name;
+}
+
+QString systemName()
+{
+    const QString desktop = qEnvironmentVariable("XDG_CURRENT_DESKTOP");
+    QString name;
+    if (desktop.contains(QLatin1String("KDE"), Qt::CaseInsensitive)) {
+        const QString version = qEnvironmentVariable("KDE_SESSION_VERSION");
+        name = version.isEmpty() ? QStringLiteral("KDE Plasma") : QStringLiteral("KDE Plasma %1").arg(version);
+    } else {
+        name = desktop.isEmpty() ? QStringLiteral("Linux") : desktop.section(QLatin1Char(':'), 0, 0);
+    }
+    if (s_insideShuffle)
+        name += QStringLiteral(" · Shuffle");
+    return name;
 }
 
 QString markPath(const QString &svg)
