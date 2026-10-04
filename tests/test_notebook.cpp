@@ -212,6 +212,22 @@ private Q_SLOTS:
         }
         QVERIFY(found);
         QVERIFY(QFileInfo::exists(home.filePath(QStringLiteral("Notebook/Device/the-fan-runs-at-full-speed.md"))));
+
+        // It came back: under Still open again, with what fixed it before,
+        // and its page gone, so the guide no longer offers it.
+        QVERIFY(!notebook.reopenFix(home.filePath(QStringLiteral("Notebook/Device/DEVICE.md")), &error));
+        QVERIFY(!notebook.reopenFix(home.filePath(QStringLiteral("Notebook/About me.md")), &error));
+        QVERIFY2(notebook.reopenFix(home.filePath(QStringLiteral("Notebook/Device/the-fan-runs-at-full-speed.md")), &error),
+                 qPrintable(error));
+        QVERIFY(!QFileInfo::exists(home.filePath(QStringLiteral("Notebook/Device/the-fan-runs-at-full-speed.md"))));
+        QCOMPARE(notebook.deviceFixes().size(), 1);
+        const QStringList back = notebook.deviceStillOpen();
+        QCOMPARE(back.size(), 2);
+        QCOMPARE(back.first(), QStringLiteral("The pen stops."));
+        QVERIFY(back.last().startsWith(QStringLiteral("The fan runs at full speed after sleep. It came back on ")));
+        QVERIFY(back.last().endsWith(QStringLiteral("; before, this fixed it: Update the firmware. Restart.")));
+        // And solved again, from there.
+        QVERIFY2(notebook.solveStillOpen(back.last(), QStringLiteral("Replace the fan."), &error), qPrintable(error));
         // The last one solved leaves Still open saying so.
         QVERIFY(notebook.solveStillOpen(QStringLiteral("The pen stops."), QStringLiteral("Charge it."), &error));
         QVERIFY(notebook.deviceStillOpen().isEmpty());

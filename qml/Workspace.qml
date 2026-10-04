@@ -152,10 +152,11 @@ Item {
         }
     }
 
-    // A fix the device's own page holds: its problem, and, tapped open, why
-    // and what to do.
+    // A fix the device's own page holds: its problem, and, tapped open, why,
+    // what to do, and Came back, for a problem the fix no longer holds.
     component DeviceFix: Rectangle {
         id: fix
+        property string path
         property string title
         property string why
         property var steps: []
@@ -192,6 +193,11 @@ Item {
                     color: theme.quiet
                     rotation: fix.open ? 180 : 0
                 }
+                MouseArea {
+                    anchors.fill: parent
+                    cursorShape: Qt.PointingHandCursor
+                    onClicked: fix.open = !fix.open
+                }
             }
             Text {
                 visible: fix.open && fix.why !== ""
@@ -213,11 +219,13 @@ Item {
                     lineHeight: 1.3
                 }
             }
-        }
-        MouseArea {
-            anchors.fill: parent
-            cursorShape: Qt.PointingHandCursor
-            onClicked: fix.open = !fix.open
+            Pill {
+                objectName: "cameBack"
+                visible: fix.open
+                implicitHeight: 40
+                text: "Came back"
+                onClicked: conversation.reopenFix(fix.path)
+            }
         }
     }
 
@@ -239,23 +247,23 @@ Item {
             spacing: 10
             Item {
                 width: parent.width
-                height: Math.max(problemText.implicitHeight, problemStatus.implicitHeight)
+                height: Math.max(problemText.implicitHeight, 24)
                 Text {
                     id: problemText
-                    width: parent.width - problemStatus.implicitWidth - 14
+                    width: parent.width - 34
                     wrapMode: Text.WordWrap
                     text: problem.text
                     color: theme.text
                     font.pixelSize: 15
                     lineHeight: 1.3
                 }
-                Text {
-                    id: problemStatus
+                Icon {
                     anchors.right: parent.right
-                    y: 3
-                    text: "Still open"
+                    y: 2
+                    width: 18; height: 18
+                    path: Icons.chevron
                     color: theme.quiet
-                    font.pixelSize: 12
+                    rotation: problem.open ? 180 : 0
                 }
                 MouseArea {
                     anchors.fill: parent
@@ -339,6 +347,12 @@ Item {
                 }
             }
         }
+    }
+
+    component SubHeading: Text {
+        color: theme.quiet
+        font.pixelSize: 13
+        font.weight: Font.DemiBold
     }
 
     component Heading: Text {
@@ -826,8 +840,8 @@ Item {
                     }
                 }
 
-                // What is known about this device: its fixes, and what is
-                // still open.
+                // What is known about this device: what is still open, then
+                // what was solved.
                 Heading { text: "THIS DEVICE" }
                 Column {
                     objectName: "deviceKnown"
@@ -837,20 +851,30 @@ Item {
                         visible: conversation.deviceFixes.length === 0 && conversation.deviceStillOpen.length === 0
                         text: "Nothing learned about this device yet. Its problems, and what fixed them, are kept here."
                     }
-                    Repeater {
-                        model: conversation.deviceFixes
-                        DeviceFix {
-                            objectName: "deviceFix-" + index
-                            title: modelData.title
-                            why: modelData.why
-                            steps: modelData.steps
-                        }
+                    SubHeading {
+                        visible: conversation.deviceStillOpen.length > 0
+                        text: "Open"
                     }
                     Repeater {
                         model: conversation.deviceStillOpen
                         OpenProblem {
                             objectName: "deviceOpen-" + index
                             text: modelData
+                        }
+                    }
+                    SubHeading {
+                        visible: conversation.deviceFixes.length > 0
+                        topPadding: conversation.deviceStillOpen.length > 0 ? 8 : 0
+                        text: "Solved"
+                    }
+                    Repeater {
+                        model: conversation.deviceFixes
+                        DeviceFix {
+                            objectName: "deviceFix-" + index
+                            path: modelData.path
+                            title: modelData.title
+                            why: modelData.why
+                            steps: modelData.steps
                         }
                     }
                 }

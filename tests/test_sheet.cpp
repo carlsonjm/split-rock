@@ -370,6 +370,23 @@ private Q_SLOTS:
         QCOMPARE(c.deviceFixes().size(), 2);
         QTRY_VERIFY(!find(full, QStringLiteral("deviceOpen-0")));
         shoot(full, QStringLiteral("17-solved"));
+
+        // It came back: tapped open under Solved, then Came back.
+        QQuickItem *solved = nullptr;
+        for (int i = 0; i < 2 && !solved; ++i) {
+            QQuickItem *row = find(full, QStringLiteral("deviceFix-%1").arg(i));
+            if (row && row->property("title").toString().startsWith(QLatin1String("Sign-in froze")))
+                solved = row;
+        }
+        QVERIFY(solved);
+        solved->setProperty("open", true);
+        QQuickItem *cameBack = find(solved, QStringLiteral("cameBack"));
+        QTRY_VERIFY(cameBack->isVisible());
+        QMetaObject::invokeMethod(cameBack, "clicked");
+        QTRY_COMPARE(c.deviceStillOpen().size(), 1);
+        QCOMPARE(c.deviceFixes().size(), 1);
+        QTRY_VERIFY(find(full, QStringLiteral("deviceOpen-0")));
+        shoot(full, QStringLiteral("19-came-back"));
     }
 
     // Every problem still open opens to its two ways of solving it, tapped

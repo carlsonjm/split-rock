@@ -51,8 +51,10 @@ firmware, into `Device/DEVICE.md`. Each problem met on this device, and its fix,
 becomes an entry beside it in the guide's format, and the guide offers those
 entries like its own. A problem met and not yet fixed is a line under "Still
 open" in `DEVICE.md`, until a fix is proven. The full window's This computer
-tab shows both under This device: each fix opens to its steps, and each
-problem still open opens to Tell the assistant the fix, which starts the
+tab shows both under This device, Open first and Solved after: each fix opens
+to its steps and Came back, which returns a problem whose fix stopped holding
+to Still open with what fixed it before, and sends its page to the trash so the
+guide no longer offers it; each problem still open opens to Tell the assistant the fix, which starts the
 sentence in the field for the person to finish, or Write the fix, where the
 person's own words become the problem's page and its line leaves Still open,
 with no account needed. With an account, the assistant also adds the maker's

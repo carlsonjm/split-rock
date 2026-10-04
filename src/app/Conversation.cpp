@@ -909,7 +909,8 @@ QVariantList Conversation::deviceFixes() const
     if (!m_notebook)
         return list;
     for (const Notebook::DeviceFix &fix : m_notebook->deviceFixes())
-        list.append(QVariantMap{{QStringLiteral("title"), fix.title}, {QStringLiteral("why"), fix.why},
+        list.append(QVariantMap{{QStringLiteral("path"), fix.path}, {QStringLiteral("title"), fix.title},
+                                {QStringLiteral("why"), fix.why},
                                 {QStringLiteral("steps"), fix.steps}});
     return list;
 }
@@ -930,6 +931,18 @@ bool Conversation::solveStillOpen(const QString &problem, const QString &fix)
     }
     Q_EMIT notebookChanged();
     return true;
+}
+
+bool Conversation::reopenFix(const QString &path)
+{
+    if (!m_notebook)
+        return false;
+    QString error;
+    const bool reopened = m_notebook->reopenFix(path, &error);
+    if (!error.isEmpty())
+        setNotice(error);
+    Q_EMIT notebookChanged();
+    return reopened;
 }
 
 bool Conversation::rememberYes()

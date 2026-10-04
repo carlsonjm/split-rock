@@ -73,6 +73,7 @@ public:
     // The fixed problems in This computer.md, newest first.
     QList<Fixed> fixedProblems() const;
     struct DeviceFix {
+        QString path;
         QString title;
         QString why;
         QStringList steps;
@@ -87,6 +88,10 @@ public:
     // becomes the device's page for that problem, and its line leaves Still
     // open. False, with why in error, when it may not be written.
     bool solveStillOpen(const QString &problem, const QString &fix, QString *error = nullptr);
+    // A solved problem came back: it returns to Still open, with what fixed it
+    // before, and its page goes to the trash, so the guide no longer offers a
+    // fix that stopped holding.
+    bool reopenFix(const QString &path, QString *error = nullptr);
 
     // "Remember that?", answered yes: the sentence goes into About me.md,
     // dated. False, with why in error, when it may not be written.

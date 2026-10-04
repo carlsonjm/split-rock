@@ -422,7 +422,7 @@ QList<Notebook::DeviceFix> Notebook::deviceFixes() const
                                                      QStringLiteral("device"), GuideEntry::Kind::Guide, &problem);
         if (!problem.isEmpty() || entry.title.isEmpty())
             continue;
-        fixes.append({entry.title, entry.why, entry.steps});
+        fixes.append({file.fileName(), entry.title, entry.why, entry.steps});
     }
     return fixes;
 }
@@ -584,6 +584,66 @@ bool Notebook::solveStillOpen(const QString &problem, const QString &fix, QStrin
     if (!writeNew(QStringLiteral("Device/%1.md").arg(id), page, error))
         return false;
     return rewrite(QStringLiteral("Device/DEVICE.md"), lines.join(QLatin1Char('\n')), error);
+}
+
+bool Notebook::reopenFix(const QString &path, QString *error)
+{
+    const auto fail = [error](const QString &why) {
+        if (error)
+            *error = why;
+        return false;
+    };
+    const QFileInfo info(path);
+    const QString device = QFileInfo(QDir(m_folder).filePath(QStringLiteral("Device"))).canonicalFilePath();
+    if (device.isEmpty() || info.canonicalPath() != device || info.fileName() == QLatin1String("DEVICE.md")
+        || info.suffix() != QLatin1String("md"))
+        return fail(QStringLiteral("Only one of the device's fixes can come back."));
+    QFile file(info.canonicalFilePath());
+    if (!file.open(QIODevice::ReadOnly))
+        return fail(QStringLiteral("That fix is no longer in the notebook."));
+    QString problem;
+    const GuideEntry entry = GuideLibrary::parse(file.fileName(), QString::fromUtf8(file.readAll()),
+                                                 QStringLiteral("device"), GuideEntry::Kind::Guide, &problem);
+    file.close();
+    if (!problem.isEmpty())
+        return fail(QStringLiteral("That fix could not be read."));
+    const QString line = QStringLiteral("- %1. It came back on %2; before, this fixed it: %3")
+                             .arg(entry.title, today(), entry.steps.join(QLatin1Char(' ')));
+
+    // At the end of Still open, which a page from before it existed gains.
+    QStringList lines = read(QStringLiteral("Device/DEVICE.md")).split(QLatin1Char('\n'));
+    qsizetype heading = lines.indexOf(QStringLiteral("## Still open"));
+    if (heading < 0) {
+        qsizetype before = lines.indexOf(QStringLiteral("## The maker's documentation"));
+        if (before < 0)
+            before = lines.size();
+        lines.insert(before, QString());
+        lines.insert(before, QStringLiteral("## Still open"));
+        heading = before;
+    }
+    qsizetype end = heading + 1;
+    while (end < lines.size() && !lines.at(end).startsWith(QLatin1String("## ")))
+        ++end;
+    for (qsizetype i = end - 1; i > heading; --i) {
+        if (lines.at(i) == QLatin1String("Nothing yet.")) {
+            lines.removeAt(i);
+            --end;
+        }
+    }
+    qsizetype at = end;
+    while (at > heading + 1 && lines.at(at - 1).trimmed().isEmpty())
+        --at;
+    if (at == heading + 1)
+        lines.insert(at++, QString());
+    lines.insert(at, line);
+    if (at + 1 >= lines.size() || !lines.at(at + 1).trimmed().isEmpty())
+        lines.insert(at + 1, QString());
+    if (!rewrite(QStringLiteral("Device/DEVICE.md"), lines.join(QLatin1Char('\n')), error))
+        return false;
+    QDir().mkpath(QStandardPaths::writableLocation(QStandardPaths::GenericDataLocation));
+    if (!QFile::moveToTrash(info.canonicalFilePath()) && !QFile::remove(info.canonicalFilePath()))
+        return fail(QStringLiteral("It is back under Still open, but its old page could not be removed."));
+    return true;
 }
 
 bool Notebook::recordFixed(const QString &problem, const QString &fix, QString *error)
