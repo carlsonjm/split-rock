@@ -73,9 +73,9 @@ find_program(DBUS_RUN_SESSION dbus-run-session REQUIRED)
 add_executable(test_conversation_bus bus/test_conversation_bus.cpp)
 target_link_libraries(test_conversation_bus PRIVATE Qt6::DBus Qt6::Test)
 target_compile_definitions(test_conversation_bus PRIVATE
-    SPLIT_ROCK_PROGRAM="$<TARGET_FILE:split-rock-m0>"
+    SPLIT_ROCK_PROGRAM="$<TARGET_FILE:split-rock>"
     SCRIPTS_DIR="${CMAKE_CURRENT_SOURCE_DIR}/pretend-scripts")
-add_dependencies(test_conversation_bus split-rock-m0 split-rock-pretend-assistant)
+add_dependencies(test_conversation_bus split-rock split-rock-pretend-assistant)
 add_test(NAME test_conversation_bus COMMAND ${DBUS_RUN_SESSION}
     --config-file=${CMAKE_CURRENT_SOURCE_DIR}/bus/private-bus.conf -- $<TARGET_FILE:test_conversation_bus>)
 set_tests_properties(test_conversation_bus PROPERTIES

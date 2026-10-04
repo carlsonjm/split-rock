@@ -42,6 +42,9 @@ in front of it; the card sits above every window.
 
 Nothing on the computer changes yet. The assistant can look and explain.
 
+- A developer install for the maintainer's computer (`install.sh`), so the
+  week of use runs from the launcher and Search, not a terminal. It is not
+  Milestone 3's package.
 - The panel widget: open it, ask in plain words, read the answer.
 - A background service that holds the conversation, so closing the widget or
   restarting the panel loses nothing. Its first version, which Search's Genie

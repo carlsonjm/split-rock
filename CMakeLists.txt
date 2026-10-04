@@ -47,8 +47,8 @@ else()
     message(STATUS "Layer Shell Qt not found: the card is an ordinary window and cannot hold Spread's centre")
 endif()
 
-qt_add_executable(split-rock-m0 src/main.cpp)
-qt_add_resources(split-rock-m0 "sheet"
+qt_add_executable(split-rock src/main.cpp)
+qt_add_resources(split-rock "sheet"
     PREFIX "/"
     FILES
         assets/mark.svg
@@ -68,15 +68,44 @@ qt_add_resources(split-rock-m0 "sheet"
         qml/StartingPanel.qml
         qml/ProblemPanel.qml
 )
-target_link_libraries(split-rock-m0 PRIVATE splitrock_core splitrock_desktop Qt6::Gui Qt6::Quick)
+target_link_libraries(split-rock PRIVATE splitrock_core splitrock_desktop Qt6::Gui Qt6::Quick)
 
-# The desktop file and the session bus's service file, filled in here for the
-# program in this build; the package installs them later, for its own path.
-set(SPLIT_ROCK_PROGRAM "${CMAKE_CURRENT_BINARY_DIR}/split-rock-m0")
+# The developer install (install.sh), for every account on this computer: the
+# program, its desktop file, its icon, the session bus's service file, the
+# guide and the tour, and the assistants' adapters when install.sh has fetched
+# them. The pretend assistant is never installed. Milestone 3 replaces this
+# with a package.
+include(GNUInstallDirs)
+set(SPLIT_ROCK_ADAPTERS_DIR "" CACHE PATH "Fetched assistant adapters to install beside the program")
+set(SPLIT_ROCK_INSTALLED_ADAPTERS "${CMAKE_INSTALL_FULL_LIBDIR}/split-rock/assistants")
+target_compile_definitions(split-rock PRIVATE SPLIT_ROCK_INSTALLED_ADAPTERS="${SPLIT_ROCK_INSTALLED_ADAPTERS}")
+
+set(SPLIT_ROCK_PROGRAM "${CMAKE_INSTALL_FULL_BINDIR}/split-rock")
 configure_file(data/io.github.carlsonjm.SplitRock.desktop.in
     ${CMAKE_CURRENT_BINARY_DIR}/data/io.github.carlsonjm.SplitRock.desktop @ONLY)
 configure_file(data/io.github.carlsonjm.splitrock.service.in
     ${CMAKE_CURRENT_BINARY_DIR}/data/io.github.carlsonjm.splitrock.service @ONLY)
+# The icon is the mark on its tile, drawn from the mark's one file.
+file(READ assets/mark.svg SPLIT_ROCK_MARK)
+string(REGEX MATCHALL "<path[^>]*/>" SPLIT_ROCK_MARK_PATHS "${SPLIT_ROCK_MARK}")
+string(JOIN "\n    " SPLIT_ROCK_MARK_PATHS ${SPLIT_ROCK_MARK_PATHS})
+configure_file(data/io.github.carlsonjm.SplitRock.svg.in
+    ${CMAKE_CURRENT_BINARY_DIR}/data/io.github.carlsonjm.SplitRock.svg @ONLY)
+
+install(TARGETS split-rock RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
+install(FILES ${CMAKE_CURRENT_BINARY_DIR}/data/io.github.carlsonjm.SplitRock.desktop
+    DESTINATION ${CMAKE_INSTALL_DATADIR}/applications)
+install(FILES ${CMAKE_CURRENT_BINARY_DIR}/data/io.github.carlsonjm.SplitRock.svg
+    DESTINATION ${CMAKE_INSTALL_DATADIR}/icons/hicolor/scalable/apps)
+install(FILES ${CMAKE_CURRENT_BINARY_DIR}/data/io.github.carlsonjm.splitrock.service
+    DESTINATION ${CMAKE_INSTALL_DATADIR}/dbus-1/services)
+install(DIRECTORY guide/plasma DESTINATION ${CMAKE_INSTALL_DATADIR}/split-rock/guide)
+install(DIRECTORY tour/plasma DESTINATION ${CMAKE_INSTALL_DATADIR}/split-rock/tour)
+if(SPLIT_ROCK_ADAPTERS_DIR)
+    install(DIRECTORY ${SPLIT_ROCK_ADAPTERS_DIR}/ DESTINATION ${CMAKE_INSTALL_LIBDIR}/split-rock/assistants
+        USE_SOURCE_PERMISSIONS
+        PATTERN ".npm-cache" EXCLUDE)
+endif()
 
 # The pretend assistant: speaks the protocol and follows a script, so every test
 # runs with no account, no network and nothing on the computer to change.

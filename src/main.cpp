@@ -3,7 +3,7 @@
 // Milestone 0's program: Split Rock, talking to real assistants over the Agent
 // Client Protocol, and offering its conversation to Search on the session bus.
 //
-//   split-rock-m0 [--ask | --background] [--assistants DIR] [--state DIR] [--pretend SCRIPT] [--guide DIR]...
+//   split-rock [--ask | --background] [--assistants DIR] [--state DIR] [--pretend SCRIPT] [--guide DIR]...
 //
 // With no arguments, as from its entry, it opens the full window. --ask opens
 // the card in Search's shape; --background opens nothing, as when Search's
@@ -11,7 +11,8 @@
 // arguments to the one running and ends.
 //
 // --assistants  where the assistants' adapters were fetched
-//               (default: "assistants" beside the program)
+//               (default: "assistants" beside the program, or where the
+//               developer install put them)
 // --state       where each assistant keeps its own sign-in
 //               (default: Split Rock's folder in the person's data folder)
 // --pretend     also offer the pretend assistant, following SCRIPT
@@ -113,9 +114,11 @@ int main(int argc, char **argv)
         return forward();
 
     const QDir programDir(QCoreApplication::applicationDirPath());
-    const QString adapters = parser.isSet(assistantsOption)
-        ? QDir(parser.value(assistantsOption)).absolutePath()
-        : programDir.filePath(QStringLiteral("assistants"));
+    // Adapters beside the program in a build; installed, where install.sh put
+    // them.
+    const QString adapters = parser.isSet(assistantsOption) ? QDir(parser.value(assistantsOption)).absolutePath()
+        : programDir.exists(QStringLiteral("assistants"))   ? programDir.filePath(QStringLiteral("assistants"))
+                                                            : QStringLiteral(SPLIT_ROCK_INSTALLED_ADAPTERS);
     const QString state = parser.isSet(stateOption)
         ? QDir(parser.value(stateOption)).absolutePath()
         : QStandardPaths::writableLocation(QStandardPaths::AppLocalDataLocation) + QStringLiteral("/assistants");

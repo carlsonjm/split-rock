@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" width="48" height="48">
+  <rect width="48" height="48" rx="15" fill="#C7B8F5"/>
+  <g transform="translate(12 12)" fill="none" stroke="#1A1A1A" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    @SPLIT_ROCK_MARK_PATHS@
+  </g>
+</svg>

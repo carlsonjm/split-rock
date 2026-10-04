@@ -9,8 +9,11 @@ from its entry and its card stands over the work.
 
 The desktop file id is `io.github.carlsonjm.SplitRock`, and it is every
 window's application id, so a card workspace knows Split Rock's windows as
-Split Rock's. The desktop file is `data/io.github.carlsonjm.SplitRock.desktop.in`;
-the package installs it later.
+Split Rock's. The desktop file is `data/io.github.carlsonjm.SplitRock.desktop.in`.
+Until Milestone 3's package, `install.sh` installs it, with the program, its
+icon, the bus service file, the guide, the tour and the assistants' adapters,
+for every account; `uninstall.sh` removes them. That is a developer install
+for the maintainer's own computer, not the package.
 
 | Start | What opens |
 | --- | --- |

@@ -27,5 +27,6 @@ Paths are from the repository root.
 | `tests/verify-guide.py` | Keeps the guide and the tour in the format Split Rock reads, with nothing that shows a terminal; the same script as a desktop's own |
 | `tests/verify-public.py` | Keeps public text fit to publish; the same script as the other components |
 | `tools/fetch-assistants.sh` | Downloads the pinned assistant adapters into one folder |
-| `run.sh` | Builds Milestone 0 and opens its window |
+| `run.sh` | Builds Split Rock and opens its window from the checkout |
+| `install.sh`, `uninstall.sh` | The developer install for the maintainer's own computer, for every account, and its removal; not Milestone 3's package |
 | `verify.sh` | Runs every check: public text, the build and the tests |

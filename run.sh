@@ -30,7 +30,7 @@ if command -v ninja >/dev/null 2>&1; then
     generator=(-G Ninja)
 fi
 cmake -S "${project_root}" -B "${build_dir}" "${generator[@]}" -DCMAKE_BUILD_TYPE=Release >/dev/null
-cmake --build "${build_dir}" --parallel --target split-rock-m0 split-rock-pretend-assistant >/dev/null
+cmake --build "${build_dir}" --parallel --target split-rock split-rock-pretend-assistant >/dev/null
 
 "${project_root}/tools/fetch-assistants.sh" "${build_dir}/assistants"
 
@@ -50,7 +50,7 @@ if [[ -d "${project_root}/../shuffle/guide" ]]; then
     guides+=(--guide "$(cd "${project_root}/../shuffle" && pwd)")
 fi
 
-exec "${build_dir}/split-rock-m0" \
+exec "${build_dir}/split-rock" \
     --assistants "${build_dir}/assistants" \
     --state "${build_dir}/sign-ins" \
     "${guides[@]}" \

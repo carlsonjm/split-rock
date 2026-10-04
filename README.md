@@ -59,10 +59,24 @@ Read [AGENTS.md](AGENTS.md) before working in this repository. The documentation
 index is [docs/README.md](docs/README.md). Run `./verify.sh` before proposing a
 change; it needs CMake, a C++20 compiler and Qt 6.4 or later.
 
-`./run.sh` builds Milestone 0 and opens its window. Its first run downloads the
-assistants' adapters into `build/m0`, which needs Node.js and npm.
+`./run.sh` builds Split Rock and opens its window from this checkout. Its first
+run downloads the assistants' adapters into `build/m0`, which needs Node.js and
+npm.
 `./run.sh --pretend tests/pretend-scripts/signed-in.json` adds the pretend
 assistant, which needs no account.
+
+## Installing on your own computer
+
+`./install.sh` builds Split Rock, runs every check, and installs it for every
+account on this computer: the program, its entry in the launcher, the service
+Search starts it with, the guide and the tour, and the assistants' adapters.
+It asks for the administrator password once, to write under `/usr`.
+`./uninstall.sh` removes exactly that, and leaves the notebook and every
+assistant's sign-in where they are.
+
+This is a developer install for the maintainer's own computer, so Milestone 1
+can be used every day. It is not the package Milestone 3 brings, and nobody
+else should be handed it.
 
 ## License
 
