@@ -292,7 +292,7 @@
       ]
     },
     {
-      "expectPrompt": "pointer",
+      "expectPrompt": "pointer easier to see",
       "steps": [
         {
           "say": "Altas is a clear pointer."
@@ -332,7 +332,7 @@
       ]
     },
     {
-      "expectPrompt": "is not installed",
+      "expectPrompt": "is not installed on this computer",
       "steps": [
         {
           "say": "Altas Dark is the one installed."
