@@ -138,7 +138,8 @@ QVariantMap ChangeCard::toMap() const
 
 QString ChangeCard::unavailable()
 {
-    return QStringLiteral("%1 can't make changes yet, so nothing was changed.").arg(productName());
+    return QStringLiteral("The assistant asked to make this change itself, which %1 doesn't allow, so nothing was "
+                          "changed. Ask again, and it will offer the change on a card you can Do.").arg(productName());
 }
 
 } // namespace splitrock

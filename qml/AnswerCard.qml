@@ -35,8 +35,8 @@ Rectangle {
             wrapMode: Text.WordWrap
             text: conversation.isGuide
                   ? conversation.assistantName + " knows the common problems and how to fix them. It needs no account and no internet."
-                  : productName + " can't change anything on this computer yet. If " + conversation.assistantName
-                    + " asks to, " + productName + " says no and shows you what it wanted."
+                  : productName + " changes something on this computer only when you tap Do it on a card "
+                    + conversation.assistantName + " offers."
             color: theme.quiet
             font.pixelSize: 15
             lineHeight: 1.3

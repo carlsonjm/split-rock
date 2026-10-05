@@ -330,7 +330,8 @@ private Q_SLOTS:
     }
 
     // The assistant starts with the shelf, not the skills, and a question
-    // carries Split Rock's hint at the skill it may need.
+    // carries Split Rock's hint at the skill it may need. Leave to open a
+    // skill is given; leave to run anything more with it is not.
     void aQuestionCarriesTheSkillHint()
     {
         if (fenceProgram().isEmpty())
@@ -345,7 +346,15 @@ private Q_SLOTS:
         QVERIFY(reaches(c, QStringLiteral("ready")));
         c.ask(QStringLiteral("Make it dark"));
         QVERIFY(reaches(c, QStringLiteral("ready")));
-        QCOMPARE(c.headline(), QStringLiteral("I'll open the look skill first."));
+        QCOMPARE(c.headline(), QStringLiteral("I opened the look skill."));
+        QVERIFY(!c.cardOpen());
+        QVERIFY(c.refusedChanges().isEmpty());
+
+        c.ask(QStringLiteral("open the skill and tidy up"));
+        QVERIFY(reaches(c, QStringLiteral("ready")));
+        QCOMPARE(c.headline(), QStringLiteral("That was refused."));
+        QVERIFY(c.cardOpen());
+        QVERIFY(c.card().value(QStringLiteral("unavailable")).toString().contains(QStringLiteral("nothing was changed")));
     }
 
     void aChangeMadeWithoutAskingIsReported()

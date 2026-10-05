@@ -26,6 +26,36 @@ namespace splitrock {
 
 namespace {
 
+// The skill named in a request to run the split-rock-skill stand-in and
+// nothing else, if it is one, perhaps wrapped in a shell's -c string.
+QString skillIn(const acp::ToolCall &call)
+{
+    static const QRegularExpression alone(QStringLiteral("^\\s*split-rock-skill\\s+([a-z0-9-]{1,64})\\s*$"));
+    QStringList words;
+    const QJsonValue command = call.rawInput.toObject().value(QStringLiteral("command"));
+    if (command.isArray()) {
+        for (const QJsonValue &word : command.toArray())
+            words.append(word.toString());
+    } else {
+        words = shellWords(call.command());
+    }
+    for (int depth = 0; depth < 3; ++depth) {
+        if (words.size() == 2 && words.first() == QLatin1String("split-rock-skill"))
+            return alone.match(words.join(QLatin1Char(' '))).captured(1);
+        // A shell given one -c string and nothing after it: bash -lc '...'.
+        if (words.size() == 3 && (words.at(1) == QLatin1String("-c") || words.at(1) == QLatin1String("-lc"))
+            && QStringList{QStringLiteral("sh"), QStringLiteral("bash"), QStringLiteral("/bin/sh"),
+                           QStringLiteral("/bin/bash"), QStringLiteral("/usr/bin/bash")}.contains(words.first())) {
+            if (const QRegularExpressionMatch match = alone.match(words.at(2)); match.hasMatch())
+                return match.captured(1);
+            words = shellWords(words.at(2));
+            continue;
+        }
+        break;
+    }
+    return {};
+}
+
 // The proposal in a request to run the split-rock-change stand-in, if it is
 // one.
 std::optional<ChangeProposal> proposalIn(const acp::ToolCall &call)
@@ -352,6 +382,11 @@ void Conversation::startAssistant()
         }
         const bool first = !m_refused.contains(call.id);
         m_refused.insert(call.id);
+        // Told with the next question, so the assistant proposes instead.
+        if (first && m_aside.isEmpty())
+            m_aside = QStringLiteral("You asked leave to run \"%1\" yourself, and it was refused: nothing you run "
+                                     "yourself changes this computer. Propose changes with split-rock-change.")
+                          .arg(call.title.isEmpty() ? call.command() : call.title);
         m_card = ChangeCard::describe(call, m_current.name, m_said, m_question).toMap();
         m_cardOpen = true;
         Q_EMIT cardChanged();
@@ -383,9 +418,16 @@ void Conversation::startAssistant()
     // Allowed only: a write inside the notebook, other than Split Rock's own
     // pages, with nothing in it that is never written down. Everything else
     // is refused, as before.
-    client->setAllow([this](const acp::ToolCall &call) { return mayWrite(call); });
+    // Also allowed: opening a settings skill, which the assistant's own
+    // program may ask leave for because the stand-in writes outside its
+    // working folder. It still runs inside the fence, and only reads.
+    client->setAllow([this](const acp::ToolCall &call) {
+        return mayWrite(call) || (!m_skillRequests.isEmpty() && !skillIn(call).isEmpty());
+    });
     connect(client, &acp::Client::requestAllowed, this, [this](const acp::ToolCall &call) {
         m_allowed.insert(call.id);
+        if (!skillIn(call).isEmpty())
+            return;
         QStringList written;
         for (const QString &path : call.paths + call.diffPaths)
             written.append(QDir(m_notebook->folder()).relativeFilePath(path));

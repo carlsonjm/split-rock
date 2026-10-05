@@ -554,7 +554,9 @@ fence; Split Rock answers with the skill and what its "Look around" commands
 read outside the fence, such as the value in use and the names installed, which
 the fence hides. Only those shipped commands run, never the assistant's: the
 request names a skill, nothing more, and `tests/verify-skills.py` keeps every
-look-around to programs that only read. A look-around still running after ten
+look-around to programs that only read. An assistant whose own program asks
+leave to run the stand-in is given it for that command alone, with nothing
+else on the line, as it still runs inside the fence. A look-around still running after ten
 seconds is stopped. With each question Split Rock adds a hint at the skill that
 fits it best, when one clearly does; the assistant makes the pick and may open
 another skill, or none. Where the assistant runs without the fence, it is told

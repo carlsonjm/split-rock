@@ -24,7 +24,85 @@
       "expectPrompt": "settings skill that may fit this question: look.",
       "steps": [
         {
-          "say": "I'll open the look skill first."
+          "tool": {
+            "toolCallId": "skill-1",
+            "title": "Open a skill",
+            "kind": "execute",
+            "status": "pending",
+            "rawInput": {
+              "command": [
+                "bash",
+                "-lc",
+                "split-rock-skill look"
+              ]
+            }
+          }
+        },
+        {
+          "ask": {
+            "toolCall": {
+              "toolCallId": "skill-1"
+            },
+            "options": [
+              {
+                "optionId": "yes",
+                "name": "Allow",
+                "kind": "allow_once"
+              },
+              {
+                "optionId": "no",
+                "name": "Reject",
+                "kind": "reject_once"
+              }
+            ]
+          },
+          "expect": "allow_once"
+        },
+        {
+          "say": "I opened the look skill."
+        }
+      ]
+    },
+    {
+      "expectPrompt": "open the skill and tidy up",
+      "steps": [
+        {
+          "tool": {
+            "toolCallId": "skill-2",
+            "title": "Open a skill",
+            "kind": "execute",
+            "status": "pending",
+            "rawInput": {
+              "command": [
+                "bash",
+                "-lc",
+                "split-rock-skill look; rm -rf \\\"$HOME/x\\\""
+              ]
+            }
+          }
+        },
+        {
+          "ask": {
+            "toolCall": {
+              "toolCallId": "skill-2"
+            },
+            "options": [
+              {
+                "optionId": "yes",
+                "name": "Allow",
+                "kind": "allow_once"
+              },
+              {
+                "optionId": "no",
+                "name": "Reject",
+                "kind": "reject_once"
+              }
+            ]
+          },
+          "expect": "reject_once"
+        },
+        {
+          "say": "That was refused."
         }
       ]
     },
