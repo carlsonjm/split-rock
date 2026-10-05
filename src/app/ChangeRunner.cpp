@@ -12,6 +12,7 @@
 #include <QRandomGenerator>
 #include <QRegularExpression>
 #include <QStandardPaths>
+#include <QTimer>
 
 namespace splitrock {
 
@@ -189,7 +190,7 @@ QString ChangeRunner::make(const ChangeProposal &change, const std::function<boo
     } else {
         program = {Shell, QStringLiteral("-c"), change.command};
     }
-    run(program, [this, record](int exitCode, const QString &output) mutable {
+    run(program, change.admin ? m_timeLimit * 3 : m_timeLimit, [this, record](int exitCode, const QString &output) mutable {
         record.exitCode = exitCode;
         record.output = output;
         record.pre = marked(output, QStringLiteral("split-rock-pre"));
@@ -231,7 +232,7 @@ bool ChangeRunner::undo(const QString &id, QString *error)
         QStringList program = m_elevate;
         program << QStringLiteral("snapper") << QStringLiteral("-c") << QStringLiteral("root")
                 << QStringLiteral("undochange") << QStringLiteral("%1..%2").arg(r.pre).arg(r.post);
-        run(program, [finish](int exitCode, const QString &output) { finish(exitCode == 0, output); });
+        run(program, m_timeLimit * 3, [finish](int exitCode, const QString &output) { finish(exitCode == 0, output); });
         return true;
     }
     if (!r.copies.isEmpty()) {
@@ -250,7 +251,7 @@ bool ChangeRunner::undo(const QString &id, QString *error)
     }
     QStringList program = r.proposal.admin ? m_elevate : QStringList{};
     program << Shell << QStringLiteral("-c") << r.proposal.undo;
-    run(program, [finish](int exitCode, const QString &output) { finish(exitCode == 0, output); });
+    run(program, r.proposal.admin ? m_timeLimit * 3 : m_timeLimit, [finish](int exitCode, const QString &output) { finish(exitCode == 0, output); });
     return true;
 }
 
@@ -286,7 +287,7 @@ void ChangeRunner::save(const Record &record) const
         file.write(QJsonDocument(record.toJson()).toJson());
 }
 
-void ChangeRunner::run(const QStringList &program, std::function<void(int, const QString &)> done)
+void ChangeRunner::run(const QStringList &program, int timeLimit, std::function<void(int, const QString &)> done)
 {
     m_process = new QProcess(this);
     m_process->setProcessChannelMode(QProcess::MergedChannels);
@@ -294,7 +295,10 @@ void ChangeRunner::run(const QStringList &program, std::function<void(int, const
     m_process->setArguments(program.mid(1));
     QProcess *process = m_process;
     connect(process, &QProcess::finished, this, [this, process, done](int exitCode, QProcess::ExitStatus status) {
-        const QString output = QString::fromUtf8(process->readAll()).trimmed();
+        QString output = QString::fromUtf8(process->readAll()).trimmed();
+        if (process->property("timedOut").toBool())
+            output += QStringLiteral("%1Stopped: it was still running when its time was up.")
+                          .arg(output.isEmpty() ? QString() : QStringLiteral("\n"));
         m_process = nullptr;
         process->deleteLater();
         done(status == QProcess::NormalExit ? exitCode : -1, output);
@@ -306,7 +310,17 @@ void ChangeRunner::run(const QStringList &program, std::function<void(int, const
         process->deleteLater();
         done(-1, QStringLiteral("%1 could not be started.").arg(process->program()));
     });
+    // A change that is still running when its time is up is stopped, so Do it
+    // never waits for ever.
+    QTimer *limit = new QTimer(process);
+    limit->setSingleShot(true);
+    connect(limit, &QTimer::timeout, process, [process] {
+        process->setProperty("timedOut", true);
+        process->kill();
+    });
+    connect(process, &QProcess::started, limit, [limit, timeLimit] { limit->start(timeLimit); });
     process->start();
+    process->closeWriteChannel();
 }
 
 } // namespace splitrock

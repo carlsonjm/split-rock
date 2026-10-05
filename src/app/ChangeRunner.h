@@ -68,6 +68,9 @@ public:
     // the administrator; tests replace it.
     void setElevate(const QStringList &program) { m_elevate = program; }
     void setSnapshots(bool on) { m_snapshots = on; }
+    // How long a change may run before it is stopped; a system change gets
+    // longer, for the password prompt.
+    void setTimeLimit(int milliseconds) { m_timeLimit = milliseconds; }
 
     bool busy() const { return m_process != nullptr; }
     // Starts making the change; made() follows. before is given the record
@@ -88,11 +91,12 @@ Q_SIGNALS:
 
 private:
     void save(const Record &record) const;
-    void run(const QStringList &program, std::function<void(int exitCode, const QString &output)> done);
+    void run(const QStringList &program, int timeLimit, std::function<void(int exitCode, const QString &output)> done);
 
     QString m_store;
     QStringList m_elevate{QStringLiteral("pkexec")};
     bool m_snapshots = true;
+    int m_timeLimit = 120000;
     QProcess *m_process = nullptr;
 };
 

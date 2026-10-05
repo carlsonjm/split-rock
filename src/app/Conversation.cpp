@@ -93,7 +93,9 @@ Conversation::Conversation(QList<Assistant> assistants, QObject *parent)
         if (output.size() > 3000)
             output = QStringLiteral("...") + output.right(3000);
         m_report = QStringLiteral("The person tapped Do it, and %1 ran your proposed change \"%2\" as %3. Exit code %4. "
-                                  "Output:\n%5\n\nCheck whether it worked, and tell the person in plain words. "
+                                  "Output:\n%5\n\nCheck whether it worked where you can, such as by reading the setting back, and tell the "
+                                  "person in plain words. You cannot see their screen or running programs, so when the "
+                                  "change is a window opening or something only they can see, ask them whether it worked. "
                                   "Don't propose the same change again unless it failed and you know why.")
                        .arg(productName(), record.proposal.title,
                             record.proposal.admin ? QStringLiteral("the administrator") : QStringLiteral("the person"))
@@ -137,7 +139,13 @@ QString Conversation::framing()
         "when it needs administrator rights (never put sudo or pkexec in the command), \"undo\": a command that "
         "puts it back, when there is one, \"files\": the files in the home folder the command changes}. The "
         "person sees it on a card and decides; %1 makes the change outside your sandbox and tells you how it went. "
-        "Propose one change at a time, with a short, specific command. The one place you may write yourself is "
+        "Propose one change at a time, with a short, specific command that finishes on its own; to open a window, "
+        "start it with kstart so the command returns at once. Before proposing, "
+        "check the names on this computer rather than from memory, because Plasma 5 and 6 differ: for example "
+        "kcmshell6 --list for the settings pages, or kreadconfig6 for a setting's current value. "
+        "Your sandbox cannot see the person's running programs, windows or screen, so never say whether a "
+        "window is open or what it shows; ask the person instead. "
+        "The one place you may write yourself is "
         "the person's notebook, following the rules in its ASSISTANT.md. "
         "Never ask for a password, a card number, bank details or a code sent by text or email. "
         "If you are not sure, say you don't know.").arg(productName());

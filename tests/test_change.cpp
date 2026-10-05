@@ -187,6 +187,27 @@ private Q_SLOTS:
         QVERIFY(!record.canUndo());
     }
 
+    // A change still running when its time is up is stopped, and recorded
+    // as not done, so Do it never waits for ever.
+    void aChangeThatNeverFinishesIsStopped()
+    {
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        ChangeRunner runner(dir.filePath(QStringLiteral("changes")));
+        runner.setTimeLimit(300);
+        QSignalSpy made(&runner, &ChangeRunner::made);
+        ChangeProposal change;
+        change.title = QStringLiteral("Wait");
+        change.command = QStringLiteral("echo started; sleep 30");
+        runner.make(change);
+        QTRY_COMPARE_WITH_TIMEOUT(made.size(), 1, 5000);
+        const auto record = made.first().first().value<ChangeRunner::Record>();
+        QCOMPARE(record.status, QStringLiteral("failed"));
+        QVERIFY(record.output.contains(QStringLiteral("started")));
+        QVERIFY(record.output.contains(QStringLiteral("Stopped")));
+        QVERIFY(!runner.busy());
+    }
+
     // A system change goes through the elevating program; here none, and no
     // snapshots, so it runs as the test.
     void aSystemChangeGoesThroughTheElevatingProgram()

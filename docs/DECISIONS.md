@@ -514,7 +514,10 @@ snapper pre and post pair where the disk has one set up, and Undo puts back the
 system files between them; the person's own files named in `files` are copied
 aside first. Each change is kept with its outcome in Split Rock's own storage
 and written under Changes in `This computer.md`, and the assistant is told how
-it went. (Engineering, 5 October.)
+it went. A change still running after two minutes (six for a system change, for
+the password prompt) is stopped and recorded as not done. The assistant is told
+that its sandbox cannot see the person's windows or running programs, so it asks
+the person whether something they can only see worked. (Engineering, 5 October.)
 
 Rejected: letting the assistant run changes itself after asking, which puts the
 fence's safety in the assistant's hands; and a helper that holds administrator
