@@ -4,6 +4,7 @@
 #include "app/Fence.h"
 #include "app/Notebook.h"
 #include "guide/GuideLibrary.h"
+#include "guide/SkillShelf.h"
 
 #include <QDir>
 #include <QFile>
@@ -326,6 +327,25 @@ private Q_SLOTS:
         QVERIFY(c.cardOpen());
         QVERIFY(c.card().value(QStringLiteral("details")).toString().contains(QStringLiteral("plasma-apply-cursortheme Altas-Dark")));
         QDir(QFileInfo(theme).path()).removeRecursively();
+    }
+
+    // The assistant starts with the shelf, not the skills, and a question
+    // carries Split Rock's hint at the skill it may need.
+    void aQuestionCarriesTheSkillHint()
+    {
+        if (fenceProgram().isEmpty())
+            QSKIP("This computer has no bubblewrap to fence the assistant in.");
+        PretendFixture f;
+        QVERIFY(f.isValid());
+        SkillShelf shelf;
+        shelf.load({QStringLiteral(PROJECT_DIR)});
+        Conversation c({f.assistant(QStringLiteral("signed-in.json"))});
+        c.setSkills(shelf);
+        c.chooseAssistant(QStringLiteral("pretend"));
+        QVERIFY(reaches(c, QStringLiteral("ready")));
+        c.ask(QStringLiteral("Make it dark"));
+        QVERIFY(reaches(c, QStringLiteral("ready")));
+        QCOMPARE(c.headline(), QStringLiteral("I'll open the look skill first."));
     }
 
     void aChangeMadeWithoutAskingIsReported()

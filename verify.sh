@@ -6,6 +6,7 @@ build_dir="${project_root}/build/verify"
 
 python3 "${project_root}/tests/verify-public.py"
 python3 "${project_root}/tests/verify-guide.py"
+python3 "${project_root}/tests/verify-skills.py"
 
 # Builds Milestone 0 and runs every test. The tests use the pretend assistant
 # only, with a home folder of their own inside the build.

@@ -35,8 +35,8 @@ const QSet<QString> &stopWords()
     return words;
 }
 
-// The words of a text that say what it is about, folded so that "passwords"
-// meets "password".
+} // namespace
+
 QSet<QString> topicWords(const QString &text)
 {
     static const QRegularExpression word(QStringLiteral("[a-z0-9]+(?:['’-][a-z0-9]+)*"));
@@ -53,6 +53,8 @@ QSet<QString> topicWords(const QString &text)
     }
     return words;
 }
+
+namespace {
 
 // Steps numbered from 1, each with the lines that continue it, as plain words.
 QStringList numberedSteps(const QString &block)

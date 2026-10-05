@@ -14,6 +14,7 @@
 
 #include <QDir>
 #include <QFile>
+#include <QFileInfo>
 #include <QJsonDocument>
 #include <QProcess>
 #include <QRegularExpression>
@@ -156,7 +157,7 @@ QString Conversation::framing()
         "check for you and shows you what it read; reading a settings file back does not show the desktop "
         "changed. Prefer commands that apply a setting live, such as plasma-apply-colorscheme or "
         "plasma-apply-lookandfeel, and after kwriteconfig6 tell the program to reload; change the desktop's look "
-        "only with those two, never by editing kdeglobals, using the names %1 lists for you. The "
+        "only with those two, never by editing kdeglobals, using names installed on this computer. The "
         "person sees it on a card and decides; %1 makes the change outside your sandbox and tells you how it went. "
         "Propose one change at a time, with a short, specific command that finishes on its own; to open a window, "
         "start it with kstart so the command returns at once. Before proposing, "
@@ -409,10 +410,17 @@ void Conversation::startAssistant()
             QFile::remove(m_changeRequests);
             m_changeRequestsRead = 0;
             room.changeRequests = m_changeRequests;
+            if (!m_skills.isEmpty()) {
+                m_skillRequests = QDir(m_current.home).filePath(QStringLiteral(".split-rock/skill-requests"));
+                QFile::remove(m_skillRequests);
+                m_skillRequestsRead = 0;
+                room.skillRequests = m_skillRequests;
+            }
             if (!m_changeRequestsTimer) {
                 m_changeRequestsTimer = new QTimer(this);
                 m_changeRequestsTimer->setInterval(300);
                 connect(m_changeRequestsTimer, &QTimer::timeout, this, &Conversation::readChangeRequests);
+                connect(m_changeRequestsTimer, &QTimer::timeout, this, &Conversation::readSkillRequests);
             }
             m_changeRequestsTimer->start();
         }
@@ -686,6 +694,16 @@ void Conversation::ask(const QString &text)
     }
     if (!m_client)
         return;
+    // Split Rock's hint at the skill the question may need; the assistant
+    // makes the pick, and may open another or none.
+    if (!m_skillRequests.isEmpty()) {
+        if (const Skill *skill = m_skills.find(question)) {
+            if (!m_aside.isEmpty())
+                m_aside += QLatin1Char('\n');
+            m_aside += QStringLiteral("A settings skill that may fit this question: %1. Open it if it helps; "
+                                      "ignore this if it doesn't.").arg(skill->id);
+        }
+    }
     send(question, question);
 }
 
@@ -774,9 +792,7 @@ void Conversation::send(const QString &prompt, const QString &shown)
     QJsonArray blocks;
     if (!m_framed) {
         blocks.append(QJsonObject{{QStringLiteral("type"), QStringLiteral("text")},
-                                  // With how the desktop looks, which the
-                                  // fence keeps the assistant from reading.
-                                  {QStringLiteral("text"), framing() + QStringLiteral("\n\n") + Appearance::current().describe()}});
+                                  {QStringLiteral("text"), framing() + QStringLiteral("\n\n") + settingsWords()}});
         // What the notebook remembers, as the conversation starts.
         const QString memory = m_notebook ? m_notebook->memory() : QString();
         if (!memory.isEmpty())
@@ -844,6 +860,59 @@ void Conversation::readChangeRequests()
         else
             m_diagnostics.append(QStringLiteral("a proposed change could not be read: %1").arg(error));
     }
+}
+
+QString Conversation::settingsWords() const
+{
+    // Without the stand-in, how the desktop looks, which the fence keeps the
+    // assistant from reading, is told up front.
+    if (m_skillRequests.isEmpty())
+        return Appearance::current().describe();
+    return QStringLiteral("Settings skills: before you propose a change to a setting, open the skill for it by "
+                          "running split-rock-skill with its name. It tells you how to change, undo and check that "
+                          "setting, and shows you its value now and the names installed on this computer, which your "
+                          "sandbox cannot see. Use those names exactly. Open only the skill you need; when none "
+                          "fits, look around yourself as before. The shelf:\n%1").arg(m_skills.shelf());
+}
+
+void Conversation::readSkillRequests()
+{
+    if (m_skillRequests.isEmpty())
+        return;
+    QFile file(m_skillRequests);
+    if (!file.open(QIODevice::ReadOnly) || file.size() < m_skillRequestsRead)
+        return;
+    file.seek(m_skillRequestsRead);
+    const QByteArray added = file.readAll();
+    const qsizetype lastLine = added.lastIndexOf('\n');
+    if (lastLine < 0)
+        return;
+    m_skillRequestsRead += lastLine + 1;
+    static const QRegularExpression request(QStringLiteral("^([0-9.]{1,40}) ([a-z0-9-]{1,64})$"));
+    for (const QByteArray &line : added.left(lastLine).split('\n')) {
+        const QRegularExpressionMatch match = request.match(QString::fromUtf8(line.trimmed()));
+        if (match.hasMatch())
+            openSkill(match.captured(1), match.captured(2));
+        else if (!line.trimmed().isEmpty())
+            m_diagnostics.append(QStringLiteral("a skill request could not be read"));
+    }
+}
+
+void Conversation::openSkill(const QString &token, const QString &id)
+{
+    const QString answer = QFileInfo(m_skillRequests).dir().filePath(QStringLiteral("skill-%1.out").arg(token));
+    const auto write = [answer](const QString &text) {
+        // Written whole, then put in place, so the stand-in never reads half.
+        const QString part = answer + QStringLiteral(".part");
+        QFile file(part);
+        if (file.open(QIODevice::WriteOnly | QIODevice::Truncate) && file.write(text.toUtf8()) >= 0) {
+            file.close();
+            QFile::remove(answer);
+            QFile::rename(part, answer);
+        }
+    };
+    qInfo().noquote() << QStringLiteral("%1: the assistant opened the %2 skill").arg(productName(), id);
+    m_skills.open(id, this, write);
 }
 
 void Conversation::propose(const ChangeProposal &proposed)

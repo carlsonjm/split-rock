@@ -21,6 +21,14 @@
   },
   "turns": [
     {
+      "expectPrompt": "settings skill that may fit this question: look.",
+      "steps": [
+        {
+          "say": "I'll open the look skill first."
+        }
+      ]
+    },
+    {
       "expectPrompt": "drive",
       "steps": [
         {"say": "I'll check the drive list, then explain what it shows."},

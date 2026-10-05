@@ -8,6 +8,10 @@
 
 namespace splitrock {
 
+// The words of a text that say what it is about, folded so that "passwords"
+// meets "password", without the words too common to say so.
+QSet<QString> topicWords(const QString &text);
+
 // One entry of the troubleshooting guide, or one tour, as written in the format
 // docs/DECISIONS.md lays down.
 struct GuideEntry {

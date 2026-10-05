@@ -51,6 +51,34 @@ static bool writeProposer(const QString &folder, const QString &requests)
     return touch.open(QIODevice::Append);
 }
 
+// The split-rock-skill stand-in: the assistant's way to open a settings skill.
+// Split Rock answers with the skill and what its look-around commands read on
+// this computer, outside the fence, which the fence itself cannot see.
+static bool writeSkillOpener(const QString &folder, const QString &requests)
+{
+    const QByteArray script =
+        "#!/bin/sh\n"
+        "case \"$1\" in ''|*[!a-z0-9-]*) echo 'usage: split-rock-skill <id from the shelf>' >&2; exit 2 ;; esac\n"
+        "token=\"$$.$(date +%s%N)\"\n"
+        "answer=\"$(dirname \"$SPLIT_ROCK_SKILL_REQUESTS\")/skill-$token.out\"\n"
+        "printf '%s %s\\n' \"$token\" \"$1\" >> \"$SPLIT_ROCK_SKILL_REQUESTS\" || exit 1\n"
+        "tries=0\n"
+        "while [ ! -f \"$answer\" ]; do\n"
+        "  tries=$((tries + 1))\n"
+        "  if [ $tries -gt 150 ]; then echo 'The skill did not open. Carry on without it.' >&2; exit 1; fi\n"
+        "  sleep 0.1\n"
+        "done\n"
+        "cat \"$answer\"\n"
+        "rm -f \"$answer\"\n";
+    QFile file(QDir(folder).filePath(QStringLiteral("split-rock-skill")));
+    if (!file.open(QIODevice::WriteOnly | QIODevice::Truncate) || file.write(script) != script.size())
+        return false;
+    file.close();
+    file.setPermissions(QFile::ReadOwner | QFile::WriteOwner | QFile::ExeOwner);
+    QFile touch(requests);
+    return touch.open(QIODevice::Append);
+}
+
 static QString writeOpeners(const QString &requests)
 {
     if (requests.isEmpty())
@@ -142,6 +170,8 @@ acp::LaunchSpec fenced(const acp::LaunchSpec &launch, const FenceRoom &room)
         environment.insert(QStringLiteral("SPLIT_ROCK_OPEN_REQUESTS"), room.openRequests);
         if (!room.changeRequests.isEmpty() && writeProposer(openers, room.changeRequests))
             environment.insert(QStringLiteral("SPLIT_ROCK_CHANGE_REQUESTS"), room.changeRequests);
+        if (!room.skillRequests.isEmpty() && writeSkillOpener(openers, room.skillRequests))
+            environment.insert(QStringLiteral("SPLIT_ROCK_SKILL_REQUESTS"), room.skillRequests);
     }
     return {fenceProgram(), args, environment, launch.workingDirectory};
 }
