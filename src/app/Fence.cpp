@@ -29,6 +29,28 @@ const QStringList DesktopSettings{
 
 } // namespace
 
+// The split-rock-change stand-in: the assistant's one way to propose a change.
+// It hands the proposal to Split Rock, which shows it on the Do it card; the
+// fence itself changes nothing.
+static bool writeProposer(const QString &folder, const QString &requests)
+{
+    const QByteArray script =
+        "#!/bin/sh\n"
+        "if [ $# -ne 1 ]; then\n"
+        "  echo 'usage: split-rock-change <proposal as one JSON argument>' >&2\n"
+        "  exit 2\n"
+        "fi\n"
+        "printf '%s' \"$1\" | base64 -w0 >> \"$SPLIT_ROCK_CHANGE_REQUESTS\" && echo >> \"$SPLIT_ROCK_CHANGE_REQUESTS\" || exit 1\n"
+        "echo 'Proposed. The person decides on the Do it card; the change is made only if they tap Do it, and you will be told how it went.'\n";
+    QFile file(QDir(folder).filePath(QStringLiteral("split-rock-change")));
+    if (!file.open(QIODevice::WriteOnly | QIODevice::Truncate) || file.write(script) != script.size())
+        return false;
+    file.close();
+    file.setPermissions(QFile::ReadOwner | QFile::WriteOwner | QFile::ExeOwner);
+    QFile touch(requests);
+    return touch.open(QIODevice::Append);
+}
+
 static QString writeOpeners(const QString &requests)
 {
     if (requests.isEmpty())
@@ -118,6 +140,8 @@ acp::LaunchSpec fenced(const acp::LaunchSpec &launch, const FenceRoom &room)
                            openers + QLatin1Char(':') + environment.value(QStringLiteral("PATH"), QStringLiteral("/usr/bin:/bin")));
         environment.insert(QStringLiteral("BROWSER"), QDir(openers).filePath(QStringLiteral("xdg-open")));
         environment.insert(QStringLiteral("SPLIT_ROCK_OPEN_REQUESTS"), room.openRequests);
+        if (!room.changeRequests.isEmpty() && writeProposer(openers, room.changeRequests))
+            environment.insert(QStringLiteral("SPLIT_ROCK_CHANGE_REQUESTS"), room.changeRequests);
     }
     return {fenceProgram(), args, environment, launch.workingDirectory};
 }

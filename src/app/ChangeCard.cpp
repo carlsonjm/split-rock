@@ -2,6 +2,7 @@
 #include "app/ChangeCard.h"
 
 #include "app/AnswerText.h"
+#include "app/ChangeRunner.h"
 #include "app/Product.h"
 
 #include <QFileInfo>
@@ -96,6 +97,32 @@ ChangeCard ChangeCard::describe(const acp::ToolCall &call, const QString &assist
     return card;
 }
 
+ChangeCard ChangeCard::forProposal(const ChangeProposal &change, const QString &assistantName)
+{
+    ChangeCard card;
+    card.kind = QStringLiteral("execute");
+    card.heading = change.title;
+    card.whatChanges = change.what;
+    card.why = change.why.isEmpty() ? QStringLiteral("%1 proposed it.").arg(assistantName) : change.why;
+    card.undo = ChangeRunner::undoPromise(change);
+    card.password = change.admin
+        ? QStringLiteral("Needed. The system asks for it; %1 never sees it.").arg(productName())
+        : QStringLiteral("Not needed.");
+    QStringList details{QStringLiteral("Proposed by: %1").arg(assistantName),
+                        QStringLiteral("Runs as: %1").arg(change.admin ? QStringLiteral("administrator")
+                                                                       : QStringLiteral("you")),
+                        QStringLiteral("Command: %1").arg(change.command)};
+    if (!change.undo.isEmpty())
+        details.append(QStringLiteral("Undo command: %1").arg(change.undo));
+    if (!change.check.isEmpty())
+        details.append(QStringLiteral("Check afterwards: %1").arg(change.check));
+    for (const QString &file : change.files)
+        details.append(QStringLiteral("File: %1").arg(file));
+    card.details = details.join(QLatin1Char('\n'));
+    card.available = true;
+    return card;
+}
+
 QVariantMap ChangeCard::toMap() const
 {
     return {{QStringLiteral("kind"), kind},
@@ -105,7 +132,8 @@ QVariantMap ChangeCard::toMap() const
             {QStringLiteral("undo"), undo},
             {QStringLiteral("password"), password},
             {QStringLiteral("details"), details},
-            {QStringLiteral("unavailable"), unavailable()}};
+            {QStringLiteral("available"), available},
+            {QStringLiteral("unavailable"), available ? QString() : unavailable()}};
 }
 
 QString ChangeCard::unavailable()

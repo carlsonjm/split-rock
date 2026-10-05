@@ -31,7 +31,7 @@ belongs to Search, and this is the assistant's own window.
 | Learn instead | Tap Show me how instead on its card | None yet |
 | Expand | Tap Expand | None yet |
 | Close | Tap beside the card | `Esc` |
-| Undo a past change | Tap a change in the notebook, then Undo | None yet |
+| Undo a past change | Tap Undo beside a change under Changes in the full window | None yet |
 | Keep an answer | Tap Keep this under it | None yet |
 | Forget a note | Tap Forget on the note | None yet |
 | Remember something | Tap Remember under "Remember that?" | None yet |
@@ -87,7 +87,7 @@ belongs to Search, and this is the assistant's own window.
 
 | Input | What happens |
 | --- | --- |
-| Tap or click Do it on its card | Its undo is recorded first, then only that change is made. In Milestone 0, Do it is unavailable: every change was already refused. |
+| Tap or click Do it on its card | Its undo is recorded first, then only that change is made. A change to the system asks for the password in the system's own prompt. The button reads Making it… until the change is done, then the card closes and the assistant is told how it went. Do it is unavailable for a change the assistant tried to make itself, which was refused. |
 
 ## Decline a change
 
@@ -118,7 +118,7 @@ belongs to Search, and this is the assistant's own window.
 
 | Input | What happens |
 | --- | --- |
-| Tap or click a change in the notebook, then Undo | A card shows what putting it back will change. Nothing happens until you tap Do it. |
+| Tap or click Undo beside a change under Changes in the full window | That change is put back, the way its card promised, and its line in This computer.md says it was undone. A system change asks for the password again. Undo is offered only while nothing else is being changed. |
 
 ## Keep an answer
 

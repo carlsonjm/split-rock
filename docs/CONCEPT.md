@@ -106,8 +106,9 @@ signs up for something has failed Pat.
 
 ## The Do it card
 
-The card is the product. Split Rock offers Do it only for changes it
-knows how to undo; anything else gets Show me how. Each card says what will
+The card is the product. Changes Split Rock knows have a tested Undo; any
+other change is made only after a snapshot or a copy of what it touches, or
+with the card saying plainly that it can't be undone. Each card says what will
 change in one sentence, why
 Split Rock suggests it, whether and how it can be undone, and whether it needs
 Pat's password.

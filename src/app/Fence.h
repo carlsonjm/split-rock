@@ -28,6 +28,10 @@ struct FenceRoom {
     // openers. The fence reaches no browser itself; Split Rock decides which
     // pages to open. Empty: no page is ever handed out.
     QString openRequests;
+    // A file inside a writable folder where the assistant's proposed changes
+    // are written, one a line, by the split-rock-change stand-in. Empty: the
+    // stand-in is not offered.
+    QString changeRequests;
 };
 
 // The program the fence is made with, or empty where this computer has none.

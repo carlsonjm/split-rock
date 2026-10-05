@@ -4,6 +4,7 @@
 #include "acp/Client.h"
 #include "app/AnswerText.h"
 #include "app/Assistants.h"
+#include "app/Change.h"
 #include "guide/GuideLibrary.h"
 
 #include <QObject>
@@ -18,6 +19,7 @@ class QTimer;
 
 namespace splitrock {
 
+class ChangeRunner;
 class Notebook;
 
 // One conversation with one assistant, as Genie's window shows it.
@@ -77,6 +79,11 @@ class Conversation : public QObject
     // About me.md, as written.
     Q_PROPERTY(QString aboutMe READ aboutMe NOTIFY notebookChanged)
     Q_PROPERTY(bool isGuide READ isGuide NOTIFY assistantChanged)
+    // The changes Split Rock made, newest first: id, title, date, status,
+    // undoWay and canUndo.
+    Q_PROPERTY(QVariantList changes READ changes NOTIFY changesChanged)
+    // A change is being made or undone.
+    Q_PROPERTY(bool changing READ changing NOTIFY changesChanged)
 
 public:
     explicit Conversation(QList<Assistant> assistants, QObject *parent = nullptr);
@@ -154,6 +161,15 @@ public:
     Q_INVOKABLE void cancelSignIn();
     Q_INVOKABLE void ask(const QString &text);
     Q_INVOKABLE void stop();
+    // Do it: makes the change proposed on the card.
+    Q_INVOKABLE void doIt();
+    // Undo, from the notebook: puts a change back.
+    Q_INVOKABLE bool undoChange(const QString &id);
+    QVariantList changes() const;
+    bool changing() const;
+    ChangeRunner *changeRunner() const { return m_runner; }
+    // A change the assistant proposed, shown on the Do it card.
+    void propose(const ChangeProposal &proposed);
     Q_INVOKABLE void showMeHow();
     Q_INVOKABLE void notNow();
     Q_INVOKABLE void openCard();
@@ -175,6 +191,7 @@ Q_SIGNALS:
     void turnsChanged();
     void notebookChanged();
     void rememberChanged();
+    void changesChanged();
 
 private:
     void startAssistant();
@@ -222,6 +239,18 @@ private:
     QString m_openRequests;
     qint64 m_openRequestsRead = 0;
     QTimer *m_openRequestsTimer = nullptr;
+    // The assistant's proposed changes, from the split-rock-change stand-in.
+    void readChangeRequests();
+    QString m_changeRequests;
+    qint64 m_changeRequestsRead = 0;
+    QTimer *m_changeRequestsTimer = nullptr;
+    ChangeRunner *m_runner = nullptr;
+    std::optional<ChangeProposal> m_proposal;
+    // How a change went, told to the assistant once it is ready.
+    QString m_report;
+    QString m_reportShown;
+    // Told to the assistant with the next question: what happened since.
+    QString m_aside;
     bool m_framed = false;
 
     QString m_question;

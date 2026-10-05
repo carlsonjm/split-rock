@@ -655,8 +655,49 @@ bool Notebook::recordFixed(const QString &problem, const QString &fix, QString *
             *error = refused;
         return false;
     }
+    return recordUnder(QStringLiteral("## Fixed problems"), entry, error);
+}
+
+bool Notebook::recordChange(const QString &id, const QString &title, const QString &why, const QString &undo,
+                            const QString &status, QString *error)
+{
+    QStringList parts{today(), title.simplified()};
+    if (!why.simplified().isEmpty())
+        parts.append(QStringLiteral("Why: %1").arg(why.simplified()));
+    parts.append(QStringLiteral("Undo: %1").arg(undo.simplified().isEmpty() ? QStringLiteral("none known")
+                                                                            : undo.simplified()));
+    parts.append(status);
+    parts.append(QStringLiteral("change %1").arg(id));
+    const QString entry = QStringLiteral("- ") + parts.join(QStringLiteral(" · "));
+    const QString refused = neverWrittenReason(entry);
+    if (!refused.isEmpty()) {
+        if (error)
+            *error = refused;
+        return false;
+    }
+    return recordUnder(QStringLiteral("## Changes"), entry, error);
+}
+
+bool Notebook::markChange(const QString &id, const QString &status, QString *error)
+{
     QString record = read(QStringLiteral("This computer.md"));
-    const QString heading = QStringLiteral("## Fixed problems");
+    const QString tail = QStringLiteral(" · change %1").arg(id);
+    const qsizetype end = record.indexOf(tail);
+    if (end < 0) {
+        if (error)
+            *error = QStringLiteral("That change is not in This computer.md.");
+        return false;
+    }
+    const qsizetype start = record.lastIndexOf(QStringLiteral(" · "), end - 1);
+    if (start < 0)
+        return false;
+    record.replace(start + 3, end - start - 3, status);
+    return rewrite(QStringLiteral("This computer.md"), record, error);
+}
+
+bool Notebook::recordUnder(const QString &heading, const QString &entry, QString *error)
+{
+    QString record = read(QStringLiteral("This computer.md"));
     qsizetype at = record.indexOf(QLatin1Char('\n') + heading);
     if (at < 0) {
         if (!record.endsWith(QLatin1Char('\n')))

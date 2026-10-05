@@ -133,15 +133,23 @@ Rejected: Rust or Python for their official protocol libraries, which would add
 a second language and toolchain to a suite maintained by one person and agents;
 and copying Qt Creator's client, whose licence does not match Split Rock's.
 
-## Do it offers only changes Split Rock knows how to undo
+## Do it offers known changes, and any other change with a snapshot first
 
-The assistant may propose a change only from a fixed set, each with a tested
-undo. Anything else gets Show me how: the steps, for the person to take. The set
-grows one tested change at a time. (The maintainer, 3 October.)
+Changes Split Rock knows get a tested, one-tap Undo. Any other change the
+assistant proposes can also be made from the Do it card, which says plainly how
+it would be undone: from the system snapshot taken first, from the copies of the
+person's files made first, or by the way back the assistant gave. A change with
+none of these says it can't be undone automatically before the person taps.
+Nothing runs without the tap. (The maintainer, 5 October, replacing the ruling
+of 3 October that offered only a fixed set.)
 
-Rejected: letting the assistant propose any change, with a snapshot as the
-safety net. Its undo cannot be promised, and a broken promise of undo is the
-fastest way to lose the person's trust.
+Why: a fixed set that grows one change at a time leaves most everyday problems
+going elsewhere for a fix, which is the opposite of the product, and real use is
+the only test that finds which changes matter.
+
+Rejected: a fixed set only, which was the earlier ruling; and making any change
+with no snapshot or copy first, because the undo record is the safety net the
+person is promised.
 
 ## ChatGPT first, Claude with a key second
 
@@ -491,3 +499,39 @@ beside it in the guide's format. (Engineering, 4 October.)
 
 Rejected: folding device knowledge into `This computer.md`, which is the undo
 record and has to stay short enough to read.
+
+## The assistant proposes a change through a stand-in, and Split Rock makes it
+
+Inside its fence the assistant finds one program, `split-rock-change`, which
+takes the proposal as one JSON argument (`title`, `what`, `why`, `command`,
+`undo`, `check`, `admin`, `files`) and hands it to Split Rock; the stand-in changes
+nothing. An assistant that instead asks leave to run the stand-in is refused,
+and its proposal goes on the card all the same. When the person taps Do it,
+Split Rock runs the command itself, outside the fence: as the person, or, with
+`admin`, through the system's own password prompt (`pkexec`). A `sudo` the
+assistant writes becomes that prompt. Before a system change Split Rock takes a
+snapper pre and post pair where the disk has one set up, and Undo puts back the
+system files between them; the person's own files named in `files` are copied
+aside first. Each change is kept with its outcome in Split Rock's own storage
+and written under Changes in `This computer.md`, and the assistant is told how
+it went. A change still running after two minutes (six for a system change, for
+the password prompt) is stopped and recorded as not done. The assistant is told
+that its sandbox cannot see the person's windows or running programs, so it asks
+the person whether something they can only see worked. Its sandbox cannot reach
+the running desktop either, so Split Rock runs the proposal's `check` as the
+person after the change and tells the assistant what it read; without a check
+the assistant is told not to claim success. A setting written to `kwinrc` is
+followed by KWin's reload, after the change and after Undo. Undo runs the
+assistant's way back first, because it applies the old setting live, and puts
+back the copied files only if that fails. Each change and undo is logged to the
+system journal. A change to the desktop's look is a known change: Split Rock
+reads the global theme and colour scheme in use before it, and Undo puts that
+look back as a whole with `plasma-apply-lookandfeel` and
+`plasma-apply-colorscheme`, then checks the colour scheme is back, whatever way
+back the assistant gave. The assistant is told the look in use and the installed
+names with the first question, and after an Undo it is told with the next one.
+(Engineering, 5 October, after the first tests on the tablet.)
+
+Rejected: letting the assistant run changes itself after asking, which puts the
+fence's safety in the assistant's hands; and a helper that holds administrator
+rights of its own, which Split Rock never holds.

@@ -8,6 +8,7 @@
 #include <QDir>
 #include <QFile>
 #include <QJsonArray>
+#include <QJsonDocument>
 #include <QSignalSpy>
 #include <QTest>
 
@@ -245,6 +246,65 @@ private Q_SLOTS:
         QCOMPARE(c.question(), QStringLiteral("Show me how instead"));
         QCOMPARE(c.steps().size(), 3);
         QVERIFY(c.card().isEmpty());
+    }
+
+    // The assistant proposes through the split-rock-change stand-in; asking
+    // leave to run it puts the proposal on the card, and Do it makes it.
+    void aProposedChangeIsMadeAndUndone()
+    {
+        PretendFixture f;
+        QVERIFY(f.isValid());
+        const QString profile = QDir(QString::fromLocal8Bit(qgetenv("HOME"))).filePath(QStringLiteral("fan-profile"));
+        QFile::remove(profile);
+        Notebook notebook(QDir::homePath() + QStringLiteral("/Documents/Notebook"));
+        QVERIFY(notebook.prepare(DeviceFacts::read(QStringLiteral(FIXTURES_DIR "/computer"))));
+        Conversation c({f.assistant(QStringLiteral("signed-in.json"))});
+        c.setNotebook(&notebook);
+        c.chooseAssistant(QStringLiteral("pretend"));
+        QVERIFY(reaches(c, QStringLiteral("ready")));
+        const qsizetype before = c.changes().size();
+        c.ask(QStringLiteral("Make the fans quieter"));
+        QVERIFY(reaches(c, QStringLiteral("ready")));
+
+        QVERIFY(c.cardOpen());
+        QVariantMap card = c.card();
+        QCOMPARE(card.value(QStringLiteral("heading")).toString(), QStringLiteral("Make the fans quieter"));
+        QCOMPARE(card.value(QStringLiteral("why")).toString(), QStringLiteral("Quiet keeps the fans down while you read."));
+        QCOMPARE(card.value(QStringLiteral("available")).toBool(), true);
+        QVERIFY(c.refusedChanges().isEmpty());
+        QVERIFY(!QFile::exists(profile));
+
+        c.doIt();
+        QTRY_VERIFY(!c.cardOpen());
+        QCOMPARE(c.changes().size(), before + 1);
+        QVariantMap made = c.changes().first().toMap();
+        QCOMPARE(made.value(QStringLiteral("status")).toString(), QStringLiteral("done"));
+        QVERIFY(made.value(QStringLiteral("canUndo")).toBool());
+        QCOMPARE(QFile::exists(profile), true);
+        const auto recorded = [&notebook] {
+            QFile file(QDir(notebook.folder()).filePath(QStringLiteral("This computer.md")));
+            return file.open(QIODevice::ReadOnly) ? QString::fromUtf8(file.readAll()) : QString();
+        };
+        const QString id = made.value(QStringLiteral("id")).toString();
+        QVERIFY2(recorded().contains(QStringLiteral("Make the fans quieter")), qPrintable(recorded()));
+        QVERIFY(recorded().contains(QStringLiteral("Done · change %1").arg(id)));
+        // The assistant hears what happened and answers.
+        QTRY_COMPARE(c.headline(), QStringLiteral("It is set to Quiet now."));
+        QCOMPARE(c.question(), QStringLiteral("Did it: Make the fans quieter"));
+        // The report told the assistant what its check read back.
+        const QJsonObject report = f.received(QStringLiteral("session/prompt")).last();
+        QVERIFY(QJsonDocument(report).toJson().contains("read back from the running desktop:\\nquiet"));
+
+        QVERIFY(c.undoChange(id));
+        QTRY_COMPARE(c.changes().first().toMap().value(QStringLiteral("status")).toString(), QStringLiteral("undone"));
+        QVERIFY(!QFile::exists(profile));
+        QVERIFY(recorded().contains(QStringLiteral("Undone ")));
+        QVERIFY(!c.undoChange(id));
+        // The next question tells the assistant its change is gone.
+        c.ask(QStringLiteral("Is it back?"));
+        QVERIFY(reaches(c, QStringLiteral("ready")));
+        QVERIFY(QJsonDocument(f.received(QStringLiteral("session/prompt")).last()).toJson()
+                    .contains("tapped Undo on \\\"Make the fans quieter\\\", and it was put back"));
     }
 
     void aChangeMadeWithoutAskingIsReported()

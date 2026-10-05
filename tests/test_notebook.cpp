@@ -10,6 +10,7 @@
 #include <QLocale>
 #include <QFileInfo>
 #include <QStandardPaths>
+#include <QProcess>
 #include <QTemporaryDir>
 #include <QTest>
 
@@ -307,6 +308,43 @@ private Q_SLOTS:
         // Nothing the computer lacks is asked to be hidden.
         if (!QFileInfo(QStringLiteral("/run/dbus")).isDir())
             QVERIFY(!args.contains(QStringLiteral("/run/dbus")));
+    }
+
+    // The assistant's one way to propose a change: a stand-in inside the
+    // fence that hands the proposal to Split Rock and changes nothing.
+    void theFenceOffersTheChangeStandIn()
+    {
+        QTemporaryDir home;
+        const QString own = home.filePath(QStringLiteral("state/codex"));
+        const QString opens = home.filePath(QStringLiteral("state/codex/.split-rock/open-requests"));
+        const QString changes = home.filePath(QStringLiteral("state/codex/.split-rock/change-requests"));
+        QDir().mkpath(QFileInfo(opens).path());
+        FenceRoom room{{own}, {}, opens, changes};
+        const acp::LaunchSpec launch = fenced({QStringLiteral("/usr/bin/node"), {QStringLiteral("adapter.js")}, {}, home.path()}, room);
+        if (!launch.environment.contains(QStringLiteral("SPLIT_ROCK_CHANGE_REQUESTS")))
+            QSKIP("This computer has no bubblewrap to fence the assistant in.");
+        QCOMPARE(launch.environment.value(QStringLiteral("SPLIT_ROCK_CHANGE_REQUESTS")), changes);
+        const QString standIn = QDir(launch.environment.value(QStringLiteral("PATH")).section(QLatin1Char(':'), 0, 0))
+                                    .filePath(QStringLiteral("split-rock-change"));
+        QVERIFY(QFileInfo(standIn).isExecutable());
+
+        const QByteArray proposal = R"({"title":"Night light","command":"echo 'on'"})";
+        QProcess run;
+        run.setProcessEnvironment(launch.environment);
+        run.start(standIn, {QString::fromUtf8(proposal)});
+        QVERIFY(run.waitForFinished());
+        QCOMPARE(run.exitCode(), 0);
+        QVERIFY(run.readAllStandardOutput().contains("Do it card"));
+        run.start(standIn, {});
+        QVERIFY(run.waitForFinished());
+        QCOMPARE(run.exitCode(), 2);
+
+        QFile written(changes);
+        QVERIFY(written.open(QIODevice::ReadOnly));
+        const QList<QByteArray> lines = written.readAll().split('\n');
+        QCOMPARE(lines.size(), 2);
+        QCOMPARE(QByteArray::fromBase64(lines.first()), proposal);
+        QVERIFY(lines.last().isEmpty());
     }
 
     // Inside means inside, links and climbing out included.
