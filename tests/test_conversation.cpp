@@ -309,9 +309,9 @@ private Q_SLOTS:
                     .contains("tapped Undo on \\\"Make the fans quieter\\\", and it was put back"));
     }
 
-    // A theme name that isn't installed never reaches a card: the assistant
-    // is asked again, with the installed names.
-    void aThemeThatIsNotInstalledIsSentBack()
+    // A theme named loosely is the one installed theme it fits, and the card
+    // names that one.
+    void aLooselyNamedThemeIsTheInstalledOne()
     {
         PretendFixture f;
         QVERIFY(f.isValid());
@@ -322,11 +322,9 @@ private Q_SLOTS:
         c.chooseAssistant(QStringLiteral("pretend"));
         QVERIFY(reaches(c, QStringLiteral("ready")));
         c.ask(QStringLiteral("Make the pointer easier to see"));
-        QTRY_COMPARE(c.question(), QStringLiteral("Checking the name: Altas isn't installed"));
         QVERIFY(reaches(c, QStringLiteral("ready")));
-        QVERIFY(!c.cardOpen());
-        QCOMPARE(c.headline(), QStringLiteral("Altas Dark is the one installed."));
-        QVERIFY(QJsonDocument(f.received(QStringLiteral("session/prompt")).last()).toJson().contains("Altas-Dark"));
+        QVERIFY(c.cardOpen());
+        QVERIFY(c.card().value(QStringLiteral("details")).toString().contains(QStringLiteral("plasma-apply-cursortheme Altas-Dark")));
         QDir(QFileInfo(theme).path()).removeRecursively();
     }
 

@@ -281,7 +281,14 @@ private Q_SLOTS:
         QCOMPARE(now.cursors, QStringList{QStringLiteral("Altas-Dark (Altas Dark)")});
 
         // A name that isn't installed is caught before any card.
-        QCOMPARE(now.unknownName(QStringLiteral("plasma-apply-cursortheme Altas")), QStringLiteral("Altas"));
+        // A loose name is the one installed name it fits.
+        QCOMPARE(now.unknownName(QStringLiteral("plasma-apply-cursortheme Altas")), QString());
+        QCOMPARE(now.resolve(QStringLiteral("plasma-apply-cursortheme Altas")), QStringLiteral("plasma-apply-cursortheme Altas-Dark"));
+        QCOMPARE(now.resolve(QStringLiteral("plasma-apply-colorscheme 'breeze light' >/dev/null")),
+                 QStringLiteral("plasma-apply-colorscheme 'breeze light' >/dev/null")); // a quoted phrase is left for the assistant
+        QCOMPARE(now.resolve(QStringLiteral("plasma-apply-colorscheme breezelight")), QStringLiteral("plasma-apply-colorscheme BreezeLight"));
+        QCOMPARE(now.unknownName(QStringLiteral("plasma-apply-cursortheme Bibata")), QStringLiteral("Bibata"));
+        QCOMPARE(now.unknownName(QStringLiteral("plasma-apply-colorscheme 'breeze light'")), QStringLiteral("breeze light"));
         QCOMPARE(now.unknownName(QStringLiteral("plasma-apply-cursortheme 'Altas-Dark'")), QString());
         QCOMPARE(now.unknownName(QStringLiteral("plasma-apply-colorscheme BreezeLight && plasma-apply-lookandfeel -a org.kde.breeze.desktop")), QString());
         QCOMPARE(now.unknownName(QStringLiteral("plasma-apply-colorscheme BreezeDark")), QStringLiteral("BreezeDark"));

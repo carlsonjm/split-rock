@@ -330,14 +330,6 @@
           }
         }
       ]
-    },
-    {
-      "expectPrompt": "is not installed on this computer",
-      "steps": [
-        {
-          "say": "Altas Dark is the one installed."
-        }
-      ]
     }
   ]
 }

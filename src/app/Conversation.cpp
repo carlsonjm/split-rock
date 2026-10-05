@@ -849,8 +849,13 @@ void Conversation::readChangeRequests()
 void Conversation::propose(const ChangeProposal &proposed)
 {
     const Appearance now = Appearance::current();
-    // A theme that isn't installed can't be applied; the assistant is asked
-    // again with the names that are, and no card is shown.
+    // A theme named loosely is the one installed theme it fits, so the card
+    // shows the name that will be applied.
+    ChangeProposal settled = proposed;
+    if (!proposed.admin)
+        settled.command = now.resolve(proposed.command);
+    // A theme that fits no installed one, or several, can't be applied; the
+    // assistant is asked again with the names that are, and no card is shown.
     const QString unknown = proposed.admin ? QString() : now.unknownName(proposed.command);
     if (!unknown.isEmpty()) {
         qInfo().noquote() << QStringLiteral("%1: refused a proposal naming \"%2\", which is not installed")
@@ -864,7 +869,7 @@ void Conversation::propose(const ChangeProposal &proposed)
             send(std::exchange(m_report, QString()), std::exchange(m_reportShown, QString()));
         return;
     }
-    const ChangeProposal change = ChangeRunner::withKnownUndo(proposed, now);
+    const ChangeProposal change = ChangeRunner::withKnownUndo(settled, now);
     m_proposal = change;
     m_card = ChangeCard::forProposal(change, m_current.name).toMap();
     m_cardOpen = true;

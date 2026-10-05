@@ -33,9 +33,12 @@ struct Appearance {
 
     // A command that changes the global theme or colour scheme.
     static bool touchedBy(const QString &command);
-    // A name the command asks Plasma to apply that is not installed, such as
-    // a pointer theme called by half its name; empty when every name is.
+    // A name the command asks Plasma to apply that is not installed and that
+    // resolve() can't settle; empty when every name is installed or settled.
     QString unknownName(const QString &command) const;
+    // The command with each loosely given name replaced by the one installed
+    // name it fits, such as Altas by Altas-Dark when no other name starts so.
+    QString resolve(const QString &command) const;
     // Puts this look back, live, and fails unless the colour scheme is this
     // one afterwards. Empty when there is nothing to put back.
     QString restoreCommand() const;
