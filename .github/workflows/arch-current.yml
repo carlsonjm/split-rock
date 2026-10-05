@@ -30,16 +30,20 @@ jobs:
       options: --privileged
     timeout-minutes: 60
     steps:
+      # Noto Sans is Plasma's own font. The layout tests measure text in it,
+      # so the check sees text at the widths a Plasma desktop draws it.
       - name: Install build dependencies
         run: |
           pacman -Syu --noconfirm --needed \
-            base-devel cmake ninja git python dbus bubblewrap \
+            base-devel cmake ninja git python dbus bubblewrap noto-fonts \
             qt6-base qt6-declarative layer-shell-qt kirigami
 
       - uses: actions/checkout@v5
 
       - name: Record the KDE and Qt versions checked
-        run: pacman -Q qt6-base qt6-declarative layer-shell-qt kirigami bubblewrap
+        run: |
+          pacman -Q qt6-base qt6-declarative layer-shell-qt kirigami bubblewrap noto-fonts
+          fc-match sans-serif
 
       - name: Run ./verify.sh
         env:
