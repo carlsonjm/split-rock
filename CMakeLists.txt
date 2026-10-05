@@ -19,6 +19,7 @@ add_library(splitrock_core STATIC
     src/acp/Protocol.cpp
     src/acp/Connection.cpp
     src/acp/Client.cpp
+    src/app/Appearance.cpp
     src/app/Assistants.cpp
     src/app/AnswerText.cpp
     src/app/Change.cpp

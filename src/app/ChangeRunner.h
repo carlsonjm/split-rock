@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 #pragma once
 
+#include "app/Appearance.h"
 #include "app/Change.h"
 
 #include <QDateTime>
@@ -66,6 +67,10 @@ public:
     // What tells the running desktop to read again the settings a change
     // writes, run after the change and after Undo; empty when none is known.
     static QString reloadFor(const ChangeProposal &change);
+    // The proposal with the undo and check Split Rock knows for it: a change
+    // to the desktop's look is undone by putting the look of now back as a
+    // whole, live, whatever way back the assistant gave.
+    static ChangeProposal withKnownUndo(const ChangeProposal &change, const Appearance &now);
     // How the card says a proposal would be undone.
     static QString undoPromise(const ChangeProposal &change);
 

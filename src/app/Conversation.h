@@ -169,7 +169,7 @@ public:
     bool changing() const;
     ChangeRunner *changeRunner() const { return m_runner; }
     // A change the assistant proposed, shown on the Do it card.
-    void propose(const ChangeProposal &change);
+    void propose(const ChangeProposal &proposed);
     Q_INVOKABLE void showMeHow();
     Q_INVOKABLE void notNow();
     Q_INVOKABLE void openCard();
@@ -249,6 +249,8 @@ private:
     // How a change went, told to the assistant once it is ready.
     QString m_report;
     QString m_reportShown;
+    // Told to the assistant with the next question: what happened since.
+    QString m_aside;
     bool m_framed = false;
 
     QString m_question;

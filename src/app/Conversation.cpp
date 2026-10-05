@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 #include "app/Conversation.h"
 
+#include "app/Appearance.h"
 #include "app/ChangeCard.h"
 #include "app/ChangeRunner.h"
 #include "app/Fence.h"
@@ -118,6 +119,13 @@ Conversation::Conversation(QList<Assistant> assistants, QObject *parent)
             Q_EMIT notebookChanged();
         }
         Q_EMIT changesChanged();
+        // Told with the person's next question, so the assistant knows the
+        // change it made is gone and how the desktop looks now.
+        m_aside = QStringLiteral("Since your last answer the person tapped Undo on \"%1\", and %2.")
+                      .arg(record.proposal.title,
+                           ok ? QStringLiteral("it was put back") : QStringLiteral("putting it back did not work"));
+        if (Appearance::touchedBy(record.proposal.command))
+            m_aside += QLatin1Char('\n') + Appearance::current().describe();
         setNotice(ok ? QStringLiteral("Undone: %1.").arg(record.proposal.title)
                      : QStringLiteral("The undo didn't work: %1.").arg(record.proposal.title));
     });
@@ -146,7 +154,8 @@ QString Conversation::framing()
         "in the home folder the command changes}. Your sandbox cannot reach the running desktop, so %1 runs the "
         "check for you and shows you what it read; reading a settings file back does not show the desktop "
         "changed. Prefer commands that apply a setting live, such as plasma-apply-colorscheme or "
-        "plasma-apply-lookandfeel, and after kwriteconfig6 tell the program to reload. The "
+        "plasma-apply-lookandfeel, and after kwriteconfig6 tell the program to reload; change the desktop's look "
+        "only with those two, never by editing kdeglobals, using the names %1 lists for you. The "
         "person sees it on a card and decides; %1 makes the change outside your sandbox and tells you how it went. "
         "Propose one change at a time, with a short, specific command that finishes on its own; to open a window, "
         "start it with kstart so the command returns at once. Before proposing, "
@@ -764,13 +773,18 @@ void Conversation::send(const QString &prompt, const QString &shown)
     QJsonArray blocks;
     if (!m_framed) {
         blocks.append(QJsonObject{{QStringLiteral("type"), QStringLiteral("text")},
-                                  {QStringLiteral("text"), framing()}});
+                                  // With how the desktop looks, which the
+                                  // fence keeps the assistant from reading.
+                                  {QStringLiteral("text"), framing() + QStringLiteral("\n\n") + Appearance::current().describe()}});
         // What the notebook remembers, as the conversation starts.
         const QString memory = m_notebook ? m_notebook->memory() : QString();
         if (!memory.isEmpty())
             blocks.append(QJsonObject{{QStringLiteral("type"), QStringLiteral("text")}, {QStringLiteral("text"), memory}});
         m_framed = true;
     }
+    if (!m_aside.isEmpty())
+        blocks.append(QJsonObject{{QStringLiteral("type"), QStringLiteral("text")},
+                                  {QStringLiteral("text"), std::exchange(m_aside, QString())}});
     blocks.append(QJsonObject{{QStringLiteral("type"), QStringLiteral("text")}, {QStringLiteral("text"), prompt}});
 
     m_client->prompt(blocks, [this](const QString &stopReason, const std::optional<acp::RpcError> &error) {
@@ -831,8 +845,9 @@ void Conversation::readChangeRequests()
     }
 }
 
-void Conversation::propose(const ChangeProposal &change)
+void Conversation::propose(const ChangeProposal &proposed)
 {
+    const ChangeProposal change = ChangeRunner::withKnownUndo(proposed, Appearance::current());
     m_proposal = change;
     m_card = ChangeCard::forProposal(change, m_current.name).toMap();
     m_cardOpen = true;

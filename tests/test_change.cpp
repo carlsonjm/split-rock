@@ -1,10 +1,13 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
+#include "app/Appearance.h"
 #include "app/Change.h"
 #include "app/ChangeCard.h"
 #include "app/ChangeRunner.h"
 #include "app/NeverWritten.h"
 
+#include <QDir>
 #include <QFile>
+#include <QProcess>
 #include <QRegularExpression>
 #include <QSignalSpy>
 #include <QTemporaryDir>
@@ -244,6 +247,85 @@ private Q_SLOTS:
         QTRY_COMPARE(undone.size(), 2);
         QCOMPARE(undone.last().first().value<ChangeRunner::Record>().status, QStringLiteral("undone"));
         QCOMPARE(read(file), QByteArray("dark\n"));
+    }
+
+    // The look is read outside the fence: the global theme and colour scheme
+    // in use, and the installed ones, the person's own first.
+    void theLookIsReadAsAWhole()
+    {
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        QDir().mkpath(dir.filePath(QStringLiteral("config")));
+        write(dir.filePath(QStringLiteral("config/kdeglobals")),
+              "[General]\nColorScheme=ShuffleDark\n\n[KDE]\nLookAndFeelPackage[$i]=org.shuffle.desktop\n");
+        QDir().mkpath(dir.filePath(QStringLiteral("own/color-schemes")));
+        write(dir.filePath(QStringLiteral("own/color-schemes/ShuffleDark.colors")), "[General]\nName=Shuffle Dark\n");
+        QDir().mkpath(dir.filePath(QStringLiteral("system/color-schemes")));
+        write(dir.filePath(QStringLiteral("system/color-schemes/BreezeLight.colors")), "[General]\nName=Breeze Light\n");
+        write(dir.filePath(QStringLiteral("system/color-schemes/ShuffleDark.colors")), "[General]\nName=Older\n");
+        QDir().mkpath(dir.filePath(QStringLiteral("system/plasma/look-and-feel/org.kde.breeze.desktop")));
+        write(dir.filePath(QStringLiteral("system/plasma/look-and-feel/org.kde.breeze.desktop/metadata.json")),
+              R"({"KPlugin":{"Name":"Breeze"}})");
+
+        const Appearance now = Appearance::read(dir.filePath(QStringLiteral("config")),
+                                                {dir.filePath(QStringLiteral("own")), dir.filePath(QStringLiteral("system"))});
+        QCOMPARE(now.lookAndFeel, QStringLiteral("org.shuffle.desktop"));
+        QCOMPARE(now.colorScheme, QStringLiteral("ShuffleDark"));
+        QCOMPARE(now.schemes, (QStringList{QStringLiteral("ShuffleDark (Shuffle Dark)"), QStringLiteral("BreezeLight (Breeze Light)")}));
+        QCOMPARE(now.looks, QStringList{QStringLiteral("org.kde.breeze.desktop (Breeze)")});
+        QVERIFY(now.describe().contains(QStringLiteral("global theme org.shuffle.desktop, colour scheme ShuffleDark")));
+
+        // A theme change is undone by putting this look back, whatever way
+        // back the assistant gave, and read back afterwards.
+        ChangeProposal change;
+        change.title = QStringLiteral("Light theme");
+        change.command = QStringLiteral("plasma-apply-colorscheme BreezeLight");
+        change.undo = QStringLiteral("plasma-apply-colorscheme BreezeDark");
+        const ChangeProposal known = ChangeRunner::withKnownUndo(change, now);
+        QVERIFY(known.undo.startsWith(QStringLiteral("plasma-apply-lookandfeel -a 'org.shuffle.desktop'")));
+        QVERIFY(known.undo.contains(QStringLiteral("plasma-apply-colorscheme 'ShuffleDark'")));
+        QVERIFY(known.check.contains(QStringLiteral("kreadconfig6")));
+        QVERIFY(ChangeRunner::undoPromise(known).contains(QStringLiteral("whole look")));
+        change.command = QStringLiteral("kwriteconfig6 --file kwinrc --group NightColor --key Active true");
+        QCOMPARE(ChangeRunner::withKnownUndo(change, now).undo, change.undo);
+    }
+
+    // The way back runs the desktop's own tools, here stand-ins, and fails
+    // unless the colour scheme is back.
+    void theLookIsPutBackAndChecked()
+    {
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        const QString bin = dir.filePath(QStringLiteral("bin"));
+        QDir().mkpath(bin);
+        const auto tool = [&](const QString &name, const QByteArray &body) {
+            const QString path = QDir(bin).filePath(name);
+            write(path, "#!/bin/sh\n" + body);
+            QFile(path).setPermissions(QFile::ReadOwner | QFile::WriteOwner | QFile::ExeOwner);
+        };
+        tool(QStringLiteral("plasma-apply-lookandfeel"), "echo \"$2\" > \"$STATE/lnf\"; echo Breeze > \"$STATE/scheme\"\n");
+        tool(QStringLiteral("plasma-apply-colorscheme"), "[ -n \"$BROKEN\" ] && exit 1; echo \"$1\" > \"$STATE/scheme\"\n");
+        tool(QStringLiteral("kreadconfig6"), "cat \"$STATE/scheme\"\n");
+        Appearance now;
+        now.lookAndFeel = QStringLiteral("org.shuffle.desktop");
+        now.colorScheme = QStringLiteral("ShuffleDark");
+
+        QProcessEnvironment environment = QProcessEnvironment::systemEnvironment();
+        environment.insert(QStringLiteral("PATH"), bin + QLatin1Char(':') + environment.value(QStringLiteral("PATH")));
+        environment.insert(QStringLiteral("STATE"), dir.path());
+        QProcess restore;
+        restore.setProcessEnvironment(environment);
+        restore.start(QStringLiteral("/bin/sh"), {QStringLiteral("-c"), now.restoreCommand()});
+        QVERIFY(restore.waitForFinished());
+        QCOMPARE(restore.exitCode(), 0);
+        QCOMPARE(read(dir.filePath(QStringLiteral("lnf"))), QByteArray("org.shuffle.desktop\n"));
+        QCOMPARE(read(dir.filePath(QStringLiteral("scheme"))), QByteArray("ShuffleDark\n"));
+
+        environment.insert(QStringLiteral("BROKEN"), QStringLiteral("1"));
+        restore.setProcessEnvironment(environment);
+        restore.start(QStringLiteral("/bin/sh"), {QStringLiteral("-c"), now.restoreCommand()});
+        QVERIFY(restore.waitForFinished());
+        QVERIFY(restore.exitCode() != 0);
     }
 
     // A change still running when its time is up is stopped, and recorded

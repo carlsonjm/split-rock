@@ -151,11 +151,26 @@ QString ChangeRunner::reloadFor(const ChangeProposal &change)
     return {};
 }
 
+ChangeProposal ChangeRunner::withKnownUndo(const ChangeProposal &change, const Appearance &now)
+{
+    ChangeProposal known = change;
+    if (change.admin || !Appearance::touchedBy(change.command))
+        return known;
+    const QString restore = now.restoreCommand();
+    if (!restore.isEmpty())
+        known.undo = restore;
+    if (known.check.isEmpty())
+        known.check = Appearance::checkCommand();
+    return known;
+}
+
 QString ChangeRunner::undoPromise(const ChangeProposal &change)
 {
     if (change.admin && systemSnapshots())
         return QStringLiteral("%1 takes a system snapshot first. Undo, in the notebook, puts back every system file "
                               "this changes.").arg(productName());
+    if (!change.admin && Appearance::touchedBy(change.command) && !change.undo.isEmpty())
+        return QStringLiteral("Undo, in the notebook, puts back the whole look you have now.");
     if (!change.undo.isEmpty())
         return QStringLiteral("Undo, in the notebook, runs the way back the assistant gave.");
     if (!change.admin && !change.files.isEmpty())

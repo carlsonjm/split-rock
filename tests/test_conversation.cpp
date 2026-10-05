@@ -300,6 +300,11 @@ private Q_SLOTS:
         QVERIFY(!QFile::exists(profile));
         QVERIFY(recorded().contains(QStringLiteral("Undone ")));
         QVERIFY(!c.undoChange(id));
+        // The next question tells the assistant its change is gone.
+        c.ask(QStringLiteral("Is it back?"));
+        QVERIFY(reaches(c, QStringLiteral("ready")));
+        QVERIFY(QJsonDocument(f.received(QStringLiteral("session/prompt")).last()).toJson()
+                    .contains("tapped Undo on \\\"Make the fans quieter\\\", and it was put back"));
     }
 
     void aChangeMadeWithoutAskingIsReported()

@@ -524,7 +524,13 @@ the assistant is told not to claim success. A setting written to `kwinrc` is
 followed by KWin's reload, after the change and after Undo. Undo runs the
 assistant's way back first, because it applies the old setting live, and puts
 back the copied files only if that fails. Each change and undo is logged to the
-system journal. (Engineering, 5 October, after the first tests on the tablet.)
+system journal. A change to the desktop's look is a known change: Split Rock
+reads the global theme and colour scheme in use before it, and Undo puts that
+look back as a whole with `plasma-apply-lookandfeel` and
+`plasma-apply-colorscheme`, then checks the colour scheme is back, whatever way
+back the assistant gave. The assistant is told the look in use and the installed
+names with the first question, and after an Undo it is told with the next one.
+(Engineering, 5 October, after the first tests on the tablet.)
 
 Rejected: letting the assistant run changes itself after asking, which puts the
 fence's safety in the assistant's hands; and a helper that holds administrator
