@@ -99,6 +99,12 @@ public:
     // "That fixed it": the problem, in the person's words, and what fixed it
     // go at the top of the fixed problems in This computer.md.
     bool recordFixed(const QString &problem, const QString &fix, QString *error = nullptr);
+    // A change Split Rock made goes at the top of the changes in This
+    // computer.md: the date, what it was, why, how to undo it and how it went.
+    bool recordChange(const QString &id, const QString &title, const QString &why, const QString &undo,
+                      const QString &status, QString *error = nullptr);
+    // How a recorded change went since, such as "Undone 2026-10-05".
+    bool markChange(const QString &id, const QString &status, QString *error = nullptr);
 
     // The topic folder an answer is kept in.
     static QString topicFor(const QString &question, const QString &answer);
@@ -108,6 +114,8 @@ private:
     bool writeNew(const QString &relative, const QString &text, QString *error);
     // Replaces a file of the notebook's with text, checked first.
     bool rewrite(const QString &relative, const QString &text, QString *error);
+    // Puts entry at the top of a section of This computer.md, newest first.
+    bool recordUnder(const QString &heading, const QString &entry, QString *error);
 
     QString m_folder;
 };

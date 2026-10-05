@@ -2,8 +2,9 @@
 import QtQuick
 import "Icons.js" as Icons
 
-// The Do it card, as the mock-up draws it. In Milestone 0 the change it shows
-// was refused before the card appeared, and Do it is unavailable.
+// The Do it card, as the mock-up draws it. A change the assistant proposed to
+// Split Rock is made by Do it; a request through the assistant's own tools was
+// refused before the card appeared, and Do it is unavailable.
 Column {
     id: root
     spacing: 14
@@ -92,8 +93,9 @@ Column {
                     padding: 28
                     fontSize: 16
                     filled: true
-                    enabled: false
-                    text: "Do it"
+                    enabled: conversation.card.available === true && !conversation.card.making
+                    text: conversation.card.making ? "Making it…" : "Do it"
+                    onClicked: conversation.doIt()
                 }
                 Pill {
                     objectName: "showMeHowButton"

@@ -825,8 +825,22 @@ Item {
                     width: parent.width
                     spacing: 8
                     Line {
-                        visible: conversation.refusedChanges.length === 0
+                        visible: conversation.refusedChanges.length === 0 && conversation.changes.length === 0
                         text: "Nothing has changed on this computer."
+                    }
+                    // What Split Rock changed, newest first, each with Undo
+                    // while it can be put back.
+                    Repeater {
+                        model: conversation.changes
+                        Line {
+                            objectName: "change-" + index
+                            when: full.shortDate(modelData.date)
+                            text: modelData.title
+                            status: ({ making: "Making it", done: "Done", failed: "Didn't work",
+                                       undone: "Undone", undoFailed: "Undo didn't work" })[modelData.status] || ""
+                            action: modelData.canUndo && !conversation.changing ? "Undo" : ""
+                            onActed: conversation.undoChange(modelData.id)
+                        }
                     }
                     Repeater {
                         model: conversation.refusedChanges

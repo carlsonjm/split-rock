@@ -2,10 +2,13 @@
 #include "app/Conversation.h"
 
 #include "app/ChangeCard.h"
+#include "app/ChangeRunner.h"
 #include "app/Fence.h"
 #include "app/NeverWritten.h"
 #include "app/Notebook.h"
 #include "app/Product.h"
+
+#include <QDate>
 
 #include <QDir>
 #include <QFile>
@@ -17,6 +20,33 @@
 #include <QTimer>
 
 namespace splitrock {
+
+namespace {
+
+// The proposal in a request to run the split-rock-change stand-in, if it is
+// one.
+std::optional<ChangeProposal> proposalIn(const acp::ToolCall &call)
+{
+    const QLatin1String program(ChangeProposal::Program);
+    const QJsonValue command = call.rawInput.toObject().value(QStringLiteral("command"));
+    if (command.isArray()) {
+        const QJsonArray words = command.toArray();
+        for (qsizetype i = 0; i < words.size(); ++i) {
+            const QString word = words.at(i).toString();
+            if (word == program && i + 1 < words.size())
+                return ChangeProposal::fromJson(words.at(i + 1).toString().toUtf8());
+            if (word.contains(program))
+                return ChangeProposal::fromCommandLine(word);
+        }
+        return std::nullopt;
+    }
+    const QString line = call.command();
+    if (!line.contains(program))
+        return std::nullopt;
+    return ChangeProposal::fromCommandLine(line);
+}
+
+} // namespace
 
 namespace {
 
@@ -44,6 +74,47 @@ Conversation::Conversation(QList<Assistant> assistants, QObject *parent)
     // phase as well as the answer.
     connect(this, &Conversation::answerChanged, this, &Conversation::rememberChanged);
     connect(this, &Conversation::phaseChanged, this, &Conversation::rememberChanged);
+
+    m_runner = new ChangeRunner(ChangeRunner::defaultStore(), this);
+    connect(m_runner, &ChangeRunner::made, this, [this](const ChangeRunner::Record &record) {
+        const bool ok = record.status == QLatin1String("done");
+        if (m_notebook) {
+            m_notebook->markChange(record.id, ok ? QStringLiteral("Done") : QStringLiteral("Failed"));
+            Q_EMIT notebookChanged();
+        }
+        m_proposal.reset();
+        m_card.clear();
+        m_cardOpen = false;
+        Q_EMIT cardChanged();
+        Q_EMIT changesChanged();
+        setNotice(ok ? QStringLiteral("Done: %1.").arg(record.proposal.title)
+                     : QStringLiteral("That didn't work: %1. Nothing else was changed.").arg(record.proposal.title));
+        QString output = record.output;
+        if (output.size() > 3000)
+            output = QStringLiteral("...") + output.right(3000);
+        m_report = QStringLiteral("The person tapped Do it, and %1 ran your proposed change \"%2\" as %3. Exit code %4. "
+                                  "Output:\n%5\n\nCheck whether it worked, and tell the person in plain words. "
+                                  "Don't propose the same change again unless it failed and you know why.")
+                       .arg(productName(), record.proposal.title,
+                            record.proposal.admin ? QStringLiteral("the administrator") : QStringLiteral("the person"))
+                       .arg(record.exitCode)
+                       .arg(output.isEmpty() ? QStringLiteral("(none)") : output);
+        m_reportShown = ok ? QStringLiteral("Did it: %1").arg(record.proposal.title)
+                           : QStringLiteral("It didn't work: %1").arg(record.proposal.title);
+        if (m_client && m_phase == QLatin1String("ready"))
+            send(std::exchange(m_report, QString()), std::exchange(m_reportShown, QString()));
+    });
+    connect(m_runner, &ChangeRunner::undone, this, [this](const ChangeRunner::Record &record) {
+        const bool ok = record.status == QLatin1String("undone");
+        if (m_notebook) {
+            m_notebook->markChange(record.id, ok ? QStringLiteral("Undone %1").arg(QDate::currentDate().toString(Qt::ISODate))
+                                                 : QStringLiteral("Undo failed"));
+            Q_EMIT notebookChanged();
+        }
+        Q_EMIT changesChanged();
+        setNotice(ok ? QStringLiteral("Undone: %1.").arg(record.proposal.title)
+                     : QStringLiteral("The undo didn't work: %1.").arg(record.proposal.title));
+    });
 }
 
 Conversation::~Conversation()
@@ -59,9 +130,15 @@ QString Conversation::framing()
         "The person has used Windows for years and is new to Linux. Answer in plain words, with no jargon, "
         "and name the Windows equivalent when it helps. "
         "Start with one short sentence, then give at most five short numbered steps when steps help. "
-        "Do not change anything on this computer. You may look, but anything that would change a setting, "
-        "a file or the system must be asked for, and the person decides. The one place you may write is the "
-        "person's notebook, following the rules in its ASSISTANT.md. "
+        "You run in a sandbox and cannot change this computer yourself; you may look. To change a setting, a "
+        "file or the system, propose it: run split-rock-change with one JSON argument, {\"title\": a short "
+        "instruction such as \"Set the fan profile to Quiet\", \"what\": what will change, in plain words, "
+        "\"why\": why, in plain words, \"command\": the shell command that makes the change, \"admin\": true "
+        "when it needs administrator rights (never put sudo or pkexec in the command), \"undo\": a command that "
+        "puts it back, when there is one, \"files\": the files in the home folder the command changes}. The "
+        "person sees it on a card and decides; %1 makes the change outside your sandbox and tells you how it went. "
+        "Propose one change at a time, with a short, specific command. The one place you may write yourself is "
+        "the person's notebook, following the rules in its ASSISTANT.md. "
         "Never ask for a password, a card number, bank details or a code sent by text or email. "
         "If you are not sure, say you don't know.").arg(productName());
 }
@@ -238,6 +315,13 @@ void Conversation::startAssistant()
         Q_EMIT answerChanged();
     });
     connect(client, &acp::Client::changeRefused, this, [this](const acp::ToolCall &call, const QString &) {
+        // A proposal through the split-rock-change stand-in that the
+        // assistant asked leave to run: the proposal itself goes on the card.
+        if (std::optional<ChangeProposal> proposed = proposalIn(call)) {
+            m_refused.insert(call.id);
+            propose(*proposed);
+            return;
+        }
         const bool first = !m_refused.contains(call.id);
         m_refused.insert(call.id);
         m_card = ChangeCard::describe(call, m_current.name, m_said, m_question).toMap();
@@ -294,6 +378,16 @@ void Conversation::startAssistant()
             QFile::remove(m_openRequests);
             m_openRequestsRead = 0;
             room.openRequests = m_openRequests;
+            m_changeRequests = QDir(m_current.home).filePath(QStringLiteral(".split-rock/change-requests"));
+            QFile::remove(m_changeRequests);
+            m_changeRequestsRead = 0;
+            room.changeRequests = m_changeRequests;
+            if (!m_changeRequestsTimer) {
+                m_changeRequestsTimer = new QTimer(this);
+                m_changeRequestsTimer->setInterval(300);
+                connect(m_changeRequestsTimer, &QTimer::timeout, this, &Conversation::readChangeRequests);
+            }
+            m_changeRequestsTimer->start();
         }
         launch = fenced(launch, room);
     } else if (!m_current.mayRunUnfenced) {
@@ -316,6 +410,8 @@ void Conversation::stopAssistant()
 {
     if (!m_client)
         return;
+    if (m_changeRequestsTimer)
+        m_changeRequestsTimer->stop();
     acp::Client *client = std::exchange(m_client, nullptr);
     client->disconnect(this);
     client->kill();
@@ -694,6 +790,99 @@ void Conversation::stop()
         m_client->cancel();
 }
 
+void Conversation::readChangeRequests()
+{
+    if (m_changeRequests.isEmpty())
+        return;
+    QFile file(m_changeRequests);
+    if (!file.open(QIODevice::ReadOnly) || file.size() < m_changeRequestsRead)
+        return;
+    file.seek(m_changeRequestsRead);
+    const QByteArray added = file.readAll();
+    const qsizetype lastLine = added.lastIndexOf('\n');
+    if (lastLine < 0)
+        return;
+    m_changeRequestsRead += lastLine + 1;
+    for (const QByteArray &line : added.left(lastLine).split('\n')) {
+        if (line.trimmed().isEmpty())
+            continue;
+        QString error;
+        if (std::optional<ChangeProposal> change = ChangeProposal::fromJson(QByteArray::fromBase64(line.trimmed()), &error))
+            propose(*change);
+        else
+            m_diagnostics.append(QStringLiteral("a proposed change could not be read: %1").arg(error));
+    }
+}
+
+void Conversation::propose(const ChangeProposal &change)
+{
+    m_proposal = change;
+    m_card = ChangeCard::forProposal(change, m_current.name).toMap();
+    m_cardOpen = true;
+    Q_EMIT cardChanged();
+}
+
+void Conversation::doIt()
+{
+    if (!m_proposal || m_runner->busy())
+        return;
+    // Written down, with how to undo it, before anything runs.
+    QString unrecorded;
+    const auto writeDown = [this, &unrecorded](const ChangeRunner::Record &record) {
+        if (!m_notebook)
+            return true;
+        const QString undo = record.proposal.admin && ChangeRunner::systemSnapshots()
+            ? QStringLiteral("Put back the system files it changed, from the snapshot taken before")
+            : record.undoWay();
+        const bool written = m_notebook->recordChange(record.id, record.proposal.title, record.proposal.why, undo,
+                                                      QStringLiteral("Making"), &unrecorded);
+        Q_EMIT notebookChanged();
+        return written;
+    };
+    if (m_runner->make(*m_proposal, writeDown).isEmpty()) {
+        Q_EMIT changesChanged();
+        if (!unrecorded.isEmpty())
+            setNotice(QStringLiteral("Nothing was changed: it couldn't be written in the notebook first. %1").arg(unrecorded));
+        return;
+    }
+    m_card.insert(QStringLiteral("making"), true);
+    Q_EMIT cardChanged();
+    Q_EMIT changesChanged();
+    setNotice(m_proposal->admin ? QStringLiteral("Making the change. The system asks for your password.")
+                                : QStringLiteral("Making the change."));
+}
+
+bool Conversation::undoChange(const QString &id)
+{
+    QString error;
+    if (!m_runner->undo(id, &error)) {
+        setNotice(error);
+        return false;
+    }
+    Q_EMIT changesChanged();
+    setNotice(QStringLiteral("Putting it back."));
+    return true;
+}
+
+QVariantList Conversation::changes() const
+{
+    QVariantList list;
+    for (const ChangeRunner::Record &r : m_runner->records()) {
+        list.append(QVariantMap{{QStringLiteral("id"), r.id},
+                                {QStringLiteral("title"), r.proposal.title},
+                                {QStringLiteral("date"), r.made.date().toString(Qt::ISODate)},
+                                {QStringLiteral("status"), r.status},
+                                {QStringLiteral("undoWay"), r.undoWay()},
+                                {QStringLiteral("canUndo"), r.canUndo()}});
+    }
+    return list;
+}
+
+bool Conversation::changing() const
+{
+    return m_runner->busy();
+}
+
 void Conversation::showMeHow()
 {
     // The guide answers from what is written; only an assistant can be asked.
@@ -743,6 +932,14 @@ void Conversation::setPhase(const QString &phase)
     if (phase == QLatin1String("problem"))
         m_waiting.clear();
     Q_EMIT phaseChanged();
+    if (phase == QLatin1String("ready") && !m_report.isEmpty() && m_client) {
+        QTimer::singleShot(0, this, [this] {
+            if (m_phase != QLatin1String("ready") || m_report.isEmpty() || !m_client)
+                return;
+            send(std::exchange(m_report, QString()), std::exchange(m_reportShown, QString()));
+        });
+        return;
+    }
     if (phase == QLatin1String("ready") && !m_waiting.isEmpty()) {
         QTimer::singleShot(0, this, [this] {
             if (m_phase != QLatin1String("ready") || m_waiting.isEmpty())
@@ -781,6 +978,7 @@ void Conversation::clearAnswer()
     m_answer = {};
     m_card.clear();
     m_cardOpen = false;
+    m_proposal.reset();
     m_kept = false;
     m_fixed = false;
     m_rememberAnswered = false;

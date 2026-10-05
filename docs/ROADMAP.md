@@ -81,15 +81,20 @@ Still on the maintainer's machine.
 
 - The Do it card: what will change, why, how to undo it, and whether it needs
   the password. Do it, Show me how instead, Not now.
-- A fixed set of changes the assistant may propose, each with a tested undo.
-  Anything outside the set gets Show me how instead of Do it.
+- Changes Split Rock knows get a tested, one-tap Undo. Any other change the
+  assistant proposes can be made too, on a card that says how it would be
+  undone: from a snapshot or copy taken first, or by the way back the assistant
+  gave (`DECISIONS.md`). Built: the assistant proposes through the
+  `split-rock-change` stand-in, Split Rock makes the change outside the fence,
+  and the full window's Changes list offers Undo.
 - Before every change: the undo written to `This computer.md`, the changed
   settings files copied aside, and a snapshot where the disk supports one.
 - Administrator rights through KDE's own password prompt, one action at a time.
-- Undo from the notebook: tap a past change, then Undo, which gets its own card.
+- Undo from the full window's Changes list, in one tap.
 
-**Proves:** every change in the set is made and undone in a test session, and
-one real change is undone on the maintainer's machine.
+**Proves:** every known change is made and undone in a test session, and real
+changes from the maintainer's daily problems are made and undone on the
+maintainer's machine. Building does not wait on Milestone 1's week of use.
 
 ## Milestone 3: safe to hand to someone else
 

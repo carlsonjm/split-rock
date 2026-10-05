@@ -230,6 +230,66 @@
           }
         }
       ]
+    },
+    {
+      "expectPrompt": "quieter",
+      "steps": [
+        {
+          "say": "The Quiet profile keeps the fans down."
+        },
+        {
+          "tool": {
+            "toolCallId": "propose-1",
+            "title": "Propose a change",
+            "kind": "execute",
+            "status": "pending",
+            "rawInput": {
+              "command": [
+                "bash",
+                "-lc",
+                "split-rock-change '{\"title\": \"Make the fans quieter\", \"what\": \"Sets the fan profile to Quiet.\", \"why\": \"Quiet keeps the fans down while you read.\", \"command\": \"echo quiet > \\\"$HOME/fan-profile\\\"\", \"undo\": \"rm \\\"$HOME/fan-profile\\\"\"}'"
+              ]
+            }
+          }
+        },
+        {
+          "ask": {
+            "toolCall": {
+              "toolCallId": "propose-1"
+            },
+            "options": [
+              {
+                "optionId": "yes",
+                "name": "Allow",
+                "kind": "allow_once"
+              },
+              {
+                "optionId": "no",
+                "name": "Reject",
+                "kind": "reject_once"
+              }
+            ]
+          },
+          "expect": "reject_once"
+        },
+        {
+          "update": {
+            "toolCallId": "propose-1",
+            "status": "failed"
+          }
+        },
+        {
+          "say": "\n\nTap Do it to make it."
+        }
+      ]
+    },
+    {
+      "expectPrompt": "tapped Do it",
+      "steps": [
+        {
+          "say": "It is set to Quiet now."
+        }
+      ]
     }
   ]
 }
