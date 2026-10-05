@@ -537,6 +537,20 @@ private Q_SLOTS:
         full->setGeometry(0, 0, 1280, 768);
         shoot(full, QStringLiteral("10-full-view"));
 
+        // The full window names the assistant answering and offers another,
+        // as the card does; Back returns to the same assistant.
+        QQuickItem *pill = find(full, QStringLiteral("fullAssistantPill"));
+        QVERIFY(pill && pill->isVisible());
+        QCOMPARE(pill->property("text").toString(), c.assistantName() + QStringLiteral("  \u25BE"));
+        QMetaObject::invokeMethod(pill, "clicked");
+        QTRY_VERIFY(c.choosing());
+        QTRY_VERIFY(find(full, QStringLiteral("assistant-pretend")));
+        QVERIFY(!pill->isVisible());
+        c.hideAssistants();
+        QTRY_VERIFY(!c.choosing());
+        QVERIFY(pill->isVisible());
+        QCOMPARE(c.assistantId(), QStringLiteral("pretend"));
+
         // Closing the full window ends the program.
         full->close();
         QTRY_COMPARE(quit.size(), 1);

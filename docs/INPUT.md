@@ -21,7 +21,7 @@ belongs to Search, and this is the assistant's own window.
 | --- | --- | --- |
 | Open the assistant | Tap its icon | None yet |
 | Open the card | Tap Ask in its icon's menu | None yet |
-| Choose an assistant | Tap the assistant's name under the answer, then one in the list | None yet |
+| Choose an assistant | Tap the assistant's name under the card's answer, or at the top of the full window, then one in the list | None yet |
 | Sign in | Tap a way to sign in | None yet |
 | Ask | Type in the question field, then tap Send | `Enter` |
 | Take the tour | Tap Show me around | None yet |
@@ -54,7 +54,8 @@ belongs to Search, and this is the assistant's own window.
 
 | Input | What happens |
 | --- | --- |
-| Tap or click the assistant's name under the answer, then one in the list | That assistant starts. Choosing another ends the conversation, which is not saved. |
+| Tap or click the assistant's name under the card's answer, or at the top of the full window, then one in the list | That assistant starts. Choosing another ends the conversation, which is not saved. |
+| Tap or click Back in the list | The list closes, and the same assistant carries on. |
 
 ## Sign in
 

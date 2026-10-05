@@ -478,6 +478,19 @@ Item {
         readonly property real reading: Math.min(width - gap, 760)
         readonly property real readingX: Math.max(0, (width - gap - reading) / 2)
 
+        // Which assistant is answering, and the way to another, as in the
+        // card.
+        Pill {
+            id: assistantButton
+            objectName: "fullAssistantPill"
+            x: talk.readingX
+            implicitHeight: 40
+            visible: conversation.assistantId !== "" && !conversation.choosing
+            enabled: conversation.phase !== "working" && conversation.phase !== "signingIn"
+            text: conversation.assistantName + "  ▾"
+            onClicked: conversation.showAssistants()
+        }
+
         // Opens the notebook, while it is folded away.
         Pill {
             id: notebookButton
@@ -493,7 +506,7 @@ Item {
 
         Flickable {
             id: history
-            y: notebookButton.visible ? notebookButton.height + 12 : 0
+            y: notebookButton.visible || assistantButton.visible ? notebookButton.height + 12 : 0
             width: parent.width
             height: wideBox.y - 12 - y
             contentWidth: width
