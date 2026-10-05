@@ -38,7 +38,23 @@ cmake -S "${project_root}" -B "${build_dir}" "${generator[@]}" \
     -DCMAKE_INSTALL_PREFIX=/usr \
     -DSPLIT_ROCK_ADAPTERS_DIR="${build_dir}/assistants" >/dev/null
 cmake --build "${build_dir}" --parallel --target split-rock
-sudo cmake --install "${build_dir}"
+# Shuffle's install key, where it is set up, installs with no password: the
+# build is laid out here with this account's own rights, and a root-owned helper
+# takes the files as a stream and puts only Split Rock's own in place.
+install_key=/usr/local/libexec/shuffle/install-step
+if [[ -x "${install_key}" ]] \
+        && sudo -n -l "${install_key}" split-rock install >/dev/null 2>&1; then
+    stage="$(mktemp -d "${TMPDIR:-/tmp}/split-rock-stage.XXXXXX")"
+    trap 'rm -rf -- "${stage}"' EXIT
+    # An earlier install with sudo left this list owned by root.
+    rm -f -- "${build_dir}/install_manifest.txt"
+    DESTDIR="${stage}" cmake --install "${build_dir}" >/dev/null
+    tar -C "${stage}" -cf - . | sudo -n "${install_key}" split-rock install
+    # The list then names where each file landed, as an install with sudo does.
+    sed -i "s|^${stage}||" "${build_dir}/install_manifest.txt"
+else
+    sudo cmake --install "${build_dir}"
+fi
 
 # Plasma's list of applications gains Split Rock.
 kbuildsycoca6 >/dev/null 2>&1 || true
