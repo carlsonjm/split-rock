@@ -30,6 +30,7 @@ add_library(splitrock_core STATIC
     src/app/NeverWritten.cpp
     src/app/Notebook.cpp
     src/guide/GuideLibrary.cpp
+    src/guide/SkillShelf.cpp
     src/app/Product.cpp
 )
 target_include_directories(splitrock_core PUBLIC src)
@@ -108,6 +109,7 @@ install(FILES ${CMAKE_CURRENT_BINARY_DIR}/data/io.github.carlsonjm.splitrock.ser
     DESTINATION ${CMAKE_INSTALL_DATADIR}/dbus-1/services)
 install(DIRECTORY guide/plasma DESTINATION ${CMAKE_INSTALL_DATADIR}/split-rock/guide)
 install(DIRECTORY tour/plasma DESTINATION ${CMAKE_INSTALL_DATADIR}/split-rock/tour)
+install(DIRECTORY skills/plasma DESTINATION ${CMAKE_INSTALL_DATADIR}/split-rock/skills)
 if(SPLIT_ROCK_ADAPTERS_DIR)
     install(DIRECTORY ${SPLIT_ROCK_ADAPTERS_DIR}/ DESTINATION ${CMAKE_INSTALL_LIBDIR}/split-rock/assistants
         USE_SOURCE_PERMISSIONS

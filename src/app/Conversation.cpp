@@ -10,9 +10,11 @@
 #include "app/Product.h"
 
 #include <QDate>
+#include <QDebug>
 
 #include <QDir>
 #include <QFile>
+#include <QFileInfo>
 #include <QJsonDocument>
 #include <QProcess>
 #include <QRegularExpression>
@@ -23,6 +25,36 @@
 namespace splitrock {
 
 namespace {
+
+// The skill named in a request to run the split-rock-skill stand-in and
+// nothing else, if it is one, perhaps wrapped in a shell's -c string.
+QString skillIn(const acp::ToolCall &call)
+{
+    static const QRegularExpression alone(QStringLiteral("^\\s*split-rock-skill\\s+([a-z0-9-]{1,64})\\s*$"));
+    QStringList words;
+    const QJsonValue command = call.rawInput.toObject().value(QStringLiteral("command"));
+    if (command.isArray()) {
+        for (const QJsonValue &word : command.toArray())
+            words.append(word.toString());
+    } else {
+        words = shellWords(call.command());
+    }
+    for (int depth = 0; depth < 3; ++depth) {
+        if (words.size() == 2 && words.first() == QLatin1String("split-rock-skill"))
+            return alone.match(words.join(QLatin1Char(' '))).captured(1);
+        // A shell given one -c string and nothing after it: bash -lc '...'.
+        if (words.size() == 3 && (words.at(1) == QLatin1String("-c") || words.at(1) == QLatin1String("-lc"))
+            && QStringList{QStringLiteral("sh"), QStringLiteral("bash"), QStringLiteral("/bin/sh"),
+                           QStringLiteral("/bin/bash"), QStringLiteral("/usr/bin/bash")}.contains(words.first())) {
+            if (const QRegularExpressionMatch match = alone.match(words.at(2)); match.hasMatch())
+                return match.captured(1);
+            words = shellWords(words.at(2));
+            continue;
+        }
+        break;
+    }
+    return {};
+}
 
 // The proposal in a request to run the split-rock-change stand-in, if it is
 // one.
@@ -155,7 +187,7 @@ QString Conversation::framing()
         "check for you and shows you what it read; reading a settings file back does not show the desktop "
         "changed. Prefer commands that apply a setting live, such as plasma-apply-colorscheme or "
         "plasma-apply-lookandfeel, and after kwriteconfig6 tell the program to reload; change the desktop's look "
-        "only with those two, never by editing kdeglobals, using the names %1 lists for you. The "
+        "only with those two, never by editing kdeglobals, using names installed on this computer. The "
         "person sees it on a card and decides; %1 makes the change outside your sandbox and tells you how it went. "
         "Propose one change at a time, with a short, specific command that finishes on its own; to open a window, "
         "start it with kstart so the command returns at once. Before proposing, "
@@ -350,6 +382,11 @@ void Conversation::startAssistant()
         }
         const bool first = !m_refused.contains(call.id);
         m_refused.insert(call.id);
+        // Told with the next question, so the assistant proposes instead.
+        if (first && m_aside.isEmpty())
+            m_aside = QStringLiteral("You asked leave to run \"%1\" yourself, and it was refused: nothing you run "
+                                     "yourself changes this computer. Propose changes with split-rock-change.")
+                          .arg(call.title.isEmpty() ? call.command() : call.title);
         m_card = ChangeCard::describe(call, m_current.name, m_said, m_question).toMap();
         m_cardOpen = true;
         Q_EMIT cardChanged();
@@ -381,9 +418,16 @@ void Conversation::startAssistant()
     // Allowed only: a write inside the notebook, other than Split Rock's own
     // pages, with nothing in it that is never written down. Everything else
     // is refused, as before.
-    client->setAllow([this](const acp::ToolCall &call) { return mayWrite(call); });
+    // Also allowed: opening a settings skill, which the assistant's own
+    // program may ask leave for because the stand-in writes outside its
+    // working folder. It still runs inside the fence, and only reads.
+    client->setAllow([this](const acp::ToolCall &call) {
+        return mayWrite(call) || (!m_skillRequests.isEmpty() && !skillIn(call).isEmpty());
+    });
     connect(client, &acp::Client::requestAllowed, this, [this](const acp::ToolCall &call) {
         m_allowed.insert(call.id);
+        if (!skillIn(call).isEmpty())
+            return;
         QStringList written;
         for (const QString &path : call.paths + call.diffPaths)
             written.append(QDir(m_notebook->folder()).relativeFilePath(path));
@@ -408,10 +452,17 @@ void Conversation::startAssistant()
             QFile::remove(m_changeRequests);
             m_changeRequestsRead = 0;
             room.changeRequests = m_changeRequests;
+            if (!m_skills.isEmpty()) {
+                m_skillRequests = QDir(m_current.home).filePath(QStringLiteral(".split-rock/skill-requests"));
+                QFile::remove(m_skillRequests);
+                m_skillRequestsRead = 0;
+                room.skillRequests = m_skillRequests;
+            }
             if (!m_changeRequestsTimer) {
                 m_changeRequestsTimer = new QTimer(this);
                 m_changeRequestsTimer->setInterval(300);
                 connect(m_changeRequestsTimer, &QTimer::timeout, this, &Conversation::readChangeRequests);
+                connect(m_changeRequestsTimer, &QTimer::timeout, this, &Conversation::readSkillRequests);
             }
             m_changeRequestsTimer->start();
         }
@@ -685,6 +736,16 @@ void Conversation::ask(const QString &text)
     }
     if (!m_client)
         return;
+    // Split Rock's hint at the skill the question may need; the assistant
+    // makes the pick, and may open another or none.
+    if (!m_skillRequests.isEmpty()) {
+        if (const Skill *skill = m_skills.find(question)) {
+            if (!m_aside.isEmpty())
+                m_aside += QLatin1Char('\n');
+            m_aside += QStringLiteral("A settings skill that may fit this question: %1. Open it if it helps; "
+                                      "ignore this if it doesn't.").arg(skill->id);
+        }
+    }
     send(question, question);
 }
 
@@ -773,9 +834,7 @@ void Conversation::send(const QString &prompt, const QString &shown)
     QJsonArray blocks;
     if (!m_framed) {
         blocks.append(QJsonObject{{QStringLiteral("type"), QStringLiteral("text")},
-                                  // With how the desktop looks, which the
-                                  // fence keeps the assistant from reading.
-                                  {QStringLiteral("text"), framing() + QStringLiteral("\n\n") + Appearance::current().describe()}});
+                                  {QStringLiteral("text"), framing() + QStringLiteral("\n\n") + settingsWords()}});
         // What the notebook remembers, as the conversation starts.
         const QString memory = m_notebook ? m_notebook->memory() : QString();
         if (!memory.isEmpty())
@@ -845,9 +904,83 @@ void Conversation::readChangeRequests()
     }
 }
 
+QString Conversation::settingsWords() const
+{
+    // Without the stand-in, how the desktop looks, which the fence keeps the
+    // assistant from reading, is told up front.
+    if (m_skillRequests.isEmpty())
+        return Appearance::current().describe();
+    return QStringLiteral("Settings skills: before you propose a change to a setting, open the skill for it by "
+                          "running split-rock-skill with its name. It tells you how to change, undo and check that "
+                          "setting, and shows you its value now and the names installed on this computer, which your "
+                          "sandbox cannot see. Use those names exactly. Open only the skill you need; when none "
+                          "fits, look around yourself as before. The shelf:\n%1").arg(m_skills.shelf());
+}
+
+void Conversation::readSkillRequests()
+{
+    if (m_skillRequests.isEmpty())
+        return;
+    QFile file(m_skillRequests);
+    if (!file.open(QIODevice::ReadOnly) || file.size() < m_skillRequestsRead)
+        return;
+    file.seek(m_skillRequestsRead);
+    const QByteArray added = file.readAll();
+    const qsizetype lastLine = added.lastIndexOf('\n');
+    if (lastLine < 0)
+        return;
+    m_skillRequestsRead += lastLine + 1;
+    static const QRegularExpression request(QStringLiteral("^([0-9.]{1,40}) ([a-z0-9-]{1,64})$"));
+    for (const QByteArray &line : added.left(lastLine).split('\n')) {
+        const QRegularExpressionMatch match = request.match(QString::fromUtf8(line.trimmed()));
+        if (match.hasMatch())
+            openSkill(match.captured(1), match.captured(2));
+        else if (!line.trimmed().isEmpty())
+            m_diagnostics.append(QStringLiteral("a skill request could not be read"));
+    }
+}
+
+void Conversation::openSkill(const QString &token, const QString &id)
+{
+    const QString answer = QFileInfo(m_skillRequests).dir().filePath(QStringLiteral("skill-%1.out").arg(token));
+    const auto write = [answer](const QString &text) {
+        // Written whole, then put in place, so the stand-in never reads half.
+        const QString part = answer + QStringLiteral(".part");
+        QFile file(part);
+        if (file.open(QIODevice::WriteOnly | QIODevice::Truncate) && file.write(text.toUtf8()) >= 0) {
+            file.close();
+            QFile::remove(answer);
+            QFile::rename(part, answer);
+        }
+    };
+    qInfo().noquote() << QStringLiteral("%1: the assistant opened the %2 skill").arg(productName(), id);
+    m_skills.open(id, this, write);
+}
+
 void Conversation::propose(const ChangeProposal &proposed)
 {
-    const ChangeProposal change = ChangeRunner::withKnownUndo(proposed, Appearance::current());
+    const Appearance now = Appearance::current();
+    // A theme named loosely is the one installed theme it fits, so the card
+    // shows the name that will be applied.
+    ChangeProposal settled = proposed;
+    if (!proposed.admin)
+        settled.command = now.resolve(proposed.command);
+    // A theme that fits no installed one, or several, can't be applied; the
+    // assistant is asked again with the names that are, and no card is shown.
+    const QString unknown = proposed.admin ? QString() : now.unknownName(proposed.command);
+    if (!unknown.isEmpty()) {
+        qInfo().noquote() << QStringLiteral("%1: refused a proposal naming \"%2\", which is not installed")
+                                 .arg(productName(), unknown);
+        m_report = QStringLiteral("Your proposed change \"%1\" names \"%2\", which is not installed on this computer, "
+                                  "so it was not shown to the person. Propose it again with an installed name, or tell "
+                                  "the person it isn't installed.\n%3")
+                       .arg(proposed.title, unknown, now.describe());
+        m_reportShown = QStringLiteral("Checking the name: %1 isn't installed").arg(unknown);
+        if (m_client && m_phase == QLatin1String("ready"))
+            send(std::exchange(m_report, QString()), std::exchange(m_reportShown, QString()));
+        return;
+    }
+    const ChangeProposal change = ChangeRunner::withKnownUndo(settled, now);
     m_proposal = change;
     m_card = ChangeCard::forProposal(change, m_current.name).toMap();
     m_cardOpen = true;

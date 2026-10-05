@@ -91,6 +91,9 @@ Still on the maintainer's machine.
   settings files copied aside, and a snapshot where the disk supports one.
 - Administrator rights through KDE's own password prompt, one action at a time.
 - Undo from the full window's Changes list, in one tap.
+- Settings skills the assistant opens from a short shelf, each showing it the
+  setting's value and installed names on this computer. Built: the look, the
+  pointer and the fans.
 
 **Proves:** every known change is made and undone in a test session, and real
 changes from the maintainer's daily problems are made and undone on the

@@ -32,6 +32,10 @@ struct FenceRoom {
     // are written, one a line, by the split-rock-change stand-in. Empty: the
     // stand-in is not offered.
     QString changeRequests;
+    // A file inside a writable folder where the split-rock-skill stand-in asks
+    // for a settings skill, one "token id" a line. Split Rock answers in
+    // skill-<token>.out beside it. Empty: the stand-in is not offered.
+    QString skillRequests;
 };
 
 // The program the fence is made with, or empty where this computer has none.

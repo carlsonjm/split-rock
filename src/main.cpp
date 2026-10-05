@@ -17,8 +17,8 @@
 //               (default: Split Rock's folder in the person's data folder)
 // --notebook    the notebook folder (default: Notebook in the Documents folder)
 // --pretend     also offer the pretend assistant, following SCRIPT
-// --guide       also read the guide and tour under DIR, which holds guide/
-//               and tour/ as a checkout does (repeatable)
+// --guide       also read the guide, tour and skills under DIR, which holds guide/,
+//               tour/ and skills/ as a checkout does (repeatable)
 
 #include "app/Assistants.h"
 #include "app/Conversation.h"
@@ -28,6 +28,7 @@
 #include "desktop/Entry.h"
 #include "desktop/Shell.h"
 #include "guide/GuideLibrary.h"
+#include "guide/SkillShelf.h"
 
 #include <QCommandLineParser>
 #include <QDBusConnection>
@@ -159,6 +160,12 @@ int main(int argc, char **argv)
     // What the hardware says it is: read, never written.
     context.deviceProduct = splitrock::computerName();
     conversation.setGuide(guide, context);
+    // The settings skills, from the same folders as the guide.
+    splitrock::SkillShelf skills;
+    skills.load(guideRoots);
+    for (const QString &problem : skills.problems())
+        qWarning().noquote() << problem;
+    conversation.setSkills(skills);
     // A sign-in page the assistant asked for opens in the person's browser.
     QObject::connect(&conversation, &splitrock::Conversation::signInPageReady, &app,
                      [](const QString &page) { QDesktopServices::openUrl(QUrl(page)); });

@@ -6,7 +6,7 @@
 namespace splitrock {
 
 // How the desktop looks now, read outside the assistant's fence: the global
-// theme and colour scheme Plasma uses, and those installed. The assistant can't
+// theme, colour scheme and pointer theme Plasma uses, and those installed. The assistant can't
 // read the person's settings from inside its fence, so it is told; and a theme
 // change is undone by putting these back, live.
 struct Appearance {
@@ -15,9 +15,13 @@ struct Appearance {
     QString lookAndFeel;
     // The colour scheme's name, as plasma-apply-colorscheme takes it.
     QString colorScheme;
-    // "id (Name)" for each installed global theme and colour scheme.
+    // The mouse pointer's theme, as plasma-apply-cursortheme takes it.
+    QString cursorTheme;
+    // "id (Name)" for each installed global theme, colour scheme and pointer
+    // theme.
     QStringList looks;
     QStringList schemes;
+    QStringList cursors;
 
     // configFolder: where kdeglobals is; dataFolders: where look-and-feel and
     // color-schemes are found, the person's own first.
@@ -29,6 +33,12 @@ struct Appearance {
 
     // A command that changes the global theme or colour scheme.
     static bool touchedBy(const QString &command);
+    // A name the command asks Plasma to apply that is not installed and that
+    // resolve() can't settle; empty when every name is installed or settled.
+    QString unknownName(const QString &command) const;
+    // The command with each loosely given name replaced by the one installed
+    // name it fits, such as Altas by Altas-Dark when no other name starts so.
+    QString resolve(const QString &command) const;
     // Puts this look back, live, and fails unless the colour scheme is this
     // one afterwards. Empty when there is nothing to put back.
     QString restoreCommand() const;

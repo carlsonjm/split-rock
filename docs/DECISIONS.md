@@ -528,10 +528,43 @@ system journal. A change to the desktop's look is a known change: Split Rock
 reads the global theme and colour scheme in use before it, and Undo puts that
 look back as a whole with `plasma-apply-lookandfeel` and
 `plasma-apply-colorscheme`, then checks the colour scheme is back, whatever way
-back the assistant gave. The assistant is told the look in use and the installed
-names with the first question, and after an Undo it is told with the next one.
+back the assistant gave. The assistant reads the look in use and the installed
+names in the look skill (below), and after an Undo it is told them with the
+next question.
+The pointer theme is part of the look. A theme named loosely, such as "Altas"
+for "Altas-Dark", is taken as the one installed theme it fits, and the card
+names that one. A proposal naming a theme that fits none, or several, is not
+shown to the person; the assistant is asked again with the installed names.
 (Engineering, 5 October, after the first tests on the tablet.)
 
 Rejected: letting the assistant run changes itself after asking, which puts the
 fence's safety in the assistant's hands; and a helper that holds administrator
 rights of its own, which Split Rock never holds.
+
+## The assistant opens settings skills from a shelf
+
+A settings skill tells the assistant how to look at, change, undo and check one
+kind of setting: the desktop's look, the pointer, the fans. Skills are plain
+files under `skills/<source>/`, in the guide's header format, installed to the
+same shared folders, and written for the assistant rather than the person, so
+they may hold commands. The assistant starts with only the shelf, one line a
+skill, which keeps the opening words short however many skills there are. It
+opens a skill by running `split-rock-skill` with the skill's name inside its
+fence; Split Rock answers with the skill and what its "Look around" commands
+read outside the fence, such as the value in use and the names installed, which
+the fence hides. Only those shipped commands run, never the assistant's: the
+request names a skill, nothing more, and `tests/verify-skills.py` keeps every
+look-around to programs that only read. An assistant whose own program asks
+leave to run the stand-in is given it for that command alone, with nothing
+else on the line, as it still runs inside the fence. A look-around still running after ten
+seconds is stopped. With each question Split Rock adds a hint at the skill that
+fits it best, when one clearly does; the assistant makes the pick and may open
+another skill, or none. Where the assistant runs without the fence, it is told
+the look up front as before. (The maintainer, 5 October: the
+assistant picks from the shelf, and Split Rock may hint.)
+
+Rejected: telling the assistant everything about every setting at the start,
+which grows with each skill and slows every conversation; Split Rock choosing
+the skill alone, which misses questions worded in ways it can't foresee; and
+letting the assistant run its own look-around outside the fence, which would
+put an unreviewed command outside the fence without a card.

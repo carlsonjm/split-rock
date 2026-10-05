@@ -347,6 +347,47 @@ private Q_SLOTS:
         QVERIFY(lines.last().isEmpty());
     }
 
+    // The skill stand-in asks, waits for Split Rock's answer, and prints it.
+    void theFenceOffersTheSkillStandIn()
+    {
+        QTemporaryDir home;
+        const QString own = home.filePath(QStringLiteral("state/codex"));
+        const QString opens = home.filePath(QStringLiteral("state/codex/.split-rock/open-requests"));
+        const QString skills = home.filePath(QStringLiteral("state/codex/.split-rock/skill-requests"));
+        QDir().mkpath(QFileInfo(opens).path());
+        FenceRoom room{{own}, {}, opens, {}, skills};
+        const acp::LaunchSpec launch = fenced({QStringLiteral("/usr/bin/node"), {QStringLiteral("adapter.js")}, {}, home.path()}, room);
+        if (!launch.environment.contains(QStringLiteral("SPLIT_ROCK_SKILL_REQUESTS")))
+            QSKIP("This computer has no bubblewrap to fence the assistant in.");
+        const QString standIn = QDir(launch.environment.value(QStringLiteral("PATH")).section(QLatin1Char(':'), 0, 0))
+                                    .filePath(QStringLiteral("split-rock-skill"));
+        QVERIFY(QFileInfo(standIn).isExecutable());
+
+        QProcess run;
+        run.setProcessEnvironment(launch.environment);
+        run.start(standIn, {QStringLiteral("look")});
+        QVERIFY(run.waitForStarted());
+        QFile requests(skills);
+        QTRY_VERIFY(QFileInfo(skills).size() > 0);
+        QVERIFY(requests.open(QIODevice::ReadOnly));
+        const QList<QByteArray> asked = requests.readAll().trimmed().split(' ');
+        QCOMPARE(asked.size(), 2);
+        QCOMPARE(asked.last(), QByteArray("look"));
+        QFile answer(QFileInfo(skills).dir().filePath(QStringLiteral("skill-%1.out").arg(QString::fromLatin1(asked.first()))));
+        QVERIFY(answer.open(QIODevice::WriteOnly));
+        answer.write("# The desktop's look\n");
+        answer.close();
+        QVERIFY(run.waitForFinished());
+        QCOMPARE(run.exitCode(), 0);
+        QCOMPARE(run.readAllStandardOutput(), QByteArray("# The desktop's look\n"));
+        QVERIFY(!answer.exists());
+
+        // Anything but one plain name is refused before it is written.
+        run.start(standIn, {QStringLiteral("look; rm -rf x")});
+        QVERIFY(run.waitForFinished());
+        QCOMPARE(run.exitCode(), 2);
+    }
+
     // Inside means inside, links and climbing out included.
     void insideTheNotebookOnly()
     {

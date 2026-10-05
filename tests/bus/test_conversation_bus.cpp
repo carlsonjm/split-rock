@@ -196,7 +196,7 @@ private Q_SLOTS:
         QTRY_COMPARE_WITH_TIMEOUT(lastChange(changed).value(QStringLiteral("phase")).toString(), QStringLiteral("ready"), 15000);
         state = lastChange(changed);
         QVERIFY(!state.value(QStringLiteral("canDoIt")).toBool());
-        QVERIFY(state.value(QStringLiteral("doItReason")).toString().contains(QStringLiteral("can't make changes yet")));
+        QVERIFY(state.value(QStringLiteral("doItReason")).toString().contains(QStringLiteral("nothing was changed")));
 
         // Keep this: the answer becomes a note in the notebook, by topic.
         state = call(QStringLiteral("Act"), {QStringLiteral("keep")});

@@ -6,6 +6,7 @@
 #include "app/Assistants.h"
 #include "app/Change.h"
 #include "guide/GuideLibrary.h"
+#include "guide/SkillShelf.h"
 
 #include <QObject>
 #include <QSet>
@@ -94,6 +95,9 @@ public:
 
     // Offers the guide in the box, first in the list, when it has entries.
     void setGuide(const GuideLibrary &library, const GuideContext &context);
+    // The settings skills the assistant may open. With none, it is told the
+    // desktop's look up front instead.
+    void setSkills(const SkillShelf &shelf) { m_skills = shelf; }
     bool isGuide() const { return m_current.guide; }
 
     QVariantList assistants() const;
@@ -244,6 +248,15 @@ private:
     QString m_changeRequests;
     qint64 m_changeRequestsRead = 0;
     QTimer *m_changeRequestsTimer = nullptr;
+    // The assistant's requests to open a settings skill, from the
+    // split-rock-skill stand-in, answered beside the requests file.
+    void readSkillRequests();
+    void openSkill(const QString &token, const QString &id);
+    // What the assistant is told about settings as the conversation starts.
+    QString settingsWords() const;
+    SkillShelf m_skills;
+    QString m_skillRequests;
+    qint64 m_skillRequestsRead = 0;
     ChangeRunner *m_runner = nullptr;
     std::optional<ChangeProposal> m_proposal;
     // How a change went, told to the assistant once it is ready.

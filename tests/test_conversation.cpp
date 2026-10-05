@@ -4,12 +4,15 @@
 #include "app/Fence.h"
 #include "app/Notebook.h"
 #include "guide/GuideLibrary.h"
+#include "guide/SkillShelf.h"
 
 #include <QDir>
 #include <QFile>
+#include <QFileInfo>
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QSignalSpy>
+#include <QStandardPaths>
 #include <QTest>
 
 using namespace splitrock;
@@ -305,6 +308,53 @@ private Q_SLOTS:
         QVERIFY(reaches(c, QStringLiteral("ready")));
         QVERIFY(QJsonDocument(f.received(QStringLiteral("session/prompt")).last()).toJson()
                     .contains("tapped Undo on \\\"Make the fans quieter\\\", and it was put back"));
+    }
+
+    // A theme named loosely is the one installed theme it fits, and the card
+    // names that one.
+    void aLooselyNamedThemeIsTheInstalledOne()
+    {
+        PretendFixture f;
+        QVERIFY(f.isValid());
+        const QString theme = QStandardPaths::writableLocation(QStandardPaths::GenericDataLocation)
+            + QStringLiteral("/icons/Altas-Dark/cursors");
+        QVERIFY(QDir().mkpath(theme));
+        Conversation c({f.assistant(QStringLiteral("signed-in.json"))});
+        c.chooseAssistant(QStringLiteral("pretend"));
+        QVERIFY(reaches(c, QStringLiteral("ready")));
+        c.ask(QStringLiteral("Make the pointer easier to see"));
+        QVERIFY(reaches(c, QStringLiteral("ready")));
+        QVERIFY(c.cardOpen());
+        QVERIFY(c.card().value(QStringLiteral("details")).toString().contains(QStringLiteral("plasma-apply-cursortheme Altas-Dark")));
+        QDir(QFileInfo(theme).path()).removeRecursively();
+    }
+
+    // The assistant starts with the shelf, not the skills, and a question
+    // carries Split Rock's hint at the skill it may need. Leave to open a
+    // skill is given; leave to run anything more with it is not.
+    void aQuestionCarriesTheSkillHint()
+    {
+        if (fenceProgram().isEmpty())
+            QSKIP("This computer has no bubblewrap to fence the assistant in.");
+        PretendFixture f;
+        QVERIFY(f.isValid());
+        SkillShelf shelf;
+        shelf.load({QStringLiteral(PROJECT_DIR)});
+        Conversation c({f.assistant(QStringLiteral("signed-in.json"))});
+        c.setSkills(shelf);
+        c.chooseAssistant(QStringLiteral("pretend"));
+        QVERIFY(reaches(c, QStringLiteral("ready")));
+        c.ask(QStringLiteral("Make it dark"));
+        QVERIFY(reaches(c, QStringLiteral("ready")));
+        QCOMPARE(c.headline(), QStringLiteral("I opened the look skill."));
+        QVERIFY(!c.cardOpen());
+        QVERIFY(c.refusedChanges().isEmpty());
+
+        c.ask(QStringLiteral("open the skill and tidy up"));
+        QVERIFY(reaches(c, QStringLiteral("ready")));
+        QCOMPARE(c.headline(), QStringLiteral("That was refused."));
+        QVERIFY(c.cardOpen());
+        QVERIFY(c.card().value(QStringLiteral("unavailable")).toString().contains(QStringLiteral("nothing was changed")));
     }
 
     void aChangeMadeWithoutAskingIsReported()
