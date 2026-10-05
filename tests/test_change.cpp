@@ -187,6 +187,65 @@ private Q_SLOTS:
         QVERIFY(!record.canUndo());
     }
 
+    // The check reads the live state back after the change, for the
+    // assistant; a kwinrc setting is followed by KWin's reload.
+    void theCheckReadsTheChangeBack()
+    {
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        const QString mark = dir.filePath(QStringLiteral("on"));
+        ChangeRunner runner(dir.filePath(QStringLiteral("changes")));
+        QSignalSpy made(&runner, &ChangeRunner::made);
+        ChangeProposal change;
+        change.title = QStringLiteral("Turn it on");
+        change.command = QStringLiteral("echo yes > '%1'").arg(mark);
+        change.check = QStringLiteral("cat '%1'").arg(mark);
+        const QString id = runner.make(change);
+        QTRY_COMPARE(made.size(), 1);
+        QCOMPARE(made.first().first().value<ChangeRunner::Record>().checked, QStringLiteral("yes"));
+        QCOMPARE(runner.record(id)->checked, QStringLiteral("yes"));
+        QVERIFY(!runner.busy());
+
+        QVERIFY(ChangeRunner::reloadFor(change).isEmpty());
+        change.command = QStringLiteral("kwriteconfig6 --file kwinrc --group NightColor --key Active true");
+        QVERIFY(ChangeRunner::reloadFor(change).contains(QStringLiteral("reconfigure")));
+        change.admin = true;
+        QVERIFY(ChangeRunner::reloadFor(change).isEmpty());
+    }
+
+    // The assistant's way back applies the old setting live, so it comes
+    // before the copies; the copies still put the files back when it fails.
+    void theWayBackComesFirstAndTheCopiesCatchItsFailure()
+    {
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        const QString file = dir.filePath(QStringLiteral("theme.conf"));
+        write(file, "dark\n");
+        ChangeRunner runner(dir.filePath(QStringLiteral("changes")));
+        QSignalSpy made(&runner, &ChangeRunner::made);
+        QSignalSpy undone(&runner, &ChangeRunner::undone);
+        ChangeProposal change;
+        change.title = QStringLiteral("Light theme");
+        change.command = QStringLiteral("echo light > '%1'").arg(file);
+        change.undo = QStringLiteral("echo dark-by-undo > '%1'").arg(file);
+        change.files = {file};
+        QString id = runner.make(change);
+        QTRY_COMPARE(made.size(), 1);
+        QVERIFY(runner.undo(id));
+        QTRY_COMPARE(undone.size(), 1);
+        QCOMPARE(read(file), QByteArray("dark-by-undo\n"));
+
+        write(file, "dark\n");
+        change.undo = QStringLiteral("exit 1");
+        id = runner.make(change);
+        QTRY_COMPARE(made.size(), 2);
+        QCOMPARE(read(file), QByteArray("light\n"));
+        QVERIFY(runner.undo(id));
+        QTRY_COMPARE(undone.size(), 2);
+        QCOMPARE(undone.last().first().value<ChangeRunner::Record>().status, QStringLiteral("undone"));
+        QCOMPARE(read(file), QByteArray("dark\n"));
+    }
+
     // A change still running when its time is up is stopped, and recorded
     // as not done, so Do it never waits for ever.
     void aChangeThatNeverFinishesIsStopped()

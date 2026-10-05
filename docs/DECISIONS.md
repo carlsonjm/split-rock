@@ -504,7 +504,7 @@ record and has to stay short enough to read.
 
 Inside its fence the assistant finds one program, `split-rock-change`, which
 takes the proposal as one JSON argument (`title`, `what`, `why`, `command`,
-`undo`, `admin`, `files`) and hands it to Split Rock; the stand-in changes
+`undo`, `check`, `admin`, `files`) and hands it to Split Rock; the stand-in changes
 nothing. An assistant that instead asks leave to run the stand-in is refused,
 and its proposal goes on the card all the same. When the person taps Do it,
 Split Rock runs the command itself, outside the fence: as the person, or, with
@@ -517,7 +517,14 @@ and written under Changes in `This computer.md`, and the assistant is told how
 it went. A change still running after two minutes (six for a system change, for
 the password prompt) is stopped and recorded as not done. The assistant is told
 that its sandbox cannot see the person's windows or running programs, so it asks
-the person whether something they can only see worked. (Engineering, 5 October.)
+the person whether something they can only see worked. Its sandbox cannot reach
+the running desktop either, so Split Rock runs the proposal's `check` as the
+person after the change and tells the assistant what it read; without a check
+the assistant is told not to claim success. A setting written to `kwinrc` is
+followed by KWin's reload, after the change and after Undo. Undo runs the
+assistant's way back first, because it applies the old setting live, and puts
+back the copied files only if that fails. Each change and undo is logged to the
+system journal. (Engineering, 5 October, after the first tests on the tablet.)
 
 Rejected: letting the assistant run changes itself after asking, which puts the
 fence's safety in the assistant's hands; and a helper that holds administrator

@@ -247,7 +247,7 @@
               "command": [
                 "bash",
                 "-lc",
-                "split-rock-change '{\"title\": \"Make the fans quieter\", \"what\": \"Sets the fan profile to Quiet.\", \"why\": \"Quiet keeps the fans down while you read.\", \"command\": \"echo quiet > \\\"$HOME/fan-profile\\\"\", \"undo\": \"rm \\\"$HOME/fan-profile\\\"\"}'"
+                "split-rock-change '{\"title\": \"Make the fans quieter\", \"what\": \"Sets the fan profile to Quiet.\", \"why\": \"Quiet keeps the fans down while you read.\", \"command\": \"echo quiet > \\\"$HOME/fan-profile\\\"\", \"undo\": \"rm \\\"$HOME/fan-profile\\\"\", \"check\": \"cat \\\"$HOME/fan-profile\\\"\"}'"
               ]
             }
           }

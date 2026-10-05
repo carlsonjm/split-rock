@@ -114,6 +114,8 @@ ChangeCard ChangeCard::forProposal(const ChangeProposal &change, const QString &
                         QStringLiteral("Command: %1").arg(change.command)};
     if (!change.undo.isEmpty())
         details.append(QStringLiteral("Undo command: %1").arg(change.undo));
+    if (!change.check.isEmpty())
+        details.append(QStringLiteral("Check afterwards: %1").arg(change.check));
     for (const QString &file : change.files)
         details.append(QStringLiteral("File: %1").arg(file));
     card.details = details.join(QLatin1Char('\n'));

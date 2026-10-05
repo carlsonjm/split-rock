@@ -23,6 +23,9 @@ struct ChangeProposal {
     // Run the same way to put the change back. Empty when the assistant knows
     // none.
     QString undo;
+    // Run as the person after the change, to read the live state back for the
+    // assistant, which can't reach the desktop from its sandbox.
+    QString check;
     bool admin = false;
     // The person's own files the command changes: copied aside first, and put
     // back by Undo.

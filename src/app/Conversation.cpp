@@ -92,15 +92,19 @@ Conversation::Conversation(QList<Assistant> assistants, QObject *parent)
         QString output = record.output;
         if (output.size() > 3000)
             output = QStringLiteral("...") + output.right(3000);
+        const QString checked = record.checked.isEmpty()
+            ? QStringLiteral("You gave no check, so nothing was read back from the running desktop. A command that "
+                             "succeeds does not prove the change took effect, so don't say it worked: ask the person.")
+            : QStringLiteral("Your check, run after the change, read back from the running desktop:\n%1\n"
+                             "Say it worked only if this shows the change took effect.").arg(record.checked.right(2000));
         m_report = QStringLiteral("The person tapped Do it, and %1 ran your proposed change \"%2\" as %3. Exit code %4. "
-                                  "Output:\n%5\n\nCheck whether it worked where you can, such as by reading the setting back, and tell the "
-                                  "person in plain words. You cannot see their screen or running programs, so when the "
-                                  "change is a window opening or something only they can see, ask them whether it worked. "
-                                  "Don't propose the same change again unless it failed and you know why.")
+                                  "Output:\n%5\n\n%6\n\nTell the person in plain words how it went. You cannot see their "
+                                  "screen or running programs, so when the change is something only they can see, ask them "
+                                  "whether it worked. Don't propose the same change again unless it failed and you know why.")
                        .arg(productName(), record.proposal.title,
                             record.proposal.admin ? QStringLiteral("the administrator") : QStringLiteral("the person"))
                        .arg(record.exitCode)
-                       .arg(output.isEmpty() ? QStringLiteral("(none)") : output);
+                       .arg(output.isEmpty() ? QStringLiteral("(none)") : output, checked);
         m_reportShown = ok ? QStringLiteral("Did it: %1").arg(record.proposal.title)
                            : QStringLiteral("It didn't work: %1").arg(record.proposal.title);
         if (m_client && m_phase == QLatin1String("ready"))
@@ -137,7 +141,12 @@ QString Conversation::framing()
         "instruction such as \"Set the fan profile to Quiet\", \"what\": what will change, in plain words, "
         "\"why\": why, in plain words, \"command\": the shell command that makes the change, \"admin\": true "
         "when it needs administrator rights (never put sudo or pkexec in the command), \"undo\": a command that "
-        "puts it back, when there is one, \"files\": the files in the home folder the command changes}. The "
+        "puts it back, when there is one, applied live the same way, \"check\": a command that reads the live state "
+        "back after the change, such as a qdbus6 call to the program the setting belongs to, \"files\": the files "
+        "in the home folder the command changes}. Your sandbox cannot reach the running desktop, so %1 runs the "
+        "check for you and shows you what it read; reading a settings file back does not show the desktop "
+        "changed. Prefer commands that apply a setting live, such as plasma-apply-colorscheme or "
+        "plasma-apply-lookandfeel, and after kwriteconfig6 tell the program to reload. The "
         "person sees it on a card and decides; %1 makes the change outside your sandbox and tells you how it went. "
         "Propose one change at a time, with a short, specific command that finishes on its own; to open a window, "
         "start it with kstart so the command returns at once. Before proposing, "

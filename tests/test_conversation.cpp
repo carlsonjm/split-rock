@@ -8,6 +8,7 @@
 #include <QDir>
 #include <QFile>
 #include <QJsonArray>
+#include <QJsonDocument>
 #include <QSignalSpy>
 #include <QTest>
 
@@ -290,6 +291,9 @@ private Q_SLOTS:
         // The assistant hears what happened and answers.
         QTRY_COMPARE(c.headline(), QStringLiteral("It is set to Quiet now."));
         QCOMPARE(c.question(), QStringLiteral("Did it: Make the fans quieter"));
+        // The report told the assistant what its check read back.
+        const QJsonObject report = f.received(QStringLiteral("session/prompt")).last();
+        QVERIFY(QJsonDocument(report).toJson().contains("read back from the running desktop:\\nquiet"));
 
         QVERIFY(c.undoChange(id));
         QTRY_COMPARE(c.changes().first().toMap().value(QStringLiteral("status")).toString(), QStringLiteral("undone"));

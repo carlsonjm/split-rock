@@ -42,6 +42,8 @@ public:
         QString status;
         int exitCode = -1;
         QString output;
+        // What the proposal's check read back after the change.
+        QString checked;
         // The snapshot pair taken around a system change, or -1.
         int pre = -1;
         int post = -1;
@@ -61,6 +63,9 @@ public:
     static QString defaultStore();
     // Whether this computer takes system snapshots Split Rock can use.
     static bool systemSnapshots();
+    // What tells the running desktop to read again the settings a change
+    // writes, run after the change and after Undo; empty when none is known.
+    static QString reloadFor(const ChangeProposal &change);
     // How the card says a proposal would be undone.
     static QString undoPromise(const ChangeProposal &change);
 
@@ -72,7 +77,7 @@ public:
     // longer, for the password prompt.
     void setTimeLimit(int milliseconds) { m_timeLimit = milliseconds; }
 
-    bool busy() const { return m_process != nullptr; }
+    bool busy() const { return m_process != nullptr || m_finishing; }
     // Starts making the change; made() follows. before is given the record
     // once the person's files are copied and before anything runs, to write
     // the change down; when it returns false nothing is made. Empty when
@@ -92,12 +97,18 @@ Q_SIGNALS:
 private:
     void save(const Record &record) const;
     void run(const QStringList &program, int timeLimit, std::function<void(int exitCode, const QString &output)> done);
+    // Runs the desktop's reload, then the check, as the person, and hands
+    // on the check's output.
+    void afterChange(const ChangeProposal &change, bool withCheck, std::function<void(const QString &checked)> done);
 
     QString m_store;
     QStringList m_elevate{QStringLiteral("pkexec")};
     bool m_snapshots = true;
     int m_timeLimit = 120000;
     QProcess *m_process = nullptr;
+    // The change's own command is done, and the desktop's reload or the check
+    // is still running.
+    bool m_finishing = false;
 };
 
 } // namespace splitrock

@@ -3,6 +3,7 @@
 
 #include "app/Product.h"
 
+#include <QDebug>
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
@@ -68,10 +69,13 @@ QString ChangeRunner::Record::undoWay() const
 {
     if (pre >= 0 && post >= 0)
         return QStringLiteral("Put back the system files it changed, from the snapshot taken before");
-    if (!copies.isEmpty())
-        return QStringLiteral("Put back the copies of your files made before");
+    // The assistant's way back applies the old setting to the running
+    // desktop, which putting a file back does not; the copies are kept for
+    // when it fails.
     if (!proposal.undo.isEmpty())
         return QStringLiteral("Run: %1").arg(proposal.undo);
+    if (!copies.isEmpty())
+        return QStringLiteral("Put back the copies of your files made before");
     return {};
 }
 
@@ -88,6 +92,7 @@ QJsonObject ChangeRunner::Record::toJson() const
             {QStringLiteral("status"), status},
             {QStringLiteral("exitCode"), exitCode},
             {QStringLiteral("output"), output},
+            {QStringLiteral("checked"), checked},
             {QStringLiteral("pre"), pre},
             {QStringLiteral("post"), post},
             {QStringLiteral("copies"), copied},
@@ -104,6 +109,7 @@ ChangeRunner::Record ChangeRunner::Record::fromJson(const QJsonObject &object)
     r.status = object.value(QStringLiteral("status")).toString();
     r.exitCode = object.value(QStringLiteral("exitCode")).toInt(-1);
     r.output = object.value(QStringLiteral("output")).toString();
+    r.checked = object.value(QStringLiteral("checked")).toString();
     r.pre = object.value(QStringLiteral("pre")).toInt(-1);
     r.post = object.value(QStringLiteral("post")).toInt(-1);
     for (const QJsonValue &value : object.value(QStringLiteral("copies")).toArray()) {
@@ -135,15 +141,25 @@ bool ChangeRunner::systemSnapshots()
         && QFileInfo::exists(QStringLiteral("/etc/snapper/configs/root"));
 }
 
+QString ChangeRunner::reloadFor(const ChangeProposal &change)
+{
+    // KWin reads kwinrc only when told to, so a setting written there, Night
+    // Light among them, changes nothing until it is.
+    const QString touched = change.command + QLatin1Char(' ') + change.undo + QLatin1Char(' ') + change.files.join(QLatin1Char(' '));
+    if (!change.admin && touched.contains(QLatin1String("kwinrc")))
+        return QStringLiteral("qdbus6 org.kde.KWin /KWin reconfigure || qdbus org.kde.KWin /KWin reconfigure");
+    return {};
+}
+
 QString ChangeRunner::undoPromise(const ChangeProposal &change)
 {
     if (change.admin && systemSnapshots())
         return QStringLiteral("%1 takes a system snapshot first. Undo, in the notebook, puts back every system file "
                               "this changes.").arg(productName());
-    if (!change.admin && !change.files.isEmpty())
-        return QStringLiteral("%1 copies your files aside first. Undo, in the notebook, puts them back.").arg(productName());
     if (!change.undo.isEmpty())
         return QStringLiteral("Undo, in the notebook, runs the way back the assistant gave.");
+    if (!change.admin && !change.files.isEmpty())
+        return QStringLiteral("%1 copies your files aside first. Undo, in the notebook, puts them back.").arg(productName());
     return QStringLiteral("This can't be undone automatically. It is written in the notebook.");
 }
 
@@ -190,6 +206,9 @@ QString ChangeRunner::make(const ChangeProposal &change, const std::function<boo
     } else {
         program = {Shell, QStringLiteral("-c"), change.command};
     }
+    qInfo().noquote() << QStringLiteral("%1: making change %2 \"%3\" as %4: %5")
+                             .arg(productName(), record.id, change.title,
+                                  change.admin ? QStringLiteral("administrator") : QStringLiteral("the person"), change.command);
     run(program, change.admin ? m_timeLimit * 3 : m_timeLimit, [this, record](int exitCode, const QString &output) mutable {
         record.exitCode = exitCode;
         record.output = output;
@@ -197,7 +216,19 @@ QString ChangeRunner::make(const ChangeProposal &change, const std::function<boo
         record.post = marked(output, QStringLiteral("split-rock-post"));
         record.status = exitCode == 0 ? QStringLiteral("done") : QStringLiteral("failed");
         save(record);
-        Q_EMIT made(record);
+        qInfo().noquote() << QStringLiteral("%1: change %2 %3, exit code %4: %5")
+                                 .arg(productName(), record.id, record.status).arg(exitCode).arg(output.right(500));
+        // The process is finished, so the reload and check run with the
+        // change still counted as being made.
+        m_finishing = true;
+        afterChange(record.proposal, true, [this, record](const QString &checked) mutable {
+            m_finishing = false;
+            record.checked = checked;
+            save(record);
+            if (!checked.isEmpty())
+                qInfo().noquote() << QStringLiteral("%1: change %2 read back: %3").arg(productName(), record.id, checked.right(500));
+            Q_EMIT made(record);
+        });
     });
     return record.id;
 }
@@ -218,24 +249,22 @@ bool ChangeRunner::undo(const QString &id, QString *error)
     if (!r.canUndo())
         return fail(QStringLiteral("That change can't be undone automatically."));
 
+    qInfo().noquote() << QStringLiteral("%1: undoing change %2 \"%3\": %4").arg(productName(), r.id, r.proposal.title, r.undoWay());
     const auto finish = [this, r](bool ok, const QString &output) {
-        Record done = r;
-        done.status = ok ? QStringLiteral("undone") : QStringLiteral("undoFailed");
-        done.undone = QDateTime::currentDateTime();
-        if (!output.isEmpty())
-            done.output += QStringLiteral("\n--- undo ---\n") + output;
-        save(done);
-        Q_EMIT undone(done);
+        m_finishing = true;
+        afterChange(r.proposal, false, [this, r, ok, output](const QString &) {
+            m_finishing = false;
+            Record done = r;
+            done.status = ok ? QStringLiteral("undone") : QStringLiteral("undoFailed");
+            done.undone = QDateTime::currentDateTime();
+            if (!output.isEmpty())
+                done.output += QStringLiteral("\n--- undo ---\n") + output;
+            save(done);
+            qInfo().noquote() << QStringLiteral("%1: change %2 %3").arg(productName(), done.id, done.status);
+            Q_EMIT undone(done);
+        });
     };
-
-    if (r.pre >= 0 && r.post >= 0) {
-        QStringList program = m_elevate;
-        program << QStringLiteral("snapper") << QStringLiteral("-c") << QStringLiteral("root")
-                << QStringLiteral("undochange") << QStringLiteral("%1..%2").arg(r.pre).arg(r.post);
-        run(program, m_timeLimit * 3, [finish](int exitCode, const QString &output) { finish(exitCode == 0, output); });
-        return true;
-    }
-    if (!r.copies.isEmpty()) {
+    const auto putBackCopies = [r] {
         bool ok = true;
         for (const Copy &c : r.copies) {
             if (c.absent) {
@@ -246,12 +275,31 @@ bool ChangeRunner::undo(const QString &id, QString *error)
             QFile::remove(c.original);
             ok = QFile::copy(c.copy, c.original) && ok;
         }
-        finish(ok, QString());
+        return ok;
+    };
+
+    if (r.pre >= 0 && r.post >= 0) {
+        QStringList program = m_elevate;
+        program << QStringLiteral("snapper") << QStringLiteral("-c") << QStringLiteral("root")
+                << QStringLiteral("undochange") << QStringLiteral("%1..%2").arg(r.pre).arg(r.post);
+        run(program, m_timeLimit * 3, [finish](int exitCode, const QString &output) { finish(exitCode == 0, output); });
+        return true;
+    }
+    if (r.proposal.undo.isEmpty()) {
+        finish(putBackCopies(), QString());
         return true;
     }
     QStringList program = r.proposal.admin ? m_elevate : QStringList{};
     program << Shell << QStringLiteral("-c") << r.proposal.undo;
-    run(program, r.proposal.admin ? m_timeLimit * 3 : m_timeLimit, [finish](int exitCode, const QString &output) { finish(exitCode == 0, output); });
+    run(program, r.proposal.admin ? m_timeLimit * 3 : m_timeLimit,
+        [finish, putBackCopies, hasCopies = !r.copies.isEmpty()](int exitCode, const QString &output) {
+            // The way back failed: the copies, where there are any, still
+            // put the files back.
+            if (exitCode != 0 && hasCopies)
+                finish(putBackCopies(), output + QStringLiteral("\nPut back the copies of the files instead."));
+            else
+                finish(exitCode == 0, output);
+        });
     return true;
 }
 
@@ -285,6 +333,26 @@ void ChangeRunner::save(const Record &record) const
     QFile file(QDir(m_store).filePath(record.id + QStringLiteral("/change.json")));
     if (file.open(QIODevice::WriteOnly | QIODevice::Truncate))
         file.write(QJsonDocument(record.toJson()).toJson());
+}
+
+void ChangeRunner::afterChange(const ChangeProposal &change, bool withCheck, std::function<void(const QString &)> done)
+{
+    const QString reload = reloadFor(change);
+    const QString check = withCheck ? change.check : QString();
+    const auto checking = [this, check, done] {
+        if (check.isEmpty()) {
+            done(QString());
+            return;
+        }
+        run({Shell, QStringLiteral("-c"), check}, 20000, [done](int, const QString &output) {
+            done(output.isEmpty() ? QStringLiteral("(nothing)") : output);
+        });
+    };
+    if (reload.isEmpty()) {
+        checking();
+        return;
+    }
+    run({Shell, QStringLiteral("-c"), reload}, 20000, [checking](int, const QString &) { checking(); });
 }
 
 void ChangeRunner::run(const QStringList &program, int timeLimit, std::function<void(int, const QString &)> done)

@@ -69,6 +69,7 @@ std::optional<ChangeProposal> ChangeProposal::fromJson(const QByteArray &json, Q
     change.why = object.value(QStringLiteral("why")).toString().simplified();
     change.command = object.value(QStringLiteral("command")).toString().trimmed();
     change.undo = object.value(QStringLiteral("undo")).toString().trimmed();
+    change.check = object.value(QStringLiteral("check")).toString().trimmed();
     change.admin = object.value(QStringLiteral("admin")).toBool();
     for (const QJsonValue &file : object.value(QStringLiteral("files")).toArray()) {
         const QString path = file.toString().trimmed();
@@ -123,6 +124,7 @@ QJsonObject ChangeProposal::toJson() const
             {QStringLiteral("why"), why},
             {QStringLiteral("command"), command},
             {QStringLiteral("undo"), undo},
+            {QStringLiteral("check"), check},
             {QStringLiteral("admin"), admin},
             {QStringLiteral("files"), QJsonArray::fromStringList(files)}};
 }
