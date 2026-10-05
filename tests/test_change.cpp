@@ -266,6 +266,10 @@ private Q_SLOTS:
         QDir().mkpath(dir.filePath(QStringLiteral("system/plasma/look-and-feel/org.kde.breeze.desktop")));
         write(dir.filePath(QStringLiteral("system/plasma/look-and-feel/org.kde.breeze.desktop/metadata.json")),
               R"({"KPlugin":{"Name":"Breeze"}})");
+        write(dir.filePath(QStringLiteral("config/kcminputrc")), "[Mouse]\ncursorTheme=Altas-Dark\n");
+        QDir().mkpath(dir.filePath(QStringLiteral("own/icons/Altas-Dark/cursors")));
+        write(dir.filePath(QStringLiteral("own/icons/Altas-Dark/index.theme")), "[Icon Theme]\nName=Altas Dark\n");
+        QDir().mkpath(dir.filePath(QStringLiteral("system/icons/hicolor/48x48")));
 
         const Appearance now = Appearance::read(dir.filePath(QStringLiteral("config")),
                                                 {dir.filePath(QStringLiteral("own")), dir.filePath(QStringLiteral("system"))});
@@ -273,7 +277,15 @@ private Q_SLOTS:
         QCOMPARE(now.colorScheme, QStringLiteral("ShuffleDark"));
         QCOMPARE(now.schemes, (QStringList{QStringLiteral("ShuffleDark (Shuffle Dark)"), QStringLiteral("BreezeLight (Breeze Light)")}));
         QCOMPARE(now.looks, QStringList{QStringLiteral("org.kde.breeze.desktop (Breeze)")});
-        QVERIFY(now.describe().contains(QStringLiteral("global theme org.shuffle.desktop, colour scheme ShuffleDark")));
+        QVERIFY(now.describe().contains(QStringLiteral("global theme org.shuffle.desktop, colour scheme ShuffleDark, pointer theme Altas-Dark")));
+        QCOMPARE(now.cursors, QStringList{QStringLiteral("Altas-Dark (Altas Dark)")});
+
+        // A name that isn't installed is caught before any card.
+        QCOMPARE(now.unknownName(QStringLiteral("plasma-apply-cursortheme Altas")), QStringLiteral("Altas"));
+        QCOMPARE(now.unknownName(QStringLiteral("plasma-apply-cursortheme 'Altas-Dark'")), QString());
+        QCOMPARE(now.unknownName(QStringLiteral("plasma-apply-colorscheme BreezeLight && plasma-apply-lookandfeel -a org.kde.breeze.desktop")), QString());
+        QCOMPARE(now.unknownName(QStringLiteral("plasma-apply-colorscheme BreezeDark")), QStringLiteral("BreezeDark"));
+        QCOMPARE(now.unknownName(QStringLiteral("plasma-apply-colorscheme --list-schemes")), QString());
 
         // A theme change is undone by putting this look back, whatever way
         // back the assistant gave, and read back afterwards.
@@ -284,6 +296,7 @@ private Q_SLOTS:
         const ChangeProposal known = ChangeRunner::withKnownUndo(change, now);
         QVERIFY(known.undo.startsWith(QStringLiteral("plasma-apply-lookandfeel -a 'org.shuffle.desktop'")));
         QVERIFY(known.undo.contains(QStringLiteral("plasma-apply-colorscheme 'ShuffleDark'")));
+        QVERIFY(known.undo.contains(QStringLiteral("plasma-apply-cursortheme 'Altas-Dark'")));
         QVERIFY(known.check.contains(QStringLiteral("kreadconfig6")));
         QVERIFY(ChangeRunner::undoPromise(known).contains(QStringLiteral("whole look")));
         change.command = QStringLiteral("kwriteconfig6 --file kwinrc --group NightColor --key Active true");
@@ -306,6 +319,7 @@ private Q_SLOTS:
         tool(QStringLiteral("plasma-apply-lookandfeel"), "echo \"$2\" > \"$STATE/lnf\"; echo Breeze > \"$STATE/scheme\"\n");
         tool(QStringLiteral("plasma-apply-colorscheme"), "[ -n \"$BROKEN\" ] && exit 1; echo \"$1\" > \"$STATE/scheme\"\n");
         tool(QStringLiteral("kreadconfig6"), "cat \"$STATE/scheme\"\n");
+        tool(QStringLiteral("plasma-apply-cursortheme"), "echo \"$1\" > \"$STATE/cursor\"\n");
         Appearance now;
         now.lookAndFeel = QStringLiteral("org.shuffle.desktop");
         now.colorScheme = QStringLiteral("ShuffleDark");
@@ -320,6 +334,7 @@ private Q_SLOTS:
         QCOMPARE(restore.exitCode(), 0);
         QCOMPARE(read(dir.filePath(QStringLiteral("lnf"))), QByteArray("org.shuffle.desktop\n"));
         QCOMPARE(read(dir.filePath(QStringLiteral("scheme"))), QByteArray("ShuffleDark\n"));
+        QCOMPARE(read(dir.filePath(QStringLiteral("cursor"))), QByteArray("breeze_cursors\n"));
 
         environment.insert(QStringLiteral("BROKEN"), QStringLiteral("1"));
         restore.setProcessEnvironment(environment);

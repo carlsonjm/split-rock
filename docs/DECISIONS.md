@@ -530,6 +530,9 @@ look back as a whole with `plasma-apply-lookandfeel` and
 `plasma-apply-colorscheme`, then checks the colour scheme is back, whatever way
 back the assistant gave. The assistant is told the look in use and the installed
 names with the first question, and after an Undo it is told with the next one.
+The pointer theme is part of the look. A proposal naming a global theme, colour
+scheme or pointer theme that isn't installed is not shown to the person; the
+assistant is asked again with the installed names.
 (Engineering, 5 October, after the first tests on the tablet.)
 
 Rejected: letting the assistant run changes itself after asking, which puts the

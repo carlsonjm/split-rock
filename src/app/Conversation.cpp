@@ -10,6 +10,7 @@
 #include "app/Product.h"
 
 #include <QDate>
+#include <QDebug>
 
 #include <QDir>
 #include <QFile>
@@ -847,7 +848,23 @@ void Conversation::readChangeRequests()
 
 void Conversation::propose(const ChangeProposal &proposed)
 {
-    const ChangeProposal change = ChangeRunner::withKnownUndo(proposed, Appearance::current());
+    const Appearance now = Appearance::current();
+    // A theme that isn't installed can't be applied; the assistant is asked
+    // again with the names that are, and no card is shown.
+    const QString unknown = proposed.admin ? QString() : now.unknownName(proposed.command);
+    if (!unknown.isEmpty()) {
+        qInfo().noquote() << QStringLiteral("%1: refused a proposal naming \"%2\", which is not installed")
+                                 .arg(productName(), unknown);
+        m_report = QStringLiteral("Your proposed change \"%1\" names \"%2\", which is not installed on this computer, "
+                                  "so it was not shown to the person. Propose it again with an installed name, or tell "
+                                  "the person it isn't installed.\n%3")
+                       .arg(proposed.title, unknown, now.describe());
+        m_reportShown = QStringLiteral("Checking the name: %1 isn't installed").arg(unknown);
+        if (m_client && m_phase == QLatin1String("ready"))
+            send(std::exchange(m_report, QString()), std::exchange(m_reportShown, QString()));
+        return;
+    }
+    const ChangeProposal change = ChangeRunner::withKnownUndo(proposed, now);
     m_proposal = change;
     m_card = ChangeCard::forProposal(change, m_current.name).toMap();
     m_cardOpen = true;

@@ -7,9 +7,11 @@
 
 #include <QDir>
 #include <QFile>
+#include <QFileInfo>
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QSignalSpy>
+#include <QStandardPaths>
 #include <QTest>
 
 using namespace splitrock;
@@ -305,6 +307,27 @@ private Q_SLOTS:
         QVERIFY(reaches(c, QStringLiteral("ready")));
         QVERIFY(QJsonDocument(f.received(QStringLiteral("session/prompt")).last()).toJson()
                     .contains("tapped Undo on \\\"Make the fans quieter\\\", and it was put back"));
+    }
+
+    // A theme name that isn't installed never reaches a card: the assistant
+    // is asked again, with the installed names.
+    void aThemeThatIsNotInstalledIsSentBack()
+    {
+        PretendFixture f;
+        QVERIFY(f.isValid());
+        const QString theme = QStandardPaths::writableLocation(QStandardPaths::GenericDataLocation)
+            + QStringLiteral("/icons/Altas-Dark/cursors");
+        QVERIFY(QDir().mkpath(theme));
+        Conversation c({f.assistant(QStringLiteral("signed-in.json"))});
+        c.chooseAssistant(QStringLiteral("pretend"));
+        QVERIFY(reaches(c, QStringLiteral("ready")));
+        c.ask(QStringLiteral("Make the pointer easier to see"));
+        QTRY_COMPARE(c.question(), QStringLiteral("Checking the name: Altas isn't installed"));
+        QVERIFY(reaches(c, QStringLiteral("ready")));
+        QVERIFY(!c.cardOpen());
+        QCOMPARE(c.headline(), QStringLiteral("Altas Dark is the one installed."));
+        QVERIFY(QJsonDocument(f.received(QStringLiteral("session/prompt")).last()).toJson().contains("Altas-Dark"));
+        QDir(QFileInfo(theme).path()).removeRecursively();
     }
 
     void aChangeMadeWithoutAskingIsReported()

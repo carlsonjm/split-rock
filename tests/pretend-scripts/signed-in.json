@@ -290,6 +290,54 @@
           "say": "It is set to Quiet now."
         }
       ]
+    },
+    {
+      "expectPrompt": "pointer",
+      "steps": [
+        {
+          "say": "Altas is a clear pointer."
+        },
+        {
+          "tool": {
+            "toolCallId": "propose-2",
+            "title": "Propose a change",
+            "kind": "execute",
+            "status": "pending",
+            "rawInput": {
+              "command": "split-rock-change '{\"title\": \"Set the pointer to Altas\", \"command\": \"plasma-apply-cursortheme Altas\"}'"
+            }
+          }
+        },
+        {
+          "ask": {
+            "toolCall": {
+              "toolCallId": "propose-2"
+            },
+            "options": [
+              {
+                "optionId": "no",
+                "name": "Reject",
+                "kind": "reject_once"
+              }
+            ]
+          },
+          "expect": "reject_once"
+        },
+        {
+          "update": {
+            "toolCallId": "propose-2",
+            "status": "failed"
+          }
+        }
+      ]
+    },
+    {
+      "expectPrompt": "is not installed",
+      "steps": [
+        {
+          "say": "Altas Dark is the one installed."
+        }
+      ]
     }
   ]
 }
