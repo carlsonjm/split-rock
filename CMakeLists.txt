@@ -96,6 +96,8 @@ configure_file(data/io.github.carlsonjm.splitrock.service.in
 # The icon is the mark on its tile, drawn from the mark's one file.
 file(READ assets/mark.svg SPLIT_ROCK_MARK)
 string(REGEX MATCHALL "<path[^>]*/>" SPLIT_ROCK_MARK_PATHS "${SPLIT_ROCK_MARK}")
+# The tile sets the mark's ink, so the paths' own paint is dropped.
+string(REGEX REPLACE " (fill|stroke|fill-rule)=\"[^\"]*\"" "" SPLIT_ROCK_MARK_PATHS "${SPLIT_ROCK_MARK_PATHS}")
 string(JOIN "\n    " SPLIT_ROCK_MARK_PATHS ${SPLIT_ROCK_MARK_PATHS})
 configure_file(data/io.github.carlsonjm.SplitRock.svg.in
     ${CMAKE_CURRENT_BINARY_DIR}/data/io.github.carlsonjm.SplitRock.svg @ONLY)
