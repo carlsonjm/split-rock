@@ -161,9 +161,10 @@ private Q_SLOTS:
         QFile file(QStringLiteral(PROJECT_DIR "/assets/mark.svg"));
         QVERIFY(file.open(QIODevice::ReadOnly));
         const QString path = markPath(QString::fromUtf8(file.readAll()));
-        QCOMPARE(path.count(QLatin1Char('M')), 8);
-        QVERIFY(path.startsWith(QStringLiteral("M5 12h8.5")));
-        QVERIFY(path.endsWith(QStringLiteral("Q17 3 17.4 1.6Z")));
+        // The lighthouse, its window and the two glints.
+        QCOMPARE(path.count(QLatin1Char('M')), 4);
+        QVERIFY(path.startsWith(QStringLiteral("M 7.397061 5.6155854")));
+        QVERIFY(path.endsWith(QStringLiteral("18.4595122 8.097561 18.8292683 8.097561 Z")));
     }
 
     void leftoversAreRemovedOnlyInsideTheFolder()
