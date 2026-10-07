@@ -1,6 +1,10 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256">
-  <rect width="256" height="256" rx="40" fill="#8BC4F8"/>
-  <g transform="translate(36.6 29.6) scale(8.2)" fill="#1A1A1A" stroke="none">
-    @SPLIT_ROCK_MARK_PATHS@
+  <!-- The tile sits inside the margin icon themes leave around app artwork
+       (42 of 48 in Colloid), so it is drawn the size of the apps beside it. -->
+  <g transform="translate(16 16) scale(0.875)">
+    <rect width="256" height="256" rx="40" fill="#8BC4F8"/>
+    <g transform="translate(36.6 29.6) scale(8.2)" fill="#1A1A1A" stroke="none">
+      @SPLIT_ROCK_MARK_PATHS@
+    </g>
   </g>
 </svg>

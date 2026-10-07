@@ -568,3 +568,12 @@ which grows with each skill and slows every conversation; Split Rock choosing
 the skill alone, which misses questions worded in ways it can't foresee; and
 letting the assistant run its own look-around outside the fence, which would
 put an unreviewed command outside the fence without a card.
+
+## The app icon keeps an icon theme's margin
+
+The icon's tile sits inside the margin icon themes leave around application
+artwork, 42 of 48 in Colloid, so it is the size of the apps beside it in a dock,
+a launcher or Search. (The maintainer, 7 October, for pixel-matched demo videos.)
+
+Rejected: the tile drawn to the icon's edges, chosen on 6 October, which reads
+a size larger than every themed app next to it.
