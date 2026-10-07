@@ -9,7 +9,8 @@ on:
   push:
     branches: [main]
   schedule:
-    - cron: "47 9 * * *"
+    # Weekly: Split Rock is shelved, and its minutes are counted.
+    - cron: "47 9 * * 1"
   workflow_dispatch:
 
 permissions:
