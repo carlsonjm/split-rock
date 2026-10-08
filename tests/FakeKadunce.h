@@ -47,7 +47,7 @@ private:
 class FakeKadunce : public QObject
 {
     Q_OBJECT
-    Q_CLASSINFO("D-Bus Interface", "studio.warbler.Kadunce")
+    Q_CLASSINFO("D-Bus Interface", "co.goodinput.Kadunce")
 
 public:
     explicit FakeKadunce(QDBusConnection bus)
@@ -80,7 +80,7 @@ public:
 
     void announceChange()
     {
-        m_bus.send(QDBusMessage::createSignal(QStringLiteral("/Kadunce"), QStringLiteral("studio.warbler.Kadunce"),
+        m_bus.send(QDBusMessage::createSignal(QStringLiteral("/Kadunce"), QStringLiteral("co.goodinput.Kadunce"),
                                               QStringLiteral("workspaceContextChanged")));
     }
 
@@ -100,7 +100,7 @@ public Q_SLOTS:
         if (!selectedApp.isEmpty())
             applications.append(QJsonObject{{QStringLiteral("appId"), selectedApp}, {QStringLiteral("cardId"), QStringLiteral("c9")}});
         return QString::fromUtf8(QJsonDocument(QJsonObject{
-            {QStringLiteral("schema"), QStringLiteral("studio.warbler.kadunce.workspace-context")},
+            {QStringLiteral("schema"), QStringLiteral("co.goodinput.kadunce.workspace-context")},
             {QStringLiteral("version"), 1},
             {QStringLiteral("applications"), applications},
             {QStringLiteral("cardStage"), QJsonObject{

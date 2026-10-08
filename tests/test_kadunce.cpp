@@ -13,7 +13,7 @@ class TestKadunce : public QObject
 
     static QString context(const QString &presentation, const QString &selected, const QString &appId)
     {
-        return QStringLiteral(R"({"schema":"studio.warbler.kadunce.workspace-context","version":1,)"
+        return QStringLiteral(R"({"schema":"co.goodinput.kadunce.workspace-context","version":1,)"
                               R"("applications":[{"windowId":"w1","appId":"org.kde.dolphin","cardId":"c1"},)"
                               R"({"windowId":"w2","appId":"%3","cardId":"c2"}],)"
                               R"("cardStage":{"active":true,"presentation":"%1","selectedCardId":"%2"}})")
