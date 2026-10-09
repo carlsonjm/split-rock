@@ -11,7 +11,7 @@ namespace splitrock::kadunce {
 
 inline constexpr char Service[] = "org.kde.KWin";
 inline constexpr char Path[] = "/Kadunce";
-inline constexpr char Interface[] = "studio.warbler.Kadunce";
+inline constexpr char Interface[] = "co.goodinput.Kadunce";
 // The companion guest protocol this build speaks.
 inline constexpr int CompanionProtocol = 1;
 

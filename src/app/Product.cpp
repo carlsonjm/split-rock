@@ -36,7 +36,7 @@ bool shuffleInstalled()
 {
     // Shuffle's bottom surface is the one part every Shuffle install has.
     return !QStandardPaths::locate(QStandardPaths::GenericDataLocation,
-                                   QStringLiteral("plasma/plasmoids/studio.warbler.shuffle.bottomsurface"),
+                                   QStringLiteral("plasma/plasmoids/co.goodinput.shuffle.bottomsurface"),
                                    QStandardPaths::LocateDirectory).isEmpty();
 }
 

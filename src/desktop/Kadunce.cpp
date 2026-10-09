@@ -18,7 +18,7 @@ QRect rect(const QJsonObject &o)
 QJsonObject context(const QString &reply)
 {
     const QJsonObject root = QJsonDocument::fromJson(reply.toUtf8()).object();
-    if (root.value(QStringLiteral("schema")).toString() != QLatin1String("studio.warbler.kadunce.workspace-context")
+    if (root.value(QStringLiteral("schema")).toString() != QLatin1String("co.goodinput.kadunce.workspace-context")
         || root.value(QStringLiteral("version")).toInt() != 1)
         return {};
     return root;
