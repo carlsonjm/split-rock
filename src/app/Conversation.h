@@ -5,6 +5,7 @@
 #include "app/AnswerText.h"
 #include "app/Assistants.h"
 #include "app/Change.h"
+#include "app/SystemUpdate.h"
 #include "guide/GuideLibrary.h"
 #include "guide/SkillShelf.h"
 
@@ -85,6 +86,8 @@ class Conversation : public QObject
     Q_PROPERTY(QVariantList changes READ changes NOTIFY changesChanged)
     // A change is being made or undone.
     Q_PROPERTY(bool changing READ changing NOTIFY changesChanged)
+    // The Update card: Split Rock's own routine for updating the computer.
+    Q_PROPERTY(QObject *update READ systemUpdateObject CONSTANT)
 
 public:
     explicit Conversation(QList<Assistant> assistants, QObject *parent = nullptr);
@@ -172,6 +175,8 @@ public:
     QVariantList changes() const;
     bool changing() const;
     ChangeRunner *changeRunner() const { return m_runner; }
+    SystemUpdate *systemUpdate() const { return m_update; }
+    QObject *systemUpdateObject() const;
     // A change the assistant proposed, shown on the Do it card.
     void propose(const ChangeProposal &proposed);
     Q_INVOKABLE void showMeHow();
@@ -258,6 +263,7 @@ private:
     QString m_skillRequests;
     qint64 m_skillRequestsRead = 0;
     ChangeRunner *m_runner = nullptr;
+    SystemUpdate *m_update = nullptr;
     std::optional<ChangeProposal> m_proposal;
     // How a change went, told to the assistant once it is ready.
     QString m_report;

@@ -143,6 +143,39 @@ Conversation::Conversation(QList<Assistant> assistants, QObject *parent)
         if (m_client && m_phase == QLatin1String("ready"))
             send(std::exchange(m_report, QString()), std::exchange(m_reportShown, QString()));
     });
+    m_update = new SystemUpdate(this);
+    connect(m_update, &SystemUpdate::finished, this, [this](const SystemUpdate::Result &result, const QString &output) {
+        if (m_notebook) {
+            const QString undo = result.pre >= 0
+                ? QStringLiteral("Go back to restore point %1, taken just before, from the computer's startup menu").arg(result.pre)
+                : QString();
+            QString unrecorded;
+            m_notebook->recordChange(QStringLiteral("update-%1").arg(QDateTime::currentDateTime().toString(QStringLiteral("yyyyMMdd-HHmmss"))),
+                                     result.installed > 0 ? QStringLiteral("Updated the computer (%1 packages)").arg(result.installed)
+                                                          : QStringLiteral("Updated the computer"),
+                                     QStringLiteral("Asked for on the Update card"), undo,
+                                     result.ok ? QStringLiteral("Done") : QStringLiteral("Failed"), &unrecorded);
+            Q_EMIT notebookChanged();
+        }
+        QString tail = output;
+        if (tail.size() > 3000)
+            tail = QStringLiteral("...") + tail.right(3000);
+        m_report = QStringLiteral("%1 ran its own Update card, which the person started. %2\n"
+                                  "Restart needed: %3. Settings files left beside the person's own (.pacnew): %4. "
+                                  "Services that failed after: %5.\nThe end of the output:\n%6\n\n"
+                                  "Tell the person in plain words what needs them, if anything. Don't propose the "
+                                  "update again.")
+                       .arg(productName(),
+                            result.ok ? QStringLiteral("It finished, %1 packages installed.").arg(result.installed)
+                                      : QStringLiteral("It failed: %1").arg(result.why),
+                            result.restart ? QStringLiteral("yes") : QStringLiteral("no"),
+                            result.settingsFiles.isEmpty() ? QStringLiteral("none") : result.settingsFiles.join(QStringLiteral(", ")),
+                            result.failedServices.isEmpty() ? QStringLiteral("none") : result.failedServices.join(QStringLiteral(", ")),
+                            tail.isEmpty() ? QStringLiteral("(none)") : tail);
+        m_reportShown = result.ok ? QStringLiteral("Updated the computer") : QStringLiteral("The update didn't finish");
+        if (m_client && m_phase == QLatin1String("ready"))
+            send(std::exchange(m_report, QString()), std::exchange(m_reportShown, QString()));
+    });
     connect(m_runner, &ChangeRunner::undone, this, [this](const ChangeRunner::Record &record) {
         const bool ok = record.status == QLatin1String("undone");
         if (m_notebook) {
@@ -161,6 +194,11 @@ Conversation::Conversation(QList<Assistant> assistants, QObject *parent)
         setNotice(ok ? QStringLiteral("Undone: %1.").arg(record.proposal.title)
                      : QStringLiteral("The undo didn't work: %1.").arg(record.proposal.title));
     });
+}
+
+QObject *Conversation::systemUpdateObject() const
+{
+    return m_update;
 }
 
 Conversation::~Conversation()
@@ -959,6 +997,30 @@ void Conversation::openSkill(const QString &token, const QString &id)
 
 void Conversation::propose(const ChangeProposal &proposed)
 {
+    // A whole-system update is never made from the Do it card: it can outrun
+    // the time a change is given and be stopped halfway, it can stop to ask
+    // questions no one is there to answer, and a snapshot pair can't put a new
+    // kernel back while the computer runs on it. Split Rock opens its own
+    // Update card instead, and the assistant is told so.
+    const QString updater = proposed.wholeSystemUpdate();
+    if (!updater.isEmpty()) {
+        qInfo().noquote() << QStringLiteral("%1: opened the Update card for a proposal that updates the whole system with %2")
+                                 .arg(productName(), updater);
+        if (!m_update->busy())
+            m_update->check();
+        m_report = QStringLiteral("Your proposed change \"%1\" updates the whole system with %2, or fetches the package "
+                                  "lists without updating. %3 never runs either from a card; it opened its own Update "
+                                  "card instead, which looks at what is waiting, takes a restore point, shows the "
+                                  "progress and tidies up after. The person decides there. Never fetch the package "
+                                  "lists without updating, which leaves the system half updated. Don't propose the "
+                                  "update again; tell the person in one or two plain sentences that the Update card "
+                                  "is open, and propose single changes only.")
+                       .arg(proposed.title, updater, productName());
+        m_reportShown = QStringLiteral("Opened the Update card");
+        if (m_client && m_phase == QLatin1String("ready"))
+            send(std::exchange(m_report, QString()), std::exchange(m_reportShown, QString()));
+        return;
+    }
     const Appearance now = Appearance::current();
     // A theme named loosely is the one installed theme it fits, so the card
     // shows the name that will be applied.
@@ -989,7 +1051,7 @@ void Conversation::propose(const ChangeProposal &proposed)
 
 void Conversation::doIt()
 {
-    if (!m_proposal || m_runner->busy())
+    if (!m_proposal || m_runner->busy() || m_update->busy())
         return;
     // Written down, with how to undo it, before anything runs.
     QString unrecorded;

@@ -569,6 +569,58 @@ the skill alone, which misses questions worded in ways it can't foresee; and
 letting the assistant run its own look-around outside the fence, which would
 put an unreviewed command outside the fence without a card.
 
+## The Update card updates the computer
+
+Updating the whole computer is Split Rock's own routine, on a card of its own,
+never the Do it card. A proposal whose command updates the whole system
+(`pacman -Syu` and its spellings, or `paru` or `yay` on their own), or fetches
+the package lists without updating (`pacman -Sy`), opens the Update card
+instead of a Do it card, and the assistant is told so. The notebook's Check for
+updates opens it too. Installing or removing one package is still a change like
+any other. (The maintainer, 9 October: the card interface for updates.)
+
+The card looks first, as the person: what is waiting and what of it a person
+notices, the notices Arch posted since the last update, the power, the free
+space, whether something else is installing, and whether restore points are
+taken. On battery under half, under 2 GB free, or while something else
+installs, Update is unavailable and the card says why. Arch's notices, a Plasma
+release Shuffle may not have caught up with, and a computer without restore
+points are said before Update, not after.
+
+Update runs through the system's own password prompt with a snapper pair around
+it, unless pacman's own snap-pac hook takes one. It keeps the computer awake,
+is never stopped by a timer, and writes to its own log, which Split Rock follows
+for the progress the card shows, so the update finishes even if Split Rock
+stops partway. Flatpak apps update after it, as the person. Community (AUR)
+packages are never part of it: their recipes are written by anyone, so each is
+offered on its own. Afterwards the card says what needs the person: a restart,
+settings files the update left beside theirs, and services that failed. The
+update is written under Changes in `This computer.md` with the restore point to
+go back to. Going back is starting the computer from that restore point, not
+Undo: putting system files back under a running kernel can leave a computer
+that won't start.
+
+Rejected: the Do it card with a longer time limit, which leaves the questions
+unanswered and Undo unsafe; a terminal with the assistant narrating beside it,
+which breaks No terminal for anyone but the maintainer; and holding Plasma back
+while the rest updates, which is the half-update Arch doesn't support.
+
+## The conversation reads as a page, with one colour
+
+A later ruling than the mock-up's look, which stays the layout (The mock-up is
+the approved visual direction). An answer is set as text beside the
+assistant's mark, with no box around it, at a reading size; a question is a
+soft bubble at the right; cards and the composer float a step above the sheet
+with a hairline edge and larger corners. The mark's blue is the conversation's
+one colour, deepened on a light sheet: primary buttons, the send button,
+progress, focus and step numbers take it, where Itasca's rule keeps a shell
+monochrome. The card window keeps Search's shape. (The maintainer, 9 October:
+make the chat look more premium, outside Itasca's rules where that helps.)
+
+Rejected: grey boxes around every answer and a black or white primary button,
+which read as dated; and a second accent colour, which competes with the
+warning and success colours the Update card uses.
+
 ## The app icon keeps an icon theme's margin
 
 The icon's tile sits inside the margin icon themes leave around application

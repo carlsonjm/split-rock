@@ -1,0 +1,33 @@
+@@ system
+firefox 143.0-1 -> 144.0-1
+kwin 6.7.5-1 -> 6.8.0-1
+linux-cachyos 6.17.1-1 -> 6.17.2-1
+mesa 1:25.2.3-1 -> 1:25.2.4-1
+plasma-workspace 6.7.5-1 -> 6.8.0-1
+python 3.13.7-1 -> 3.13.8-1
+@@ community
+z13ctl-plus 0.4-1 -> 0.5-1
+spotify 1.2-1 -> 1.3-1 [ignored]
+@@ apps
+org.gimp.GIMP
+org.videolan.VLC
+@@ free
+48000000
+@@ power
+ac 0
+battery 72
+@@ snapshots
+yes
+@@ busy
+@@ shuffle
+shuffle-plasma 1.0.0-1
+@@ lastupdate
+[2026-10-01T09:12:44-0500] [PACMAN] starting full system upgrade
+@@ news
+<?xml version="1.0" encoding="utf-8"?>
+<rss version="2.0"><channel><title>Arch Linux: Recent news updates</title>
+<item><title>Plasma 6.8 needs a manual step for some themes</title><link>https://archlinux.org/news/plasma-68-themes/</link><pubDate>Tue, 06 Oct 2026 14:00:00 +0000</pubDate></item>
+<item><title>An older notice</title><link>https://archlinux.org/news/older/</link><pubDate>Mon, 14 Sep 2026 10:00:00 +0000</pubDate></item>
+</channel></rss>
+
+@@ end

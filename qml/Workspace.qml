@@ -62,28 +62,35 @@ Item {
         }
     }
 
-    component Answer: Rectangle {
+    // An answer: no box, the assistant's mark beside it and the words set
+    // for reading, as a page rather than a bubble.
+    component Answer: Item {
+        id: answer
         property string headline
         property var steps: []
         property var more: []
         property bool waiting: false
-        width: Math.min(640, talk.reading)
-        height: answerColumn.implicitHeight + 24
-        radius: 18
-        color: theme.panel
+        width: talk.reading
+        height: Math.max(28, answerColumn.implicitHeight)
+        Mark {
+            width: 28; height: 28
+            radius: 9
+        }
         Column {
             id: answerColumn
-            x: 14; y: 12
-            width: parent.width - 28
-            spacing: 8
+            x: 42; y: 3
+            width: Math.min(640, parent.width - 42)
+            spacing: 10
             Row {
-                visible: parent.parent.waiting
-                spacing: 8
+                visible: answer.waiting
+                height: 22
+                spacing: 7
                 Repeater {
                     model: 3
                     Rectangle {
+                        anchors.verticalCenter: parent.verticalCenter
                         width: 7; height: 7; radius: 3.5
-                        color: theme.quiet
+                        color: theme.accent
                         SequentialAnimation on opacity {
                             loops: Animation.Infinite
                             PauseAnimation { duration: index * 160 }
@@ -98,56 +105,73 @@ Item {
                 visible: text !== ""
                 width: parent.width
                 wrapMode: Text.WordWrap
-                text: parent.parent.headline
+                text: answer.headline
                 color: theme.text
-                font.pixelSize: 15
+                font.pixelSize: 17
                 font.weight: Font.Bold
-                lineHeight: 1.3
+                lineHeight: 1.35
             }
             Repeater {
-                model: answerColumn.parent.steps
-                Text {
+                model: answer.steps
+                Row {
                     width: answerColumn.width
-                    wrapMode: Text.WordWrap
-                    text: (index + 1) + ". " + modelData
-                    color: theme.text
-                    font.pixelSize: 15
-                    lineHeight: 1.3
+                    spacing: 12
+                    Rectangle {
+                        y: 1
+                        width: 24; height: 24; radius: 12
+                        color: theme.accentSoft
+                        Text {
+                            anchors.centerIn: parent
+                            text: index + 1
+                            color: theme.accent
+                            font.pixelSize: 12
+                            font.weight: Font.Bold
+                        }
+                    }
+                    Text {
+                        width: parent.width - 36
+                        wrapMode: Text.WordWrap
+                        text: modelData
+                        color: theme.text
+                        font.pixelSize: 16
+                        lineHeight: 1.45
+                    }
                 }
             }
             Repeater {
-                model: answerColumn.parent.more
+                model: answer.more
                 Text {
                     width: answerColumn.width
                     wrapMode: Text.WordWrap
                     text: modelData
                     color: theme.text
-                    font.pixelSize: 15
-                    lineHeight: 1.3
+                    font.pixelSize: 16
+                    lineHeight: 1.45
                 }
             }
         }
     }
 
+    // What the person asked: a soft bubble at the right.
     component Asked: Item {
         property string text
         width: talk.reading
-        height: askedText.implicitHeight + 20
+        height: askedText.implicitHeight + 24
         Rectangle {
             anchors.right: parent.right
-            width: Math.min(Math.min(520, Math.round(parent.width * 0.85)), askedText.implicitWidth + 28)
+            width: Math.min(Math.min(520, Math.round(parent.width * 0.8)), askedText.implicitWidth + 36)
             height: parent.height
-            radius: 18
-            color: theme.primary
+            radius: theme.bubbleRadius
+            color: theme.chip
             Text {
                 id: askedText
-                x: 14; y: 10
-                width: parent.width - 28
+                x: 18; y: 12
+                width: parent.width - 36
                 wrapMode: Text.WordWrap
                 text: parent.parent.text
-                color: theme.primaryInk
-                font.pixelSize: 15
-                font.weight: Font.DemiBold
+                color: theme.text
+                font.pixelSize: 16
+                lineHeight: 1.3
             }
         }
     }
@@ -163,8 +187,10 @@ Item {
         property bool open: false
         width: parent ? parent.width : 0
         height: fixColumn.implicitHeight + 24
-        radius: 12
-        color: theme.panel
+        radius: 14
+        color: theme.raised
+        border.width: 1
+        border.color: theme.hairline
         Accessible.role: Accessible.Button
         Accessible.name: title
         Column {
@@ -238,8 +264,10 @@ Item {
         property bool writing: false
         width: parent ? parent.width : 0
         height: problemColumn.implicitHeight + 24
-        radius: 12
-        color: theme.panel
+        radius: 14
+        color: theme.raised
+        border.width: 1
+        border.color: theme.hairline
         Column {
             id: problemColumn
             x: 14; y: 12
@@ -366,8 +394,10 @@ Item {
         property string label
         property string value
         height: 62
-        radius: 12
-        color: theme.panel
+        radius: 14
+        color: theme.raised
+        border.width: 1
+        border.color: theme.hairline
         Column {
             x: 14; y: 12
             width: parent.width - 28
@@ -401,8 +431,10 @@ Item {
         // Too narrow for the date beside the words: it goes above them.
         readonly property bool stacked: width < 400 && when !== ""
         height: stacked ? lineText.implicitHeight + 46 : Math.max(48, lineText.implicitHeight + 24)
-        radius: 12
-        color: theme.panel
+        radius: 14
+        color: theme.raised
+        border.width: 1
+        border.color: theme.hairline
         Text {
             x: 14; y: 13
             width: line.stacked ? implicitWidth : 86
@@ -519,7 +551,8 @@ Item {
                 id: bubbles
                 x: talk.readingX
                 width: talk.reading
-                spacing: 12
+                spacing: 22
+                topPadding: 8
 
                 Text {
                     visible: conversation.turns.length === 0 && conversation.question === "" && !step.item
@@ -535,7 +568,7 @@ Item {
                 Repeater {
                     model: conversation.turns
                     Column {
-                        spacing: 12
+                        spacing: 22
                         Asked { text: modelData.question }
                         Answer {
                             headline: modelData.headline
@@ -602,7 +635,8 @@ Item {
                         case "signIn":
                         case "signingIn": return signInStep
                         case "problem": return problemStep
-                        default: return conversation.cardOpen ? doItStep : null
+                        default: return conversation.update.stage !== "" ? updateStep
+                                      : conversation.cardOpen ? doItStep : null
                         }
                     }
                 }
@@ -624,18 +658,19 @@ Item {
             x: talk.readingX
             y: parent.height - height
             width: talk.reading
-            height: 52
-            radius: 26
-            color: theme.panel
+            height: 58
+            radius: 29
+            color: theme.raised
             border.width: 1
-            border.color: wideField.activeFocus && full.canAsk ? theme.text : theme.edge
+            border.color: wideField.activeFocus && full.canAsk ? theme.accent : theme.hairline
             opacity: full.canAsk || full.working ? 1 : 0.5
+            Behavior on border.color { ColorAnimation { duration: 140 } }
 
             TextInput {
                 id: wideField
                 objectName: "wideField"
                 anchors.left: parent.left
-                anchors.leftMargin: 18
+                anchors.leftMargin: 22
                 anchors.right: wideSend.left
                 anchors.rightMargin: 10
                 anchors.verticalCenter: parent.verticalCenter
@@ -643,7 +678,7 @@ Item {
                 color: theme.text
                 selectionColor: theme.palette.highlight
                 selectedTextColor: theme.palette.highlightedText
-                font.pixelSize: 15
+                font.pixelSize: 16
                 selectByMouse: true
                 Accessible.role: Accessible.EditableText
                 Accessible.name: "Ask " + productName
@@ -662,10 +697,10 @@ Item {
             Rectangle {
                 id: wideSend
                 anchors.right: parent.right
-                anchors.rightMargin: 6
+                anchors.rightMargin: 8
                 anchors.verticalCenter: parent.verticalCenter
-                width: 40; height: 40; radius: 20
-                color: theme.primary
+                width: 42; height: 42; radius: 21
+                color: theme.accent
                 opacity: full.working || (full.canAsk && wideField.text.trim() !== "") ? 1 : 0.38
                 Accessible.role: Accessible.Button
                 Accessible.name: full.working ? "Stop" : "Send"
@@ -673,7 +708,8 @@ Item {
                     anchors.centerIn: parent
                     width: 16; height: 16
                     path: full.working ? Icons.stop : Icons.arrow
-                    color: theme.primaryInk
+                    stroke: 2.2
+                    color: theme.accentInk
                 }
                 MouseArea {
                     anchors.fill: parent
@@ -735,7 +771,7 @@ Item {
                             width: tabLabel.implicitWidth + 32
                             height: 40
                             radius: 20
-                            color: picked ? theme.primary : tabArea.containsMouse ? theme.chip : "transparent"
+                            color: picked ? theme.accentSoft : tabArea.containsMouse ? theme.chip : "transparent"
                             Accessible.role: Accessible.PageTab
                             Accessible.name: modelData
                             Accessible.selected: picked
@@ -743,7 +779,7 @@ Item {
                                 id: tabLabel
                                 anchors.centerIn: parent
                                 text: modelData
-                                color: parent.picked ? theme.primaryInk : theme.text
+                                color: parent.picked ? theme.accent : theme.text
                                 font.pixelSize: 14
                                 font.weight: Font.DemiBold
                             }
@@ -816,6 +852,21 @@ Item {
                         width: (parent.width - (tiles.columns - 1) * 10) / tiles.columns
                         label: "LAST SNAPSHOT"
                         value: "None yet"
+                    }
+                }
+
+                // The Update card, opened in the conversation.
+                Pill {
+                    objectName: "checkUpdates"
+                    implicitHeight: 44
+                    iconPath: Icons.refresh
+                    enabled: conversation.update.stage === "" || conversation.update.stage === "nothing"
+                             || conversation.update.stage === "done" || conversation.update.stage === "failed"
+                    text: "Check for updates"
+                    onClicked: {
+                        conversation.update.check()
+                        if (full.narrow)
+                            full.toggleNotebook()
                     }
                 }
 
@@ -948,4 +999,5 @@ Item {
     Component { id: signInStep; SignInPanel {} }
     Component { id: problemStep; ProblemPanel {} }
     Component { id: doItStep; DoItCard {} }
+    Component { id: updateStep; UpdateCard {} }
 }

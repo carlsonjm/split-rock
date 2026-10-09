@@ -29,6 +29,7 @@ add_library(splitrock_core STATIC
     src/app/Fence.cpp
     src/app/NeverWritten.cpp
     src/app/Notebook.cpp
+    src/app/SystemUpdate.cpp
     src/guide/GuideLibrary.cpp
     src/guide/SkillShelf.cpp
     src/app/Product.cpp
@@ -68,6 +69,7 @@ qt_add_resources(split-rock "sheet"
         qml/Fold.qml
         qml/AnswerCard.qml
         qml/DoItCard.qml
+        qml/UpdateCard.qml
         qml/SignInPanel.qml
         qml/AssistantList.qml
         qml/Workspace.qml
