@@ -36,6 +36,7 @@ split_rock_test(test_answer_text)
 split_rock_test(test_change_card)
 split_rock_test(test_change)
 split_rock_test(test_update)
+split_rock_test(test_chores)
 split_rock_test(test_assistants)
 split_rock_test(test_protocol)
 split_rock_test(test_conversation)
@@ -62,6 +63,18 @@ qt_add_resources(test_sheet "sheet_for_test"
         ${PROJECT_SOURCE_DIR}/qml/AnswerCard.qml
         ${PROJECT_SOURCE_DIR}/qml/DoItCard.qml
         ${PROJECT_SOURCE_DIR}/qml/UpdateCard.qml
+        ${PROJECT_SOURCE_DIR}/qml/CardFrame.qml
+        ${PROJECT_SOURCE_DIR}/qml/CardHead.qml
+        ${PROJECT_SOURCE_DIR}/qml/CardNote.qml
+        ${PROJECT_SOURCE_DIR}/qml/CardFact.qml
+        ${PROJECT_SOURCE_DIR}/qml/CardProgress.qml
+        ${PROJECT_SOURCE_DIR}/qml/CardRow.qml
+        ${PROJECT_SOURCE_DIR}/qml/SpaceCard.qml
+        ${PROJECT_SOURCE_DIR}/qml/InstallCard.qml
+        ${PROJECT_SOURCE_DIR}/qml/RestoreCard.qml
+        ${PROJECT_SOURCE_DIR}/qml/HealthCard.qml
+        ${PROJECT_SOURCE_DIR}/qml/CommunityCard.qml
+        ${PROJECT_SOURCE_DIR}/qml/UpkeepShelf.qml
         ${PROJECT_SOURCE_DIR}/qml/SignInPanel.qml
         ${PROJECT_SOURCE_DIR}/qml/AssistantList.qml
         ${PROJECT_SOURCE_DIR}/qml/Workspace.qml

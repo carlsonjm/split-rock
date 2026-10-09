@@ -37,6 +37,7 @@
 #include <QDir>
 #include <QDesktopServices>
 #include <QGuiApplication>
+#include <QTimer>
 #include <QUrl>
 #include <QQmlApplicationEngine>
 #include <QQmlContext>
@@ -178,6 +179,8 @@ int main(int argc, char **argv)
     auto *card = qobject_cast<QQuickWindow *>(engine.rootObjects().value(0));
     if (!card)
         return 1;
+    // The weekly health look, read-only and quiet, once Split Rock has settled.
+    QTimer::singleShot(std::chrono::minutes(2), &conversation, [&conversation] { conversation.healthCheck()->checkIfDue(); });
 
     const auto handle = [&](const QStringList &arguments) {
         QCommandLineParser request;

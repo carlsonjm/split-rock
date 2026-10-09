@@ -575,8 +575,8 @@ Updating the whole computer is Split Rock's own routine, on a card of its own,
 never the Do it card. A proposal whose command updates the whole system
 (`pacman -Syu` and its spellings, or `paru` or `yay` on their own), or fetches
 the package lists without updating (`pacman -Sy`), opens the Update card
-instead of a Do it card, and the assistant is told so. The notebook's Check for
-updates opens it too. Installing or removing one package is still a change like
+instead of a Do it card, and the assistant is told so. The Update tile on the
+upkeep shelf opens it too. Installing or removing one package is still a change like
 any other. (The maintainer, 9 October: the card interface for updates.)
 
 The card looks first, as the person: what is waiting and what of it a person
@@ -617,9 +617,55 @@ progress, focus and step numbers take it, where Itasca's rule keeps a shell
 monochrome. The card window keeps Search's shape. (The maintainer, 9 October:
 make the chat look more premium, outside Itasca's rules where that helps.)
 
+Later the same evening the maintainer passed the look and asked for more
+colour. The blue now runs into violet across the question bubble, the send
+button and progress, and each upkeep card has a hue of its own, washed across
+its top and carried by its shelf tile and its icon: Update blue, Free up space
+teal, Install an app violet, Restore points amber, Health check green and
+Community apps orange. Warning and success keep their own colours inside every
+card.
+
 Rejected: grey boxes around every answer and a black or white primary button,
-which read as dated; and a second accent colour, which competes with the
-warning and success colours the Update card uses.
+which read as dated; and colour spread over the answers themselves, which
+competes with what they say.
+
+## Upkeep has cards of its own
+
+Five more of the computer's routines follow the Update card's pattern: look as
+the person, show what was found on a card, and make the change after one tap,
+through the system's own password prompt once, written in `This computer.md`
+before it starts and reported to the assistant after. The cards are fixed in
+Split Rock; the assistant opens one by proposing it (`"card"` in a proposal,
+with an optional query) and never writes their commands. A shelf on the welcome
+page and in the notebook opens each. (The maintainer, 9 October: the card
+interface passed, kept working on its other uses, except a Shuffle catch-up on
+Plasma day, which Shuffle's own preparation covers.)
+
+- **Free up space** offers the package cache, the system journal, old crash
+  reports, the person's cache and leftover app builds, Flatpak runtimes nothing
+  uses, the Trash and packages nothing needs, each with its size. Packages
+  nothing needs and the Trash start unticked, and removing packages takes a
+  restore point first.
+- **Install an app** searches the official shelf and Flathub, the shelf first,
+  and installs with a restore point. Community (AUR) packages are never offered
+  there.
+- **Restore points** lists the snapper pairs in words and says how to start
+  from one, through the boot menu, and how to keep it with Btrfs Assistant
+  where that is installed. It never rolls back itself: that replaces the system
+  under a running session, and starting from the point first shows it works.
+- **Health check** only reads: services, space, the drive, the battery, the last
+  update, the newest restore point, settings files beside the person's own and
+  crashes this week, each with the card or question that helps. It looks once a
+  week by itself, quietly, and the notebook shows what it found.
+- **Community apps** compares the installed community packages with the AUR,
+  shows what changed in each recipe since the installed version, flagging new
+  download addresses, install scripts and commands that reach the network, and
+  builds an update only after the person has seen it: as the person, at the
+  exact commit shown, with a restore point.
+
+Rejected: running `snapper rollback` from the card; mixing community packages
+into Install an app or the update; building a community update from the latest
+recipe instead of the one the person reviewed; and a Shuffle catch-up card.
 
 ## The app icon keeps an icon theme's margin
 

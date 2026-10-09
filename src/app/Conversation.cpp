@@ -22,6 +22,8 @@
 #include <QStandardPaths>
 #include <QTimer>
 
+#include <algorithm>
+
 namespace splitrock {
 
 namespace {
@@ -144,38 +146,17 @@ Conversation::Conversation(QList<Assistant> assistants, QObject *parent)
             send(std::exchange(m_report, QString()), std::exchange(m_reportShown, QString()));
     });
     m_update = new SystemUpdate(this);
-    connect(m_update, &SystemUpdate::finished, this, [this](const SystemUpdate::Result &result, const QString &output) {
-        if (m_notebook) {
-            const QString undo = result.pre >= 0
-                ? QStringLiteral("Go back to restore point %1, taken just before, from the computer's startup menu").arg(result.pre)
-                : QString();
-            QString unrecorded;
-            m_notebook->recordChange(QStringLiteral("update-%1").arg(QDateTime::currentDateTime().toString(QStringLiteral("yyyyMMdd-HHmmss"))),
-                                     result.installed > 0 ? QStringLiteral("Updated the computer (%1 packages)").arg(result.installed)
-                                                          : QStringLiteral("Updated the computer"),
-                                     QStringLiteral("Asked for on the Update card"), undo,
-                                     result.ok ? QStringLiteral("Done") : QStringLiteral("Failed"), &unrecorded);
-            Q_EMIT notebookChanged();
-        }
-        QString tail = output;
-        if (tail.size() > 3000)
-            tail = QStringLiteral("...") + tail.right(3000);
-        m_report = QStringLiteral("%1 ran its own Update card, which the person started. %2\n"
-                                  "Restart needed: %3. Settings files left beside the person's own (.pacnew): %4. "
-                                  "Services that failed after: %5.\nThe end of the output:\n%6\n\n"
-                                  "Tell the person in plain words what needs them, if anything. Don't propose the "
-                                  "update again.")
-                       .arg(productName(),
-                            result.ok ? QStringLiteral("It finished, %1 packages installed.").arg(result.installed)
-                                      : QStringLiteral("It failed: %1").arg(result.why),
-                            result.restart ? QStringLiteral("yes") : QStringLiteral("no"),
-                            result.settingsFiles.isEmpty() ? QStringLiteral("none") : result.settingsFiles.join(QStringLiteral(", ")),
-                            result.failedServices.isEmpty() ? QStringLiteral("none") : result.failedServices.join(QStringLiteral(", ")),
-                            tail.isEmpty() ? QStringLiteral("(none)") : tail);
-        m_reportShown = result.ok ? QStringLiteral("Updated the computer") : QStringLiteral("The update didn't finish");
-        if (m_client && m_phase == QLatin1String("ready"))
-            send(std::exchange(m_report, QString()), std::exchange(m_reportShown, QString()));
-    });
+    addChore(QStringLiteral("update"), m_update);
+    m_space = new SpaceCleanup(this);
+    addChore(QStringLiteral("space"), m_space);
+    m_install = new AppInstall(this);
+    addChore(QStringLiteral("install"), m_install);
+    m_restore = new RestorePoints(this);
+    addChore(QStringLiteral("restore"), m_restore);
+    m_health = new HealthCheck(this);
+    addChore(QStringLiteral("health"), m_health);
+    m_community = new CommunityApps(this);
+    addChore(QStringLiteral("community"), m_community);
     connect(m_runner, &ChangeRunner::undone, this, [this](const ChangeRunner::Record &record) {
         const bool ok = record.status == QLatin1String("undone");
         if (m_notebook) {
@@ -199,6 +180,114 @@ Conversation::Conversation(QList<Assistant> assistants, QObject *parent)
 QObject *Conversation::systemUpdateObject() const
 {
     return m_update;
+}
+
+QObject *Conversation::spaceObject() const
+{
+    return m_space;
+}
+
+QObject *Conversation::installObject() const
+{
+    return m_install;
+}
+
+QObject *Conversation::restoreObject() const
+{
+    return m_restore;
+}
+
+QObject *Conversation::healthObject() const
+{
+    return m_health;
+}
+
+QObject *Conversation::communityObject() const
+{
+    return m_community;
+}
+
+void Conversation::addChore(const QString &name, Chore *chore)
+{
+    m_chores.append({name, chore});
+    connect(chore, &Chore::changed, this, &Conversation::choreChanged);
+    // Written down, with how to undo it, before the card changes anything.
+    chore->setWriteDown([this](const QString &id, const QString &title, const QString &undo, QString *error) {
+        if (!m_notebook)
+            return true;
+        const bool written = m_notebook->recordChange(id, title, QStringLiteral("Asked for on a card of %1's own").arg(productName()),
+                                                      undo, QStringLiteral("Making"), error);
+        Q_EMIT notebookChanged();
+        return written;
+    });
+    // How it went: in the notebook, and for the assistant with the next
+    // question, or now when it is waiting.
+    chore->setReport([this](const QString &id, bool ok, const QString &shown, const QString &report) {
+        if (m_notebook && !id.isEmpty()) {
+            m_notebook->markChange(id, ok ? QStringLiteral("Done") : QStringLiteral("Failed"));
+            Q_EMIT notebookChanged();
+        }
+        m_report = report;
+        m_reportShown = shown;
+        if (m_client && m_phase == QLatin1String("ready"))
+            send(std::exchange(m_report, QString()), std::exchange(m_reportShown, QString()));
+    });
+}
+
+QString Conversation::chore() const
+{
+    // The busy one first: it can't be closed, so it is the one shown.
+    for (const auto &[name, chore] : m_chores) {
+        if (chore->busy() && !chore->stage().isEmpty())
+            return name;
+    }
+    for (const auto &[name, chore] : m_chores) {
+        if (!chore->stage().isEmpty())
+            return name;
+    }
+    return QString();
+}
+
+bool Conversation::choreBusy() const
+{
+    return std::any_of(m_chores.cbegin(), m_chores.cend(), [](const auto &c) { return c.second->busy(); });
+}
+
+bool Conversation::openChore(const QString &name, const QString &query)
+{
+    const auto found = std::find_if(m_chores.cbegin(), m_chores.cend(), [&name](const auto &c) { return c.first == name; });
+    if (found == m_chores.cend())
+        return false;
+    // Never two at once: what one changes, the other may be looking at.
+    if (m_runner->busy())
+        return false;
+    for (const auto &[other, chore] : m_chores) {
+        if (other != name && chore->busy())
+            return false;
+    }
+    if (found->second->busy())
+        return true;
+    for (const auto &[other, chore] : m_chores) {
+        if (other != name)
+            chore->close();
+    }
+    if (m_cardOpen) {
+        m_cardOpen = false;
+        Q_EMIT cardChanged();
+    }
+    if (name == QLatin1String("update"))
+        m_update->check();
+    else if (name == QLatin1String("space"))
+        m_space->check();
+    else if (name == QLatin1String("install"))
+        query.isEmpty() ? m_install->ask() : m_install->search(query);
+    else if (name == QLatin1String("restore"))
+        m_restore->check();
+    else if (name == QLatin1String("health"))
+        m_health->check();
+    else if (name == QLatin1String("community"))
+        m_community->check();
+    return true;
 }
 
 Conversation::~Conversation()
@@ -227,6 +316,11 @@ QString Conversation::framing()
         "plasma-apply-lookandfeel, and after kwriteconfig6 tell the program to reload; change the desktop's look "
         "only with those two, never by editing kdeglobals, using names installed on this computer. The "
         "person sees it on a card and decides; %1 makes the change outside your sandbox and tells you how it went. "
+        "For upkeep, %1 has cards of its own, which look first, take restore points and show progress: propose "
+        "{\"title\": a short instruction, \"card\": one of update (update the whole computer), space (free up "
+        "space), install (install an app, with \"query\": what the person needs, such as \"pdf editor\"), restore "
+        "(go back to a restore point), health (a health check) or community (update apps from the AUR)} instead of "
+        "a command for those. "
         "Propose one change at a time, with a short, specific command that finishes on its own; to open a window, "
         "start it with kstart so the command returns at once. Before proposing, "
         "check the names on this computer rather than from memory, because Plasma 5 and 6 differ: for example "
@@ -1006,8 +1100,7 @@ void Conversation::propose(const ChangeProposal &proposed)
     if (!updater.isEmpty()) {
         qInfo().noquote() << QStringLiteral("%1: opened the Update card for a proposal that updates the whole system with %2")
                                  .arg(productName(), updater);
-        if (!m_update->busy())
-            m_update->check();
+        openChore(QStringLiteral("update"));
         m_report = QStringLiteral("Your proposed change \"%1\" updates the whole system with %2, or fetches the package "
                                   "lists without updating. %3 never runs either from a card; it opened its own Update "
                                   "card instead, which looks at what is waiting, takes a restore point, shows the "
@@ -1017,6 +1110,21 @@ void Conversation::propose(const ChangeProposal &proposed)
                                   "is open, and propose single changes only.")
                        .arg(proposed.title, updater, productName());
         m_reportShown = QStringLiteral("Opened the Update card");
+        if (m_client && m_phase == QLatin1String("ready"))
+            send(std::exchange(m_report, QString()), std::exchange(m_reportShown, QString()));
+        return;
+    }
+    // One of Split Rock's own cards, asked for by name.
+    if (!proposed.card.isEmpty()) {
+        const bool opened = openChore(proposed.card, proposed.query);
+        qInfo().noquote() << QStringLiteral("%1: the assistant asked for the %2 card").arg(productName(), proposed.card);
+        m_report = opened
+            ? QStringLiteral("%1 opened its own %2 card, as you asked. The person decides there; %1 tells you how it "
+                             "went. Tell the person in one plain sentence that the card is open.")
+                  .arg(productName(), proposed.card)
+            : QStringLiteral("%1 couldn't open its %2 card: another card is busy. Tell the person to wait for it to "
+                             "finish.").arg(productName(), proposed.card);
+        m_reportShown = opened ? QStringLiteral("Opened a card") : QStringLiteral("Another card is busy");
         if (m_client && m_phase == QLatin1String("ready"))
             send(std::exchange(m_report, QString()), std::exchange(m_reportShown, QString()));
         return;
@@ -1044,6 +1152,8 @@ void Conversation::propose(const ChangeProposal &proposed)
     }
     const ChangeProposal change = ChangeRunner::withKnownUndo(settled, now);
     m_proposal = change;
+    for (const auto &[name, chore] : m_chores)
+        chore->close();
     m_card = ChangeCard::forProposal(change, m_current.name).toMap();
     m_cardOpen = true;
     Q_EMIT cardChanged();
@@ -1051,7 +1161,7 @@ void Conversation::propose(const ChangeProposal &proposed)
 
 void Conversation::doIt()
 {
-    if (!m_proposal || m_runner->busy() || m_update->busy())
+    if (!m_proposal || m_runner->busy() || choreBusy())
         return;
     // Written down, with how to undo it, before anything runs.
     QString unrecorded;

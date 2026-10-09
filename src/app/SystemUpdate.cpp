@@ -4,20 +4,16 @@
 #include "app/Product.h"
 
 #include <QDebug>
-#include <QProcess>
 #include <QRegularExpression>
-#include <QTimer>
-#include <QUrl>
 #include <QVariantList>
 #include <QXmlStreamReader>
 
 #include <algorithm>
+#include <utility>
 
 namespace splitrock {
 
 namespace {
-
-const QString Shell = QStringLiteral("/bin/sh");
 
 // Run as the person: each section starts with a line "@@ name" that readLook
 // reads it by. Nothing here changes anything; checkupdates fetches the package
@@ -51,41 +47,6 @@ echo "@@ news"
 command -v curl >/dev/null 2>&1 && curl -fsS --max-time 10 https://archlinux.org/feeds/news/ 2>/dev/null
 echo
 echo "@@ end"
-)SH");
-
-// Run as the administrator: a restore point before, the update, a restore
-// point after, each number printed for Split Rock to keep. The computer is
-// kept awake, and the lid's switch held, until it finishes. pacman speaks
-// English here so the card can follow it, and writes to a log that Split Rock
-// follows rather than to Split Rock itself, so the update carries on to the
-// end even if Split Rock stops partway. $1 is the description, $2 whether
-// Split Rock takes the restore points itself.
-const QString UpdateScript = QStringLiteral(R"SH(export LANG=C LC_ALL=C
-trap '' HUP PIPE
-log=/var/log/split-rock-update.log
-pre=
-if [ "$2" = 1 ] && command -v snapper >/dev/null 2>&1 && [ -f /etc/snapper/configs/root ]; then
-    pre=$(snapper -c root create --type pre --cleanup-algorithm number --print-number --description "$1") || pre=
-fi
-[ -n "$pre" ] && echo "split-rock-pre=$pre"
-: > "$log"
-desc=$1
-set -- pacman -Syu --noconfirm --noprogressbar --color never
-command -v stdbuf >/dev/null 2>&1 && set -- stdbuf -oL "$@"
-if systemd-inhibit --list >/dev/null 2>&1; then
-    systemd-inhibit --what=sleep:shutdown:idle:handle-lid-switch --who="$desc" --why="Updating the computer" "$@" >"$log" 2>&1 &
-else
-    "$@" >"$log" 2>&1 &
-fi
-pid=$!
-tail -n +1 --pid="$pid" -f "$log" 2>/dev/null
-wait "$pid"
-status=$?
-if [ -n "$pre" ]; then
-    post=$(snapper -c root create --type post --pre-number "$pre" --cleanup-algorithm number --print-number --description "$desc") \
-        && echo "split-rock-post=$post"
-fi
-exit $status
 )SH");
 
 // Run as the person: their Flatpak apps.
@@ -189,23 +150,17 @@ QVariantMap SystemUpdate::Result::toMap() const
 }
 
 SystemUpdate::SystemUpdate(QObject *parent)
-    : QObject(parent)
+    : Chore(parent)
     , m_lookScript(LookScript)
-    , m_updateScript(UpdateScript)
+    , m_updateScript(transactionScript())
     , m_appsScript(AppsScript)
     , m_afterScript(AfterScript)
 {
 }
 
-SystemUpdate::~SystemUpdate()
+bool SystemUpdate::busy() const
 {
-    // An update keeps going without Split Rock: it writes to its own log, and
-    // the administrator's process is out of Split Rock's reach.
-    if (m_process) {
-        m_process->disconnect(this);
-        m_process->kill();
-        m_process->waitForFinished(1000);
-    }
+    return stage() == QLatin1String("looking") || stage() == QLatin1String("updating");
 }
 
 QList<SystemUpdate::News> SystemUpdate::readNews(const QString &rss)
@@ -367,72 +322,6 @@ SystemUpdate::Plan SystemUpdate::readLook(const QString &output, const QDateTime
     return plan;
 }
 
-SystemUpdate::Step SystemUpdate::readStep(const QString &line, int done, int total)
-{
-    static const QRegularExpression packages(QStringLiteral(R"(^Packages? \((\d+)\))"));
-    static const QRegularExpression working(
-        QStringLiteral(R"(^(upgrading|installing|reinstalling|downgrading|removing) (\S+?)\.\.\.)"));
-    Step step;
-    const QString trimmed = line.trimmed();
-    QRegularExpressionMatch m = packages.match(trimmed);
-    if (m.hasMatch()) {
-        step.total = m.captured(1).toInt();
-        step.now = QStringLiteral("Getting ready to update %1 packages").arg(step.total);
-        return step;
-    }
-    m = working.match(trimmed);
-    if (m.hasMatch()) {
-        step.counts = true;
-        const QString verb = m.captured(1) == QLatin1String("removing") ? QStringLiteral("Removing")
-                                                                          : QStringLiteral("Installing");
-        step.now = total > 0 ? QStringLiteral("%1 %2 of %3: %4").arg(verb).arg(done + 1).arg(total).arg(m.captured(2))
-                             : QStringLiteral("%1 %2").arg(verb, m.captured(2));
-        return step;
-    }
-    if (trimmed.startsWith(QLatin1String(":: Synchronizing package databases")))
-        step.now = QStringLiteral("Checking what's new");
-    else if (trimmed.startsWith(QLatin1String(":: Retrieving packages")))
-        step.now = QStringLiteral("Downloading the updates");
-    else if (trimmed.startsWith(QLatin1String("checking keyring")) || trimmed.startsWith(QLatin1String("checking package integrity")))
-        step.now = QStringLiteral("Checking the updates are genuine");
-    else if (trimmed.startsWith(QLatin1String("checking for file conflicts")) || trimmed.startsWith(QLatin1String("checking available disk space")))
-        step.now = QStringLiteral("Checking there's room");
-    else if (trimmed.startsWith(QLatin1String(":: Running post-transaction hooks")))
-        step.now = QStringLiteral("Finishing up");
-    return step;
-}
-
-QString SystemUpdate::whyFailed(const QString &output, int exitCode)
-{
-    // pkexec's own: the prompt was dismissed, or not allowed.
-    if (exitCode == 126 || exitCode == 127)
-        return QStringLiteral("The password prompt was closed, so nothing was changed.");
-    if (exitCode == -2)
-        return QStringLiteral("The update couldn't start: this computer has no password prompt for it.");
-    const QString text = output.toLower();
-    if (text.contains(QLatin1String("unable to lock database")))
-        return QStringLiteral("Something else was installing, so nothing was changed. Try again when it has finished.");
-    if (text.contains(QLatin1String("could not resolve host")) || text.contains(QLatin1String("failed to retrieve some files"))
-        || text.contains(QLatin1String("failed to synchronize")))
-        return QStringLiteral("The updates couldn't be downloaded. Check the internet connection and try again; "
-                              "nothing was changed.");
-    if (text.contains(QLatin1String("not enough free disk space")))
-        return QStringLiteral("There wasn't enough free space, so nothing was changed.");
-    if (text.contains(QLatin1String("signature from")) || text.contains(QLatin1String("invalid or corrupted package"))
-        || text.contains(QLatin1String("unknown trust")))
-        return QStringLiteral("Some updates couldn't be checked as genuine, so nothing was installed. This is usually "
-                              "the security keys being out of date; Genie can help.");
-    if (text.contains(QLatin1String("conflicting files")))
-        return QStringLiteral("Two packages wanted the same file, so nothing was installed. Genie can help find which.");
-    if (text.contains(QLatin1String("unable to satisfy dependency")) || text.contains(QLatin1String("could not satisfy dependencies"))
-        || text.contains(QLatin1String("conflicting dependencies")))
-        return QStringLiteral("Something installed on this computer blocks the update, often an app from outside "
-                              "the official shelf. Nothing was installed; Genie can help find it.");
-    if (text.contains(QLatin1String("stopped:")))
-        return QStringLiteral("The update was stopped.");
-    return QStringLiteral("The update didn't finish. Genie can read what happened and help.");
-}
-
 void SystemUpdate::readAfter(const QString &output, Result &result)
 {
     QString section;
@@ -453,36 +342,16 @@ void SystemUpdate::readAfter(const QString &output, Result &result)
     }
 }
 
-void SystemUpdate::setStage(const QString &stage)
-{
-    if (m_stage == stage)
-        return;
-    m_stage = stage;
-    Q_EMIT changed();
-}
-
-void SystemUpdate::appendLog(const QString &line)
-{
-    m_log += line + QLatin1Char('\n');
-    // The fold holds the end of it.
-    if (m_log.size() > 20000)
-        m_log = m_log.right(16000);
-}
-
 void SystemUpdate::check()
 {
     if (busy())
         return;
     m_plan = Plan();
     m_result = Result();
-    m_done = 0;
-    m_total = 0;
-    m_now.clear();
-    m_log.clear();
+    clearProgress();
     setStage(QStringLiteral("looking"));
-    Q_EMIT progressChanged();
     // checkupdates fetches the lists, so it may take a while on a slow line.
-    run({Shell, QStringLiteral("-c"), m_lookScript}, 90000, [this](int, const QString &output) {
+    run(asPerson(m_lookScript), 90000, [this](int, const QString &output) {
         m_plan = readLook(output);
         qInfo().noquote() << QStringLiteral("%1: %2 system updates, %3 apps, %4 community waiting")
                                  .arg(productName()).arg(m_plan.system).arg(m_plan.apps).arg(m_plan.community);
@@ -493,38 +362,50 @@ void SystemUpdate::check()
 
 void SystemUpdate::start()
 {
-    if (m_stage != QLatin1String("ready") || !m_plan.blockers.isEmpty())
+    if (stage() != QLatin1String("ready") || !m_plan.blockers.isEmpty())
         return;
-    m_done = 0;
-    m_total = std::max(0, m_plan.system);
-    m_now = QStringLiteral("Waiting for your password");
-    m_log.clear();
+    // Written down, with how to go back, before anything changes.
+    m_id = QStringLiteral("update-%1").arg(QDateTime::currentDateTime().toString(QStringLiteral("yyyyMMdd-HHmmss")));
+    const bool restorePoints = m_plan.snapshots || m_plan.snapPac;
+    QString unrecorded;
+    if (!writeDown(m_id,
+                   m_plan.system > 0 ? QStringLiteral("Updated the computer (%1 packages)").arg(m_plan.system)
+                                     : QStringLiteral("Updated the computer"),
+                   restorePoints && m_plan.system != 0
+                       ? QStringLiteral("Go back to the restore point taken just before, from the Restore points card")
+                       : QString(),
+                   &unrecorded)) {
+        m_result = Result();
+        m_result.why = QStringLiteral("Nothing was changed: it couldn't be written in the notebook first. %1").arg(unrecorded);
+        finish(QString());
+        return;
+    }
+    clearProgress();
+    setProgress(0, std::max(0, m_plan.system));
+    setNow(QStringLiteral("Waiting for your password"));
     m_output.clear();
     setStage(QStringLiteral("updating"));
-    Q_EMIT progressChanged();
 
     if (m_plan.system == 0) {
         afterSystem(0, QString());
         return;
     }
-    QStringList program = m_elevate;
-    program << Shell << QStringLiteral("-c") << m_updateScript << productName()
-            << QStringLiteral("%1: Update").arg(productName())
-            << (m_snapshots && !m_plan.snapPac ? QStringLiteral("1") : QStringLiteral("0"));
+    const QStringList program = asAdmin(m_updateScript, {QStringLiteral("%1: Update").arg(productName()),
+                                                         m_snapshots && !m_plan.snapPac ? QStringLiteral("1") : QStringLiteral("0"),
+                                                         logPath(QStringLiteral("split-rock-update.log")),
+                                                         QStringLiteral("pacman"), QStringLiteral("-Syu"),
+                                                         QStringLiteral("--noconfirm"), QStringLiteral("--noprogressbar"),
+                                                         QStringLiteral("--color"), QStringLiteral("never")});
     qInfo().noquote() << QStringLiteral("%1: updating the system").arg(productName());
     // Never stopped by a timer: an update cut off halfway can leave the
     // computer unable to start.
     run(program, -1, [this](int exitCode, const QString &output) { afterSystem(exitCode, output); },
         [this](const QString &line) {
             appendLog(line);
-            const Step step = readStep(line, m_done, m_total);
-            if (step.total > 0)
-                m_total = step.total;
-            if (step.counts)
-                ++m_done;
+            const Step step = pacmanStep(line, done(), total());
+            setProgress(done() + (step.counts ? 1 : 0), step.total > 0 ? step.total : total());
             if (!step.now.isEmpty())
-                m_now = step.now;
-            Q_EMIT progressChanged();
+                setNow(step.now);
         });
 }
 
@@ -537,7 +418,7 @@ void SystemUpdate::afterSystem(int exitCode, const QString &output)
         m_result.pre = m.captured(1).toInt();
     if (const QRegularExpressionMatch m = post.match(output); m.hasMatch())
         m_result.post = m.captured(1).toInt();
-    m_result.installed = m_done;
+    m_result.installed = done();
     if (exitCode != 0) {
         m_result.ok = false;
         m_result.why = whyFailed(output, exitCode);
@@ -546,9 +427,8 @@ void SystemUpdate::afterSystem(int exitCode, const QString &output)
         return;
     }
     const auto after = [this] {
-        m_now = QStringLiteral("Looking over the computer");
-        Q_EMIT progressChanged();
-        run({Shell, QStringLiteral("-c"), m_afterScript}, 30000, [this](int, const QString &afterOutput) {
+        setNow(QStringLiteral("Looking over the computer"));
+        run(asPerson(m_afterScript), 30000, [this](int, const QString &afterOutput) {
             readAfter(afterOutput, m_result);
             m_result.restart = m_result.restart || (m_plan.restartLikely && m_result.installed > 0);
             m_result.ok = true;
@@ -559,9 +439,8 @@ void SystemUpdate::afterSystem(int exitCode, const QString &output)
         after();
         return;
     }
-    m_now = QStringLiteral("Updating your apps");
-    Q_EMIT progressChanged();
-    run({Shell, QStringLiteral("-c"), m_appsScript}, 30 * 60000,
+    setNow(QStringLiteral("Updating your apps"));
+    run(asPerson(m_appsScript), 30 * 60000,
         [this, after](int appsExit, const QString &appsOutput) {
             m_result.appsUpdated = appsExit == 0;
             m_output += QLatin1Char('\n') + appsOutput;
@@ -575,91 +454,29 @@ void SystemUpdate::afterSystem(int exitCode, const QString &output)
 
 void SystemUpdate::finish(const QString &output)
 {
-    m_now.clear();
+    setNow(QString());
     setStage(m_result.ok ? QStringLiteral("done") : QStringLiteral("failed"));
-    Q_EMIT progressChanged();
     Q_EMIT changed();
     Q_EMIT finished(m_result, output);
-}
-
-void SystemUpdate::close()
-{
-    if (m_stage == QLatin1String("updating"))
+    if (m_id.isEmpty())
         return;
-    if (m_process) {
-        m_process->disconnect(this);
-        m_process->kill();
-        m_process->deleteLater();
-        m_process = nullptr;
-    }
-    setStage(QString());
-}
-
-void SystemUpdate::restart()
-{
-    // The desktop's own prompt, which counts down and can be cancelled.
-    QProcess::startDetached(QStringLiteral("qdbus6"), {QStringLiteral("org.kde.LogoutPrompt"),
-                                                       QStringLiteral("/LogoutPrompt"),
-                                                       QStringLiteral("promptReboot")});
-}
-
-void SystemUpdate::openLink(const QString &link)
-{
-    const QUrl url(link);
-    if (url.scheme() == QLatin1String("https"))
-        QProcess::startDetached(QStringLiteral("xdg-open"), {url.toString()});
-}
-
-void SystemUpdate::run(const QStringList &program, int timeLimit, std::function<void(int, const QString &)> done,
-                       std::function<void(const QString &)> eachLine)
-{
-    auto *process = new QProcess(this);
-    m_process = process;
-    process->setProcessChannelMode(QProcess::MergedChannels);
-    process->setProgram(program.first());
-    process->setArguments(program.mid(1));
-    auto output = std::make_shared<QString>();
-    auto partial = std::make_shared<QString>();
-    connect(process, &QProcess::readyRead, this, [process, output, partial, eachLine] {
-        const QString chunk = QString::fromUtf8(process->readAll());
-        *output += chunk;
-        *partial += chunk;
-        qsizetype end;
-        while ((end = partial->indexOf(QLatin1Char('\n'))) >= 0) {
-            const QString line = partial->left(end);
-            partial->remove(0, end + 1);
-            if (eachLine)
-                eachLine(line);
-        }
-    });
-    connect(process, &QProcess::finished, this, [this, process, output, done](int exitCode, QProcess::ExitStatus status) {
-        *output += QString::fromUtf8(process->readAll());
-        if (process->property("timedOut").toBool())
-            *output += QStringLiteral("\nStopped: it was still running when its time was up.");
-        if (m_process == process)
-            m_process = nullptr;
-        process->deleteLater();
-        done(status == QProcess::NormalExit ? exitCode : -1, output->trimmed());
-    });
-    connect(process, &QProcess::errorOccurred, this, [this, process, done](QProcess::ProcessError error) {
-        if (error != QProcess::FailedToStart)
-            return;
-        if (m_process == process)
-            m_process = nullptr;
-        process->deleteLater();
-        done(-2, QStringLiteral("%1 could not be started.").arg(process->program()));
-    });
-    if (timeLimit > 0) {
-        auto *limit = new QTimer(process);
-        limit->setSingleShot(true);
-        connect(limit, &QTimer::timeout, process, [process] {
-            process->setProperty("timedOut", true);
-            process->kill();
-        });
-        connect(process, &QProcess::started, limit, [limit, timeLimit] { limit->start(timeLimit); });
-    }
-    process->start();
-    process->closeWriteChannel();
+    QString tail = output;
+    if (tail.size() > 3000)
+        tail = QStringLiteral("...") + tail.right(3000);
+    report(std::exchange(m_id, QString()), m_result.ok,
+           m_result.ok ? QStringLiteral("Updated the computer") : QStringLiteral("The update didn't finish"),
+           QStringLiteral("%1 ran its own Update card, which the person started. %2\n"
+                          "Restart needed: %3. Settings files left beside the person's own (.pacnew): %4. "
+                          "Services that failed after: %5.\nThe end of the output:\n%6\n\n"
+                          "Tell the person in plain words what needs them, if anything. Don't propose the "
+                          "update again.")
+               .arg(productName(),
+                    m_result.ok ? QStringLiteral("It finished, %1 packages installed.").arg(m_result.installed)
+                                : QStringLiteral("It failed: %1").arg(m_result.why),
+                    m_result.restart ? QStringLiteral("yes") : QStringLiteral("no"),
+                    m_result.settingsFiles.isEmpty() ? QStringLiteral("none") : m_result.settingsFiles.join(QStringLiteral(", ")),
+                    m_result.failedServices.isEmpty() ? QStringLiteral("none") : m_result.failedServices.join(QStringLiteral(", ")),
+                    tail.isEmpty() ? QStringLiteral("(none)") : tail));
 }
 
 } // namespace splitrock

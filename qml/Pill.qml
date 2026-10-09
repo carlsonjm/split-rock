@@ -9,12 +9,16 @@ Rectangle {
     property int fontSize: 14
     property int padding: 18
     property string iconPath
+    // A filled pill's colour, and its ink: the accent unless a card has its
+    // own.
+    property color tone: theme.accent
+    property color toneInk: theme.accentInk
     signal clicked()
 
     implicitHeight: 44
     implicitWidth: row.implicitWidth + padding * 2
     radius: height / 2
-    color: filled ? (area.pressed ? Qt.darker(theme.accent, 1.12) : area.containsMouse ? Qt.lighter(theme.accent, 1.06) : theme.accent)
+    color: filled ? (area.pressed ? Qt.darker(tone, 1.12) : area.containsMouse ? Qt.lighter(tone, 1.06) : tone)
                   : (area.pressed ? theme.line : area.containsMouse ? theme.chip : theme.raised)
     border.width: filled ? 0 : 1
     border.color: theme.hairline
@@ -42,7 +46,7 @@ Rectangle {
         Text {
             id: label
             anchors.verticalCenter: parent.verticalCenter
-            color: pill.filled ? theme.accentInk : theme.text
+            color: pill.filled ? pill.toneInk : theme.text
             font.pixelSize: pill.fontSize
             font.weight: pill.filled ? Font.Bold : Font.DemiBold
         }
@@ -54,7 +58,7 @@ Rectangle {
         radius: height / 2
         color: "transparent"
         border.width: 2
-        border.color: theme.accent
+        border.color: pill.tone
         visible: pill.activeFocus
     }
 

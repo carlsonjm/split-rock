@@ -31,3 +31,17 @@ var shield = "M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"
 var lock = "M5 11h14v10H5z M8 11V7a4 4 0 0 1 8 0v4"
 var power = "M12 2v10 M18.4 6.6a9 9 0 1 1-12.8 0"
 var external = "M15 3h6v6 M10 14L21 3 M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"
+// The other upkeep cards: a drive, a download, going back, a pulse, a
+// package and a magnifier.
+var drive = "M22 12H2 M5.45 5.11L2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z M6 16h.01 M10 16h.01"
+var download = "M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4 M7 10l5 5 5-5 M12 15V3"
+var history = "M3 12a9 9 0 1 0 3-6.7L3 8 M3 3v5h5 M12 7v5l4 2"
+var pulse = "M22 12h-4l-3 9L9 3l-3 9H2"
+var box = "M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z M3.27 6.96L12 12.01l8.73-5.05 M12 22.08V12"
+var search = "M11 4a7 7 0 1 0 0 14a7 7 0 1 0 0-14 M21 21l-4.35-4.35"
+var back = "M15 18l-6-6 6-6"
+
+// Each upkeep card's icon.
+function forChore(name) {
+    return ({ update: refresh, space: drive, install: download, restore: history, health: pulse, community: box })[name] || refresh
+}

@@ -1,0 +1,7 @@
+@@ foreign
+visual-studio-code-bin 1.104.0-1
+spotify 1:1.2.70.409-1
+local-thing 1.0-1
+@@ shelf
+{"resultcount":2,"results":[{"Name":"visual-studio-code-bin","PackageBase":"visual-studio-code-bin","Version":"1.105.1-1","Description":"Visual Studio Code (vscode)","Maintainer":"dcelasun","NumVotes":1400,"OutOfDate":null},{"Name":"spotify","PackageBase":"spotify","Version":"1:1.2.70.409-1","Description":"A proprietary music streaming service","Maintainer":null,"NumVotes":800,"OutOfDate":1759000000}],"type":"multiinfo","version":5}
+@@ end

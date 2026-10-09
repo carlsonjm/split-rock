@@ -51,6 +51,12 @@ QStringList shellWords(const QString &line)
     return words;
 }
 
+QStringList ChangeProposal::cards()
+{
+    return {QStringLiteral("update"), QStringLiteral("space"), QStringLiteral("install"),
+            QStringLiteral("restore"), QStringLiteral("health"), QStringLiteral("community")};
+}
+
 std::optional<ChangeProposal> ChangeProposal::fromJson(const QByteArray &json, QString *error)
 {
     const auto fail = [error](const QString &why) -> std::optional<ChangeProposal> {
@@ -71,6 +77,10 @@ std::optional<ChangeProposal> ChangeProposal::fromJson(const QByteArray &json, Q
     change.undo = object.value(QStringLiteral("undo")).toString().trimmed();
     change.check = object.value(QStringLiteral("check")).toString().trimmed();
     change.admin = object.value(QStringLiteral("admin")).toBool();
+    change.card = object.value(QStringLiteral("card")).toString().trimmed().toLower();
+    change.query = object.value(QStringLiteral("query")).toString().simplified().left(80);
+    if (!change.card.isEmpty() && !cards().contains(change.card))
+        return fail(QStringLiteral("There is no %1 card. The cards are: %2.").arg(change.card, cards().join(QStringLiteral(", "))));
     for (const QJsonValue &file : object.value(QStringLiteral("files")).toArray()) {
         const QString path = file.toString().trimmed();
         if (!path.isEmpty())
@@ -86,7 +96,7 @@ std::optional<ChangeProposal> ChangeProposal::fromJson(const QByteArray &json, Q
         change.undo.remove(elevated);
     if (change.title.isEmpty())
         return fail(QStringLiteral("The proposal has no title."));
-    if (change.command.isEmpty())
+    if (change.command.isEmpty() && change.card.isEmpty())
         return fail(QStringLiteral("The proposal has no command."));
     if (change.what.isEmpty())
         change.what = change.title;
@@ -186,7 +196,7 @@ QString ChangeProposal::wholeSystemUpdate() const
 
 QJsonObject ChangeProposal::toJson() const
 {
-    return {{QStringLiteral("title"), title},
+    QJsonObject object{{QStringLiteral("title"), title},
             {QStringLiteral("what"), what},
             {QStringLiteral("why"), why},
             {QStringLiteral("command"), command},
@@ -194,6 +204,11 @@ QJsonObject ChangeProposal::toJson() const
             {QStringLiteral("check"), check},
             {QStringLiteral("admin"), admin},
             {QStringLiteral("files"), QJsonArray::fromStringList(files)}};
+    if (!card.isEmpty())
+        object.insert(QStringLiteral("card"), card);
+    if (!query.isEmpty())
+        object.insert(QStringLiteral("query"), query);
+    return object;
 }
 
 } // namespace splitrock

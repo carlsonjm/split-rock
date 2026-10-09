@@ -825,6 +825,112 @@ private Q_SLOTS:
         update->close();
         QTRY_VERIFY(!find(full, QStringLiteral("updateCard")));
     }
+    void theUpkeepCardsShowEachStep()
+    {
+        PretendFixture f;
+        QVERIFY(f.isValid());
+        Conversation c({f.assistant(QStringLiteral("signed-in.json"))});
+        const QString chores = QStringLiteral(FIXTURES_DIR "/chores/");
+        const auto printing = [&chores](const QString &name) { return QStringLiteral("cat '") + chores + name + QLatin1Char('\''); };
+        // Everything the cards would run is the test's own.
+        SpaceCleanup *space = c.spaceCleanup();
+        space->setElevate({});
+        space->setLookScript(printing(QStringLiteral("space-look.txt")));
+        space->setAdminScript(QStringLiteral("echo '@@ step pkgcache'; sleep 0.3; echo '@@ step journal'"));
+        space->setPersonScript(QStringLiteral("echo '@@ step cache'"));
+        space->setFreeScript(QStringLiteral("echo 52500000"));
+        AppInstall *install = c.appInstall();
+        install->setElevate({});
+        install->setSearchScript(printing(QStringLiteral("install-search.txt")));
+        install->setShelfScript(QStringLiteral("echo 'Packages (1) pdfarranger-1.11-1'; echo 'installing pdfarranger...'"));
+        install->setOpenScript(QStringLiteral("true"));
+        RestorePoints *restore = c.restorePoints();
+        restore->setLookScript(printing(QStringLiteral("restore-look.txt")));
+        HealthCheck *health = c.healthCheck();
+        health->setLookScript(printing(QStringLiteral("health-look.txt")));
+        CommunityApps *community = c.communityApps();
+        community->setElevate({});
+        community->setLookScript(printing(QStringLiteral("community-look.txt")));
+        community->setReviewScript(printing(QStringLiteral("community-review.txt")));
+        community->setBuildScript(QStringLiteral("echo '@@ step build'; echo '==> Making package: visual-studio-code-bin'"));
+        // The pretend assistant answers only what its script expects, so how
+        // each card went isn't told to it here.
+        for (Chore *chore : std::initializer_list<Chore *>{space, install, restore, health, community})
+            chore->setReport({});
+
+        QQmlApplicationEngine engine;
+        QQuickWindow *window = open(engine, c);
+        QVERIFY(window);
+        c.chooseAssistant(QStringLiteral("pretend"));
+        QTRY_COMPARE(c.phase(), QStringLiteral("ready"));
+        QMetaObject::invokeMethod(window, "expand");
+        Shell *shell = shellOf(engine);
+        QTRY_VERIFY(shell->full() && shell->full()->isVisible());
+        QQuickWindow *full = shell->full();
+        full->showNormal();
+        full->setGeometry(0, 0, 1280, 800);
+
+        // Before anything is asked, the cards to start from.
+        QTRY_VERIFY(find(full, QStringLiteral("welcomeShelf")) && find(full, QStringLiteral("welcomeShelf"))->isVisible());
+        settle();
+        QVERIFY(overflowing(full).isEmpty());
+        shoot(full, QStringLiteral("30-welcome-shelf"));
+
+        const auto shows = [&](const QString &card, const QString &shot) {
+            QTRY_VERIFY2(find(full, card) && find(full, card)->isVisible(), qPrintable(shot + QLatin1Char(' ') + c.chore() + QLatin1Char(' ') + c.phase() + QLatin1Char(' ')
+                                   + (find(full, QStringLiteral("fullStep")) && find(full, QStringLiteral("fullStep"))->property("item").value<QObject *>()
+                                          ? find(full, QStringLiteral("fullStep"))->property("item").value<QObject *>()->objectName() : QStringLiteral("none"))
+                                   + QLatin1Char(' ') + c.problem()));
+            settle();
+            const QStringList past = overflowing(full);
+            if (!past.isEmpty())
+                qWarning().noquote() << shot << past;
+            QVERIFY(past.isEmpty());
+            shoot(full, shot);
+        };
+
+        QVERIFY(c.openChore(QStringLiteral("space")));
+        QTRY_COMPARE(space->stage(), QStringLiteral("ready"));
+        shows(QStringLiteral("spaceCard"), QStringLiteral("31-space-ready"));
+        QMetaObject::invokeMethod(find(full, QStringLiteral("spaceButton")), "clicked");
+        QTRY_COMPARE(space->stage(), QStringLiteral("done"));
+        shows(QStringLiteral("spaceCard"), QStringLiteral("32-space-done"));
+
+        QVERIFY(c.openChore(QStringLiteral("install"), QStringLiteral("pdf editor")));
+        QTRY_COMPARE(install->stage(), QStringLiteral("results"));
+        shows(QStringLiteral("installCard"), QStringLiteral("33-install-results"));
+        install->install(QStringLiteral("shelf:pdfarranger"));
+        QTRY_COMPARE(install->stage(), QStringLiteral("done"));
+        shows(QStringLiteral("installCard"), QStringLiteral("34-install-done"));
+
+        QVERIFY(c.openChore(QStringLiteral("restore")));
+        QTRY_COMPARE(restore->stage(), QStringLiteral("ready"));
+        shows(QStringLiteral("restoreCard"), QStringLiteral("35-restore-ready"));
+        restore->choose(313);
+        shows(QStringLiteral("restoreCard"), QStringLiteral("36-restore-chosen"));
+
+        QVERIFY(c.openChore(QStringLiteral("health")));
+        QTRY_COMPARE(health->stage(), QStringLiteral("done"));
+        shows(QStringLiteral("healthCard"), QStringLiteral("37-health"));
+
+        QVERIFY(c.openChore(QStringLiteral("community")));
+        QTRY_COMPARE(community->stage(), QStringLiteral("ready"));
+        shows(QStringLiteral("communityCard"), QStringLiteral("38-community-ready"));
+        community->look(QStringLiteral("visual-studio-code-bin"));
+        QTRY_COMPARE(community->stage(), QStringLiteral("reviewed"));
+        shows(QStringLiteral("communityCard"), QStringLiteral("39-community-review"));
+
+        // A narrow window, as a Bento column: nothing runs past its edge.
+        full->setGeometry(0, 0, 420, 800);
+        QVERIFY(c.openChore(QStringLiteral("health")));
+        QTRY_COMPARE(health->stage(), QStringLiteral("done"));
+        shows(QStringLiteral("healthCard"), QStringLiteral("40-health-narrow"));
+        QVERIFY(c.openChore(QStringLiteral("space")));
+        QTRY_COMPARE(space->stage(), QStringLiteral("ready"));
+        shows(QStringLiteral("spaceCard"), QStringLiteral("41-space-narrow"));
+        space->close();
+        QTRY_VERIFY(!find(full, QStringLiteral("spaceCard")));
+    }
 };
 
 QTEST_MAIN(TestSheet)

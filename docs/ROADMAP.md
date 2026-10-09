@@ -128,7 +128,9 @@ More changes for the card, each with its undo: text size, Wi-Fi, printers,
 updates with a snapshot first, finding a download, installing an app.
 
 **Built ahead:** the Update card (`DECISIONS.md`, The Update card updates the
-computer).
+computer), and Free up space, Install an app, Restore points, Health check and
+Community apps (`DECISIONS.md`, Upkeep has cards of its own). Each still needs
+its first run on a spare machine.
 
 **Proves:** the common jobs from real use are covered without Show details ever
 being needed.

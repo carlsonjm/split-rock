@@ -152,7 +152,8 @@ Item {
         }
     }
 
-    // What the person asked: a soft bubble at the right.
+    // What the person asked: a bubble at the right, in the conversation's
+    // colours.
     component Asked: Item {
         property string text
         width: talk.reading
@@ -162,14 +163,18 @@ Item {
             width: Math.min(Math.min(520, Math.round(parent.width * 0.8)), askedText.implicitWidth + 36)
             height: parent.height
             radius: theme.bubbleRadius
-            color: theme.chip
+            gradient: Gradient {
+                orientation: Gradient.Horizontal
+                GradientStop { position: 0; color: theme.accent }
+                GradientStop { position: 1; color: theme.accentTo }
+            }
             Text {
                 id: askedText
                 x: 18; y: 12
                 width: parent.width - 36
                 wrapMode: Text.WordWrap
                 text: parent.parent.text
-                color: theme.text
+                color: theme.accentInk
                 font.pixelSize: 16
                 lineHeight: 1.3
             }
@@ -565,6 +570,17 @@ Item {
                     lineHeight: 1.3
                 }
 
+                // Before anything is asked: the upkeep cards, to start from.
+                Column {
+                    objectName: "welcomeShelf"
+                    visible: conversation.turns.length === 0 && conversation.question === "" && !step.item
+                             && !conversation.choosing
+                    width: talk.reading
+                    spacing: 12
+                    Heading { text: "LOOK AFTER THIS COMPUTER" }
+                    UpkeepShelf { width: parent.width }
+                }
+
                 Repeater {
                     model: conversation.turns
                     Column {
@@ -630,13 +646,23 @@ Item {
                     sourceComponent: {
                         if (conversation.choosing)
                             return chooseStep
+                        // An upkeep card the person opened needs no
+                        // assistant, so it comes before the assistant's own
+                        // steps.
+                        switch (conversation.chore) {
+                        case "update": return updateStep
+                        case "space": return spaceStep
+                        case "install": return installStep
+                        case "restore": return restoreStep
+                        case "health": return healthStep
+                        case "community": return communityStep
+                        }
                         switch (conversation.phase) {
                         case "starting": return startingStep
                         case "signIn":
                         case "signingIn": return signInStep
                         case "problem": return problemStep
-                        default: return conversation.update.stage !== "" ? updateStep
-                                      : conversation.cardOpen ? doItStep : null
+                        default: return conversation.cardOpen ? doItStep : null
                         }
                     }
                 }
@@ -700,7 +726,11 @@ Item {
                 anchors.rightMargin: 8
                 anchors.verticalCenter: parent.verticalCenter
                 width: 42; height: 42; radius: 21
-                color: theme.accent
+                gradient: Gradient {
+                    orientation: Gradient.Horizontal
+                    GradientStop { position: 0; color: theme.accent }
+                    GradientStop { position: 1; color: theme.accentTo }
+                }
                 opacity: full.working || (full.canAsk && wideField.text.trim() !== "") ? 1 : 0.38
                 Accessible.role: Accessible.Button
                 Accessible.name: full.working ? "Stop" : "Send"
@@ -849,25 +879,24 @@ Item {
                         value: systemName
                     }
                     Tile {
+                        objectName: "lastRestorePoint"
                         width: (parent.width - (tiles.columns - 1) * 10) / tiles.columns
-                        label: "LAST SNAPSHOT"
-                        value: "None yet"
+                        label: "LAST RESTORE POINT"
+                        value: conversation.restore.newest !== "" ? conversation.restore.newest : "Tap to see"
+                        MouseArea {
+                            anchors.fill: parent
+                            cursorShape: Qt.PointingHandCursor
+                            onClicked: if (conversation.openChore("restore") && full.narrow) full.toggleNotebook()
+                        }
                     }
                 }
 
-                // The Update card, opened in the conversation.
-                Pill {
-                    objectName: "checkUpdates"
-                    implicitHeight: 44
-                    iconPath: Icons.refresh
-                    enabled: conversation.update.stage === "" || conversation.update.stage === "nothing"
-                             || conversation.update.stage === "done" || conversation.update.stage === "failed"
-                    text: "Check for updates"
-                    onClicked: {
-                        conversation.update.check()
-                        if (full.narrow)
-                            full.toggleNotebook()
-                    }
+                // The upkeep cards, opened in the conversation.
+                Heading { text: "LOOK AFTER IT" }
+                UpkeepShelf {
+                    width: parent.width
+                    columns: 2
+                    onOpened: if (full.narrow) full.toggleNotebook()
                 }
 
                 Heading { text: "CHANGES" }
@@ -1000,4 +1029,9 @@ Item {
     Component { id: problemStep; ProblemPanel {} }
     Component { id: doItStep; DoItCard {} }
     Component { id: updateStep; UpdateCard {} }
+    Component { id: spaceStep; SpaceCard {} }
+    Component { id: installStep; InstallCard {} }
+    Component { id: restoreStep; RestoreCard {} }
+    Component { id: healthStep; HealthCard {} }
+    Component { id: communityStep; CommunityCard {} }
 }

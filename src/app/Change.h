@@ -30,8 +30,14 @@ struct ChangeProposal {
     // The person's own files the command changes: copied aside first, and put
     // back by Undo.
     QStringList files;
+    // One of Split Rock's own upkeep cards to open instead of a command:
+    // update, space, install, restore, health or community. query is what
+    // the person asked to install, for install.
+    QString card;
+    QString query;
 
     static constexpr const char *Program = "split-rock-change";
+    static QStringList cards();
 
     // The proposal as the stand-in received it.
     static std::optional<ChangeProposal> fromJson(const QByteArray &json, QString *error = nullptr);
