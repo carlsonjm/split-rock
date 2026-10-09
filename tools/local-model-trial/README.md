@@ -30,6 +30,20 @@ This is a lighter loop than Codex's own, which wraps the model in a much
 longer coding prompt. A local Genie would talk to the model this way, through
 Split Rock, rather than through Codex.
 
+## Round two: the front desk
+
+`desk.py` tests the setup round one pointed to. Genie keeps the steering: a
+fixed safety check with no model answers scam, password, payment and
+destructive asks; the model sorts each ask (an answer, or a change and which
+skill), answers in words with no tools, or fills in the Do it card after Genie
+has run the skill's look-around itself. A change no skill covers goes to Codex.
+The model's sorting and cards are held to their shape by llama-server.
+
+The safety check's patterns were written knowing these cases, so its catch
+rate here says more about the design than about how it would fare in daily use.
+
+    MODE=desk ./run-on-device.sh       # into results-desk/
+
 ## Running it
 
 Needs Python 3 and a network connection. `run-on-device.sh` fetches llama.cpp's

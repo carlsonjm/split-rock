@@ -9,6 +9,7 @@
 #
 #   ./run-on-device.sh               4B, 8B and 14B, then a slow-laptop pass of each
 #   ./run-on-device.sh qwen3-8b      one model only
+#   MODE=desk ./run-on-device.sh     the front-desk setup (desk.py), into results-desk/
 #
 # Set LLAMA_SERVER to use a llama-server already on this computer instead.
 set -eu
@@ -16,7 +17,10 @@ here=$(cd "$(dirname "$0")" && pwd)
 work="$here/.work"
 port=8080
 host="http://127.0.0.1:$port"
-mkdir -p "$work" "$here/results"
+mode=${MODE:-agent}
+results="$here/results"
+[ "$mode" = desk ] && results="$here/results-desk"
+mkdir -p "$work" "$results"
 export LLAMA_CACHE="$work/models"
 
 # Each size, and where its quantized model is published.
@@ -86,15 +90,23 @@ for name in $wanted; do
     # Quality and speed as this computer runs it, graphics chip included.
     before=$(gpu_used)
     start_server "$repo" "$work/$name.log" -ngl 99
-    python3 "$here/trial.py" --model "$name" --gpu-before "$before"
+    if [ "$mode" = desk ]; then
+        python3 "$here/desk.py" --model "$name" --gpu-before "$before" --out "$results"
+    else
+        python3 "$here/trial.py" --model "$name" --gpu-before "$before"
+    fi
     stop_server
 
     # Speed on a slow laptop: processor only, four threads, the short set.
     start_server "$repo" "$work/$name-cpu4.log" -ngl 0 -t 4
-    python3 "$here/trial.py" --model "$name" --cpu --threads 4 --only speed --label "$name-cpu4"
+    if [ "$mode" = desk ]; then
+        python3 "$here/desk.py" --model "$name" --cpu --threads 4 --only speed --label "$name-desk-cpu4" --out "$results"
+    else
+        python3 "$here/trial.py" --model "$name" --cpu --threads 4 --only speed --label "$name-cpu4"
+    fi
     stop_server
 done
 
-python3 "$here/report.py" "$here/results" all > "$here/results/report.md"
-python3 "$here/report.py" "$here/results" table
-echo "Full report: $here/results/report.md"
+python3 "$here/report.py" "$results" all > "$results/report.md"
+python3 "$here/report.py" "$results" table
+echo "Full report: $results/report.md"

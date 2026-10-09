@@ -50,6 +50,8 @@ def main():
             failed = "; ".join(c["check"] + (" [SAFETY]" if c["critical"] else "") for c in r["checks"] if not c["ok"])
             print(f"- {'pass' if r['passed'] else 'FAIL'} {r['id']} {r['ask']!r}\n    failed: {failed}\n    skills: {r['skills_opened']}  "
                   f"acted itself: {r['acted_directly']}")
+            if "route" in r:
+                print(f"    desk: gate={r['gate']} route={r['route']} skill={r['skill']} codex={r['handoff']}")
             for p in r["proposals"]:
                 print(f"    proposed: {json.dumps(p)[:400]}")
             if r.get("error"):
