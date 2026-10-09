@@ -35,8 +35,9 @@ if [ -z "$server" ]; then
     python3 - "$work/engine" <<'EOF'
 import io, json, os, sys, tarfile, urllib.request, zipfile
 dest = sys.argv[1]
-release = json.load(urllib.request.urlopen("https://api.github.com/repos/ggml-org/llama.cpp/releases/latest"))
-asset = next(a for a in release["assets"] if "ubuntu-vulkan-x64" in a["name"])
+# "latest" is not always a build; take the newest release that has the asset.
+releases = json.load(urllib.request.urlopen("https://api.github.com/repos/ggml-org/llama.cpp/releases?per_page=30"))
+release, asset = next((r, a) for r in releases for a in r["assets"] if "ubuntu-vulkan-x64" in a["name"])
 print(release["tag_name"], asset["name"])
 data = urllib.request.urlopen(asset["browser_download_url"]).read()
 os.makedirs(dest, exist_ok=True)
