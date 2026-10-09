@@ -9,81 +9,113 @@ Column {
     id: root
     spacing: 14
 
+    // How it would be undone, and whether it needs the password: an icon
+    // and the card's own words.
+    component Fact: Row {
+        property string icon
+        property string label
+        property string value
+        width: root.width - 80
+        spacing: 12
+        Icon {
+            y: 2
+            width: 18; height: 18
+            path: parent.icon
+            color: theme.accent
+        }
+        Text {
+            width: parent.width - 30
+            wrapMode: Text.WordWrap
+            text: "<b>" + parent.label + "</b>  " + parent.value.replace(/&/g, "&amp;").replace(/</g, "&lt;")
+            textFormat: Text.StyledText
+            color: theme.text
+            font.pixelSize: 15
+            lineHeight: 1.35
+        }
+    }
+
     Rectangle {
         objectName: "doItCard"
         width: parent.width
-        height: article.implicitHeight + 38
-        radius: 18
-        color: theme.panel
+        height: article.implicitHeight + 48
+        radius: theme.cardRadius
+        color: theme.raised
         border.width: 1
-        border.color: theme.line
+        border.color: theme.hairline
 
         Column {
             id: article
-            x: 22; y: 20
-            width: parent.width - 44
+            x: 24; y: 24
+            width: parent.width - 48
+            spacing: 18
 
             Row {
-                spacing: 12
-                bottomPadding: 8
-                Mark {
-                    width: 40; height: 40
-                    radius: 12
-                    path: Icons.forKind(conversation.card.kind || "")
+                spacing: 14
+                Rectangle {
+                    width: 44; height: 44
+                    radius: 14
+                    color: theme.accentSoft
+                    Icon {
+                        anchors.centerIn: parent
+                        width: 22; height: 22
+                        stroke: 2
+                        path: Icons.forKind(conversation.card.kind || "")
+                        color: theme.accent
+                    }
                 }
-                Text {
+                Column {
                     anchors.verticalCenter: parent.verticalCenter
-                    width: article.width - 52
-                    wrapMode: Text.WordWrap
-                    text: conversation.card.heading || ""
-                    color: theme.text
-                    font.pixelSize: 22
-                    font.weight: Font.ExtraBold
-                }
-            }
-
-            Repeater {
-                model: [
-                    { label: "WHAT CHANGES", value: conversation.card.whatChanges },
-                    { label: "WHY", value: conversation.card.why },
-                    { label: "UNDO", value: conversation.card.undo },
-                    { label: "PASSWORD", value: conversation.card.password }
-                ]
-                Item {
-                    width: article.width
-                    height: Math.max(labelText.implicitHeight, valueText.implicitHeight) + 28
-                    Rectangle { width: parent.width; height: 1; color: theme.line }
+                    width: article.width - 58
+                    spacing: 3
                     Text {
-                        id: labelText
-                        y: 17
-                        width: 150
-                        text: modelData.label
-                        color: theme.quiet
-                        font.pixelSize: 12
-                        font.weight: Font.ExtraBold
-                        font.letterSpacing: 0.7
+                        width: parent.width
+                        wrapMode: Text.WordWrap
+                        text: conversation.card.heading || ""
+                        color: theme.text
+                        font.pixelSize: 22
+                        font.weight: Font.Bold
                     }
                     Text {
-                        id: valueText
-                        x: 166; y: 14
-                        width: parent.width - 166
+                        width: parent.width
                         wrapMode: Text.WordWrap
-                        text: modelData.value || ""
-                        color: theme.text
-                        font.pixelSize: 16
+                        visible: text !== ""
+                        text: conversation.card.whatChanges || ""
+                        color: theme.quiet
+                        font.pixelSize: 15
                         lineHeight: 1.3
                     }
                 }
             }
 
-            Rectangle { width: article.width; height: 1; color: theme.line }
-            Item { width: 1; height: 12 }
+            Text {
+                width: article.width
+                wrapMode: Text.WordWrap
+                visible: text !== ""
+                text: conversation.card.why || ""
+                color: theme.text
+                font.pixelSize: 16
+                lineHeight: 1.45
+            }
+
+            Rectangle {
+                width: article.width
+                height: facts.implicitHeight + 32
+                radius: 16
+                color: theme.sheet
+                Column {
+                    id: facts
+                    x: 16; y: 16
+                    spacing: 12
+                    Fact { icon: Icons.shield; label: "Undo"; value: conversation.card.undo || "" }
+                    Fact { icon: Icons.lock; label: "Password"; value: conversation.card.password || "" }
+                }
+            }
+
             Fold {
                 width: article.width
                 body: conversation.card.details || ""
             }
 
-            Item { width: 1; height: 18 }
             Flow {
                 width: article.width
                 spacing: 10
@@ -114,9 +146,9 @@ Column {
                     onClicked: conversation.notNow()
                 }
             }
-            Item { width: 1; height: 10 }
             Text {
                 width: article.width
+                visible: text !== ""
                 wrapMode: Text.WordWrap
                 text: conversation.card.unavailable || ""
                 color: theme.quiet

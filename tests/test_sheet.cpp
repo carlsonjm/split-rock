@@ -7,6 +7,7 @@
 #include "PretendFixture.h"
 #include "app/Notebook.h"
 #include "app/QmlContext.h"
+#include "app/SystemUpdate.h"
 #include "desktop/Shell.h"
 #include "guide/GuideLibrary.h"
 
@@ -765,6 +766,64 @@ private Q_SLOTS:
         QCOMPARE(shell->workArea(), window->screen()->availableGeometry().translated(-window->screen()->geometry().topLeft()));
         QVERIFY(window->flags() & Qt::FramelessWindowHint);
         QVERIFY(window->flags() & Qt::WindowStaysOnTopHint);
+    }
+
+    // The Update card in the full window, at each step, run with scripts of
+    // the test's own.
+    void theUpdateCardShowsEachStep()
+    {
+        PretendFixture f;
+        QVERIFY(f.isValid());
+        Conversation c({f.assistant(QStringLiteral("signed-in.json"))});
+        SystemUpdate *update = c.systemUpdate();
+        update->setElevate({});
+        update->setLookScript(QStringLiteral("cat '" FIXTURES_DIR "/update/look.txt'"));
+        // Slowed so the card can be seen partway.
+        update->setUpdateScript(QStringLiteral("echo split-rock-pre=41; head -n 22 '" FIXTURES_DIR "/update/update.out'; "
+                                               "sleep 1.2; tail -n +23 '" FIXTURES_DIR "/update/update.out'; "
+                                               "echo split-rock-post=42"));
+        update->setAppsScript(QStringLiteral("echo Updating apps"));
+        update->setAfterScript(QStringLiteral("printf '@@ kernel\\nrestart\\n@@ settings\\n/etc/pacman.conf.pacnew\\n@@ failed\\n@@ end\\n'"));
+        QQmlApplicationEngine engine;
+        QQuickWindow *window = open(engine, c);
+        QVERIFY(window);
+        c.chooseAssistant(QStringLiteral("pretend"));
+        QTRY_COMPARE(c.phase(), QStringLiteral("ready"));
+
+        // In the card first.
+        update->check();
+        QTRY_COMPARE(update->stage(), QStringLiteral("ready"));
+        QTRY_VERIFY(find(window, QStringLiteral("updateCard")));
+        settle();
+        shoot(window, QStringLiteral("20-update-card"));
+
+        QMetaObject::invokeMethod(window, "expand");
+        Shell *shell = shellOf(engine);
+        QTRY_VERIFY(shell->full() && shell->full()->isVisible());
+        QQuickWindow *full = shell->full();
+        full->showNormal();
+        full->setGeometry(0, 0, 1280, 800);
+        QTRY_VERIFY(find(full, QStringLiteral("updateCard")));
+        settle();
+        QVERIFY(overflowing(full).isEmpty());
+        shoot(full, QStringLiteral("21-update-ready"));
+        QQuickItem *button = find(full, QStringLiteral("updateButton"));
+        QVERIFY(button && button->isVisible() && button->isEnabled());
+
+        QMetaObject::invokeMethod(button, "clicked");
+        QCOMPARE(update->stage(), QStringLiteral("updating"));
+        QTRY_VERIFY(update->done() >= 2);
+        settle();
+        QVERIFY(find(full, QStringLiteral("updateProgress"))->isVisible());
+        shoot(full, QStringLiteral("22-update-running"));
+
+        QTRY_COMPARE_WITH_TIMEOUT(update->stage(), QStringLiteral("done"), 10000);
+        settle();
+        QVERIFY(find(full, QStringLiteral("restartButton"))->isVisible());
+        QVERIFY(overflowing(full).isEmpty());
+        shoot(full, QStringLiteral("23-update-done"));
+        update->close();
+        QTRY_VERIFY(!find(full, QStringLiteral("updateCard")));
     }
 };
 

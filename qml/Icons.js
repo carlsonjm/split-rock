@@ -23,3 +23,11 @@ var expand = "M15 3h6v6 M9 21H3v-6 M21 3l-7 7 M3 21l7-7"
 var close = "M18 6 6 18 M6 6l12 12"
 // The notebook, a panel at the window's right.
 var panel = "M5 3h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z M15 3v18"
+// The Update card: turning arrows, a tick, a warning, and a link out.
+var refresh = "M21 12a9 9 0 0 1-15.36 6.36L3 16 M3 12a9 9 0 0 1 15.36-6.36L21 8 M21 3v5h-5 M3 21v-5h5"
+var check = "M20 6L9 17L4 12"
+var alert = "M12 9v4 M12 17h.01 M10.3 3.9L1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"
+var shield = "M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"
+var lock = "M5 11h14v10H5z M8 11V7a4 4 0 0 1 8 0v4"
+var power = "M12 2v10 M18.4 6.6a9 9 0 1 1-12.8 0"
+var external = "M15 3h6v6 M10 14L21 3 M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"

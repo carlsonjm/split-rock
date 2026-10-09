@@ -43,7 +43,8 @@ Window {
     readonly property bool canAsk: conversation.phase === "ready"
     readonly property bool working: conversation.phase === "working"
     // The Do it card has the answer's place to itself, as in the mock-up.
-    readonly property bool cardMode: !conversation.choosing && conversation.cardOpen && (canAsk || working)
+    readonly property bool cardMode: !conversation.choosing && (conversation.cardOpen || conversation.update.stage !== "")
+                                    && (canAsk || working || conversation.update.stage !== "")
 
     function open() {
         shown = true
@@ -205,7 +206,7 @@ Window {
                     radius: height / 2
                     color: field.activeFocus || field.text !== "" ? theme.panel : "transparent"
                     border.width: 1
-                    border.color: field.activeFocus && window.canAsk ? theme.text : theme.edge
+                    border.color: field.activeFocus && window.canAsk ? theme.accent : theme.edge
                     opacity: window.expanded ? 0 : (window.canAsk || window.working ? 1 : 0.5)
                     visible: opacity > 0
                     enabled: !window.expanded
@@ -251,7 +252,7 @@ Window {
                         anchors.rightMargin: 5
                         anchors.verticalCenter: parent.verticalCenter
                         width: 34; height: 34; radius: 17
-                        color: clears ? theme.chip : theme.primary
+                        color: clears ? theme.chip : theme.accent
                         opacity: window.working || clears || (window.canAsk && field.text.trim() !== "") ? 1 : 0.38
                         Accessible.role: Accessible.Button
                         Accessible.name: window.working ? "Stop" : clears ? "New question" : "Send"
@@ -259,7 +260,7 @@ Window {
                             anchors.centerIn: parent
                             width: 15; height: 15
                             path: window.working ? Icons.stop : sendButton.clears ? Icons.close : Icons.arrow
-                            color: sendButton.clears ? theme.text : theme.primaryInk
+                            color: sendButton.clears ? theme.text : theme.accentInk
                         }
                         MouseArea {
                             anchors.fill: parent
@@ -377,7 +378,8 @@ Window {
                             case "signIn":
                             case "signingIn": return signInPanel
                             case "problem": return problemPanel
-                            default: return conversation.cardOpen ? doItCard : answerCard
+                            default: return conversation.update.stage !== "" ? updateCard
+                                          : conversation.cardOpen ? doItCard : answerCard
                             }
                         }
                     }
@@ -418,6 +420,7 @@ Window {
     Component { id: assistantList; AssistantList {} }
     Component { id: answerCard; AnswerCard {} }
     Component { id: doItCard; DoItCard {} }
+    Component { id: updateCard; UpdateCard {} }
     Component { id: signInPanel; SignInPanel { signInWith: id => window.signInThroughFull(id) } }
     Component { id: starting; StartingPanel {} }
     Component { id: problemPanel; ProblemPanel {} }

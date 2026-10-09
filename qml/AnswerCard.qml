@@ -4,9 +4,11 @@ import QtQuick
 // The answer, in short steps, as the Just Type mock-up draws it.
 Rectangle {
     id: card
-    color: theme.panel
-    radius: 16
-    implicitHeight: Math.max(196, content.implicitHeight + 36)
+    color: theme.raised
+    radius: theme.cardRadius
+    border.width: 1
+    border.color: theme.hairline
+    implicitHeight: Math.max(196, content.implicitHeight + 44)
 
     readonly property bool working: conversation.phase === "working"
     readonly property bool empty: conversation.question === ""
@@ -14,8 +16,8 @@ Rectangle {
 
     Column {
         id: content
-        x: 20; y: 18
-        width: parent.width - 40
+        x: 24; y: 22
+        width: parent.width - 48
         spacing: 12
 
         // Before the first question.
@@ -38,8 +40,8 @@ Rectangle {
                   : productName + " changes something on this computer only when you tap Do it on a card "
                     + conversation.assistantName + " offers."
             color: theme.quiet
-            font.pixelSize: 15
-            lineHeight: 1.3
+            font.pixelSize: 16
+            lineHeight: 1.4
         }
 
         Row {
@@ -49,7 +51,7 @@ Rectangle {
                 model: 3
                 Rectangle {
                     width: 8; height: 8; radius: 4
-                    color: theme.quiet
+                    color: theme.accent
                     SequentialAnimation on opacity {
                         loops: Animation.Infinite
                         PauseAnimation { duration: index * 160 }
@@ -68,7 +70,7 @@ Rectangle {
             wrapMode: Text.WordWrap
             text: conversation.headline
             color: theme.text
-            font.pixelSize: 16
+            font.pixelSize: 18
             font.weight: Font.Bold
             lineHeight: 1.3
         }
@@ -79,8 +81,8 @@ Rectangle {
             wrapMode: Text.WordWrap
             text: conversation.lead
             color: theme.text
-            font.pixelSize: 15
-            lineHeight: 1.3
+            font.pixelSize: 16
+            lineHeight: 1.4
         }
 
         Repeater {
@@ -90,14 +92,14 @@ Rectangle {
                 spacing: 12
                 Rectangle {
                     width: 24; height: 24; radius: 12
-                    color: theme.chip
+                    color: theme.accentSoft
                     y: 1
                     Text {
                         anchors.centerIn: parent
                         text: index + 1
-                        color: theme.text
+                        color: theme.accent
                         font.pixelSize: 12
-                        font.weight: Font.ExtraBold
+                        font.weight: Font.Bold
                     }
                 }
                 Text {
@@ -105,8 +107,8 @@ Rectangle {
                     wrapMode: Text.WordWrap
                     text: modelData
                     color: theme.text
-                    font.pixelSize: 15
-                    lineHeight: 1.3
+                    font.pixelSize: 16
+                    lineHeight: 1.4
                 }
             }
         }
@@ -118,8 +120,8 @@ Rectangle {
                 wrapMode: Text.WordWrap
                 text: modelData
                 color: theme.text
-                font.pixelSize: 15
-                lineHeight: 1.3
+                font.pixelSize: 16
+                lineHeight: 1.4
             }
         }
 

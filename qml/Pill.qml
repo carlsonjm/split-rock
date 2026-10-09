@@ -14,9 +14,11 @@ Rectangle {
     implicitHeight: 44
     implicitWidth: row.implicitWidth + padding * 2
     radius: height / 2
-    color: filled ? theme.primary : theme.chip
+    color: filled ? (area.pressed ? Qt.darker(theme.accent, 1.12) : area.containsMouse ? Qt.lighter(theme.accent, 1.06) : theme.accent)
+                  : (area.pressed ? theme.line : area.containsMouse ? theme.chip : theme.raised)
     border.width: filled ? 0 : 1
-    border.color: theme.edge
+    border.color: theme.hairline
+    Behavior on color { ColorAnimation { duration: 120 } }
     opacity: enabled ? 1 : 0.38
     activeFocusOnTab: true
 
@@ -40,9 +42,9 @@ Rectangle {
         Text {
             id: label
             anchors.verticalCenter: parent.verticalCenter
-            color: pill.filled ? theme.primaryInk : theme.text
+            color: pill.filled ? theme.accentInk : theme.text
             font.pixelSize: pill.fontSize
-            font.weight: pill.filled ? Font.ExtraBold : Font.DemiBold
+            font.weight: pill.filled ? Font.Bold : Font.DemiBold
         }
     }
 
@@ -52,12 +54,14 @@ Rectangle {
         radius: height / 2
         color: "transparent"
         border.width: 2
-        border.color: theme.palette.highlight
+        border.color: theme.accent
         visible: pill.activeFocus
     }
 
     MouseArea {
+        id: area
         anchors.fill: parent
+        hoverEnabled: true
         enabled: pill.enabled
         cursorShape: Qt.PointingHandCursor
         onClicked: pill.clicked()
