@@ -1,0 +1,205 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
+import QtQuick
+import "Icons.js" as Icons
+
+// The Free up space card: what takes room the person doesn't need, each
+// ticked or not, on a bar of the disk; then one tap clears what is ticked
+// (src/app/SpaceCleanup.h).
+CardFrame {
+    id: card
+    objectName: "spaceCard"
+    readonly property var job: conversation.space
+    readonly property string stage: card.job.stage
+    readonly property var items: card.job.items
+    readonly property bool anyChosen: card.items.some(i => i.chosen)
+    hue: card.stage === "failed" ? "coral" : "teal"
+
+    // "1.2 GB", "340 MB".
+    function size(kb) {
+        if (kb >= 1024 * 1024)
+            return (kb / 1024 / 1024).toFixed(kb >= 10 * 1024 * 1024 ? 0 : 1) + " GB"
+        return Math.round(kb / 1024) + " MB"
+    }
+
+    CardHead {
+        headingObjectName: "spaceHeading"
+        tone: card.tone
+        icon: card.stage === "done" ? Icons.check : card.stage === "failed" ? Icons.alert : Icons.drive
+        spinning: card.stage === "looking"
+        heading: {
+            switch (card.stage) {
+            case "looking": return "Looking for space to free up"
+            case "nothing": return "Nothing needs clearing"
+            case "clearing": return "Freeing up space"
+            case "done": return "Freed up " + card.job.freed
+            case "failed": return "Freeing up space didn't finish"
+            }
+            return card.job.chosenKb > 0 ? card.job.chosenSize + " can come free" : "Pick what to clear"
+        }
+        sub: {
+            switch (card.stage) {
+            case "looking": return "Old copies, logs, crash reports and leftovers. Nothing changes until you say."
+            case "nothing": return "There are no leftovers worth clearing."
+            case "clearing": return "You can keep working."
+            case "failed": return card.job.why
+            }
+            return card.job.diskKb > 0 ? card.size(card.job.freeKb) + " free of " + card.size(card.job.diskKb) + "." : ""
+        }
+    }
+
+    // The disk: what is used, what the ticked rows free, and what is free.
+    Item {
+        objectName: "spaceBar"
+        visible: (card.stage === "ready" || card.stage === "done") && card.job.diskKb > 0
+        width: card.innerWidth
+        height: 14
+        Rectangle {
+            id: track
+            anchors.fill: parent
+            radius: 7
+            color: theme.soft(card.tone, 0.08)
+            border.width: 1
+            border.color: theme.hairline
+            clip: true
+            Rectangle {
+                id: used
+                height: parent.height
+                width: parent.width * Math.max(0, Math.min(1, 1 - card.job.freeKb / card.job.diskKb))
+                radius: 7
+                color: theme.chip
+                Behavior on width { NumberAnimation { duration: 400; easing.type: Easing.OutCubic } }
+            }
+            // The ticked ones, at the end of what is used, each in its colour.
+            Row {
+                anchors.right: used.right
+                height: parent.height
+                visible: card.stage === "ready"
+                Repeater {
+                    model: card.items.filter(i => i.chosen && i.kb > 0)
+                    Rectangle {
+                        height: track.height
+                        width: Math.max(3, track.width * modelData.kb / card.job.diskKb)
+                        color: theme.hue(modelData.tone)
+                        Behavior on width { NumberAnimation { duration: 200 } }
+                    }
+                }
+            }
+        }
+    }
+
+    // Looking: soft bars where the list will be.
+    Column {
+        visible: card.stage === "looking"
+        width: card.innerWidth
+        spacing: 10
+        Repeater {
+            model: [0.9, 0.7, 0.8, 0.5]
+            Rectangle {
+                width: card.innerWidth * modelData
+                height: 12; radius: 6
+                color: theme.chip
+                SequentialAnimation on opacity {
+                    loops: Animation.Infinite
+                    NumberAnimation { from: 0.5; to: 1; duration: 700; easing.type: Easing.InOutSine }
+                    NumberAnimation { from: 1; to: 0.5; duration: 700; easing.type: Easing.InOutSine }
+                }
+            }
+        }
+    }
+
+    Column {
+        objectName: "spaceItems"
+        visible: card.stage === "ready"
+        width: card.innerWidth
+        spacing: 8
+        Repeater {
+            model: card.stage === "ready" ? card.items : []
+            CardRow {
+                objectName: "space-" + modelData.id
+                checkable: true
+                checked: modelData.chosen
+                tone: theme.hue(modelData.tone)
+                title: modelData.title
+                detail: modelData.detail
+                trailing: modelData.size
+                list: modelData.list
+                listTitle: "Show which"
+                onClicked: card.job.choose(modelData.id, !modelData.chosen)
+            }
+        }
+    }
+
+    Flow {
+        visible: card.stage === "ready"
+        width: card.innerWidth
+        spacing: 18
+        CardFact {
+            visible: card.job.needsPassword
+            icon: Icons.lock
+            label: "Needs your password"
+        }
+        CardFact {
+            visible: card.items.some(i => i.id === "orphans" && i.chosen)
+            icon: Icons.shield
+            label: "Restore point first"
+            tone: theme.good
+        }
+    }
+
+    CardProgress {
+        visible: card.stage === "clearing"
+        barObjectName: "spaceProgress"
+        tone: card.tone
+        done: card.job.done
+        total: card.job.total
+        now: card.job.now
+    }
+
+    CardNote {
+        visible: card.stage === "done"
+        tone: theme.good
+        text: card.size(card.job.freeKb) + " is free now."
+    }
+
+    Fold {
+        width: card.innerWidth
+        title: "Show what it did"
+        body: card.stage === "done" || card.stage === "failed" ? card.job.log : ""
+    }
+
+    Flow {
+        width: card.innerWidth
+        spacing: 10
+        visible: !card.job.busy
+        Pill {
+            objectName: "spaceButton"
+            visible: card.stage === "ready"
+            implicitHeight: 52
+            padding: 30
+            fontSize: 16
+            filled: true
+            tone: card.tone
+            toneInk: theme.hueInk
+            enabled: card.anyChosen
+            iconPath: Icons.drive
+            text: card.job.chosenKb > 0 ? "Free up " + card.job.chosenSize : "Free up space"
+            onClicked: card.job.start()
+        }
+        Pill {
+            visible: card.stage === "failed"
+            implicitHeight: 52
+            padding: 22
+            fontSize: 15
+            text: "Try again"
+            onClicked: card.job.check()
+        }
+        Pill {
+            objectName: "spaceClose"
+            implicitHeight: 52
+            padding: 22
+            fontSize: 15
+            text: card.stage === "ready" ? "Not now" : "Close"
+            onClicked: card.job.close()
+        }
+    }
+}

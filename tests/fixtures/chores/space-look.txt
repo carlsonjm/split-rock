@@ -1,0 +1,31 @@
+@@ disk
+500000000 48000000
+@@ pkgcache
+==> finished dry run: 41 candidates (disk space saved: 3.2 GiB)
+==> finished dry run: 6 candidates (disk space saved: 412.5 MiB)
+@@ orphans
+python-pip
+qt5-tools
+@@ orphansize
+12.40 MiB
+88.00 MiB
+@@ journal
+Archived and active journals take up 1.4G in the file system.
+@@ crashes
+104857600
+52428800
+@@ cache
+734003200
+@@ builds
+524288
+@@ trash
+204800
+3
+@@ apps
+Similar installed refs found for 'org.kde.Platform':
+        ID                          Branch      Op
+ 1.     org.kde.Platform            5.15-23.08  r
+ 2.     org.freedesktop.Platform    23.08       r
+Proceed with these changes to the system installation? [Y/n]: n
+@@ snapshots
+@@ end

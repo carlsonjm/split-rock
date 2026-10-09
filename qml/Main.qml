@@ -43,8 +43,8 @@ Window {
     readonly property bool canAsk: conversation.phase === "ready"
     readonly property bool working: conversation.phase === "working"
     // The Do it card has the answer's place to itself, as in the mock-up.
-    readonly property bool cardMode: !conversation.choosing && (conversation.cardOpen || conversation.update.stage !== "")
-                                    && (canAsk || working || conversation.update.stage !== "")
+    readonly property bool cardMode: !conversation.choosing && (conversation.cardOpen || conversation.chore !== "")
+                                    && (canAsk || working || conversation.chore !== "")
 
     function open() {
         shown = true
@@ -373,13 +373,22 @@ Window {
                         sourceComponent: {
                             if (conversation.choosing)
                                 return assistantList
+                            // An upkeep card needs no assistant, so it comes
+                            // before the assistant's own steps.
+                            switch (conversation.chore) {
+                            case "update": return updateCard
+                            case "space": return spaceCard
+                            case "install": return installCard
+                            case "restore": return restoreCard
+                            case "health": return healthCard
+                            case "community": return communityCard
+                            }
                             switch (conversation.phase) {
                             case "starting": return starting
                             case "signIn":
                             case "signingIn": return signInPanel
                             case "problem": return problemPanel
-                            default: return conversation.update.stage !== "" ? updateCard
-                                          : conversation.cardOpen ? doItCard : answerCard
+                            default: return conversation.cardOpen ? doItCard : answerCard
                             }
                         }
                     }
@@ -421,6 +430,11 @@ Window {
     Component { id: answerCard; AnswerCard {} }
     Component { id: doItCard; DoItCard {} }
     Component { id: updateCard; UpdateCard {} }
+    Component { id: spaceCard; SpaceCard {} }
+    Component { id: installCard; InstallCard {} }
+    Component { id: restoreCard; RestoreCard {} }
+    Component { id: healthCard; HealthCard {} }
+    Component { id: communityCard; CommunityCard {} }
     Component { id: signInPanel; SignInPanel { signInWith: id => window.signInThroughFull(id) } }
     Component { id: starting; StartingPanel {} }
     Component { id: problemPanel; ProblemPanel {} }

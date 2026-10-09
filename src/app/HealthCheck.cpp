@@ -1,0 +1,348 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
+#include "app/HealthCheck.h"
+
+#include "app/Product.h"
+#include "app/RestorePoints.h"
+
+#include <QDebug>
+#include <QJsonArray>
+#include <QJsonDocument>
+#include <QJsonObject>
+#include <QMap>
+#include <QRegularExpression>
+#include <QSettings>
+#include <QVariantMap>
+
+#include <algorithm>
+
+namespace splitrock {
+
+namespace {
+
+// Run as the person: nothing here changes anything.
+const QString LookScript = QStringLiteral(R"SH(export LANG=C LC_ALL=C
+echo "@@ failed"
+systemctl --failed --no-legend --plain 2>/dev/null | awk '{print $1}'
+systemctl --user --failed --no-legend --plain 2>/dev/null | awk '{print $1}'
+echo "@@ disk"
+df -Pk / 2>/dev/null | awk 'NR==2 {print $2, $4}'
+echo "@@ drive"
+command -v udisksctl >/dev/null 2>&1 && udisksctl dump 2>/dev/null \
+    | grep -E '^[[:space:]]*(SmartFailing|SmartCriticalWarning|SmartPercentUsed):'
+echo "@@ battery"
+for d in /sys/class/power_supply/*; do
+    [ "$(cat "$d/type" 2>/dev/null)" = Battery ] || continue
+    [ "$(cat "$d/scope" 2>/dev/null)" = Device ] && continue
+    full=$(cat "$d/energy_full" 2>/dev/null || cat "$d/charge_full" 2>/dev/null)
+    design=$(cat "$d/energy_full_design" 2>/dev/null || cat "$d/charge_full_design" 2>/dev/null)
+    echo "$full $design $(cat "$d/cycle_count" 2>/dev/null)"
+done
+echo "@@ lastupdate"
+grep -a "starting full system upgrade" /var/log/pacman.log 2>/dev/null | tail -n 1
+echo "@@ snapper"
+command -v snapper >/dev/null 2>&1 && [ -f /etc/snapper/configs/root ] && echo yes
+echo "@@ points"
+command -v snapper >/dev/null 2>&1 && snapper -c root --jsonout list 2>/dev/null
+echo "@@ pacnew"
+find /etc -name '*.pacnew' 2>/dev/null
+echo "@@ crashes"
+command -v coredumpctl >/dev/null 2>&1 && coredumpctl list --since "7 days ago" --json=short --no-pager 2>/dev/null
+echo "@@ pkgcache"
+du -sk /var/cache/pacman/pkg 2>/dev/null | cut -f1
+echo "@@ end"
+)SH");
+
+QDateTime logTime(const QString &line)
+{
+    static const QRegularExpression stamp(QStringLiteral(R"(^\[(\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d)([+-]\d\d)(\d\d)\])"));
+    const QRegularExpressionMatch m = stamp.match(line);
+    if (!m.hasMatch())
+        return {};
+    return QDateTime::fromString(m.captured(1) + m.captured(2) + QLatin1Char(':') + m.captured(3), Qt::ISODate);
+}
+
+QString days(qint64 n)
+{
+    if (n <= 0)
+        return QStringLiteral("today");
+    if (n == 1)
+        return QStringLiteral("yesterday");
+    return QStringLiteral("%1 days ago").arg(n);
+}
+
+// Where the last look's time is kept: the only thing the check writes.
+const QString Organization = QStringLiteral("split-rock");
+const QString Settings = QStringLiteral("upkeep");
+
+} // namespace
+
+QVariantMap HealthCheck::Item::toMap() const
+{
+    return {{QStringLiteral("id"), id},
+            {QStringLiteral("title"), title},
+            {QStringLiteral("state"), state},
+            {QStringLiteral("detail"), detail},
+            {QStringLiteral("action"), action},
+            {QStringLiteral("actionLabel"), actionLabel},
+            {QStringLiteral("question"), question}};
+}
+
+HealthCheck::HealthCheck(QObject *parent)
+    : Chore(parent)
+    , m_checked(QSettings(Organization, Settings).value(QStringLiteral("health/checked")).toDateTime())
+    , m_lastAttention(QSettings(Organization, Settings).value(QStringLiteral("health/attention"), -1).toInt())
+    , m_lookScript(LookScript)
+{
+}
+
+bool HealthCheck::busy() const
+{
+    return stage() == QLatin1String("looking");
+}
+
+QList<HealthCheck::Item> HealthCheck::readLook(const QString &output, const QDateTime &now)
+{
+    const QMap<QString, QStringList> found = sections(output);
+    QList<Item> items;
+
+    // Services.
+    {
+        QStringList failed = found.value(QStringLiteral("failed"));
+        failed.removeDuplicates();
+        if (failed.isEmpty()) {
+            items.append({QStringLiteral("services"), QStringLiteral("Services"), QStringLiteral("good"),
+                          QStringLiteral("Everything that runs in the background started."), {}, {}, {}});
+        } else {
+            const QString names = failed.mid(0, 3).join(QStringLiteral(", ")) + (failed.size() > 3 ? QStringLiteral("…") : QString());
+            items.append({QStringLiteral("services"), QStringLiteral("Services"), QStringLiteral("bad"),
+                          failed.size() == 1 ? QStringLiteral("One didn't start: %1.").arg(names)
+                                             : QStringLiteral("%1 didn't start: %2.").arg(failed.size()).arg(names),
+                          QStringLiteral("ask"), QStringLiteral("Ask about it"),
+                          QStringLiteral("These background services failed to start on my computer: %1. What do they do, "
+                                         "and does it matter?").arg(failed.join(QStringLiteral(", ")))});
+        }
+    }
+
+    // Space.
+    {
+        const QStringList disk = found.value(QStringLiteral("disk")).value(0).split(QLatin1Char(' '), Qt::SkipEmptyParts);
+        if (disk.size() == 2 && disk.at(0).toLongLong() > 0) {
+            const qint64 total = disk.at(0).toLongLong();
+            const qint64 free = disk.at(1).toLongLong();
+            const double share = double(free) / double(total);
+            const QString words = QStringLiteral("%1 free of %2.").arg(size(free), size(total));
+            const QString state = share < 0.05 || free < 2 * 1024 * 1024 ? QStringLiteral("bad")
+                                : share < 0.15                           ? QStringLiteral("warn")
+                                                                         : QStringLiteral("good");
+            items.append({QStringLiteral("space"), QStringLiteral("Space"), state, words,
+                          state == QLatin1String("good") ? QString() : QStringLiteral("space"),
+                          state == QLatin1String("good") ? QString() : QStringLiteral("Free up space"), {}});
+        }
+    }
+
+    // The drive's own report, where it gives one.
+    {
+        bool failing = false;
+        bool warning = false;
+        int worn = -1;
+        for (const QString &line : found.value(QStringLiteral("drive"))) {
+            const QString value = line.section(QLatin1Char(':'), 1).trimmed();
+            if (line.startsWith(QLatin1String("SmartFailing")))
+                failing = failing || value == QLatin1String("true");
+            else if (line.startsWith(QLatin1String("SmartCriticalWarning")))
+                warning = warning || (!value.isEmpty() && value != QLatin1String("[]") && value != QLatin1String("0"));
+            else if (line.startsWith(QLatin1String("SmartPercentUsed")))
+                worn = std::max(worn, value.toInt());
+        }
+        if (failing || warning) {
+            items.append({QStringLiteral("drive"), QStringLiteral("Drive"), QStringLiteral("bad"),
+                          QStringLiteral("The drive reports a problem. Copy your files somewhere safe soon."),
+                          QStringLiteral("ask"), QStringLiteral("Ask about it"),
+                          QStringLiteral("My computer's drive reports a health problem. How do I back up my files, and "
+                                         "what should I do next?")});
+        } else if (!found.value(QStringLiteral("drive")).isEmpty()) {
+            items.append({QStringLiteral("drive"), QStringLiteral("Drive"),
+                          worn >= 90 ? QStringLiteral("warn") : QStringLiteral("good"),
+                          worn >= 90 ? QStringLiteral("It reports %1% of its life used.").arg(worn)
+                                     : QStringLiteral("It reports no problems."),
+                          {}, {}, {}});
+        }
+    }
+
+    // The battery: what it holds now, against when it was new.
+    {
+        const QStringList parts = found.value(QStringLiteral("battery")).value(0).split(QLatin1Char(' '), Qt::SkipEmptyParts);
+        if (parts.size() >= 2 && parts.at(1).toLongLong() > 0) {
+            const int health = qRound(100.0 * parts.at(0).toLongLong() / parts.at(1).toLongLong());
+            const int cycles = parts.value(2).toInt();
+            QString words = QStringLiteral("Holds %1% of what it did when new").arg(std::min(health, 100));
+            if (cycles > 0)
+                words += QStringLiteral(", after %1 charges").arg(cycles);
+            items.append({QStringLiteral("battery"), QStringLiteral("Battery"),
+                          health < 60 ? QStringLiteral("warn") : QStringLiteral("good"), words + QLatin1Char('.'), {}, {}, {}});
+        }
+    }
+
+    // Updates.
+    {
+        const QDateTime last = logTime(found.value(QStringLiteral("lastupdate")).value(0));
+        if (last.isValid()) {
+            const qint64 ago = last.daysTo(now);
+            const QString state = ago > 30 ? QStringLiteral("warn") : QStringLiteral("good");
+            items.append({QStringLiteral("updates"), QStringLiteral("Updates"), state,
+                          QStringLiteral("Last updated %1.").arg(days(ago)),
+                          ago > 14 ? QStringLiteral("update") : QString(),
+                          ago > 14 ? QStringLiteral("Check for updates") : QString(), {}});
+        }
+    }
+
+    // Restore points.
+    {
+        if (!found.value(QStringLiteral("snapper")).contains(QStringLiteral("yes"))) {
+            items.append({QStringLiteral("restore"), QStringLiteral("Restore points"), QStringLiteral("warn"),
+                          QStringLiteral("This computer doesn't take them, so a bad update can't be gone back from."),
+                          QStringLiteral("ask"), QStringLiteral("Ask about it"),
+                          QStringLiteral("My computer doesn't take restore points (snapshots). Should it, and how do I "
+                                         "set them up safely?")});
+        } else {
+            const QList<RestorePoints::Point> points
+                = RestorePoints::readList(found.value(QStringLiteral("points")).join(QLatin1Char('\n')));
+            if (!points.isEmpty() && points.first().date.isValid()) {
+                const qint64 ago = points.first().date.daysTo(now);
+                items.append({QStringLiteral("restore"), QStringLiteral("Restore points"),
+                              ago > 30 ? QStringLiteral("warn") : QStringLiteral("good"),
+                              QStringLiteral("%1 kept; the newest is from %2.").arg(points.size()).arg(days(ago)),
+                              QStringLiteral("restore"), QStringLiteral("See them"), {}});
+            } else {
+                items.append({QStringLiteral("restore"), QStringLiteral("Restore points"), QStringLiteral("good"),
+                              QStringLiteral("Taken before each change."), QStringLiteral("restore"),
+                              QStringLiteral("See them"), {}});
+            }
+        }
+    }
+
+    // Settings files an update left beside the person's own.
+    {
+        const QStringList files = found.value(QStringLiteral("pacnew"));
+        if (!files.isEmpty())
+            items.append({QStringLiteral("settings"), QStringLiteral("Settings files"), QStringLiteral("warn"),
+                          files.size() == 1 ? QStringLiteral("1 has a new version waiting beside yours.")
+                                            : QStringLiteral("%1 have new versions waiting beside yours.").arg(files.size()),
+                          QStringLiteral("ask"), QStringLiteral("Ask about them"),
+                          QStringLiteral("Updates left new versions of these settings files beside mine: %1. Which "
+                                         "ones matter, and what should I do?").arg(files.join(QStringLiteral(", ")))});
+    }
+
+    // Crashes this week, by app.
+    {
+        const QJsonDocument doc = QJsonDocument::fromJson(found.value(QStringLiteral("crashes")).join(QLatin1Char('\n')).toUtf8());
+        QMap<QString, int> byApp;
+        int total = 0;
+        for (const QJsonValue &v : doc.array()) {
+            const QString exe = v.toObject().value(QStringLiteral("exe")).toString().section(QLatin1Char('/'), -1);
+            if (exe.isEmpty())
+                continue;
+            ++byApp[exe];
+            ++total;
+        }
+        if (doc.isArray()) {
+            if (total == 0) {
+                items.append({QStringLiteral("crashes"), QStringLiteral("Crashes"), QStringLiteral("good"),
+                              QStringLiteral("Nothing crashed this week."), {}, {}, {}});
+            } else {
+                QList<std::pair<QString, int>> apps(byApp.keyValueBegin(), byApp.keyValueEnd());
+                std::sort(apps.begin(), apps.end(), [](const auto &a, const auto &b) { return a.second > b.second; });
+                QStringList names;
+                for (qsizetype i = 0; i < std::min<qsizetype>(3, apps.size()); ++i)
+                    names.append(apps.at(i).second > 1 ? QStringLiteral("%1 (%2)").arg(apps.at(i).first).arg(apps.at(i).second)
+                                                       : apps.at(i).first);
+                items.append({QStringLiteral("crashes"), QStringLiteral("Crashes"),
+                              total >= 3 ? QStringLiteral("warn") : QStringLiteral("good"),
+                              total == 1 ? QStringLiteral("1 this week: %1.").arg(names.join(QStringLiteral(", ")))
+                                         : QStringLiteral("%1 this week: %2.").arg(total).arg(names.join(QStringLiteral(", "))),
+                              total >= 3 ? QStringLiteral("ask") : QString(),
+                              total >= 3 ? QStringLiteral("Ask about it") : QString(),
+                              QStringLiteral("These apps crashed on my computer this week: %1. Why might that be, and "
+                                             "what can I do?").arg(names.join(QStringLiteral(", ")))});
+            }
+        }
+    }
+
+    // Old copies of packages, when they take a lot.
+    {
+        const qint64 kb = found.value(QStringLiteral("pkgcache")).value(0).toLongLong();
+        if (kb > 5LL * 1024 * 1024)
+            items.append({QStringLiteral("pkgcache"), QStringLiteral("Old copies"), QStringLiteral("warn"),
+                          QStringLiteral("Copies of past updates take %1.").arg(size(kb)), QStringLiteral("space"),
+                          QStringLiteral("Free up space"), {}});
+    }
+
+    // Problems first, then what's worth a look, then what's good.
+    const auto rank = [](const Item &i) {
+        return i.state == QLatin1String("bad") ? 0 : i.state == QLatin1String("warn") ? 1 : 2;
+    };
+    std::stable_sort(items.begin(), items.end(), [&rank](const Item &a, const Item &b) { return rank(a) < rank(b); });
+    return items;
+}
+
+QVariantList HealthCheck::itemList() const
+{
+    QVariantList list;
+    for (const Item &item : m_items)
+        list.append(item.toMap());
+    return list;
+}
+
+int HealthCheck::attention() const
+{
+    // Before this run's own look, what the last one found.
+    if (m_items.isEmpty())
+        return std::max(0, m_lastAttention);
+    return int(std::count_if(m_items.cbegin(), m_items.cend(), [](const Item &i) { return i.state != QLatin1String("good"); }));
+}
+
+QString HealthCheck::lastChecked() const
+{
+    if (!m_checked.isValid())
+        return QString();
+    const qint64 ago = m_checked.daysTo(QDateTime::currentDateTime());
+    return ago <= 0 ? QStringLiteral("Today") : ago == 1 ? QStringLiteral("Yesterday") : QStringLiteral("%1 days ago").arg(ago);
+}
+
+void HealthCheck::check()
+{
+    if (busy())
+        return;
+    look(true);
+}
+
+void HealthCheck::checkIfDue()
+{
+    if (busy() || !stage().isEmpty())
+        return;
+    if (m_checked.isValid() && m_checked.daysTo(QDateTime::currentDateTime()) < 7)
+        return;
+    look(false);
+}
+
+void HealthCheck::look(bool open)
+{
+    clearProgress();
+    m_quiet = !open;
+    if (open)
+        setStage(QStringLiteral("looking"));
+    run(asPerson(m_lookScript), 60000, [this](int, const QString &output) {
+        m_items = readLook(output);
+        m_checked = QDateTime::currentDateTime();
+        m_lastAttention = attention();
+        QSettings settings(Organization, Settings);
+        settings.setValue(QStringLiteral("health/checked"), m_checked);
+        settings.setValue(QStringLiteral("health/attention"), m_lastAttention);
+        qInfo().noquote() << QStringLiteral("%1: the health check found %2 to look at").arg(productName()).arg(attention());
+        if (!m_quiet)
+            setStage(QStringLiteral("done"));
+        Q_EMIT changed();
+    });
+}
+
+} // namespace splitrock

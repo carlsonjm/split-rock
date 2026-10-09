@@ -5,6 +5,11 @@
 #include "app/AnswerText.h"
 #include "app/Assistants.h"
 #include "app/Change.h"
+#include "app/AppInstall.h"
+#include "app/CommunityApps.h"
+#include "app/HealthCheck.h"
+#include "app/RestorePoints.h"
+#include "app/SpaceCleanup.h"
 #include "app/SystemUpdate.h"
 #include "guide/GuideLibrary.h"
 #include "guide/SkillShelf.h"
@@ -86,8 +91,19 @@ class Conversation : public QObject
     Q_PROPERTY(QVariantList changes READ changes NOTIFY changesChanged)
     // A change is being made or undone.
     Q_PROPERTY(bool changing READ changing NOTIFY changesChanged)
-    // The Update card: Split Rock's own routine for updating the computer.
+    // The upkeep cards, Split Rock's own routines (src/app/Chore.h): updating
+    // the computer, freeing up space, installing an app, restore points, the
+    // health check and community apps.
     Q_PROPERTY(QObject *update READ systemUpdateObject CONSTANT)
+    Q_PROPERTY(QObject *space READ spaceObject CONSTANT)
+    Q_PROPERTY(QObject *install READ installObject CONSTANT)
+    Q_PROPERTY(QObject *restore READ restoreObject CONSTANT)
+    Q_PROPERTY(QObject *health READ healthObject CONSTANT)
+    Q_PROPERTY(QObject *community READ communityObject CONSTANT)
+    // The upkeep card open now, by its name, or empty; and whether one is
+    // looking or changing something, when no other may start.
+    Q_PROPERTY(QString chore READ chore NOTIFY choreChanged)
+    Q_PROPERTY(bool choreBusy READ choreBusy NOTIFY choreChanged)
 
 public:
     explicit Conversation(QList<Assistant> assistants, QObject *parent = nullptr);
@@ -177,6 +193,22 @@ public:
     ChangeRunner *changeRunner() const { return m_runner; }
     SystemUpdate *systemUpdate() const { return m_update; }
     QObject *systemUpdateObject() const;
+    SpaceCleanup *spaceCleanup() const { return m_space; }
+    QObject *spaceObject() const;
+    AppInstall *appInstall() const { return m_install; }
+    QObject *installObject() const;
+    RestorePoints *restorePoints() const { return m_restore; }
+    QObject *restoreObject() const;
+    HealthCheck *healthCheck() const { return m_health; }
+    QObject *healthObject() const;
+    CommunityApps *communityApps() const { return m_community; }
+    QObject *communityObject() const;
+    QString chore() const;
+    bool choreBusy() const;
+    // Opens an upkeep card by its name, closing the one open; never while
+    // one is busy. query is what to look for, on the install card. False
+    // when it didn't open.
+    Q_INVOKABLE bool openChore(const QString &name, const QString &query = QString());
     // A change the assistant proposed, shown on the Do it card.
     void propose(const ChangeProposal &proposed);
     Q_INVOKABLE void showMeHow();
@@ -201,6 +233,7 @@ Q_SIGNALS:
     void notebookChanged();
     void rememberChanged();
     void changesChanged();
+    void choreChanged();
 
 private:
     void startAssistant();
@@ -263,7 +296,14 @@ private:
     QString m_skillRequests;
     qint64 m_skillRequestsRead = 0;
     ChangeRunner *m_runner = nullptr;
+    void addChore(const QString &name, Chore *chore);
+    QList<std::pair<QString, Chore *>> m_chores;
     SystemUpdate *m_update = nullptr;
+    SpaceCleanup *m_space = nullptr;
+    AppInstall *m_install = nullptr;
+    RestorePoints *m_restore = nullptr;
+    HealthCheck *m_health = nullptr;
+    CommunityApps *m_community = nullptr;
     std::optional<ChangeProposal> m_proposal;
     // How a change went, told to the assistant once it is ready.
     QString m_report;

@@ -1,0 +1,10 @@
+{
+  "root": [
+    {"subvolume": "/", "number": 0, "default": false, "active": false, "type": "single", "pre-number": null, "date": "", "user": "root", "cleanup": "", "description": "current", "userdata": null},
+    {"subvolume": "/", "number": 310, "default": false, "active": false, "type": "single", "pre-number": null, "date": "2026-10-08 09:00:01", "user": "root", "cleanup": "timeline", "description": "timeline", "userdata": null},
+    {"subvolume": "/", "number": 311, "default": false, "active": false, "type": "pre", "pre-number": null, "date": "2026-10-08 18:20:44", "user": "root", "cleanup": "number", "description": "pacman -S okular", "userdata": null},
+    {"subvolume": "/", "number": 312, "default": false, "active": false, "type": "post", "pre-number": 311, "date": "2026-10-08 18:21:02", "user": "root", "cleanup": "number", "description": "okular", "userdata": null},
+    {"subvolume": "/", "number": 313, "default": false, "active": false, "type": "pre", "pre-number": null, "date": "2026-10-09 10:42:01", "user": "root", "cleanup": "number", "description": "Genie: Update", "userdata": null},
+    {"subvolume": "/", "number": 314, "default": true, "active": true, "type": "post", "pre-number": 313, "date": "2026-10-09 10:58:12", "user": "root", "cleanup": "number", "description": "Genie: Update", "userdata": null}
+  ]
+}

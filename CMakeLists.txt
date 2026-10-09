@@ -30,6 +30,12 @@ add_library(splitrock_core STATIC
     src/app/NeverWritten.cpp
     src/app/Notebook.cpp
     src/app/SystemUpdate.cpp
+    src/app/Chore.cpp
+    src/app/SpaceCleanup.cpp
+    src/app/AppInstall.cpp
+    src/app/RestorePoints.cpp
+    src/app/HealthCheck.cpp
+    src/app/CommunityApps.cpp
     src/guide/GuideLibrary.cpp
     src/guide/SkillShelf.cpp
     src/app/Product.cpp
@@ -70,6 +76,18 @@ qt_add_resources(split-rock "sheet"
         qml/AnswerCard.qml
         qml/DoItCard.qml
         qml/UpdateCard.qml
+        qml/CardFrame.qml
+        qml/CardHead.qml
+        qml/CardNote.qml
+        qml/CardFact.qml
+        qml/CardProgress.qml
+        qml/CardRow.qml
+        qml/SpaceCard.qml
+        qml/InstallCard.qml
+        qml/RestoreCard.qml
+        qml/HealthCard.qml
+        qml/CommunityCard.qml
+        qml/UpkeepShelf.qml
         qml/SignInPanel.qml
         qml/AssistantList.qml
         qml/Workspace.qml

@@ -1,0 +1,25 @@
+@@ shelf
+Identifier: org.kde.okular [desktop-application]
+Name: Okular
+Summary: Universal document viewer, with notes on PDFs
+Package: okular
+Homepage: https://okular.kde.org/
+---
+Identifier: org.pdfarranger.PdfArranger [desktop-application]
+Name: PDF Arranger
+Summary: Merge, split and rearrange PDF pages
+Package: pdfarranger
+---
+Identifier: libpoppler [library]
+Name: Poppler
+Summary: PDF rendering library
+Package: poppler
+---
+@@ flathub
+com.github.xournalpp.xournalpp	Xournal++	Handwriting notebook with PDF annotation	flathub
+org.kde.okular	Okular	Document viewer	flathub
+net.code_industry.MasterPDFEditor	Master PDF Editor	Edit PDF documents	flathub
+@@ installed
+okular
+firefox
+@@ end
