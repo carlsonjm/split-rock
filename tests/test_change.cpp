@@ -73,6 +73,37 @@ private Q_SLOTS:
         QCOMPARE(change->undo, QStringLiteral("asusctl profile -P Balanced"));
     }
 
+    void aWholeSystemUpdateIsCaught()
+    {
+        const auto updater = [](const QString &command) {
+            ChangeProposal change;
+            change.title = QStringLiteral("Update");
+            change.command = command;
+            return change.wholeSystemUpdate();
+        };
+        QCOMPARE(updater(QStringLiteral("pacman -Syu --noconfirm")), QStringLiteral("pacman"));
+        QCOMPARE(updater(QStringLiteral("/usr/bin/pacman -S -y -u")), QStringLiteral("pacman"));
+        QCOMPARE(updater(QStringLiteral("pacman --sync --refresh --sysupgrade")), QStringLiteral("pacman"));
+        QCOMPARE(updater(QStringLiteral("pacman -Su")), QStringLiteral("pacman"));
+        QCOMPARE(updater(QStringLiteral("paru")), QStringLiteral("paru"));
+        QCOMPARE(updater(QStringLiteral("paru --noconfirm")), QStringLiteral("paru"));
+        QCOMPARE(updater(QStringLiteral("yay -Sua")), QStringLiteral("yay"));
+        QCOMPARE(updater(QStringLiteral("flatpak update -y && pacman -Syu")), QStringLiteral("pacman"));
+        QCOMPARE(updater(QStringLiteral("bash -c 'pacman -Syyu'")), QStringLiteral("pacman"));
+        // Fetching the lists without updating leaves the system half updated.
+        QCOMPARE(updater(QStringLiteral("pacman -Sy firefox")), QStringLiteral("pacman"));
+
+        QCOMPARE(updater(QStringLiteral("pacman -S --needed firefox")), QString());
+        QCOMPARE(updater(QStringLiteral("pacman -Rns firefox")), QString());
+        QCOMPARE(updater(QStringLiteral("pacman -Qu")), QString());
+        QCOMPARE(updater(QStringLiteral("pacman -Sc")), QString());
+        QCOMPARE(updater(QStringLiteral("paru -S spotify")), QString());
+        QCOMPARE(updater(QStringLiteral("paru spotify")), QString());
+        QCOMPARE(updater(QStringLiteral("yay -Y --gendb")), QString());
+        QCOMPARE(updater(QStringLiteral("flatpak update -y")), QString());
+        QCOMPARE(updater(QStringLiteral("echo pacman; asusctl profile -P Quiet")), QString());
+    }
+
     void theProposalIsFoundInsideAShellCommand()
     {
         const QString json = QStringLiteral(R"({"title":"Night light","command":"kwriteconfig6 --key Active true"})");

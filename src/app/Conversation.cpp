@@ -959,6 +959,29 @@ void Conversation::openSkill(const QString &token, const QString &id)
 
 void Conversation::propose(const ChangeProposal &proposed)
 {
+    // A whole-system update is not made from a card: it can outrun the time a
+    // change is given and be stopped halfway, it can stop to ask questions no
+    // one is there to answer, and a snapshot pair can't put a new kernel back
+    // while the computer runs on it. The assistant is told so, and no card is
+    // shown.
+    const QString updater = proposed.wholeSystemUpdate();
+    if (!updater.isEmpty()) {
+        qInfo().noquote() << QStringLiteral("%1: refused a proposal that updates the whole system with %2")
+                                 .arg(productName(), updater);
+        m_report = QStringLiteral("Your proposed change \"%1\" updates the whole system with %2, or fetches the package "
+                                  "lists without updating, so it was not shown to the person. %3 doesn't make either "
+                                  "from a card yet: an update can run longer than a change is given and be stopped "
+                                  "halfway, can stop to ask questions no one can answer, and can't be put back from a "
+                                  "snapshot while the computer runs on its new kernel. Never fetch the package lists "
+                                  "without updating, which leaves the system half updated. Tell the person in plain "
+                                  "words what an update would bring and how to run it themselves, and propose single "
+                                  "changes only.")
+                       .arg(proposed.title, updater, productName());
+        m_reportShown = QStringLiteral("Checking the change: updates aren't made from a card yet");
+        if (m_client && m_phase == QLatin1String("ready"))
+            send(std::exchange(m_report, QString()), std::exchange(m_reportShown, QString()));
+        return;
+    }
     const Appearance now = Appearance::current();
     // A theme named loosely is the one installed theme it fits, so the card
     // shows the name that will be applied.

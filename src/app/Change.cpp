@@ -117,6 +117,73 @@ std::optional<ChangeProposal> ChangeProposal::fromCommandLine(const QString &com
     return std::nullopt;
 }
 
+namespace {
+
+// The package tool in a command line that updates the whole system or only
+// fetches the package lists, with any shell -c string inside it searched in
+// turn.
+QString wholeSystemUpdateIn(const QString &line, int depth)
+{
+    static const QStringList tools{QStringLiteral("pacman"), QStringLiteral("paru"), QStringLiteral("yay")};
+    const QStringList words = shellWords(line);
+    for (qsizetype i = 0; i < words.size(); ++i) {
+        const QString &word = words.at(i);
+        if (depth < 3 && word.contains(QLatin1Char(' '))) {
+            const QString inside = wholeSystemUpdateIn(word, depth + 1);
+            if (!inside.isEmpty())
+                return inside;
+        }
+        const QString tool = word.section(QLatin1Char('/'), -1);
+        if (!tools.contains(tool))
+            continue;
+        // The tool's own words, up to the end of its command.
+        bool sync = false;
+        bool refresh = false;
+        bool upgrade = false;
+        bool operation = false;
+        for (qsizetype j = i + 1; j < words.size(); ++j) {
+            const QString &arg = words.at(j);
+            if (arg == QLatin1String(";") || arg == QLatin1String("&") || arg == QLatin1String("|"))
+                break;
+            if (arg.startsWith(QLatin1String("--"))) {
+                sync = sync || arg == QLatin1String("--sync");
+                refresh = refresh || arg == QLatin1String("--refresh");
+                upgrade = upgrade || arg == QLatin1String("--sysupgrade");
+                operation = operation || arg == QLatin1String("--sync") || arg == QLatin1String("--query")
+                    || arg == QLatin1String("--remove") || arg == QLatin1String("--upgrade")
+                    || arg == QLatin1String("--database") || arg == QLatin1String("--files")
+                    || arg == QLatin1String("--deptest") || arg == QLatin1String("--getpkgbuild")
+                    || arg == QLatin1String("--show");
+            } else if (arg.startsWith(QLatin1Char('-')) && arg.size() > 1) {
+                const QStringView letters = QStringView(arg).mid(1);
+                for (const QChar letter : letters) {
+                    if (QStringLiteral("SQRUDFTGPWBCY").contains(letter))
+                        operation = true;
+                }
+                sync = sync || letters.contains(QLatin1Char('S'));
+                refresh = refresh || letters.contains(QLatin1Char('y'));
+                upgrade = upgrade || letters.contains(QLatin1Char('u'));
+            } else if (tool != QLatin1String("pacman")) {
+                // paru or yay given a name searches for it.
+                operation = true;
+            }
+        }
+        // paru or yay on its own updates the whole system.
+        if (!operation && tool != QLatin1String("pacman"))
+            return tool;
+        if (sync && (upgrade || refresh))
+            return tool;
+    }
+    return {};
+}
+
+} // namespace
+
+QString ChangeProposal::wholeSystemUpdate() const
+{
+    return wholeSystemUpdateIn(command, 0);
+}
+
 QJsonObject ChangeProposal::toJson() const
 {
     return {{QStringLiteral("title"), title},

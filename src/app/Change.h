@@ -39,6 +39,12 @@ struct ChangeProposal {
     // assistant's request to run `bash -lc "split-rock-change '{...}'"`.
     static std::optional<ChangeProposal> fromCommandLine(const QString &command, QString *error = nullptr);
     QJsonObject toJson() const;
+
+    // The package tool in the command when it updates the whole system, or
+    // fetches the package lists without updating, which leaves an Arch system
+    // half updated; empty when it does neither. Neither is made from a card
+    // (docs/DECISIONS.md, A whole-system update is not made from a card).
+    QString wholeSystemUpdate() const;
 };
 
 // Splits a command line into words as a POSIX shell does for plain words and

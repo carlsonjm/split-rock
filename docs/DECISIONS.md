@@ -569,6 +569,30 @@ the skill alone, which misses questions worded in ways it can't foresee; and
 letting the assistant run its own look-around outside the fence, which would
 put an unreviewed command outside the fence without a card.
 
+## A whole-system update is not made from a card
+
+A proposal whose command updates the whole system (`pacman -Syu` and its
+spellings, or `paru` or `yay` on their own), or fetches the package lists
+without updating (`pacman -Sy`), is not shown to the person. The assistant is
+told why and asked to explain the update instead, and to propose single changes
+only. Installing or removing one package is still a change like any other.
+(Engineering, 9 October, held for the maintainer's review.)
+
+Why: the card runs a change with no one to answer it and stops it at six
+minutes, and an update can take longer and stop to ask; stopping the package
+manager halfway can leave the system unable to start. Undo puts back the system
+files between a snapshot pair while the computer keeps running, which for an
+update can leave a kernel that doesn't match its own modules, and on most
+computers the kernel the bootloader starts is outside the snapshot. Fetching
+the lists without updating is the half-update Arch documents as unsupported.
+An update needs a flow of its own: read what it brings and any news asking for
+a manual step first, show its progress, answer its questions, and go back by
+starting the computer from the snapshot taken before.
+
+Rejected: a longer time limit for package changes, which leaves the questions
+unanswered and Undo unsafe; and letting the update through with a warning on
+the card, because the card's promise is that it can be put back.
+
 ## The app icon keeps an icon theme's margin
 
 The icon's tile sits inside the margin icon themes leave around application
