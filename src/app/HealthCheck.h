@@ -15,8 +15,9 @@ namespace splitrock {
 // good, worth a look, or a problem, with the card that helps, or a question
 // for the assistant.
 //
-// It runs by itself once a week, quietly, when Split Rock starts; the notebook
-// shows what it found, and the card opens only when the person asks.
+// It runs by itself once a day, quietly, while Split Rock runs; the notebook
+// shows what it found, Genie's tiles say what needs the person, and the card
+// opens only when the person asks.
 //
 // Its stages: looking and done.
 class HealthCheck : public Chore
@@ -39,6 +40,7 @@ public:
         QString actionLabel;
         QString question;
         QVariantMap toMap() const;
+        static Item fromMap(const QVariantMap &map);
     };
 
     explicit HealthCheck(QObject *parent = nullptr);
@@ -51,8 +53,14 @@ public:
 
     // Opens the card and looks.
     Q_INVOKABLE void check();
-    // Looks without opening the card, when the last look is a week old.
+    // Looks without opening the card, when the last look is a day old.
     void checkIfDue();
+    // Looks without opening the card, now.
+    void lookQuietly() { look(false); }
+
+    // A few words for one of Genie's tiles saying what the check noticed,
+    // or empty when the item needs nothing.
+    static QString tile(const Item &item);
 
     static QList<Item> readLook(const QString &output, const QDateTime &now = QDateTime::currentDateTime());
 

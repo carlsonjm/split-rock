@@ -159,6 +159,9 @@ Conversation::Conversation(QList<Assistant> assistants, QObject *parent)
     addChore(QStringLiteral("health"), m_health);
     m_community = new CommunityApps(this);
     addChore(QStringLiteral("community"), m_community);
+    connect(this, &Conversation::assistantChanged, this, &Conversation::tilesChanged);
+    connect(m_update, &SystemUpdate::waitingChanged, this, &Conversation::tilesChanged);
+    connect(m_health, &Chore::changed, this, &Conversation::tilesChanged);
     connect(m_runner, &ChangeRunner::undone, this, [this](const ChangeRunner::Record &record) {
         const bool ok = record.status == QLatin1String("undone");
         if (m_notebook) {
@@ -414,6 +417,84 @@ QStringList Conversation::suggestions() const
     return {QStringLiteral("How do I connect to Wi-Fi?"),
             QStringLiteral("Make the writing bigger"),
             QStringLiteral("A window says my computer is infected")};
+}
+
+QVariantList Conversation::tiles() const
+{
+    QVariantList tiles;
+    const auto add = [&tiles](const QString &text, const QString &card, const QString &question, const QString &noticed) {
+        for (const QVariant &tile : std::as_const(tiles)) {
+            if (tile.toMap().value(QStringLiteral("text")) == text)
+                return;
+        }
+        tiles.append(QVariantMap{{QStringLiteral("text"), text},
+                                 {QStringLiteral("card"), card},
+                                 {QStringLiteral("question"), question},
+                                 {QStringLiteral("noticed"), noticed}});
+    };
+    const auto hasCard = [this](const QString &name) {
+        return std::any_of(m_chores.cbegin(), m_chores.cend(), [&name](const auto &c) { return c.first == name; });
+    };
+    // The guide answers only from its entries, so its tiles are its own.
+    if (m_current.guide) {
+        for (const QString &title : suggestions())
+            add(title, {}, title, {});
+        return tiles;
+    }
+
+    // What Genie noticed: updates waiting first, then what the health check
+    // found, problems before what's worth a look.
+    const int waiting = m_update ? m_update->waiting() : -1;
+    if (waiting > 0 && hasCard(QStringLiteral("update")))
+        add(waiting == 1 ? QStringLiteral("1 update is waiting") : QStringLiteral("%1 updates are waiting").arg(waiting),
+            QStringLiteral("update"), {}, QStringLiteral("warn"));
+    if (m_health) {
+        for (const HealthCheck::Item &item : m_health->items()) {
+            if (tiles.size() == 3)
+                break;
+            // Waiting updates already say it.
+            if (item.id == QLatin1String("updates") && waiting > 0)
+                continue;
+            const QString text = HealthCheck::tile(item);
+            if (text.isEmpty())
+                continue;
+            if (!item.action.isEmpty() && item.action != QLatin1String("ask") && hasCard(item.action))
+                add(text, item.action, {}, item.state);
+            else if (!item.question.isEmpty())
+                add(text, {}, item.question, item.state);
+        }
+    }
+
+    // Then what it can do on this computer.
+    if (m_health && m_health->lastChecked().isEmpty() && hasCard(QStringLiteral("health")))
+        add(QStringLiteral("Give this computer a health check"), QStringLiteral("health"), {}, {});
+    for (const Skill &skill : m_skills.skills()) {
+        if (tiles.size() >= 3)
+            break;
+        if (!skill.also.isEmpty())
+            add(skill.also.first(), {}, skill.also.first(), {});
+    }
+    if (hasCard(QStringLiteral("install")))
+        add(QStringLiteral("Find an app for a job"), QStringLiteral("install"), {}, {});
+    if (hasCard(QStringLiteral("space")))
+        add(QStringLiteral("Make room on the disk"), QStringLiteral("space"), {}, {});
+    for (const QString &question : suggestions())
+        add(question, {}, question, {});
+    while (tiles.size() > 3)
+        tiles.removeLast();
+    return tiles;
+}
+
+void Conversation::openTile(const QVariantMap &tile)
+{
+    const QString card = tile.value(QStringLiteral("card")).toString();
+    if (!card.isEmpty()) {
+        openChore(card);
+        return;
+    }
+    const QString question = tile.value(QStringLiteral("question")).toString();
+    if (!question.isEmpty())
+        ask(question);
 }
 
 void Conversation::showAssistants()

@@ -194,8 +194,18 @@ int main(int argc, char **argv)
     auto *card = qobject_cast<QQuickWindow *>(engine.rootObjects().value(0));
     if (!card)
         return 1;
-    // The weekly health look, read-only and quiet, once Split Rock has settled.
-    QTimer::singleShot(std::chrono::minutes(2), &conversation, [&conversation] { conversation.healthCheck()->checkIfDue(); });
+    // What Genie's tiles say it noticed: the updates waiting and the daily
+    // health look, both read-only and quiet, once Split Rock has settled and
+    // again every few hours while it runs.
+    const auto notice = [&conversation] {
+        conversation.systemUpdate()->peek();
+        conversation.healthCheck()->checkIfDue();
+    };
+    QTimer::singleShot(std::chrono::minutes(1), &conversation, notice);
+    QTimer noticing;
+    noticing.setInterval(std::chrono::hours(4));
+    QObject::connect(&noticing, &QTimer::timeout, &conversation, notice);
+    noticing.start();
 
     const auto handle = [&](const QStringList &arguments) {
         QCommandLineParser request;

@@ -73,8 +73,8 @@ QString writeCatalogue(const QString &folder, const QByteArray &data, const QStr
                             {QStringLiteral("urls"), QJsonArray{url}}};
     const QString path = QDir(folder).filePath(QStringLiteral("models.json"));
     QFile file(path);
-    file.open(QIODevice::WriteOnly);
-    file.write(QJsonDocument(QJsonObject{{QStringLiteral("models"), QJsonArray{large, small}}}).toJson());
+    if (file.open(QIODevice::WriteOnly))
+        file.write(QJsonDocument(QJsonObject{{QStringLiteral("models"), QJsonArray{large, small}}}).toJson());
     return path;
 }
 

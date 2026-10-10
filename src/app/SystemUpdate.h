@@ -28,6 +28,9 @@ class SystemUpdate : public Chore
     Q_OBJECT
     Q_PROPERTY(QVariantMap plan READ planMap NOTIFY changed)
     Q_PROPERTY(QVariantMap result READ resultMap NOTIFY changed)
+    // Updates waiting, system and apps together, from the last look; -1 when
+    // not looked yet or they can't be listed on this computer.
+    Q_PROPERTY(int waiting READ waiting NOTIFY waitingChanged)
 
 public:
     struct News {
@@ -87,8 +90,13 @@ public:
     QVariantMap resultMap() const { return m_result.toMap(); }
     bool busy() const override;
 
+    int waiting() const { return m_waiting; }
+
     // Opens the card and looks at what is waiting.
     Q_INVOKABLE void check();
+    // Looks at what is waiting without opening the card, for Genie's tiles.
+    // Only reads, as the card's own look does.
+    void peek();
     // Updates, after the person tapped Update on a ready card.
     Q_INVOKABLE void start();
 
@@ -119,10 +127,12 @@ public:
 Q_SIGNALS:
     // The update and everything after it finished, or failed.
     void finished(const splitrock::SystemUpdate::Result &result, const QString &output);
+    void waitingChanged();
 
 private:
     void afterSystem(int exitCode, const QString &output);
     void finish(const QString &output);
+    void setWaiting(const Plan &plan);
 
     Plan m_plan;
     Result m_result;
@@ -134,6 +144,8 @@ private:
     QString m_appsScript;
     QString m_afterScript;
     bool m_snapshots = true;
+    int m_waiting = -1;
+    bool m_peeking = false;
 };
 
 } // namespace splitrock

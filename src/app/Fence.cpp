@@ -149,8 +149,13 @@ acp::LaunchSpec fenced(const acp::LaunchSpec &launch, const FenceRoom &room)
         args << QStringLiteral("--ro-bind-try") << path << path;
     }
     for (const QString &path : room.readable) {
-        if (!path.isEmpty())
-            args << QStringLiteral("--ro-bind-try") << path << path;
+        if (path.isEmpty())
+            continue;
+        // A folder reached through a link, such as /bin on a merged system, is
+        // bound where the link leads: bubblewrap won't mount on a link.
+        const QString real = QFileInfo(path).canonicalFilePath();
+        const QString target = real.isEmpty() ? path : real;
+        args << QStringLiteral("--ro-bind-try") << target << target;
     }
     // What it may write: last, so nothing above covers it.
     for (const QString &path : room.writable) {

@@ -660,7 +660,7 @@ Plasma day, which Shuffle's own preparation covers.)
 - **Health check** only reads: services, space, the drive, the battery, the last
   update, the newest restore point, settings files beside the person's own and
   crashes this week, each with the card or question that helps. It looks once a
-  week by itself, quietly, and the notebook shows what it found.
+  day by itself, quietly, and the notebook and the tiles show what it found.
 - **Community apps** compares the installed community packages with the AUR,
   shows what changed in each recipe since the installed version, flagging new
   download addresses, install scripts and commands that reach the network, and
@@ -716,4 +716,19 @@ Rejected: Ollama, a second service to install and keep running; letting the
 model run commands in an agent loop, which a small model does not do safely;
 the larger model on every computer, which is slow without a graphics chip; and
 a local model with no hand-off, which leaves bigger fixes with nowhere to go.
+
+## The tiles say what Genie noticed
+
+The three tiles above the conversation say what Genie noticed on this
+computer, in a few words with a dot in the colour of how much it matters:
+updates waiting first, from the Update card's own look, then what the daily
+health check found. A tap opens the card that helps, or asks about it. When
+nothing needs the person, the tiles offer what Genie can do here instead,
+from its skills and upkeep cards. Both looks only read, run quietly while
+Split Rock runs, and open no card by themselves. (The maintainer, 10 October:
+the fixed tiles read as generic for a butler; updates waiting is the first
+one they must show.)
+
+Rejected: the same three questions for everyone, which read as a help page;
+and offers only, which say nothing about the computer itself.
 

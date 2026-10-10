@@ -66,6 +66,11 @@ class Conversation : public QObject
     Q_PROPERTY(QString problem READ problem NOTIFY noticeChanged)
     Q_PROPERTY(QString problemDetails READ problemDetails NOTIFY noticeChanged)
     Q_PROPERTY(QStringList suggestions READ suggestions NOTIFY assistantChanged)
+    // The tiles above the conversation: first what Genie noticed on this
+    // computer, then what it can do here. Each: text, card (an upkeep card to
+    // open, or empty), question (to ask otherwise) and noticed (warn or bad,
+    // or empty for an offer).
+    Q_PROPERTY(QVariantList tiles READ tiles NOTIFY tilesChanged)
     // The questions asked earlier in this conversation, each with its answer:
     // question, headline, steps and more. The one being answered is not here.
     Q_PROPERTY(QVariantList turns READ turns NOTIFY turnsChanged)
@@ -152,6 +157,9 @@ public:
     QString problem() const { return m_problem; }
     QString problemDetails() const { return m_problemDetails; }
     QStringList suggestions() const;
+    QVariantList tiles() const;
+    // Opens a tile's card, or asks its question.
+    Q_INVOKABLE void openTile(const QVariantMap &tile);
     QVariantList turns() const { return m_turns; }
     QVariantList refusedChanges() const { return m_refusedChanges; }
 
@@ -241,6 +249,7 @@ Q_SIGNALS:
     void assistantsChanged();
     void choosingChanged();
     void assistantChanged();
+    void tilesChanged();
     void phaseChanged();
     void signInChanged();
     void answerChanged();

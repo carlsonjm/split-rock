@@ -356,8 +356,29 @@ void SystemUpdate::check()
         qInfo().noquote() << QStringLiteral("%1: %2 system updates, %3 apps, %4 community waiting")
                                  .arg(productName()).arg(m_plan.system).arg(m_plan.apps).arg(m_plan.community);
         setStage(m_plan.nothing() ? QStringLiteral("nothing") : QStringLiteral("ready"));
+        setWaiting(m_plan);
         Q_EMIT changed();
     });
+}
+
+void SystemUpdate::peek()
+{
+    if (m_peeking || busy() || !stage().isEmpty())
+        return;
+    m_peeking = true;
+    run(asPerson(m_lookScript), 90000, [this](int, const QString &output) {
+        m_peeking = false;
+        setWaiting(readLook(output));
+    });
+}
+
+void SystemUpdate::setWaiting(const Plan &plan)
+{
+    const int waiting = plan.system < 0 ? -1 : plan.system + plan.apps;
+    if (waiting == m_waiting)
+        return;
+    m_waiting = waiting;
+    Q_EMIT waitingChanged();
 }
 
 void SystemUpdate::start()
@@ -456,6 +477,10 @@ void SystemUpdate::finish(const QString &output)
 {
     setNow(QString());
     setStage(m_result.ok ? QStringLiteral("done") : QStringLiteral("failed"));
+    if (m_result.ok && m_waiting != 0) {
+        m_waiting = 0;
+        Q_EMIT waitingChanged();
+    }
     Q_EMIT changed();
     Q_EMIT finished(m_result, output);
     if (m_id.isEmpty())

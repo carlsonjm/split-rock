@@ -22,6 +22,7 @@
 #include <QQuickItem>
 #include <QQuickWindow>
 #include <QScreen>
+#include <QSettings>
 #include <QSignalSpy>
 #include <QTemporaryDir>
 #include <QTest>
@@ -934,6 +935,50 @@ private Q_SLOTS:
         space->close();
         QTRY_VERIFY(!find(full, QStringLiteral("spaceCard")));
     }
+    // The tiles say what Genie noticed on this computer, updates waiting
+    // first, and a tap opens the card that helps.
+    void theTilesSayWhatGenieNoticed()
+    {
+        PretendFixture f;
+        QVERIFY(f.isValid());
+        Conversation c({f.assistant(QStringLiteral("signed-in.json"))});
+        SystemUpdate *update = c.systemUpdate();
+        update->setElevate({});
+        update->setLookScript(QStringLiteral("cat '" FIXTURES_DIR "/update/look.txt'"));
+        HealthCheck *health = c.healthCheck();
+        health->setLookScript(QStringLiteral("cat '" FIXTURES_DIR "/chores/health-look.txt'"));
+        QQmlApplicationEngine engine;
+        QQuickWindow *window = open(engine, c);
+        QVERIFY(window);
+        c.chooseAssistant(QStringLiteral("pretend"));
+        QTRY_COMPARE(c.phase(), QStringLiteral("ready"));
+
+        update->peek();
+        health->lookQuietly();
+        QTRY_VERIFY(update->waiting() > 0);
+        QTRY_VERIFY(!health->items().isEmpty());
+        // The quiet looks open no card.
+        QVERIFY(update->stage().isEmpty() && health->stage().isEmpty());
+        const QVariantList tiles = c.tiles();
+        QCOMPARE(tiles.size(), 3);
+        QCOMPARE(tiles.first().toMap().value(QStringLiteral("text")).toString(),
+                 QStringLiteral("%1 updates are waiting").arg(update->waiting()));
+        QCOMPARE(tiles.first().toMap().value(QStringLiteral("card")).toString(), QStringLiteral("update"));
+        for (const QVariant &tile : tiles)
+            QVERIFY(!tile.toMap().value(QStringLiteral("noticed")).toString().isEmpty());
+        QTRY_VERIFY(find(window, QStringLiteral("tile0")) && find(window, QStringLiteral("tile0"))->isVisible());
+        settle();
+        QVERIFY(overflowing(window).isEmpty());
+        shoot(window, QStringLiteral("54-tiles-noticed"));
+
+        QMetaObject::invokeMethod(find(window, QStringLiteral("tile0")), "clicked");
+        QTRY_COMPARE(update->stage(), QStringLiteral("ready"));
+        update->close();
+        // What the look found is kept for the next start; the other tests
+        // start from a computer that was never looked at.
+        QSettings(QStringLiteral("split-rock"), QStringLiteral("upkeep")).remove(QStringLiteral("health"));
+    }
+
     // Genie on this computer: its one-time download, then an answer, then a
     // change too big for it, handed to the assistant the person brought.
     void genieOnThisComputer()
