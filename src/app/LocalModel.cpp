@@ -44,6 +44,7 @@ QList<LocalModel::Choice> LocalModel::catalog(const QString &path)
             if (url.toString().startsWith(QLatin1String("https://")) || url.toString().startsWith(QLatin1String("http://127.0.0.1")))
                 choice.urls.append(url.toString());
         }
+        choice.credit = object.value(QStringLiteral("credit")).toString();
         const QJsonObject needs = object.value(QStringLiteral("needs")).toObject();
         choice.memoryGiB = needs.value(QStringLiteral("memoryGiB")).toDouble();
         choice.graphics = needs.value(QStringLiteral("graphics")).toBool();

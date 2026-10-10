@@ -159,6 +159,8 @@ install(TARGETS split-rock-desk RUNTIME DESTINATION ${CMAKE_INSTALL_LIBDIR}/spli
 # front desk once installed.
 configure_file(data/models.json ${CMAKE_CURRENT_BINARY_DIR}/models.json COPYONLY)
 install(FILES data/models.json DESTINATION ${CMAKE_INSTALL_LIBDIR}/split-rock)
+# The licence of the models models.json offers, which the person downloads.
+install(FILES data/licences/Apache-2.0.txt DESTINATION ${CMAKE_INSTALL_LIBDIR}/split-rock/licences)
 target_compile_definitions(split-rock PRIVATE
     SPLIT_ROCK_INSTALLED_DESK="${CMAKE_INSTALL_FULL_LIBDIR}/split-rock/split-rock-desk"
     SPLIT_ROCK_INSTALLED_MODELS="${CMAKE_INSTALL_FULL_LIBDIR}/split-rock/models.json")

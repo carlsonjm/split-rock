@@ -1039,6 +1039,7 @@ private Q_SLOTS:
                                 {QStringLiteral("file"), QStringLiteral("small.gguf")},
                                 {QStringLiteral("bytes"), 2.5e9},
                                 {QStringLiteral("sha256"), QString(64, QLatin1Char('a'))},
+                                {QStringLiteral("credit"), QStringLiteral("Qwen3 4B by the Qwen team, an open model under the Apache 2.0 licence")},
                                 {QStringLiteral("needs"), QJsonObject{{QStringLiteral("memoryGiB"), 0}, {QStringLiteral("graphics"), false}}},
                                 {QStringLiteral("urls"), QJsonArray{QStringLiteral("http://127.0.0.1:%1/small.gguf").arg(silent.serverPort())}}};
         const QString catalogue = dir.filePath(QStringLiteral("models.json"));
