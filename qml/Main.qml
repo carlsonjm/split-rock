@@ -339,6 +339,7 @@ Window {
                 visible: opacity > 0
                 enabled: !window.expanded
                 Behavior on opacity { NumberAnimation { duration: 120 } }
+                WheelScroll { flickable: page }
 
                 Column {
                     id: below

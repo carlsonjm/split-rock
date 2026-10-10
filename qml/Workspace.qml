@@ -550,6 +550,7 @@ Item {
             contentHeight: bubbles.implicitHeight
             clip: true
             boundsBehavior: Flickable.StopAtBounds
+            WheelScroll { flickable: history }
             onContentHeightChanged: contentY = Math.max(0, contentHeight - height)
 
             Column {
@@ -783,6 +784,7 @@ Item {
         contentHeight: side.implicitHeight
         clip: true
         boundsBehavior: Flickable.StopAtBounds
+        WheelScroll { flickable: aside }
 
         Column {
             id: side
