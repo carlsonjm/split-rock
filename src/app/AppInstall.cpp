@@ -26,7 +26,16 @@ command -v flatpak >/dev/null 2>&1 && flatpak search --columns=application,name,
 echo "@@ installed"
 pacman -Qq 2>/dev/null
 command -v flatpak >/dev/null 2>&1 && flatpak list --app --columns=application 2>/dev/null
+echo "@@ owned"
+pacman -Qqe 2>/dev/null
+command -v flatpak >/dev/null 2>&1 && flatpak list --app --columns=application,name 2>/dev/null
 echo "@@ end"
+)SH");
+
+// Run as the person: removes a Flatpak app, $1 its id. Flatpak asks for the
+// password itself when the system's apps need it.
+const QString FlathubRemoveScript = QStringLiteral(R"SH(export LANG=C LC_ALL=C
+flatpak uninstall -y --noninteractive "$1" 2>&1
 )SH");
 
 // Run as the person: a Flathub app, $1 the remote and $2 its id. Flatpak asks
@@ -80,12 +89,14 @@ AppInstall::AppInstall(QObject *parent)
     , m_shelfScript(transactionScript())
     , m_flathubScript(FlathubScript)
     , m_openScript(OpenScript)
+    , m_flathubRemoveScript(FlathubRemoveScript)
 {
 }
 
 bool AppInstall::busy() const
 {
-    return stage() == QLatin1String("searching") || stage() == QLatin1String("installing");
+    return stage() == QLatin1String("searching") || stage() == QLatin1String("installing")
+        || stage() == QLatin1String("removing");
 }
 
 QVariantList AppInstall::resultList() const
@@ -101,6 +112,7 @@ QList<AppInstall::App> AppInstall::readSearch(const QString &output, const QStri
     QString section;
     QStringList shelf;
     QStringList flathub;
+    QStringList owned;
     QSet<QString> installed;
     for (const QString &line : output.split(QLatin1Char('\n'))) {
         if (line.startsWith(QLatin1String("@@ "))) {
@@ -113,6 +125,8 @@ QList<AppInstall::App> AppInstall::readSearch(const QString &output, const QStri
             flathub.append(line);
         else if (section == QLatin1String("installed") && !line.trimmed().isEmpty())
             installed.insert(line.trimmed());
+        else if (section == QLatin1String("owned") && !line.trimmed().isEmpty())
+            owned.append(line);
     }
 
     QList<App> apps;
@@ -184,9 +198,52 @@ QList<AppInstall::App> AppInstall::readSearch(const QString &output, const QStri
             apps.append(f);
     }
 
+    // What the person installed themselves, by its own name, where the words
+    // asked for fit it: an app from outside the shelf, such as
+    // main-keyboard-git, has no description to be found by.
+    const QStringList words = withoutRemoveWords(query).toLower().split(QRegularExpression(QStringLiteral("\\W+")),
+                                                                        Qt::SkipEmptyParts);
+    const auto squeeze = [](const QString &text) {
+        QString squeezed;
+        for (const QChar c : text.toLower()) {
+            if (c.isLetterOrNumber())
+                squeezed += c;
+        }
+        return squeezed;
+    };
+    const QString asked = squeeze(words.join(QString()));
+    const auto fits = [&](const QString &name) {
+        if (asked.size() < 3)
+            return false;
+        const QString squeezed = squeeze(name);
+        return squeezed.contains(asked)
+            || std::all_of(words.cbegin(), words.cend(), [&](const QString &w) { return name.toLower().contains(w); });
+    };
+    for (const QString &line : std::as_const(owned)) {
+        const QStringList columns = line.split(QLatin1Char('\t'));
+        App o;
+        o.installed = true;
+        if (columns.size() >= 2) {
+            o.package = columns.at(0).trimmed();
+            o.name = columns.at(1).trimmed();
+            o.source = QStringLiteral("flathub");
+            if (!flatpakId().match(o.package).hasMatch() || !(fits(o.name) || fits(o.package)))
+                continue;
+        } else {
+            o.package = line.trimmed();
+            o.name = o.package;
+            o.source = QStringLiteral("shelf");
+            if (!packageName().match(o.package).hasMatch() || !fits(o.package))
+                continue;
+        }
+        o.key = o.source + QLatin1Char(':') + o.package;
+        o.summary = QStringLiteral("Installed on this computer");
+        if (std::none_of(apps.cbegin(), apps.cend(), [&o](const App &a) { return a.key == o.key; }))
+            apps.append(o);
+    }
+
     // Best first: the words asked for in its name, then in its summary, then
     // the system's shelf ahead of Flathub.
-    const QStringList words = query.toLower().split(QRegularExpression(QStringLiteral("\\W+")), Qt::SkipEmptyParts);
     const auto score = [&words](const App &a) {
         int s = 0;
         for (const QString &w : words) {
@@ -203,10 +260,58 @@ QList<AppInstall::App> AppInstall::readSearch(const QString &output, const QStri
     return apps;
 }
 
+bool AppInstall::asksToRemove(const QString &words)
+{
+    static const QRegularExpression remove(QStringLiteral(
+        "\\b(uninstall|remove|delete|get rid of|take off|deinstall)\\b"), QRegularExpression::CaseInsensitiveOption);
+    return remove.match(words).hasMatch();
+}
+
+QString AppInstall::withoutRemoveWords(const QString &words)
+{
+    static const QRegularExpression filler(QStringLiteral(
+        "\\b((from|on|off) (this|my|the) (computer|laptop|tablet|device|pc|system|machine)|"
+        "please|pls|kindly|can you|could you|would you|will you|go ahead and|i want to|i'd like to|i need to|help me|"
+        "uninstall|remove|delete|get rid of|take off|deinstall|completely|entirely|for me|for us|for good|now|just|"
+        "thanks|thank you|the|an|a|my|this|that|it|app|apps|program|programs|application)\\b"),
+        QRegularExpression::CaseInsensitiveOption);
+    QString left = words;
+    left.replace(filler, QStringLiteral(" "));
+    left.remove(QRegularExpression(QStringLiteral("[?!.,]")));
+    return left.simplified();
+}
+
+bool AppInstall::keptBySystem(const QString &package)
+{
+    static const QSet<QString> kept{
+        QStringLiteral("base"), QStringLiteral("filesystem"), QStringLiteral("glibc"), QStringLiteral("bash"),
+        QStringLiteral("coreutils"), QStringLiteral("pacman"), QStringLiteral("sudo"), QStringLiteral("dbus"),
+        QStringLiteral("polkit"), QStringLiteral("mesa"), QStringLiteral("snapper"), QStringLiteral("btrfs-progs"),
+        QStringLiteral("networkmanager"), QStringLiteral("grub"), QStringLiteral("plasma-desktop"),
+        QStringLiteral("plasma-workspace"), QStringLiteral("plasma-meta"), QStringLiteral("plasma"),
+        QStringLiteral("kwin"), QStringLiteral("sddm"), QStringLiteral("plasma-login-manager"), QStringLiteral("pipewire"),
+        QStringLiteral("wireplumber"), QStringLiteral("flatpak"), QStringLiteral("kadunce"), QStringLiteral("tettegouche"),
+        QStringLiteral("temperance"), QStringLiteral("gooseberry")};
+    static const QRegularExpression family(QStringLiteral(
+        "^(linux|linux-.*|systemd.*|limine.*|cachyos-.*|split-rock.*|shuffle.*|pipewire-.*|xorg-server.*|"
+        "xdg-desktop-portal.*|qt6-.*|kf6.*|nvidia.*|.*-firmware|base-.*)$"));
+    return kept.contains(package) || family.match(package).hasMatch();
+}
+
+void AppInstall::askRemove()
+{
+    if (busy())
+        return;
+    ask();
+    m_removing = true;
+    Q_EMIT changed();
+}
+
 void AppInstall::ask()
 {
     if (busy())
         return;
+    m_removing = false;
     m_query.clear();
     m_results.clear();
     m_picked = App();
@@ -220,11 +325,13 @@ void AppInstall::search(const QString &query)
 {
     if (busy())
         return;
-    const QString words = query.simplified().left(80);
+    const bool removing = m_removing || asksToRemove(query);
+    const QString words = (removing ? withoutRemoveWords(query) : query.simplified()).left(80);
     if (words.isEmpty()) {
-        ask();
+        removing ? askRemove() : ask();
         return;
     }
+    m_removing = removing;
     m_query = words;
     m_results.clear();
     m_picked = App();
@@ -233,6 +340,10 @@ void AppInstall::search(const QString &query)
     setStage(QStringLiteral("searching"));
     run(asPerson(m_searchScript, {words}), 60000, [this](int, const QString &output) {
         m_results = readSearch(output, m_query);
+        // Only what is installed can be removed, and never what the system
+        // runs on.
+        if (m_removing)
+            m_results.removeIf([](const App &a) { return !a.installed || keptBySystem(a.package); });
         qInfo().noquote() << QStringLiteral("%1: %2 apps found").arg(productName()).arg(m_results.size());
         setStage(QStringLiteral("results"));
         Q_EMIT changed();
@@ -312,6 +423,93 @@ void AppInstall::finish(bool ok, const QString &output)
                           "The end of the output:\n%7\n\nTell the person in a sentence how it went.")
                .arg(productName(), m_query, m_picked.name, m_picked.toMap().value(QStringLiteral("sourceName")).toString(),
                     m_picked.package, ok ? QStringLiteral("It installed.") : QStringLiteral("It failed: %1").arg(m_why),
+                    tail.isEmpty() ? QStringLiteral("(none)") : tail));
+}
+
+void AppInstall::remove(const QString &key)
+{
+    if (stage() != QLatin1String("results"))
+        return;
+    const auto found = std::find_if(m_results.cbegin(), m_results.cend(), [&key](const App &a) { return a.key == key; });
+    if (found == m_results.cend() || !found->installed || keptBySystem(found->package))
+        return;
+    m_picked = *found;
+    setStage(QStringLiteral("confirm"));
+    Q_EMIT changed();
+}
+
+void AppInstall::back()
+{
+    if (stage() != QLatin1String("confirm"))
+        return;
+    m_picked = App();
+    setStage(QStringLiteral("results"));
+    Q_EMIT changed();
+}
+
+void AppInstall::confirmRemove()
+{
+    if (stage() != QLatin1String("confirm"))
+        return;
+    const bool shelf = m_picked.source == QLatin1String("shelf");
+    m_id = QStringLiteral("remove-%1").arg(QDateTime::currentDateTime().toString(QStringLiteral("yyyyMMdd-HHmmss")));
+    QString unrecorded;
+    const QString undo = shelf ? QStringLiteral("Install %1 again, or go back to the restore point taken before").arg(m_picked.package)
+                               : QStringLiteral("Install %1 again from Flathub").arg(m_picked.name);
+    if (!writeDown(m_id, QStringLiteral("Removed %1").arg(m_picked.name), undo, &unrecorded)) {
+        m_why = QStringLiteral("Nothing was changed: it couldn't be written in the notebook first. %1").arg(unrecorded);
+        m_id.clear();
+        setStage(QStringLiteral("failed"));
+        Q_EMIT changed();
+        return;
+    }
+    clearProgress();
+    setNow(shelf ? QStringLiteral("Waiting for your password") : QStringLiteral("Removing it"));
+    setStage(QStringLiteral("removing"));
+    Q_EMIT changed();
+
+    const auto eachLine = [this](const QString &line) {
+        appendLog(line);
+        const Step step = pacmanStep(line, done(), total());
+        setProgress(done() + (step.counts ? 1 : 0), step.total > 0 ? step.total : total());
+        if (!step.now.isEmpty())
+            setNow(step.now);
+    };
+    const auto finished = [this](int exitCode, const QString &output) {
+        if (exitCode != 0)
+            m_why = whyFailed(output, exitCode, QStringLiteral("Removing %1").arg(m_picked.name));
+        finishRemoving(exitCode == 0, output);
+    };
+    if (shelf) {
+        // -s takes what it alone needed with it; -n its settings files under
+        // /etc. Anything another app needs stops it, and nothing is removed.
+        run(asAdmin(m_shelfScript, {QStringLiteral("%1: Remove %2").arg(productName(), m_picked.package),
+                                    QStringLiteral("1"), logPath(QStringLiteral("split-rock-install.log")),
+                                    QStringLiteral("pacman"), QStringLiteral("-Rns"), QStringLiteral("--noconfirm"),
+                                    QStringLiteral("--noprogressbar"), QStringLiteral("--color"), QStringLiteral("never"),
+                                    QStringLiteral("--"), m_picked.package}),
+            -1, finished, eachLine);
+    } else {
+        run(asPerson(m_flathubRemoveScript, {m_picked.package}), 30 * 60000, finished, eachLine);
+    }
+}
+
+void AppInstall::finishRemoving(bool ok, const QString &output)
+{
+    if (ok)
+        m_results.removeIf([this](const App &a) { return a.key == m_picked.key; });
+    setNow(QString());
+    setStage(ok ? QStringLiteral("removed") : QStringLiteral("failed"));
+    Q_EMIT changed();
+    QString tail = output;
+    if (tail.size() > 2000)
+        tail = QStringLiteral("...") + tail.right(2000);
+    report(std::exchange(m_id, QString()), ok,
+           ok ? QStringLiteral("Removed %1").arg(m_picked.name) : QStringLiteral("Removing %1 didn't finish").arg(m_picked.name),
+           QStringLiteral("%1 ran its own card to remove an app: the person asked to remove \"%2\" and picked %3 (%4). %5\n"
+                          "The end of the output:\n%6\n\nTell the person in a sentence how it went.")
+               .arg(productName(), m_query, m_picked.name, m_picked.package,
+                    ok ? QStringLiteral("It was removed.") : QStringLiteral("It failed: %1").arg(m_why),
                     tail.isEmpty() ? QStringLiteral("(none)") : tail));
 }
 

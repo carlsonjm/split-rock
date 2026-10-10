@@ -274,6 +274,14 @@
       ]
     },
     {
+      "expectPrompt": "hold on",
+      "steps": [
+        {
+          "waitForCancel": true
+        }
+      ]
+    },
+    {
       "expectPrompt": "take your time",
       "steps": [
         {

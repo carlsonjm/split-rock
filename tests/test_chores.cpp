@@ -19,6 +19,8 @@
 #include <QSignalSpy>
 #include <QTemporaryDir>
 #include <QTest>
+
+#include <algorithm>
 #include <QTimeZone>
 
 using namespace splitrock;
@@ -256,6 +258,64 @@ private Q_SLOTS:
         QVERIFY(QFile::exists(logs.filePath(QStringLiteral("split-rock-install.log"))));
     }
 
+    void anAppIsRemovedAfterAYes()
+    {
+        QCOMPARE(AppInstall::withoutRemoveWords(QStringLiteral("Please uninstall the MaiN Keyboard app")),
+                 QStringLiteral("MaiN Keyboard"));
+        // The polite words around the name go.
+        QCOMPARE(AppInstall::withoutRemoveWords(QStringLiteral("Can you uninstall MaiN keyboard for me?")),
+                 QStringLiteral("MaiN keyboard"));
+        QCOMPARE(AppInstall::withoutRemoveWords(QStringLiteral("Could you just remove VLC from my laptop now, thanks")),
+                 QStringLiteral("VLC"));
+        QVERIFY(AppInstall::asksToRemove(QStringLiteral("uninstall MaiN keyboard")));
+        QVERIFY(!AppInstall::asksToRemove(QStringLiteral("a pdf editor")));
+        QVERIFY(AppInstall::keptBySystem(QStringLiteral("linux-cachyos")));
+        QVERIFY(AppInstall::keptBySystem(QStringLiteral("plasma-workspace")));
+        QVERIFY(!AppInstall::keptBySystem(QStringLiteral("main-keyboard-git")));
+
+        // An app from outside the shelf is found by its own name.
+        const QList<AppInstall::App> found = AppInstall::readSearch(fixture(QStringLiteral("remove-search.txt")),
+                                                                    QStringLiteral("MaiN Keyboard"));
+        QVERIFY(std::any_of(found.cbegin(), found.cend(), [](const AppInstall::App &a) {
+            return a.key == QLatin1String("shelf:main-keyboard-git") && a.installed;
+        }));
+
+        StandIns standIns;
+        QVERIFY(standIns.add(QStringLiteral("pacman"), QStringLiteral(
+            "echo \"pacman $*\"\necho 'removing main-keyboard-git...'\n")));
+        QTemporaryDir logs;
+        AppInstall install;
+        install.setElevate({});
+        install.setLogFolder(logs.path());
+        install.setSearchScript(printing(QStringLiteral("remove-search.txt")));
+        QString title;
+        install.setWriteDown([&title](const QString &, const QString &t, const QString &, QString *) {
+            title = t;
+            return true;
+        });
+        install.search(QStringLiteral("uninstall MaiN Keyboard"));
+        QVERIFY(install.removing());
+        QCOMPARE(install.query(), QStringLiteral("MaiN Keyboard"));
+        QTRY_COMPARE(install.stage(), QStringLiteral("results"));
+        // Only what is installed, and never the system's own.
+        for (const AppInstall::App &a : install.results()) {
+            QVERIFY(a.installed);
+            QVERIFY(!AppInstall::keptBySystem(a.package));
+        }
+        // Nothing is removed before the yes.
+        install.remove(QStringLiteral("shelf:main-keyboard-git"));
+        QCOMPARE(install.stage(), QStringLiteral("confirm"));
+        QVERIFY(title.isEmpty());
+        install.back();
+        QCOMPARE(install.stage(), QStringLiteral("results"));
+        install.remove(QStringLiteral("shelf:main-keyboard-git"));
+        install.confirmRemove();
+        QCOMPARE(install.stage(), QStringLiteral("removing"));
+        QTRY_COMPARE(install.stage(), QStringLiteral("removed"));
+        QCOMPARE(title, QStringLiteral("Removed main-keyboard-git"));
+        QVERIFY(install.log().contains(QStringLiteral("pacman -Rns --noconfirm --noprogressbar --color never -- main-keyboard-git")));
+    }
+
     void restorePointsSayWhatCameNext()
     {
         const RestorePoints::Look look = RestorePoints::readLook(fixture(QStringLiteral("restore-look.txt")));
@@ -270,6 +330,12 @@ private Q_SLOTS:
         QCOMPARE(look.points.at(0).what, QStringLiteral("Before updating the computer"));
         QCOMPARE(look.points.at(1).what, QStringLiteral("Before installing okular"));
         QCOMPARE(look.points.at(2).kind, QStringLiteral("timeline"));
+        // Which are Split Rock's own, and how many the system keeps.
+        QVERIFY(look.points.at(0).own);
+        QVERIFY(!look.points.at(1).own);
+        QVERIFY(look.cleanup);
+        QCOMPARE(look.limit, 50);
+        QCOMPARE(look.limitImportant, 15);
 
         QCOMPARE(RestorePoints::describe(QStringLiteral("pacman -Rns qt5-tools python-pip"), QStringLiteral("number")),
                  QStringLiteral("Before removing qt5-tools, python-pip"));
@@ -277,6 +343,17 @@ private Q_SLOTS:
                  QStringLiteral("Before updating the computer"));
         QCOMPARE(RestorePoints::describe(QStringLiteral("Split Rock: Install okular"), QStringLiteral("number")),
                  QStringLiteral("Before installing okular"));
+        QCOMPARE(RestorePoints::describe(QStringLiteral("Genie: Remove main-keyboard-git"), QStringLiteral("number")),
+                 QStringLiteral("Before removing main-keyboard-git"));
+        // A helper's long words, and the package files it built, read plainly.
+        QCOMPARE(RestorePoints::describe(QStringLiteral("pacman --upgrade --color=always --noconfirm -- "
+                                                        "/home/user/.cache/paru/clone/thing/thing-1-1-x86_64.pkg.tar.zst"),
+                                         QStringLiteral("number")),
+                 QStringLiteral("Before installing a community app"));
+        QCOMPARE(RestorePoints::describe(QStringLiteral("pacman --sync --needed vlc"), QStringLiteral("number")),
+                 QStringLiteral("Before installing vlc"));
+        QVERIFY(RestorePoints::isOwn(QStringLiteral("Genie: Update")));
+        QVERIFY(!RestorePoints::isOwn(QStringLiteral("pacman -Syu")));
 
         // Started from one: the computer runs on its snapshot.
         QString booted = fixture(QStringLiteral("restore-look.txt"));

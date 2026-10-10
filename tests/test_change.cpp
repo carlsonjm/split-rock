@@ -425,6 +425,63 @@ private Q_SLOTS:
         QCOMPARE(record.pre, -1);
         QVERIFY(!record.canUndo());
     }
+
+    // The person said yes on the card, and no one is there to answer pacman's
+    // or Flatpak's own question halfway through, so the yes is given to them.
+    void packageToolsAreGivenTheYes()
+    {
+        QCOMPARE(ChangeRunner::unattended(QStringLiteral("pacman -Rns main-keyboard-git")),
+                 QStringLiteral("pacman --noconfirm -Rns main-keyboard-git"));
+        QCOMPARE(ChangeRunner::unattended(QStringLiteral("/usr/bin/pacman -S --needed vlc")),
+                 QStringLiteral("/usr/bin/pacman --noconfirm -S --needed vlc"));
+        QCOMPARE(ChangeRunner::unattended(QStringLiteral("pacman --remove vlc && echo gone")),
+                 QStringLiteral("pacman --noconfirm --remove vlc && echo gone"));
+        QCOMPARE(ChangeRunner::unattended(QStringLiteral("pacman -U ./thing.pkg.tar.zst")),
+                 QStringLiteral("pacman --noconfirm -U ./thing.pkg.tar.zst"));
+        QCOMPARE(ChangeRunner::unattended(QStringLiteral("flatpak uninstall org.videolan.VLC")),
+                 QStringLiteral("flatpak uninstall -y --noninteractive org.videolan.VLC"));
+        QCOMPARE(ChangeRunner::unattended(QStringLiteral("flatpak --user install flathub org.gimp.GIMP")),
+                 QStringLiteral("flatpak --user install -y --noninteractive flathub org.gimp.GIMP"));
+        // Both in one command, each given its own.
+        QCOMPARE(ChangeRunner::unattended(QStringLiteral("pacman -R vlc; flatpak install flathub org.videolan.VLC")),
+                 QStringLiteral("pacman --noconfirm -R vlc; flatpak install -y --noninteractive flathub org.videolan.VLC"));
+        // Already answered, or asking nothing: left as they are.
+        for (const char *same : {"pacman -Rns --noconfirm vlc", "pacman -Ss vlc", "pacman -Qi vlc", "pacman -Si vlc",
+                                 "flatpak list --app", "flatpak install -y flathub org.gimp.GIMP",
+                                 "plasma-apply-colorscheme BreezeDark"}) {
+            const QString command = QString::fromLatin1(same);
+            QCOMPARE(ChangeRunner::unattended(command), command);
+        }
+    }
+
+    // A removal that would stop at pacman's question finishes: here a stand-in
+    // pacman that, like the real one, says no unless it is told yes.
+    void aRemovalDoesNotStopAtTheQuestion()
+    {
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        const QString bin = dir.filePath(QStringLiteral("bin"));
+        QDir().mkpath(bin);
+        write(bin + QStringLiteral("/pacman"),
+              "#!/bin/sh\ncase \" $* \" in *' --noconfirm '*) echo removed; exit 0;; esac\n"
+              "printf ':: Do you want to remove these packages? [Y/n] '\nread answer || exit 1\n");
+        QFile::setPermissions(bin + QStringLiteral("/pacman"), QFileDevice::ReadOwner | QFileDevice::WriteOwner | QFileDevice::ExeOwner);
+        ChangeRunner runner(dir.filePath(QStringLiteral("changes")));
+        runner.setElevate({QStringLiteral("env"), QStringLiteral("PATH=%1:%2").arg(bin, qEnvironmentVariable("PATH"))});
+        runner.setSnapshots(false);
+        QSignalSpy made(&runner, &ChangeRunner::made);
+        ChangeProposal change;
+        change.title = QStringLiteral("Uninstall MaiN Keyboard");
+        change.command = QStringLiteral("pacman -Rns main-keyboard-git");
+        change.admin = true;
+        runner.make(change);
+        QTRY_COMPARE(made.size(), 1);
+        const auto record = made.first().first().value<ChangeRunner::Record>();
+        QCOMPARE(record.status, QStringLiteral("done"));
+        QVERIFY(record.output.contains(QStringLiteral("removed")));
+        // The record keeps the command as the card showed it.
+        QCOMPARE(record.proposal.command, QStringLiteral("pacman -Rns main-keyboard-git"));
+    }
 };
 
 QTEST_GUILESS_MAIN(TestChange)

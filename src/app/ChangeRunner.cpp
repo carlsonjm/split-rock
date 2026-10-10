@@ -15,6 +15,8 @@
 #include <QStandardPaths>
 #include <QTimer>
 
+#include <algorithm>
+
 namespace splitrock {
 
 namespace {
@@ -178,6 +180,79 @@ QString ChangeRunner::undoPromise(const ChangeProposal &change)
     return QStringLiteral("This can't be undone automatically. It is written in the notebook.");
 }
 
+QString ChangeRunner::unattended(const QString &command)
+{
+    // Each pacman or flatpak the command runs, up to the end of its own
+    // words: a separator, a closing bracket or the end of the line.
+    static const QRegularExpression tool(QStringLiteral(R"((^|[\s;&|(`])((?:[^\s;&|()`]*/)?(pacman|flatpak))(?=\s))"));
+    static const QRegularExpression end(QStringLiteral(R"([;&|)`\n])"));
+    QString result;
+    qsizetype from = 0;
+    for (auto it = tool.globalMatch(command); it.hasNext();) {
+        const QRegularExpressionMatch m = it.next();
+        if (m.capturedStart(2) < from)
+            continue;
+        const qsizetype after = m.capturedEnd(2);
+        const qsizetype stop = [&] {
+            const qsizetype at = command.indexOf(end, after);
+            return at < 0 ? command.size() : at;
+        }();
+        const QStringList words = command.mid(after, stop - after).split(QRegularExpression(QStringLiteral("\\s+")),
+                                                                           Qt::SkipEmptyParts);
+        QString insert;
+        qsizetype at = after;
+        if (m.captured(3) == QLatin1String("pacman")) {
+            // Its operation, S, R or U for the ones that change packages, and
+            // whether a sync only searches or lists, which asks nothing.
+            QChar operation;
+            bool looks = false;
+            bool answered = false;
+            for (const QString &w : words) {
+                if (w == QLatin1String("--"))
+                    break;
+                if (w == QLatin1String("--noconfirm"))
+                    answered = true;
+                else if (w == QLatin1String("--sync"))
+                    operation = QLatin1Char('S');
+                else if (w == QLatin1String("--remove"))
+                    operation = QLatin1Char('R');
+                else if (w == QLatin1String("--upgrade"))
+                    operation = QLatin1Char('U');
+                else if (w.startsWith(QLatin1String("--")))
+                    looks = looks || w == QLatin1String("--search") || w == QLatin1String("--info")
+                        || w == QLatin1String("--list") || w == QLatin1String("--print") || w == QLatin1String("--groups");
+                else if (w.size() > 1 && w.at(0) == QLatin1Char('-')) {
+                    for (const QChar c : QStringView(w).mid(1)) {
+                        if (c.isUpper())
+                            operation = c;
+                        else if (QStringLiteral("silpg").contains(c))
+                            looks = true;
+                    }
+                }
+            }
+            const bool changes = operation == QLatin1Char('R') || operation == QLatin1Char('U')
+                || (operation == QLatin1Char('S') && !looks);
+            if (changes && !answered)
+                insert = QStringLiteral(" --noconfirm");
+        } else {
+            // flatpak's options for a subcommand follow the subcommand.
+            static const QStringList asking{QStringLiteral("install"), QStringLiteral("uninstall"), QStringLiteral("remove"),
+                                            QStringLiteral("update"), QStringLiteral("upgrade")};
+            const qsizetype sub = std::find_if(words.cbegin(), words.cend(), [](const QString &w) { return !w.startsWith(QLatin1Char('-')); })
+                                  - words.cbegin();
+            if (sub < words.size() && asking.contains(words.at(sub))
+                && !words.contains(QStringLiteral("-y")) && !words.contains(QStringLiteral("--assumeyes"))) {
+                at = command.indexOf(words.at(sub), after) + words.at(sub).size();
+                insert = words.contains(QStringLiteral("--noninteractive")) ? QStringLiteral(" -y")
+                                                                            : QStringLiteral(" -y --noninteractive");
+            }
+        }
+        result += command.mid(from, at - from) + insert;
+        from = at;
+    }
+    return result + command.mid(from);
+}
+
 QString ChangeRunner::make(const ChangeProposal &change, const std::function<bool(const Record &)> &before)
 {
     if (busy())
@@ -216,14 +291,15 @@ QString ChangeRunner::make(const ChangeProposal &change, const std::function<boo
     if (change.admin) {
         program = m_elevate;
         program << Shell << QStringLiteral("-c") << SystemChange << productName()
-                << QStringLiteral("%1: %2").arg(productName(), change.title) << change.command
+                << QStringLiteral("%1: %2").arg(productName(), change.title) << unattended(change.command)
                 << (m_snapshots ? QStringLiteral("1") : QStringLiteral("0"));
     } else {
-        program = {Shell, QStringLiteral("-c"), change.command};
+        program = {Shell, QStringLiteral("-c"), unattended(change.command)};
     }
     qInfo().noquote() << QStringLiteral("%1: making change %2 \"%3\" as %4: %5")
                              .arg(productName(), record.id, change.title,
-                                  change.admin ? QStringLiteral("administrator") : QStringLiteral("the person"), change.command);
+                                  change.admin ? QStringLiteral("administrator") : QStringLiteral("the person"),
+                                  unattended(change.command));
     run(program, change.admin ? m_timeLimit * 3 : m_timeLimit, [this, record](int exitCode, const QString &output) mutable {
         record.exitCode = exitCode;
         record.output = output;
@@ -305,7 +381,7 @@ bool ChangeRunner::undo(const QString &id, QString *error)
         return true;
     }
     QStringList program = r.proposal.admin ? m_elevate : QStringList{};
-    program << Shell << QStringLiteral("-c") << r.proposal.undo;
+    program << Shell << QStringLiteral("-c") << unattended(r.proposal.undo);
     run(program, r.proposal.admin ? m_timeLimit * 3 : m_timeLimit,
         [finish, putBackCopies, hasCopies = !r.copies.isEmpty()](int exitCode, const QString &output) {
             // The way back failed: the copies, where there are any, still

@@ -32,6 +32,8 @@ class SpaceCleanup : public Chore
     Q_PROPERTY(qint64 freeKb READ freeKb NOTIFY changed)
     Q_PROPERTY(bool needsPassword READ needsPassword NOTIFY changed)
     Q_PROPERTY(QString freed READ freed NOTIFY changed)
+    // Why less came free than was counted, when it did; empty otherwise.
+    Q_PROPERTY(QString heldBack READ heldBack NOTIFY changed)
     Q_PROPERTY(QString why READ why NOTIFY changed)
 
 public:
@@ -65,6 +67,7 @@ public:
     qint64 freeKb() const { return m_look.freeKb; }
     bool needsPassword() const;
     QString freed() const { return m_freed; }
+    QString heldBack() const { return m_heldBack; }
     QString why() const { return m_why; }
 
     Q_INVOKABLE void check();
@@ -89,6 +92,7 @@ private:
     Look m_look;
     QString m_id;
     QString m_freed;
+    QString m_heldBack;
     QString m_why;
     QStringList m_chosenTitles;
     QStringList m_removed;

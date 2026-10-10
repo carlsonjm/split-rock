@@ -1,5 +1,12 @@
 # Assistants
 
+Split Rock ships two: Split Rock on this computer, which needs no account, and
+Codex, for bigger fixes with a ChatGPT account. They are the only two tested to
+ship. Claude Agent and Gemini CLI were offered before 10 October 2026 and are
+no longer; what was learned about them stays below for when other paid
+assistants are looked at again (`DECISIONS.md`, Two assistants: on this
+computer, and Codex).
+
 What each assistant offers Split Rock: how it starts, how a person signs in,
 and what it costs. Checked on 3 October 2026 from the Agent Client Protocol
 registry and each assistant's own source and documentation. This changes often;
@@ -34,8 +41,8 @@ before any account was used, each pinned adapter offered this:
 | Assistant | Pinned version | Offered | Not offered, and why |
 | --- | --- | --- | --- |
 | Codex | codex-acp 0.16.0 | Login with ChatGPT, in the browser | Two key methods: the key would have to be handed over by Split Rock |
-| Claude Agent | claude-agent-acp 0.85.1, subscription sign-in hidden | Anthropic Console, which the adapter marks as a terminal sign-in; Split Rock runs it without one | Nothing else is advertised |
-| Gemini CLI | gemini-cli 0.62.0 | Log in with Google, in the browser | Gemini key, Vertex AI and gateway: each needs a key Split Rock would hold |
+| Claude Agent (no longer offered) | claude-agent-acp 0.85.1, subscription sign-in hidden | Anthropic Console, which the adapter marks as a terminal sign-in; Split Rock runs it without one | Nothing else is advertised |
+| Gemini CLI (no longer offered) | gemini-cli 0.62.0 | Log in with Google, in the browser | Gemini key, Vertex AI and gateway: each needs a key Split Rock would hold |
 
 Claude's Console sign-in opens the browser, but falls back to asking for a
 pasted code when the browser cannot hand the sign-in back. Whether it finishes
@@ -46,8 +53,6 @@ The live check (`SIGN-IN-CHECK.md`) fills in the rest:
 | Assistant | Signed in without a terminal | What it costs | Checked |
 | --- | --- | --- | --- |
 | Codex | Not yet checked live | Not yet checked live | — |
-| Claude Agent | Not yet checked live | Not yet checked live | — |
-| Gemini CLI | Not yet checked live | Not yet checked live | — |
 
 ## Claude
 
@@ -63,9 +68,10 @@ Claude Code.
 Split Rock's own assistant needs no account and no program of the person's: a
 one-time download of an open model (Qwen3 4B, about 2.5 GB, the same for every
 computer), run by llama.cpp, which comes
-with Split Rock. It answers and makes everyday changes through the Do it card;
-bigger fixes pass to the assistant the person signed in to, usually Codex
-(`DECISIONS.md`, Genie on this computer).
+with Split Rock. It answers and makes everyday changes through the Do it card,
+and answers from the guide, as written, where an entry fits; the guide is no
+longer a choice of its own where it runs. Bigger fixes pass to Codex, when the
+person signed in to it (`DECISIONS.md`, Genie on this computer).
 
 ## What this means for setup
 

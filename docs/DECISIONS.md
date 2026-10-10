@@ -789,3 +789,85 @@ asks a small model to summarise a long list correctly; moving old downloads to
 the Trash from Free up space, which frees nothing until the Trash is emptied,
 and deleting them, which can't be undone; restarting any service the model
 names; and a seventh tile on the shelf, which leaves one alone on its row.
+
+## Two assistants: on this computer, and Codex
+
+Split Rock offers two assistants: Split Rock on this computer, which needs no
+account, and Codex, for bigger fixes with a ChatGPT account. They are the only
+two tested to ship. Where Split Rock on this computer runs, it answers from the
+guide itself, as written, whenever an entry fits the question, so the guide is
+no longer a choice of its own there; it stays one only where Split Rock on this
+computer can't run. Split Rock on this computer never offers to remember
+something about the person, since what a small model would keep can't be
+trusted to be right. (The maintainer, 10 October, after a day of real use:
+"Now that local exists, Claude and Gemini can get the axe"; other paid
+assistants are for later.)
+
+Rejected: keeping Claude Agent and Gemini CLI, never tested to ship; the guide
+as a separate choice beside an assistant that already knows it; and the small
+model retelling a guide entry in its own words, which on the first real day
+turned "these settings files wait for you" into "the system applies them".
+The rulings "Claude is offered only with an Anthropic key" and "ChatGPT first,
+Claude with a key second" stand only for when Claude is offered again.
+
+## A change the person approved runs to the end
+
+The person says yes on the card, so a change never stops to ask again: the
+package manager is given its yes (`--noconfirm`), and Flatpak its own
+(`-y --noninteractive`), for installs, removals and updates, whichever
+assistant wrote the command. The card shows the command as written; the record
+keeps it so. (The maintainer, 10 October: "Codex was also unable to uninstall,
+which is a critical failure". pacman stopped at "Do you want to remove these
+packages? [Y/n]" with no one to answer, and the change failed.)
+
+Rejected: answering the question by feeding "y" to the change, which answers
+every other question it might ask too.
+
+## Apps are removed from the app card
+
+"Uninstall", "remove" or "get rid of" an app opens the app card to remove one,
+for Genie on this computer whatever card the model picked. It lists the
+installed apps the words fit, by their names in the app menu and by the
+package's own name, so an app from outside the shelf, such as
+main-keyboard-git, is found too. A tap asks first; yes removes it with what it
+alone needed, after a restore point, and a removal another app depends on stops
+with nothing removed. What the system runs on (the kernel, the desktop, the
+package manager, Shuffle's own parts and the like) is never listed.
+
+Rejected: removing from the Do it card alone, which the local model can't
+write safely; and a separate Remove an app tile, which would make the shelf
+seven.
+
+## This Device: one drawer, and the side follows the card
+
+The drawer beside the conversation is one page, This Device, in place of the
+three tabs This computer, About me and Kept. The upkeep tiles come first, as
+a bento: as many columns as fit, chosen so the rows come out even, every tile
+the same height. Under them each part is a closet, folded until tapped:
+System, About me, Troubleshooting (the device's open and solved problems,
+open while one is still open) and Changes. An upkeep card open in the
+conversation brings the closet that goes with it to the top, open: What
+changed its Changes, the health check Troubleshooting, Restore points the
+System. (The maintainer, 10 October: "an action card should have a paired
+sidebar"; "Remove the 3 tab system, its one drawer: This Device".)
+
+Kept goes from the drawer: kept answers are plain notes, read and searched in
+the notes app where Gooseberry is installed. Fixed problems goes too: the
+device's Open and Solved, under Troubleshooting, say the same and more.
+
+Rejected: every part on show at once, which made the drawer a long list of
+everything; and keeping a Kept list beside the notes app that already holds
+the notes.
+
+## Restore points say whose they are
+
+Each restore point says whether Split Rock took it, before a change it made,
+or the system did by itself, as CachyOS's snap-pac does before every install,
+removal and update; a helper's command line is said in words ("Before
+installing a community app"). The card says the computer clears old ones by
+itself, with how many it keeps, read from its own settings, so no one needs
+to delete them. (The maintainer, 10 October: "I never asked for a restore
+point, how many is this thing grabbing?")
+
+Rejected: deleting restore points from the card, which the system's own
+cleanup already does on a schedule the person never has to think about.

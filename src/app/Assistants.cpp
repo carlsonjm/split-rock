@@ -93,7 +93,8 @@ QList<Assistant> realAssistants(const QString &adaptersDir, const QString &state
     const QDir adapters(adaptersDir);
     QList<Assistant> list;
 
-    // ChatGPT first: the easiest sign-in for someone new (DECISIONS.md).
+    // Codex alone: the one paid assistant tested to ship with Genie on this
+    // computer (DECISIONS.md, Two assistants: on this computer, and Codex).
     Assistant codex = nodeAssistant(QStringLiteral("codex"), QStringLiteral("Codex"),
                                     adapters.filePath(QStringLiteral("codex")),
                                     QStringLiteral("node_modules/@zed-industries/codex-acp/bin/codex-acp.js"), 18, stateDir);
@@ -106,46 +107,6 @@ QList<Assistant> realAssistants(const QString &adaptersDir, const QString &state
                                    QStringLiteral("state_*.sqlite*"), QStringLiteral("logs_*.sqlite*"),
                                    QStringLiteral("memories_*.sqlite*"), QStringLiteral("goals_*.sqlite*")};
     list.append(codex);
-
-    // Claude second, with an Anthropic key only: subscription sign-in is hidden
-    // by the adapter's own switch and refused again here.
-    Assistant claude = nodeAssistant(QStringLiteral("claude"), QStringLiteral("Claude Agent"),
-                                     adapters.filePath(QStringLiteral("claude")),
-                                     QStringLiteral("node_modules/@agentclientprotocol/claude-agent-acp/dist/index.js"), 22, stateDir);
-    claude.cost = QStringLiteral("Billed for each use, through an Anthropic Console account. "
-                                 "A Claude subscription can't be used here.");
-    claude.serveArguments = {QStringLiteral("--hide-claude-auth")};
-    claude.environment.insert(QStringLiteral("CLAUDE_CONFIG_DIR"), claude.home);
-    claude.environment.insert(QStringLiteral("DISABLE_AUTOUPDATER"), QStringLiteral("1"));
-    const QString subscription = QStringLiteral("Anthropic does not allow a Claude subscription to be used in %1.").arg(productName());
-    claude.hiddenMethods = {{QStringLiteral("claude-ai-login"), subscription},
-                            {QStringLiteral("claude-login"), subscription},
-                            {QStringLiteral("gateway"), keyReason()},
-                            {QStringLiteral("gateway-bedrock"), keyReason()}};
-    claude.askFirstMode = QStringLiteral("default");
-    claude.conversationLeftovers = {QStringLiteral("projects"), QStringLiteral("history.jsonl"),
-                                    QStringLiteral("todos"), QStringLiteral("shell-snapshots"),
-                                    QStringLiteral("sessions"), QStringLiteral("file-history"),
-                                    QStringLiteral("plans"), QStringLiteral("session-env"),
-                                    QStringLiteral("paste-cache"), QStringLiteral("tasks"),
-                                    QStringLiteral("debug")};
-    list.append(claude);
-
-    Assistant gemini = nodeAssistant(QStringLiteral("gemini"), QStringLiteral("Gemini CLI"),
-                                     adapters.filePath(QStringLiteral("gemini")),
-                                     QStringLiteral("node_modules/@google/gemini-cli/bundle/gemini.js"), 20, stateDir);
-    gemini.cost = QStringLiteral("Needs a Google account. Its free use reportedly ended, so expect to pay.");
-    gemini.serveArguments = {QStringLiteral("--acp")};
-    gemini.environment.insert(QStringLiteral("GEMINI_CLI_HOME"), gemini.home);
-    // Keeps its sign-in in its own folder rather than the desktop's keyring,
-    // where it would be shared with any other copy of Gemini CLI.
-    gemini.environment.insert(QStringLiteral("GEMINI_FORCE_FILE_STORAGE"), QStringLiteral("true"));
-    gemini.hiddenMethods = {{QStringLiteral("gemini-api-key"), keyReason()},
-                            {QStringLiteral("vertex-ai"), keyReason()},
-                            {QStringLiteral("gateway"), keyReason()}};
-    gemini.askFirstMode = QStringLiteral("default");
-    gemini.conversationLeftovers = {QStringLiteral(".gemini/tmp"), QStringLiteral(".gemini/history")};
-    list.append(gemini);
 
     return list;
 }

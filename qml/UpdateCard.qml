@@ -162,6 +162,12 @@ CardFrame {
             text: "Restart to finish: the new parts start with the computer."
         }
         CardNote {
+            objectName: "updateCarryOn"
+            visible: card.stage === "done" && !card.result.restart
+            tone: theme.good
+            text: "Nothing needs a restart: it's safe to carry on as you are."
+        }
+        CardNote {
             visible: card.stage === "done" && (card.result.settingsFiles || []).length > 0
             text: {
                 const n = (card.result.settingsFiles || []).length

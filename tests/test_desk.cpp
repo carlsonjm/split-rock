@@ -342,6 +342,15 @@ private Q_SLOTS:
         ask(desk, full);
         QCOMPARE(tools.proposals.size(), 2);
         QCOMPARE(tools.proposals.last().value(QStringLiteral("card")).toString(), QStringLiteral("space"));
+        // Removing an app opens the app card with the whole ask, even when the
+        // model picked another card, so the card knows to remove.
+        const QString uninstall = QStringLiteral("uninstall main-keyboard-git");
+        model.routes.insert(uninstall, sorted(QStringLiteral("change"), QStringLiteral("community"), QStringLiteral("none"),
+                                              QStringLiteral("main-keyboard-git")));
+        ask(desk, uninstall);
+        QCOMPARE(tools.proposals.size(), 3);
+        QCOMPARE(tools.proposals.last().value(QStringLiteral("card")).toString(), QStringLiteral("install"));
+        QCOMPARE(tools.proposals.last().value(QStringLiteral("query")).toString(), uninstall);
     }
 
     void changesNoSkillCoversAreHandedOff()
@@ -466,6 +475,22 @@ private Q_SLOTS:
         desk.report({{QStringLiteral("kind"), QStringLiteral("change")}, {QStringLiteral("ok"), false}});
         QCOMPARE(finished.size(), 2);
         QVERIFY(finished.last().first().toBool());
+        // An upkeep card that finished is told in Genie's words too, never
+        // left without an answer.
+        desk.report({{QStringLiteral("kind"), QStringLiteral("chore")}, {QStringLiteral("ok"), true},
+                     {QStringLiteral("title"), QStringLiteral("Updated the computer")}});
+        QCOMPARE(finished.size(), 3);
+        QVERIFY(said.last().first().toString().contains(QLatin1String("Updated the computer")));
+    }
+
+    // Every kind Split Rock labels its reports with is read as a report, not
+    // as a question with nothing in it.
+    void everyReportKindIsAReport()
+    {
+        for (const char *kind : {"report", "change", "card", "update", "chore", "refused"})
+            QVERIFY2(isReport(QString::fromLatin1(kind)), kind);
+        for (const char *kind : {"question", "framing", "memory", "aside", ""})
+            QVERIFY2(!isReport(QString::fromLatin1(kind)), kind);
     }
 };
 

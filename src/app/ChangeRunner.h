@@ -73,6 +73,11 @@ public:
     static ChangeProposal withKnownUndo(const ChangeProposal &change, const Appearance &now);
     // How the card says a proposal would be undone.
     static QString undoPromise(const ChangeProposal &change);
+    // The command with the yes already given to package tools that would
+    // stop to ask it: the person said yes on the card, and no one is there to
+    // answer a question in the middle of the change. pacman's installs,
+    // removals and upgrades get --noconfirm, Flatpak's -y --noninteractive.
+    static QString unattended(const QString &command);
 
     // The program that asks the system's password prompt and runs the rest as
     // the administrator; tests replace it.

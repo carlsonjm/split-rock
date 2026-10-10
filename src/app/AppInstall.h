@@ -17,7 +17,13 @@ namespace splitrock {
 // the system's own keys and updated with the system. Community apps are never
 // offered here; each needs a look at its recipe first, on its own card.
 //
-// Its stages: asking, searching, results, installing, done or failed.
+// It removes apps too: asked to remove one ("uninstall VLC"), it finds the
+// installed apps the words fit, including ones from outside the shelf, and
+// one tap, then a yes, removes the one picked, with a restore point first for
+// the system's own. What the system can't run without is never offered.
+//
+// Its stages: asking, searching, results, installing, done, confirm (removing
+// one waits for a yes), removing, removed or failed.
 class AppInstall : public Chore
 {
     Q_OBJECT
@@ -27,6 +33,8 @@ class AppInstall : public Chore
     Q_PROPERTY(QVariantList results READ resultList NOTIFY changed)
     Q_PROPERTY(QVariantMap picked READ pickedMap NOTIFY changed)
     Q_PROPERTY(QString why READ why NOTIFY changed)
+    // The person asked to remove an app, rather than to find one.
+    Q_PROPERTY(bool removing READ removing NOTIFY changed)
 
 public:
     struct App {
@@ -51,6 +59,7 @@ public:
     QVariantList resultList() const;
     QVariantMap pickedMap() const { return m_picked.toMap(); }
     QString why() const { return m_why; }
+    bool removing() const { return m_removing; }
 
     // Opens the card, empty, for the person to say what they need.
     Q_INVOKABLE void ask();
@@ -59,6 +68,22 @@ public:
     Q_INVOKABLE void install(const QString &key);
     // Opens the app just installed, or one already installed.
     Q_INVOKABLE void openApp(const QString &key = QString());
+    // Asks to remove the installed app with that key: the card waits for a
+    // yes. confirmRemove() removes it; back() returns to the results.
+    Q_INVOKABLE void remove(const QString &key);
+    Q_INVOKABLE void confirmRemove();
+    Q_INVOKABLE void back();
+    // Opens the card to say which app to remove.
+    Q_INVOKABLE void askRemove();
+
+    // Words that ask to remove an app rather than find one, and the words
+    // that are left once those are taken out: "uninstall MaiN Keyboard" is
+    // MaiN Keyboard.
+    static bool asksToRemove(const QString &words);
+    static QString withoutRemoveWords(const QString &words);
+    // Packages the system can't do without, which are never offered for
+    // removal.
+    static bool keptBySystem(const QString &package);
 
     // What the search printed, read into apps, best first, at most eight.
     static QList<App> readSearch(const QString &output, const QString &query);
@@ -67,20 +92,24 @@ public:
     void setShelfScript(const QString &script) { m_shelfScript = script; }
     void setFlathubScript(const QString &script) { m_flathubScript = script; }
     void setOpenScript(const QString &script) { m_openScript = script; }
+    void setFlathubRemoveScript(const QString &script) { m_flathubRemoveScript = script; }
 
 private:
     void finish(bool ok, const QString &output);
+    void finishRemoving(bool ok, const QString &output);
 
     QString m_query;
     QList<App> m_results;
     App m_picked;
     QString m_id;
     QString m_why;
+    bool m_removing = false;
 
     QString m_searchScript;
     QString m_shelfScript;
     QString m_flathubScript;
     QString m_openScript;
+    QString m_flathubRemoveScript;
 };
 
 } // namespace splitrock

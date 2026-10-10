@@ -25,8 +25,9 @@ namespace splitrock {
 class RestorePoints : public Chore
 {
     Q_OBJECT
-    // Each: number, date, when (in words), what, and kind (update, install,
-    // remove, timeline, boot or other).
+    // Each: number, date, when (in words), what, kind (update, install,
+    // remove, timeline, boot or other), and own: taken by Split Rock, rather
+    // than by the system before each package change.
     Q_PROPERTY(QVariantList points READ pointList NOTIFY changed)
     Q_PROPERTY(QVariantMap chosen READ chosenMap NOTIFY changed)
     // limine, grub or empty: which startup menu lists the restore points.
@@ -41,6 +42,11 @@ class RestorePoints : public Chore
     // leaves them as they are.
     Q_PROPERTY(bool homeSeparate READ homeSeparate NOTIFY changed)
     Q_PROPERTY(QString newest READ newest NOTIFY changed)
+    // How the system clears old restore points by itself, in words; empty
+    // when it doesn't.
+    Q_PROPERTY(QString keeping READ keeping NOTIFY changed)
+    // How many of them Split Rock took.
+    Q_PROPERTY(int ownCount READ ownCount NOTIFY changed)
     // The steps to go back to the chosen one.
     Q_PROPERTY(QStringList steps READ steps NOTIFY changed)
 
@@ -50,6 +56,7 @@ public:
         QDateTime date;
         QString what;
         QString kind;
+        bool own = false;
         QVariantMap toMap() const;
     };
 
@@ -61,6 +68,10 @@ public:
         QString keepTool;
         int bootedFrom = -1;
         bool homeSeparate = false;
+        // snapper's number cleanup: on, and how many it keeps.
+        bool cleanup = false;
+        int limit = 0;
+        int limitImportant = 0;
     };
 
     explicit RestorePoints(QObject *parent = nullptr);
@@ -75,6 +86,8 @@ public:
     bool configured() const { return m_look.configured; }
     bool homeSeparate() const { return m_look.homeSeparate; }
     QString newest() const;
+    QString keeping() const;
+    int ownCount() const;
     QStringList steps() const;
 
     Q_INVOKABLE void check();
@@ -90,6 +103,8 @@ public:
     static QList<Point> readList(const QString &json);
     // What a restore point's description says was about to happen.
     static QString describe(const QString &description, const QString &cleanup, QString *kind = nullptr);
+    // Taken by Split Rock, under either of its names.
+    static bool isOwn(const QString &description);
 
     void setLookScript(const QString &script) { m_lookScript = script; }
     void setListScript(const QString &script) { m_listScript = script; }

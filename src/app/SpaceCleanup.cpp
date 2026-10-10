@@ -108,7 +108,9 @@ done
 exit 0
 )SH");
 
-const QString FreeScript = QStringLiteral("df -Pk / 2>/dev/null | awk 'NR==2 {print $4}'");
+// The free space once the drive has written out what was deleted: a btrfs
+// drive gives space back a moment after the files go.
+const QString FreeScript = QStringLiteral("sync -f / 2>/dev/null; sleep 3; df -Pk / 2>/dev/null | awk 'NR==2 {print $4}'");
 
 qint64 sumBytes(const QStringList &lines, int *count = nullptr)
 {
@@ -335,6 +337,7 @@ void SpaceCleanup::check()
         return;
     m_look = Look();
     m_freed.clear();
+    m_heldBack.clear();
     m_why.clear();
     clearProgress();
     setStage(QStringLiteral("looking"));
@@ -453,6 +456,12 @@ void SpaceCleanup::runPerson(const QString &output)
         const qint64 after = free.trimmed().toLongLong(&ok);
         const qint64 kb = ok && m_look.freeKb >= 0 && after > m_look.freeKb ? after - m_look.freeKb : chosenKb();
         m_freed = size(kb);
+        // Restore points keep their own copy of what they saw, so what was
+        // cleared under them comes free only as the computer clears them.
+        m_heldBack = ok && kb * 10 < chosenKb() * 7
+            ? QStringLiteral("Some of it is still held by restore points, which keep their own copy of what they saw. "
+                             "It comes free as the computer clears old ones by itself.")
+            : QString();
         if (ok)
             m_look.freeKb = after;
         finish(true, output);

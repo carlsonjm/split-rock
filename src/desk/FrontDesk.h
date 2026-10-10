@@ -60,6 +60,11 @@ QString checkCard(const QJsonObject &card, const QString &skillText, const QStri
 // the undo empty.
 QJsonObject withSkillsOwnUndo(const QJsonObject &card, const QString &skillText);
 
+// A block Split Rock labelled as how something it ran went, rather than the
+// person's question: a change, a card it opened, an upkeep card that finished,
+// a proposal it refused, or a report with no kind of its own.
+bool isReport(const QString &kind);
+
 // An answer that says a change was made, which an answer in words never does.
 bool claimsDone(const QString &answer);
 // An answer that sends the person to a terminal.

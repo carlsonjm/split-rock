@@ -220,6 +220,8 @@ QString Chore::whyFailed(const QString &output, int exitCode, const QString &wha
                               "the security keys being out of date; %1 can help.").arg(productName());
     if (text.contains(QLatin1String("conflicting files")))
         return QStringLiteral("Two packages wanted the same file, so nothing was installed. %1 can help find which.").arg(productName());
+    if (text.contains(QLatin1String("breaks dependency")))
+        return QStringLiteral("Other apps on this computer need it, so nothing was removed.");
     if (text.contains(QLatin1String("unable to satisfy dependency")) || text.contains(QLatin1String("could not satisfy dependencies"))
         || text.contains(QLatin1String("conflicting dependencies")))
         return QStringLiteral("Something installed on this computer is in the way, often an app from outside "

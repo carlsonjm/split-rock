@@ -399,7 +399,11 @@ void Conversation::setGuide(const GuideLibrary &library, const GuideContext &con
     m_assistants.erase(std::remove_if(m_assistants.begin(), m_assistants.end(),
                                       [](const Assistant &a) { return a.guide; }),
                        m_assistants.end());
-    if (!m_guide.entries(m_guideContext, GuideEntry::Kind::Guide).isEmpty()) {
+    // Genie on this computer answers from the guide itself, so the guide is a
+    // choice of its own only where Genie on this computer can't run.
+    const bool localRuns = std::any_of(m_assistants.cbegin(), m_assistants.cend(),
+                                       [](const Assistant &a) { return a.local && a.unavailable.isEmpty(); });
+    if (!localRuns && !m_guide.entries(m_guideContext, GuideEntry::Kind::Guide).isEmpty()) {
         Assistant guide;
         guide.id = QStringLiteral("guide");
         guide.name = QStringLiteral("%1's guide").arg(productName());
@@ -661,7 +665,7 @@ QJsonObject Conversation::framingMeta() const
     const QList<std::pair<QString, QString>> upkeep{
         {QStringLiteral("update"), QStringLiteral("update the whole computer, or check whether an update worked")},
         {QStringLiteral("space"), QStringLiteral("free up space when the disk is full or nearly full")},
-        {QStringLiteral("install"), QStringLiteral("install an app or find one for a job")},
+        {QStringLiteral("install"), QStringLiteral("install an app or find one for a job, or remove (uninstall) an app")},
         {QStringLiteral("restore"), QStringLiteral("go back to a restore point, as things were before")},
         {QStringLiteral("health"), QStringLiteral("a health check, when the computer is slow, hot or something seems wrong")},
         {QStringLiteral("community"), QStringLiteral("update apps from the AUR, the community's own apps")},
@@ -1104,6 +1108,12 @@ void Conversation::ask(const QString &text)
     }
     if (m_phase != QLatin1String("ready"))
         return;
+    // A card left open would sit under the answer and push it out of view; a
+    // new question puts it away, unless it is still working.
+    for (const auto &[name, chore] : m_chores) {
+        if (!chore->busy())
+            chore->close();
+    }
     if (m_current.guide) {
         answerFromGuide(question);
         return;
@@ -1119,6 +1129,13 @@ void Conversation::ask(const QString &text)
             m_aside += QStringLiteral("A settings skill that may fit this question: %1. Open it if it helps; "
                                       "ignore this if it doesn't.").arg(skill->id);
         }
+    }
+    // Genie on this computer answers from the guide, as written, where an
+    // entry fits: it was written and checked ahead of time, and a small model
+    // retelling it can get it wrong.
+    if (m_current.local && !m_guide.find(question, m_guideContext, 1).isEmpty()) {
+        answerFromGuide(question);
+        return;
     }
     send(question, question);
 }

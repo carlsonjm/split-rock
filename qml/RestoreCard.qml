@@ -45,7 +45,13 @@ CardFrame {
             case "chosen": return card.chosen.what + "." + (card.job.homeSeparate ? " Your own files stay as they are now." : "")
             case "booted": return "Nothing is kept yet. Restarting normally comes back to how it was."
             }
-            return "Each is how the system was just before a change. Tap one to go back to it."
+            // Whose they are, and that nobody needs to tidy them away.
+            const own = card.job.ownCount
+            const whose = own === card.points.length ? productName + " took each one before a change it made."
+                        : own === 0 ? "The system takes one by itself before every install, removal and update."
+                        : productName + " took " + own + ", before changes it made; the system takes the rest by itself before every install, removal and update."
+            return "Each is how the system was just before a change. Tap one to go back to it. " + whose
+                   + (card.job.keeping !== "" ? " " + card.job.keeping : "")
         }
     }
 
@@ -61,7 +67,7 @@ CardFrame {
                 tone: card.tone
                 icon: card.iconFor(modelData.kind)
                 title: modelData.what
-                detail: modelData.when + " · number " + modelData.number
+                detail: modelData.when + " · " + (modelData.own ? productName : "Automatic") + " · number " + modelData.number
                 opens: true
                 onClicked: card.job.choose(modelData.number)
             }

@@ -355,7 +355,7 @@ private:
                 m_context.memory = memory;
             } else if (kind == QLatin1String("memory")) {
                 m_context.memory = text;
-            } else if (kind == QLatin1String("report")) {
+            } else if (isReport(kind)) {
                 report = meta;
             } else if (kind == QLatin1String("question") || kind.isEmpty()) {
                 question = text;
