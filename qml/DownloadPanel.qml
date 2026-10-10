@@ -49,6 +49,17 @@ Rectangle {
             lineHeight: 1.3
         }
 
+        Text {
+            objectName: "modelCredit"
+            visible: !panel.busy && panel.model && panel.model.credit !== ""
+            width: parent.width
+            wrapMode: Text.WordWrap
+            text: panel.model ? panel.model.credit + "." : ""
+            color: theme.quiet
+            font.pixelSize: 13
+            lineHeight: 1.3
+        }
+
         CardProgress {
             barObjectName: "downloadProgress"
             showCount: false

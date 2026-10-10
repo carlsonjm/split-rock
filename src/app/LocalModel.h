@@ -29,6 +29,8 @@ class LocalModel : public QObject
     Q_PROPERTY(QString size READ size NOTIFY changed)
     // Why this computer gets this model, in plain words.
     Q_PROPERTY(QString why READ why NOTIFY changed)
+    // Whose model it is and its licence, as the licence asks.
+    Q_PROPERTY(QString credit READ credit NOTIFY changed)
     Q_PROPERTY(QString problem READ problem NOTIFY changed)
 
 public:
@@ -40,6 +42,7 @@ public:
         qint64 bytes = 0;
         QString sha256;
         QStringList urls;
+        QString credit;
         // What it needs: memory in GiB as the system reports it, and a
         // graphics chip.
         double memoryGiB = 0;
@@ -80,6 +83,7 @@ public:
     double progress() const { return m_progress; }
     QString size() const;
     QString why() const;
+    QString credit() const { return m_choice.credit; }
     QString problem() const { return m_problem; }
 
     Q_INVOKABLE void download();

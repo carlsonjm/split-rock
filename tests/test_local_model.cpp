@@ -184,6 +184,8 @@ private Q_SLOTS:
         // One model for every computer (docs/DECISIONS.md).
         model.surveyAs(31, true);
         QCOMPARE(model.choice().id, QStringLiteral("qwen3-4b"));
+        // The licence asks for the model's credit, which the panel shows.
+        QVERIFY(model.choice().credit.contains(QLatin1String("Apache 2.0")));
         if (model.choice().sha256.size() == 64)
             QSKIP("The shipped models have their fingerprints.");
         model.download();

@@ -697,6 +697,8 @@ better" and feasible for 1.0.)
   run it. The list in
   `data/models.json` gives each model's exact size and SHA-256; a model without
   one is never downloaded, and a download that does not match is deleted.
+  The download card credits the model and names its licence (Apache 2.0),
+  whose text installs beside the list.
 - **llama.cpp runs it**, as `llama-server` on a random local port with a key
   of its own, inside the same fence as every assistant, with the graphics chip
   let through.
