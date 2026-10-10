@@ -27,7 +27,7 @@ jobs:
     # Privileged so bubblewrap can build the fence the assistant runs in, and
     # the fence tests run instead of skipping.
     container:
-      image: archlinux:latest
+      image: public.ecr.aws/docker/library/archlinux:latest
       options: --privileged
     timeout-minutes: 60
     steps:
