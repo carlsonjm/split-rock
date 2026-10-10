@@ -117,7 +117,8 @@ void Client::prompt(const QJsonArray &blocks,
 {
     const QJsonObject params{{QStringLiteral("sessionId"), m_sessionId}, {QStringLiteral("prompt"), blocks}};
     m_connection->request(QStringLiteral("session/prompt"), params,
-                          [done](const QJsonValue &result, const std::optional<RpcError> &error) {
+                          [this, done](const QJsonValue &result, const std::optional<RpcError> &error) {
+        m_lastPromptMeta = result.toObject().value(QStringLiteral("_meta")).toObject();
         done(result.toObject().value(QStringLiteral("stopReason")).toString(), error);
     });
 }

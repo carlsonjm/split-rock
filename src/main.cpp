@@ -22,6 +22,7 @@
 
 #include "app/Assistants.h"
 #include "app/Conversation.h"
+#include "app/LocalModel.h"
 #include "app/Notebook.h"
 #include "app/QmlContext.h"
 #include "desktop/ConversationService.h"
@@ -133,6 +134,19 @@ int main(int argc, char **argv)
         : QStandardPaths::writableLocation(QStandardPaths::AppLocalDataLocation) + QStringLiteral("/assistants");
 
     QList<splitrock::Assistant> assistants = splitrock::realAssistants(adapters, state);
+    // Genie on this computer first: it needs no account. Its program is
+    // beside this one in a build, and installed with it otherwise.
+    const QString desk = programDir.exists(QStringLiteral("split-rock-desk")) ? programDir.filePath(QStringLiteral("split-rock-desk"))
+                                                                               : QStringLiteral(SPLIT_ROCK_INSTALLED_DESK);
+    const QString llama = splitrock::findEngine();
+    assistants.prepend(splitrock::localAssistant(desk, llama, state));
+    // The model it runs, and where it is kept: the list of models is
+    // installed with Split Rock, and beside it in a checkout.
+    const QString catalogue = programDir.exists(QStringLiteral("models.json")) ? programDir.filePath(QStringLiteral("models.json"))
+                                                                               : QStringLiteral(SPLIT_ROCK_INSTALLED_MODELS);
+    splitrock::LocalModel localModel(llama, catalogue,
+                                     QStandardPaths::writableLocation(QStandardPaths::GenericDataLocation)
+                                         + QStringLiteral("/split-rock/models"));
     if (parser.isSet(pretendOption)) {
         assistants.append(splitrock::pretendAssistant(programDir.filePath(QStringLiteral("split-rock-pretend-assistant")),
                                                       QDir(parser.value(pretendOption)).absolutePath(), state));
@@ -147,6 +161,7 @@ int main(int argc, char **argv)
 
     splitrock::Conversation conversation(assistants);
     conversation.setNotebook(&notebook);
+    conversation.setLocalModel(&localModel);
 
     // The guide in the box: what is installed for every person, and any folder
     // named here, such as a checkout.

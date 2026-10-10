@@ -38,6 +38,9 @@ public:
     void load(const QStringList &roots);
 
     const QList<Skill> &skills() const { return m_skills; }
+    // A shelf from skills already read, as the assistant on this computer
+    // gets them from Split Rock.
+    void setSkills(const QList<Skill> &skills) { m_skills = skills; }
     bool isEmpty() const { return m_skills.isEmpty(); }
 
     // One line a skill, "id: title", for the assistant's opening words.

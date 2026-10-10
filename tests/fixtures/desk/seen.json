@@ -1,0 +1,5 @@
+{
+ "fans": "This computer has asusctl.\nProfile now: Active profile is Balanced\nProfiles: Quiet\nBalanced\nPerformance\nPower profile now: balanced\nPower profiles:\n  performance:\n* balanced:\n  power-saver:",
+ "look": "Global theme now: org.kde.breeze.desktop\nColours now: BreezeLight\nGlobal themes installed:\n * Breeze (org.kde.breeze.desktop) (current)\n * Breeze Dark (org.kde.breezedark.desktop)\n * Breeze Twilight (org.kde.breezetwilight.desktop)\nColour schemes installed:\n * BreezeClassic\n * BreezeDark\n * BreezeLight (current)",
+ "pointer": "Pointer theme now: breeze_cursors\nPointer size now: 24\nPointer themes installed:\nAdwaita\nBibata-Modern-Classic\nBibata-Modern-Ice\nBreeze_Light\nbreeze_cursors"
+}

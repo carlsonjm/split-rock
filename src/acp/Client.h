@@ -53,6 +53,8 @@ public:
     QString sessionId() const { return m_sessionId; }
     QList<SessionMode> modes() const { return m_modes; }
     QString currentMode() const { return m_currentMode; }
+    // What the agent added to its last prompt's reply under _meta.
+    QJsonObject lastPromptMeta() const { return m_lastPromptMeta; }
 
     static QJsonObject clientCapabilities();
 
@@ -82,6 +84,7 @@ private:
     QString m_sessionId;
     QList<SessionMode> m_modes;
     QString m_currentMode;
+    QJsonObject m_lastPromptMeta;
     QHash<QString, ToolCall> m_toolCalls;
     Allow m_allow;
 };

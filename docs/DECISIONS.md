@@ -388,6 +388,10 @@ Rejected: Split Rock selling, bundling or paying for assistant use, which would
 make it responsible for accounts and billing; and an assistant that is only
 useful with an account.
 
+Since 10 October the butler also comes without an account, on the computer
+itself (Genie on this computer, below). An account still unlocks the bigger
+fixes.
+
 ## The guide's entries: plain files in shared folders, one per problem
 
 Split Rock owns the format of the troubleshooting guide and its general Plasma
@@ -675,3 +679,41 @@ a launcher or Search. (The maintainer, 7 October, for pixel-matched demo videos.
 
 Rejected: the tile drawn to the icon's edges, chosen on 6 October, which reads
 a size larger than every themed app next to it.
+
+## Genie on this computer
+
+Split Rock offers an assistant of its own that runs on the computer, named
+"Split Rock on this computer" (Genie on this computer inside Shuffle). It
+answers questions and makes everyday changes through the same Do it cards, with
+no account, and nothing the person asks leaves the computer. A change bigger
+than it can make by itself ends with an Ask button that passes the question to
+the assistant the person brought, usually Codex. (The maintainer, 10 October,
+after two trials on the tablet: the second, with the front desk, was "far
+better" and feasible for 1.0.)
+
+- **The model is Split Rock's own download, made once.** It is fetched the
+  first time the person chooses it, after they tap Download, and only the size
+  that fits: the larger model where the computer has 16 GB of memory and a
+  graphics chip that can run it, the smaller everywhere else. The list in
+  `data/models.json` gives each model's exact size and SHA-256; a model without
+  one is never downloaded, and a download that does not match is deleted.
+- **llama.cpp runs it**, as `llama-server` on a random local port with a key
+  of its own, inside the same fence as every assistant, with the graphics chip
+  let through.
+- **The front desk decides, not the model alone.** A fixed safety check answers
+  scams, remote access, passwords, money, wiping, piracy, spying, blocked
+  updates, scareware and switching protection off with set words before any
+  model sees the ask. The model then sorts the ask; a question is answered as
+  it is written, word by word; a change opens a skill or an upkeep card, and the
+  card is checked against the skill's own commands and against the ask before
+  it is shown; anything else is handed off. When the model only talks, the
+  desk finds the skill itself.
+- **Nothing changes without a card**, as for every assistant: the desk has
+  only the stand-ins, and a claim that something was done, or advice to use a
+  terminal, is corrected under the answer.
+
+Rejected: Ollama, a second service to install and keep running; letting the
+model run commands in an agent loop, which a small model does not do safely;
+the larger model on every computer, which is slow without a graphics chip; and
+a local model with no hand-off, which leaves bigger fixes with nowhere to go.
+

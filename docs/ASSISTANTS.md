@@ -58,10 +58,20 @@ starts Claude's adapter with subscription sign-in hidden, so Claude is offered
 only with an Anthropic key, billed per use. It is named Claude Agent, never
 Claude Code.
 
+## Split Rock on this computer
+
+Split Rock's own assistant needs no account and no program of the person's: a
+one-time download of an open model (Qwen3, about 2.5 GB, or about 5 GB where the
+computer has 16 GB of memory and a graphics chip), run by llama.cpp, which comes
+with Split Rock. It answers and makes everyday changes through the Do it card;
+bigger fixes pass to the assistant the person signed in to, usually Codex
+(`DECISIONS.md`, Genie on this computer).
+
 ## What this means for setup
 
 - Free tiers have mostly ended. Setup should expect the person to need an
-  account they pay for, and say so plainly.
+  account they pay for, and say so plainly. Split Rock on this computer is the
+  one assistant that needs none.
 - The easiest sign-in for someone new is a browser sign-in to an account they
   already pay for: today, ChatGPT through Codex.
 - Asking for a key means a trip to a developer website. It is offered, but not

@@ -43,11 +43,20 @@ split_rock_test(test_conversation)
 split_rock_test(test_notebook)
 split_rock_test(test_guide)
 
+split_rock_test(test_desk PretendModel.h)
+target_link_libraries(test_desk PRIVATE splitrock_desk)
+
+split_rock_test(test_local_model PretendModel.h)
+target_compile_definitions(test_local_model PRIVATE DESK_PROGRAM="$<TARGET_FILE:split-rock-desk>")
+add_dependencies(test_local_model split-rock-desk)
+
 split_rock_test(test_kadunce)
 target_link_libraries(test_kadunce PRIVATE splitrock_desktop)
 
-split_rock_test(test_sheet FakeKadunce.h)
+split_rock_test(test_sheet FakeKadunce.h PretendModel.h)
 target_link_libraries(test_sheet PRIVATE splitrock_desktop Qt6::Gui Qt6::Quick)
+target_compile_definitions(test_sheet PRIVATE DESK_PROGRAM="$<TARGET_FILE:split-rock-desk>")
+add_dependencies(test_sheet split-rock-desk)
 qt_add_resources(test_sheet "sheet_for_test"
     PREFIX "/"
     BASE "${PROJECT_SOURCE_DIR}"
@@ -80,6 +89,7 @@ qt_add_resources(test_sheet "sheet_for_test"
         ${PROJECT_SOURCE_DIR}/qml/Workspace.qml
         ${PROJECT_SOURCE_DIR}/qml/FullWindow.qml
         ${PROJECT_SOURCE_DIR}/qml/StartingPanel.qml
+        ${PROJECT_SOURCE_DIR}/qml/DownloadPanel.qml
         ${PROJECT_SOURCE_DIR}/qml/ProblemPanel.qml
         ${PROJECT_SOURCE_DIR}/qml/RememberLine.qml
 )

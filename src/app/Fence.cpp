@@ -127,6 +127,10 @@ acp::LaunchSpec fenced(const acp::LaunchSpec &launch, const FenceRoom &room)
         // Scratch space of its own, gone when it stops.
         QStringLiteral("--tmpfs"), QStringLiteral("/tmp"),
     };
+    for (const QString &device : room.devices) {
+        if (!device.isEmpty())
+            args << QStringLiteral("--dev-bind-try") << device << device;
+    }
     // Only over folders that exist: the system is read-only, so none can be
     // made for them.
     for (const QString &hidden : {QStringLiteral("/var/tmp"), QStringLiteral("/run/dbus")}) {
