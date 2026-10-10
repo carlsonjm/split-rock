@@ -148,8 +148,7 @@ QString LocalModel::why() const
     if (m_choice.graphics)
         return QStringLiteral("This computer has %1 GB of memory and a graphics chip that can run it, so it gets the "
                               "larger model, which makes fewer mistakes.").arg(qRound(m_memory));
-    return QStringLiteral("This computer gets the smaller model, which suits its memory and graphics. Bigger fixes "
-                          "can still go to Codex.");
+    return QStringLiteral("It runs on this computer's own memory and graphics. Bigger fixes can still go to Codex.");
 }
 
 void LocalModel::setState(const QString &state, const QString &problem)

@@ -692,9 +692,9 @@ after two trials on the tablet: the second, with the front desk, was "far
 better" and feasible for 1.0.)
 
 - **The model is Split Rock's own download, made once.** It is fetched the
-  first time the person chooses it, after they tap Download, and only the size
-  that fits: the larger model where the computer has 16 GB of memory and a
-  graphics chip that can run it, the smaller everywhere else. The list in
+  first time the person chooses it, after they tap Download: Qwen3 4B, about
+  2.5 GB, the same for every computer, and faster where a graphics chip can
+  run it. The list in
   `data/models.json` gives each model's exact size and SHA-256; a model without
   one is never downloaded, and a download that does not match is deleted.
 - **llama.cpp runs it**, as `llama-server` on a random local port with a key
@@ -714,7 +714,9 @@ better" and feasible for 1.0.)
 
 Rejected: Ollama, a second service to install and keep running; letting the
 model run commands in an agent loop, which a small model does not do safely;
-the larger model on every computer, which is slow without a graphics chip; and
+the larger 8B model on computers with 16 GB of memory and a graphics chip,
+which scored lower than the 4B in the third trial (115 of 144 against 125) for
+twice the download (the maintainer, 10 October); and
 a local model with no hand-off, which leaves bigger fixes with nowhere to go.
 
 ## The tiles say what Genie noticed
