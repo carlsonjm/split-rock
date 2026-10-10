@@ -221,7 +221,9 @@ private Q_SLOTS:
         Conversation conversation({desk, bigger});
         conversation.setLocalModel(&local);
         conversation.chooseAssistant(QStringLiteral("local"));
-        QTRY_COMPARE_WITH_TIMEOUT(conversation.phase(), QStringLiteral("ready"), 15000);
+        QTRY_VERIFY2_WITH_TIMEOUT(conversation.phase() == QLatin1String("ready"),
+                                  qPrintable(conversation.phase() + QLatin1Char(' ') + conversation.problem() + QLatin1Char(' ')
+                                             + conversation.problemDetails()), 15000);
 
         conversation.ask(QStringLiteral("What is KDE?"));
         QTRY_COMPARE_WITH_TIMEOUT(conversation.phase(), QStringLiteral("ready"), 15000);

@@ -1007,7 +1007,8 @@ private Q_SLOTS:
         QVERIFY(whole.open(QIODevice::WriteOnly));
         whole.close();
         local.surveyAs(8, false);
-        QTRY_COMPARE_WITH_TIMEOUT(c.phase(), QStringLiteral("ready"), 15000);
+        QTRY_VERIFY2_WITH_TIMEOUT(c.phase() == QLatin1String("ready"),
+                                  qPrintable(c.phase() + QLatin1Char(' ') + c.problem() + QLatin1Char(' ') + c.problemDetails()), 15000);
 
         c.ask(question);
         QTRY_COMPARE_WITH_TIMEOUT(c.phase(), QStringLiteral("ready"), 15000);
