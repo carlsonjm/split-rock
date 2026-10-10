@@ -724,10 +724,12 @@ computer, in a few words with a dot in the colour of how much it matters:
 updates waiting first, from the Update card's own look, then what the daily
 health check found. A tap opens the card that helps, or asks about it. When
 nothing needs the person, the tiles offer what Genie can do here instead,
-from its skills and upkeep cards. Both looks only read, run quietly while
-Split Rock runs, and open no card by themselves. (The maintainer, 10 October:
-the fixed tiles read as generic for a butler; updates waiting is the first
-one they must show.)
+from its upkeep cards taking turns with quick tiles such as Take a screenshot,
+which only open an app the computer already has and so need no card. Both
+looks only read, run quietly while Split Rock runs, and open no card by
+themselves. (The maintainer, 10 October: the fixed tiles read as generic for a
+butler; updates waiting is the first one they must show; "Find an app for a
+job" read as a job search, so the tile says Install a new app.)
 
 Rejected: the same three questions for everyone, which read as a help page;
 and offers only, which say nothing about the computer itself.

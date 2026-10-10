@@ -422,7 +422,8 @@ QStringList Conversation::suggestions() const
 QVariantList Conversation::tiles() const
 {
     QVariantList tiles;
-    const auto add = [&tiles](const QString &text, const QString &card, const QString &question, const QString &noticed) {
+    const auto add = [&tiles](const QString &text, const QString &card, const QString &question, const QString &noticed,
+                              const QString &app = {}) {
         for (const QVariant &tile : std::as_const(tiles)) {
             if (tile.toMap().value(QStringLiteral("text")) == text)
                 return;
@@ -430,7 +431,8 @@ QVariantList Conversation::tiles() const
         tiles.append(QVariantMap{{QStringLiteral("text"), text},
                                  {QStringLiteral("card"), card},
                                  {QStringLiteral("question"), question},
-                                 {QStringLiteral("noticed"), noticed}});
+                                 {QStringLiteral("noticed"), noticed},
+                                 {QStringLiteral("app"), app}});
     };
     const auto hasCard = [this](const QString &name) {
         return std::any_of(m_chores.cbegin(), m_chores.cend(), [&name](const auto &c) { return c.first == name; });
@@ -465,19 +467,32 @@ QVariantList Conversation::tiles() const
         }
     }
 
-    // Then what it can do on this computer.
+    // Then what it can do on this computer: its cards, taking turns with
+    // quick things that only open an app the computer already has.
     if (m_health && m_health->lastChecked().isEmpty() && hasCard(QStringLiteral("health")))
         add(QStringLiteral("Give this computer a health check"), QStringLiteral("health"), {}, {});
+    QList<std::pair<QString, QString>> offers;
+    if (hasCard(QStringLiteral("install")))
+        offers.append({QStringLiteral("Install a new app"), QStringLiteral("install")});
+    if (hasCard(QStringLiteral("space")))
+        offers.append({QStringLiteral("Make room on the disk"), QStringLiteral("space")});
+    QList<std::pair<QString, QString>> quick;
+    for (const auto &[text, app] : quickApps()) {
+        if (!QStandardPaths::locate(QStandardPaths::ApplicationsLocation, app + QStringLiteral(".desktop")).isEmpty())
+            quick.append({text, app});
+    }
+    for (qsizetype i = 0; i < std::max(offers.size(), quick.size()); ++i) {
+        if (i < offers.size())
+            add(offers.at(i).first, offers.at(i).second, {}, {});
+        if (i < quick.size())
+            add(quick.at(i).first, {}, {}, {}, quick.at(i).second);
+    }
     for (const Skill &skill : m_skills.skills()) {
         if (tiles.size() >= 3)
             break;
         if (!skill.also.isEmpty())
             add(skill.also.first(), {}, skill.also.first(), {});
     }
-    if (hasCard(QStringLiteral("install")))
-        add(QStringLiteral("Find an app for a job"), QStringLiteral("install"), {}, {});
-    if (hasCard(QStringLiteral("space")))
-        add(QStringLiteral("Make room on the disk"), QStringLiteral("space"), {}, {});
     for (const QString &question : suggestions())
         add(question, {}, question, {});
     while (tiles.size() > 3)
@@ -485,8 +500,34 @@ QVariantList Conversation::tiles() const
     return tiles;
 }
 
+const QList<std::pair<QString, QString>> &Conversation::quickApps()
+{
+    static const QList<std::pair<QString, QString>> apps{
+        {QStringLiteral("Take a screenshot"), QStringLiteral("org.kde.spectacle")},
+        {QStringLiteral("Find an emoji"), QStringLiteral("org.kde.plasma.emojier")},
+        {QStringLiteral("See what's using the computer"), QStringLiteral("org.kde.plasma-systemmonitor")},
+    };
+    return apps;
+}
+
 void Conversation::openTile(const QVariantMap &tile)
 {
+    // Opening an app changes nothing, so it needs no card.
+    const QString app = tile.value(QStringLiteral("app")).toString();
+    if (!app.isEmpty()) {
+        const auto known = std::find_if(quickApps().cbegin(), quickApps().cend(),
+                                        [&app](const auto &quick) { return quick.second == app; });
+        if (known == quickApps().cend())
+            return;
+        QStringList program = m_launcher;
+        if (program.isEmpty())
+            program = QStandardPaths::findExecutable(QStringLiteral("kstart")).isEmpty()
+                ? QStringList{QStringLiteral("gtk-launch")}
+                : QStringList{QStringLiteral("kstart"), QStringLiteral("--application")};
+        program << app;
+        QProcess::startDetached(program.takeFirst(), program);
+        return;
+    }
     const QString card = tile.value(QStringLiteral("card")).toString();
     if (!card.isEmpty()) {
         openChore(card);

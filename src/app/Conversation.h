@@ -160,6 +160,8 @@ public:
     QVariantList tiles() const;
     // Opens a tile's card, or asks its question.
     Q_INVOKABLE void openTile(const QVariantMap &tile);
+    // Tests open the quick apps with a program of their own.
+    void setLauncher(const QStringList &program) { m_launcher = program; }
     QVariantList turns() const { return m_turns; }
     QVariantList refusedChanges() const { return m_refusedChanges; }
 
@@ -262,6 +264,8 @@ Q_SIGNALS:
     void choreChanged();
 
 private:
+    // The quick tiles: their words and the app each opens.
+    static const QList<std::pair<QString, QString>> &quickApps();
     void startAssistant();
     // The assistant a bigger change goes to: the first one set up that isn't
     // the guide or Genie on this computer. Null when there is none.
@@ -336,6 +340,7 @@ private:
     AppInstall *m_install = nullptr;
     RestorePoints *m_restore = nullptr;
     HealthCheck *m_health = nullptr;
+    QStringList m_launcher;
     CommunityApps *m_community = nullptr;
     std::optional<ChangeProposal> m_proposal;
     // How a change went, told to the assistant once it is ready.

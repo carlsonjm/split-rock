@@ -24,6 +24,7 @@
 #include <QScreen>
 #include <QSettings>
 #include <QSignalSpy>
+#include <QStandardPaths>
 #include <QTemporaryDir>
 #include <QTest>
 
@@ -977,6 +978,51 @@ private Q_SLOTS:
         // What the look found is kept for the next start; the other tests
         // start from a computer that was never looked at.
         QSettings(QStringLiteral("split-rock"), QStringLiteral("upkeep")).remove(QStringLiteral("health"));
+    }
+
+    // With nothing noticed, the tiles offer Genie's cards taking turns with
+    // quick apps this computer has, and a quick tile only opens its app.
+    void theQuickTilesOpenAnApp()
+    {
+        PretendFixture f;
+        QVERIFY(f.isValid());
+        const QString apps = QStandardPaths::writableLocation(QStandardPaths::ApplicationsLocation);
+        QVERIFY(QDir().mkpath(apps));
+        QFile desktop(apps + QStringLiteral("/org.kde.spectacle.desktop"));
+        QVERIFY(desktop.open(QIODevice::WriteOnly));
+        desktop.write("[Desktop Entry]\nType=Application\nName=Spectacle\nExec=true\n");
+        desktop.close();
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        const QString opened = dir.filePath(QStringLiteral("opened"));
+
+        Conversation c({f.assistant(QStringLiteral("signed-in.json"))});
+        c.setLauncher({QStringLiteral("sh"), QStringLiteral("-c"), QStringLiteral("echo \"$1\" > '%1'").arg(opened),
+                       QStringLiteral("launcher")});
+        QQmlApplicationEngine engine;
+        QQuickWindow *window = open(engine, c);
+        QVERIFY(window);
+        c.chooseAssistant(QStringLiteral("pretend"));
+        QTRY_COMPARE(c.phase(), QStringLiteral("ready"));
+
+        QStringList words;
+        for (const QVariant &tile : c.tiles())
+            words << tile.toMap().value(QStringLiteral("text")).toString();
+        QCOMPARE(words, (QStringList{QStringLiteral("Give this computer a health check"), QStringLiteral("Install a new app"),
+                                     QStringLiteral("Take a screenshot")}));
+        QTRY_VERIFY(find(window, QStringLiteral("tile2")) && find(window, QStringLiteral("tile2"))->isVisible());
+        settle();
+        QVERIFY(overflowing(window).isEmpty());
+        shoot(window, QStringLiteral("55-tiles-quick"));
+
+        QMetaObject::invokeMethod(find(window, QStringLiteral("tile2")), "clicked");
+        QTRY_VERIFY(QFileInfo::exists(opened) && QFileInfo(opened).size() > 0);
+        QFile got(opened);
+        QVERIFY(got.open(QIODevice::ReadOnly));
+        QCOMPARE(got.readAll().trimmed(), QByteArray("org.kde.spectacle"));
+        // No card opens and nothing is asked.
+        QCOMPARE(c.phase(), QStringLiteral("ready"));
+        QVERIFY(desktop.remove());
     }
 
     // Genie on this computer: its one-time download, then an answer, then a
