@@ -5,8 +5,8 @@
     {
       "id": "qwen3-8b",
       "file": "Qwen3-8B-Q4_K_M.gguf",
-      "bytes": 0,
-      "sha256": "",
+      "bytes": 5027783488,
+      "sha256": "d98cdcbd03e17ce47681435b5150e34c1417f50b5c0019dd560e4882c5745785",
       "licence": "Apache-2.0",
       "needs": { "memoryGiB": 13, "graphics": true },
       "urls": ["https://huggingface.co/Qwen/Qwen3-8B-GGUF/resolve/main/Qwen3-8B-Q4_K_M.gguf"]
@@ -14,8 +14,8 @@
     {
       "id": "qwen3-4b",
       "file": "Qwen3-4B-Instruct-2507-Q4_K_M.gguf",
-      "bytes": 0,
-      "sha256": "",
+      "bytes": 2497281120,
+      "sha256": "3605803b982cb64aead44f6c1b2ae36e3acdb41d8e46c8a94c6533bc4c67e597",
       "licence": "Apache-2.0",
       "needs": { "memoryGiB": 0, "graphics": false },
       "urls": ["https://huggingface.co/unsloth/Qwen3-4B-Instruct-2507-GGUF/resolve/main/Qwen3-4B-Instruct-2507-Q4_K_M.gguf"]

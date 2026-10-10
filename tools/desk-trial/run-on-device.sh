@@ -18,11 +18,11 @@ here=$(cd "$(dirname "$0")" && pwd)
 root=$(cd "$here/../.." && pwd)
 work=${1:?usage: run-on-device.sh WORK}
 
-server=${LLAMA_SERVER:-$(find "$work" -name llama-server -type f | head -n1)}
+server=${LLAMA_SERVER:-$(find -L "$work" -name llama-server -type f | head -n1)}
 [ -x "$server" ] || { echo "No llama-server under $work; set LLAMA_SERVER."; exit 1; }
 export LD_LIBRARY_PATH="$(dirname "$server")${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
-small=$(find "$work" -iname '*Qwen3-4B-Instruct-2507-Q4_K_M*.gguf' -type f | head -n1)
-large=$(find "$work" -iname '*Qwen3-8B-Q4_K_M*.gguf' -type f | head -n1)
+small=$(find -L "$work" -iname '*Qwen3-4B-Instruct-2507-Q4_K_M*.gguf' -type f | head -n1)
+large=$(find -L "$work" -iname '*Qwen3-8B-Q4_K_M*.gguf' -type f | head -n1)
 [ -n "$small" ] && [ -n "$large" ] || { echo "The 4B and 8B models aren't both under $work."; exit 1; }
 
 cmake -S "$root" -B "$root/build/trial" -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=OFF >/dev/null
