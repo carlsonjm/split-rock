@@ -109,7 +109,7 @@ Item {
         property var more: []
         property bool waiting: false
         width: talk.reading
-        height: Math.max(28, answerColumn.implicitHeight)
+        height: Math.max(28, answerColumn.y + answerColumn.implicitHeight)
         Mark {
             width: 28; height: 28
             radius: 9
@@ -119,34 +119,64 @@ Item {
             x: 42; y: 3
             width: Math.min(640, parent.width - 42)
             spacing: 10
-            // Thinking: three dots and the word, so a wait never reads as
-            // an answer that went nowhere.
-            Row {
-                objectName: "thinking"
+            // Thinking: a tinted pill with moving dots, the word and the
+            // seconds waited, so a wait never reads as an answer that went
+            // nowhere, and a slow one is seen to be still going.
+            Rectangle {
+                id: thinking
+                objectName: answer.waiting ? "thinking" : ""
                 visible: answer.waiting
-                height: 22
-                spacing: 7
-                Text {
-                    anchors.verticalCenter: parent.verticalCenter
-                    rightPadding: 4
-                    text: "Thinking"
-                    color: theme.quiet
-                    font.pixelSize: 15
-                    font.weight: Font.DemiBold
+                property int seconds: 0
+                width: thinkingRow.implicitWidth + 32
+                height: 40
+                radius: 20
+                color: theme.accentSoft
+                border.width: 1
+                border.color: Qt.rgba(theme.accent.r, theme.accent.g, theme.accent.b, 0.35)
+                Accessible.role: Accessible.StaticText
+                Accessible.name: "Thinking"
+                onVisibleChanged: seconds = 0
+                Timer {
+                    running: thinking.visible
+                    interval: 1000
+                    repeat: true
+                    onTriggered: thinking.seconds += 1
                 }
-                Repeater {
-                    model: 3
-                    Rectangle {
+                SequentialAnimation on opacity {
+                    running: thinking.visible
+                    loops: Animation.Infinite
+                    NumberAnimation { from: 1; to: 0.7; duration: 900; easing.type: Easing.InOutSine }
+                    NumberAnimation { from: 0.7; to: 1; duration: 900; easing.type: Easing.InOutSine }
+                }
+                Row {
+                    id: thinkingRow
+                    anchors.centerIn: parent
+                    spacing: 10
+                    Row {
                         anchors.verticalCenter: parent.verticalCenter
-                        width: 7; height: 7; radius: 3.5
-                        color: theme.accent
-                        SequentialAnimation on opacity {
-                            loops: Animation.Infinite
-                            PauseAnimation { duration: index * 160 }
-                            NumberAnimation { from: 0.25; to: 1; duration: 420 }
-                            NumberAnimation { from: 1; to: 0.25; duration: 420 }
-                            PauseAnimation { duration: (2 - index) * 160 }
+                        spacing: 5
+                        Repeater {
+                            model: 3
+                            Rectangle {
+                                width: 9; height: 9; radius: 4.5
+                                color: theme.accent
+                                SequentialAnimation on y {
+                                    running: thinking.visible
+                                    loops: Animation.Infinite
+                                    PauseAnimation { duration: index * 150 }
+                                    NumberAnimation { from: 0; to: -5; duration: 260; easing.type: Easing.OutQuad }
+                                    NumberAnimation { from: -5; to: 0; duration: 260; easing.type: Easing.InQuad }
+                                    PauseAnimation { duration: (2 - index) * 150 + 300 }
+                                }
+                            }
                         }
+                    }
+                    Text {
+                        anchors.verticalCenter: parent.verticalCenter
+                        text: thinking.seconds < 3 ? "Thinking" : "Thinking · " + thinking.seconds + " s"
+                        color: theme.accent
+                        font.pixelSize: 16
+                        font.weight: Font.Bold
                     }
                 }
             }
@@ -600,8 +630,14 @@ Item {
             clip: true
             boundsBehavior: Flickable.StopAtBounds
             WheelScroll { flickable: history }
+            // The newest part in view, but never past the latest question,
+            // so it and Thinking, then the answer's start or the card it
+            // opened, are read from the top.
             function toEnd() {
-                contentY = Math.max(0, contentHeight - height)
+                let end = Math.max(0, contentHeight - height)
+                if (lastAsked.visible)
+                    end = Math.min(end, Math.max(0, lastAsked.y + bubbles.y - 8))
+                contentY = end
             }
             onContentHeightChanged: toEnd()
             onHeightChanged: toEnd()
@@ -620,6 +656,7 @@ Item {
                 width: talk.reading
                 spacing: 22
                 topPadding: 8
+                bottomPadding: 8
 
                 Text {
                     visible: conversation.turns.length === 0 && conversation.question === "" && !step.item
@@ -657,6 +694,7 @@ Item {
                 }
 
                 Asked {
+                    id: lastAsked
                     visible: conversation.question !== ""
                     text: conversation.question
                 }
@@ -779,8 +817,40 @@ Item {
                     elide: Text.ElideRight
                     visible: wideField.text === ""
                     text: full.working ? "Thinking… the square stops it" : "Ask, or say what you want done"
-                    color: theme.quiet
+                    color: full.working ? theme.accent : theme.quiet
                     font: wideField.font
+                }
+            }
+
+            // While the assistant works, a light runs along the box's foot,
+            // seen even with the conversation scrolled away.
+            Item {
+                objectName: "workingBar"
+                visible: full.working
+                x: wideBox.radius
+                y: wideBox.height - 5
+                width: wideBox.width - 2 * wideBox.radius
+                height: 3
+                clip: true
+                Rectangle {
+                    id: sweep
+                    width: parent.width * 0.35
+                    height: parent.height
+                    radius: 1.5
+                    gradient: Gradient {
+                        orientation: Gradient.Horizontal
+                        GradientStop { position: 0; color: Qt.rgba(theme.accent.r, theme.accent.g, theme.accent.b, 0) }
+                        GradientStop { position: 0.5; color: theme.accent }
+                        GradientStop { position: 1; color: Qt.rgba(theme.accent.r, theme.accent.g, theme.accent.b, 0) }
+                    }
+                    NumberAnimation on x {
+                        running: full.working
+                        loops: Animation.Infinite
+                        from: -sweep.width
+                        to: sweep.parent.width
+                        duration: 1300
+                        easing.type: Easing.InOutQuad
+                    }
                 }
             }
 

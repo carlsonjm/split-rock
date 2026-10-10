@@ -399,6 +399,54 @@ private Q_SLOTS:
         shoot(full, QStringLiteral("19-came-back"));
     }
 
+    // While the assistant works, the question and Thinking are in view at
+    // the foot of a long conversation, and the box shows it working.
+    void thinkingStaysInView()
+    {
+        PretendFixture f;
+        QTemporaryDir folder;
+        Notebook notebook(folder.filePath(QStringLiteral("Notebook")));
+        QVERIFY(notebook.prepare(DeviceFacts::read(QStringLiteral(FIXTURES_DIR "/computer"))));
+        Conversation c({f.assistant(QStringLiteral("signed-in.json"))});
+        c.setNotebook(&notebook);
+        QQmlApplicationEngine engine;
+        QQuickWindow *window = open(engine, c);
+        QVERIFY(window);
+        c.chooseAssistant(QStringLiteral("pretend"));
+        QTRY_COMPARE(c.phase(), QStringLiteral("ready"));
+        for (int i = 0; i < 3; ++i) {
+            c.ask(QStringLiteral("How do I connect to Wi-Fi?"));
+            QTRY_COMPARE(c.phase(), QStringLiteral("ready"));
+        }
+        QMetaObject::invokeMethod(window, "expand");
+        Shell *shell = shellOf(engine);
+        QTRY_VERIFY(shell->full() && shell->full()->isVisible());
+        QQuickWindow *full = shell->full();
+        full->showNormal();
+        full->setGeometry(0, 0, 900, 600);
+        QTRY_COMPARE(full->height(), 600);
+        QTRY_COMPARE(full->contentItem()->height(), 600.0);
+        c.ask(QStringLiteral("hold on"));
+        QTRY_COMPARE(c.phase(), QStringLiteral("working"));
+        QTRY_VERIFY(find(full, QStringLiteral("thinking")));
+        QQuickItem *thinking = find(full, QStringLiteral("thinking"));
+        QTRY_VERIFY(thinking->isVisible());
+        QVERIFY(find(full, QStringLiteral("workingBar"))->isVisible());
+        // On screen: inside the conversation's visible part.
+        QQuickItem *history = thinking;
+        while (history && !history->inherits("QQuickFlickable"))
+            history = history->parentItem();
+        QVERIFY(history);
+        QTRY_VERIFY([&] {
+            const QPointF at = thinking->mapToItem(history, QPointF(0, 0));
+            return at.y() >= 0 && at.y() + thinking->height() <= history->height();
+        }());
+        QTest::qWait(400);
+        shoot(full, QStringLiteral("24-thinking"));
+        c.stop();
+        QTRY_VERIFY(c.phase() != QStringLiteral("working"));
+    }
+
     // Every problem still open opens to its two ways of solving it, tapped
     // as the person taps it, however many there are and however long.
     void eachStillOpenProblemOpens()

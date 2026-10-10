@@ -262,6 +262,11 @@ private Q_SLOTS:
     {
         QCOMPARE(AppInstall::withoutRemoveWords(QStringLiteral("Please uninstall the MaiN Keyboard app")),
                  QStringLiteral("MaiN Keyboard"));
+        // The polite words around the name go.
+        QCOMPARE(AppInstall::withoutRemoveWords(QStringLiteral("Can you uninstall MaiN keyboard for me?")),
+                 QStringLiteral("MaiN keyboard"));
+        QCOMPARE(AppInstall::withoutRemoveWords(QStringLiteral("Could you just remove VLC from my laptop now, thanks")),
+                 QStringLiteral("VLC"));
         QVERIFY(AppInstall::asksToRemove(QStringLiteral("uninstall MaiN keyboard")));
         QVERIFY(!AppInstall::asksToRemove(QStringLiteral("a pdf editor")));
         QVERIFY(AppInstall::keptBySystem(QStringLiteral("linux-cachyos")));

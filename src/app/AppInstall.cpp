@@ -270,8 +270,10 @@ bool AppInstall::asksToRemove(const QString &words)
 QString AppInstall::withoutRemoveWords(const QString &words)
 {
     static const QRegularExpression filler(QStringLiteral(
-        "\\b(please|can you|could you|i want to|i'd like to|help me|uninstall|remove|delete|get rid of|take off|"
-        "deinstall|the|an|a|my|this|app|apps|program|programs|application|from (this|my|the) (computer|laptop|tablet))\\b"),
+        "\\b((from|on|off) (this|my|the) (computer|laptop|tablet|device|pc|system|machine)|"
+        "please|pls|kindly|can you|could you|would you|will you|go ahead and|i want to|i'd like to|i need to|help me|"
+        "uninstall|remove|delete|get rid of|take off|deinstall|completely|entirely|for me|for us|for good|now|just|"
+        "thanks|thank you|the|an|a|my|this|that|it|app|apps|program|programs|application)\\b"),
         QRegularExpression::CaseInsensitiveOption);
     QString left = words;
     left.replace(filler, QStringLiteral(" "));
