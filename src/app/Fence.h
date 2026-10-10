@@ -36,6 +36,9 @@ struct FenceRoom {
     // for a settings skill, one "token id" a line. Split Rock answers in
     // skill-<token>.out beside it. Empty: the stand-in is not offered.
     QString skillRequests;
+    // Devices it may reach, such as the graphics chip for a model that runs
+    // on this computer. None otherwise.
+    QStringList devices;
 };
 
 // The program the fence is made with, or empty where this computer has none.

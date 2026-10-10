@@ -150,6 +150,38 @@ QList<Assistant> realAssistants(const QString &adaptersDir, const QString &state
     return list;
 }
 
+Assistant localAssistant(const QString &program, const QString &engine, const QString &stateDir)
+{
+    Assistant a;
+    a.id = QStringLiteral("local");
+    a.name = QStringLiteral("%1 on this computer").arg(productName());
+    a.cost = QStringLiteral("Free, with no account. It runs on this computer, so nothing you ask leaves it. "
+                            "It needs a one-time download first.");
+    a.local = true;
+    a.program = program;
+    a.home = QDir(stateDir).filePath(a.id);
+    a.readable = {QFileInfo(program).absolutePath(), QFileInfo(engine).absolutePath()};
+    // The graphics chip, for the model to run on.
+    a.devices = {QStringLiteral("/dev/dri")};
+    if (fenceProgram().isEmpty())
+        a.unavailable = QStringLiteral("%1 can't be kept to the notebook on this computer, which lacks the "
+                                       "sandbox it runs in (bubblewrap).").arg(productName());
+    else if (!QFileInfo(program).isExecutable())
+        a.unavailable = QStringLiteral("%1 on this computer isn't installed.").arg(productName());
+    else if (engine.isEmpty())
+        a.unavailable = QStringLiteral("The engine %1 on this computer runs on, llama.cpp, isn't installed.").arg(productName());
+    return a;
+}
+
+QString findEngine()
+{
+    // Shuffle's own build of llama.cpp first, then one the person installed.
+    const QString own = QStringLiteral(SPLIT_ROCK_ENGINE_DIR "/llama-server");
+    if (QFileInfo(own).isExecutable())
+        return own;
+    return QStandardPaths::findExecutable(QStringLiteral("llama-server"));
+}
+
 Assistant pretendAssistant(const QString &program, const QString &script, const QString &stateDir)
 {
     Assistant a;

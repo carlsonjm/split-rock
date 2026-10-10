@@ -1,0 +1,8 @@
+{
+  "agent": {"name": "pretend", "title": "Pretend assistant", "version": "1"},
+  "signedIn": true,
+  "authMethods": [],
+  "turns": [
+    {"expectPrompt": "Set up my printer", "steps": [{"say": "Let's add the printer."}]}
+  ]
+}

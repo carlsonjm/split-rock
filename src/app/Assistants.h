@@ -51,6 +51,12 @@ struct Assistant {
     // computer has no fence to put it in.
     bool mayRunUnfenced = false;
 
+    // Genie on this computer: the model is Split Rock's own download, and the
+    // assistant needs no account (docs/DECISIONS.md, Genie on this computer).
+    bool local = false;
+    // Devices the fence must still let it reach, such as the graphics chip.
+    QStringList devices;
+
     // Empty when the assistant can start; otherwise why not, in plain words.
     QString unavailable;
 };
@@ -79,6 +85,13 @@ QList<SignInChoice> classifySignIn(const Assistant &assistant, const QList<acp::
 // The three real assistants, with their adapters fetched into adaptersDir and
 // their own folders under stateDir. The order is the order setup offers them.
 QList<Assistant> realAssistants(const QString &adaptersDir, const QString &stateDir);
+
+// Genie on this computer: the front desk program and llama-server, engine,
+// which runs the model Split Rock downloads.
+Assistant localAssistant(const QString &program, const QString &engine, const QString &stateDir);
+
+// Where llama-server is on this computer, or empty.
+QString findEngine();
 
 // The pretend assistant, following script, with its folder under stateDir.
 Assistant pretendAssistant(const QString &program, const QString &script, const QString &stateDir);

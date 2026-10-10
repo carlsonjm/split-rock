@@ -140,10 +140,12 @@ Conversation::Conversation(QList<Assistant> assistants, QObject *parent)
                             record.proposal.admin ? QStringLiteral("the administrator") : QStringLiteral("the person"))
                        .arg(record.exitCode)
                        .arg(output.isEmpty() ? QStringLiteral("(none)") : output, checked);
+        m_reportMeta = {{QStringLiteral("kind"), QStringLiteral("change")}, {QStringLiteral("ok"), ok},
+                        {QStringLiteral("title"), record.proposal.title}};
         m_reportShown = ok ? QStringLiteral("Did it: %1").arg(record.proposal.title)
                            : QStringLiteral("It didn't work: %1").arg(record.proposal.title);
         if (m_client && m_phase == QLatin1String("ready"))
-            send(std::exchange(m_report, QString()), std::exchange(m_reportShown, QString()));
+            sendReport();
     });
     m_update = new SystemUpdate(this);
     addChore(QStringLiteral("update"), m_update);
@@ -157,6 +159,9 @@ Conversation::Conversation(QList<Assistant> assistants, QObject *parent)
     addChore(QStringLiteral("health"), m_health);
     m_community = new CommunityApps(this);
     addChore(QStringLiteral("community"), m_community);
+    connect(this, &Conversation::assistantChanged, this, &Conversation::tilesChanged);
+    connect(m_update, &SystemUpdate::waitingChanged, this, &Conversation::tilesChanged);
+    connect(m_health, &Chore::changed, this, &Conversation::tilesChanged);
     connect(m_runner, &ChangeRunner::undone, this, [this](const ChangeRunner::Record &record) {
         const bool ok = record.status == QLatin1String("undone");
         if (m_notebook) {
@@ -229,8 +234,10 @@ void Conversation::addChore(const QString &name, Chore *chore)
         }
         m_report = report;
         m_reportShown = shown;
+        m_reportMeta = {{QStringLiteral("kind"), QStringLiteral("chore")}, {QStringLiteral("ok"), ok},
+                        {QStringLiteral("title"), shown}};
         if (m_client && m_phase == QLatin1String("ready"))
-            send(std::exchange(m_report, QString()), std::exchange(m_reportShown, QString()));
+            sendReport();
     });
 }
 
@@ -412,6 +419,125 @@ QStringList Conversation::suggestions() const
             QStringLiteral("A window says my computer is infected")};
 }
 
+QVariantList Conversation::tiles() const
+{
+    QVariantList tiles;
+    const auto add = [&tiles](const QString &text, const QString &card, const QString &question, const QString &noticed,
+                              const QString &app = {}) {
+        for (const QVariant &tile : std::as_const(tiles)) {
+            if (tile.toMap().value(QStringLiteral("text")) == text)
+                return;
+        }
+        tiles.append(QVariantMap{{QStringLiteral("text"), text},
+                                 {QStringLiteral("card"), card},
+                                 {QStringLiteral("question"), question},
+                                 {QStringLiteral("noticed"), noticed},
+                                 {QStringLiteral("app"), app}});
+    };
+    const auto hasCard = [this](const QString &name) {
+        return std::any_of(m_chores.cbegin(), m_chores.cend(), [&name](const auto &c) { return c.first == name; });
+    };
+    // The guide answers only from its entries, so its tiles are its own.
+    if (m_current.guide) {
+        for (const QString &title : suggestions())
+            add(title, {}, title, {});
+        return tiles;
+    }
+
+    // What Genie noticed: updates waiting first, then what the health check
+    // found, problems before what's worth a look.
+    const int waiting = m_update ? m_update->waiting() : -1;
+    if (waiting > 0 && hasCard(QStringLiteral("update")))
+        add(waiting == 1 ? QStringLiteral("1 update is waiting") : QStringLiteral("%1 updates are waiting").arg(waiting),
+            QStringLiteral("update"), {}, QStringLiteral("warn"));
+    if (m_health) {
+        for (const HealthCheck::Item &item : m_health->items()) {
+            if (tiles.size() == 3)
+                break;
+            // Waiting updates already say it.
+            if (item.id == QLatin1String("updates") && waiting > 0)
+                continue;
+            const QString text = HealthCheck::tile(item);
+            if (text.isEmpty())
+                continue;
+            if (!item.action.isEmpty() && item.action != QLatin1String("ask") && hasCard(item.action))
+                add(text, item.action, {}, item.state);
+            else if (!item.question.isEmpty())
+                add(text, {}, item.question, item.state);
+        }
+    }
+
+    // Then what it can do on this computer: its cards, taking turns with
+    // quick things that only open an app the computer already has.
+    if (m_health && m_health->lastChecked().isEmpty() && hasCard(QStringLiteral("health")))
+        add(QStringLiteral("Give this computer a health check"), QStringLiteral("health"), {}, {});
+    QList<std::pair<QString, QString>> offers;
+    if (hasCard(QStringLiteral("install")))
+        offers.append({QStringLiteral("Install a new app"), QStringLiteral("install")});
+    if (hasCard(QStringLiteral("space")))
+        offers.append({QStringLiteral("Make room on the disk"), QStringLiteral("space")});
+    QList<std::pair<QString, QString>> quick;
+    for (const auto &[text, app] : quickApps()) {
+        if (!QStandardPaths::locate(QStandardPaths::ApplicationsLocation, app + QStringLiteral(".desktop")).isEmpty())
+            quick.append({text, app});
+    }
+    for (qsizetype i = 0; i < std::max(offers.size(), quick.size()); ++i) {
+        if (i < offers.size())
+            add(offers.at(i).first, offers.at(i).second, {}, {});
+        if (i < quick.size())
+            add(quick.at(i).first, {}, {}, {}, quick.at(i).second);
+    }
+    for (const Skill &skill : m_skills.skills()) {
+        if (tiles.size() >= 3)
+            break;
+        if (!skill.also.isEmpty())
+            add(skill.also.first(), {}, skill.also.first(), {});
+    }
+    for (const QString &question : suggestions())
+        add(question, {}, question, {});
+    while (tiles.size() > 3)
+        tiles.removeLast();
+    return tiles;
+}
+
+const QList<std::pair<QString, QString>> &Conversation::quickApps()
+{
+    static const QList<std::pair<QString, QString>> apps{
+        {QStringLiteral("Take a screenshot"), QStringLiteral("org.kde.spectacle")},
+        {QStringLiteral("Find an emoji"), QStringLiteral("org.kde.plasma.emojier")},
+        {QStringLiteral("See what's using the computer"), QStringLiteral("org.kde.plasma-systemmonitor")},
+    };
+    return apps;
+}
+
+void Conversation::openTile(const QVariantMap &tile)
+{
+    // Opening an app changes nothing, so it needs no card.
+    const QString app = tile.value(QStringLiteral("app")).toString();
+    if (!app.isEmpty()) {
+        const auto known = std::find_if(quickApps().cbegin(), quickApps().cend(),
+                                        [&app](const auto &quick) { return quick.second == app; });
+        if (known == quickApps().cend())
+            return;
+        QStringList program = m_launcher;
+        if (program.isEmpty())
+            program = QStandardPaths::findExecutable(QStringLiteral("kstart")).isEmpty()
+                ? QStringList{QStringLiteral("gtk-launch")}
+                : QStringList{QStringLiteral("kstart"), QStringLiteral("--application")};
+        program << app;
+        QProcess::startDetached(program.takeFirst(), program);
+        return;
+    }
+    const QString card = tile.value(QStringLiteral("card")).toString();
+    if (!card.isEmpty()) {
+        openChore(card);
+        return;
+    }
+    const QString question = tile.value(QStringLiteral("question")).toString();
+    if (!question.isEmpty())
+        ask(question);
+}
+
 void Conversation::showAssistants()
 {
     if (m_phase == QLatin1String("working") || m_phase == QLatin1String("signingIn"))
@@ -428,7 +554,7 @@ void Conversation::hideAssistants()
     Q_EMIT choosingChanged();
 }
 
-void Conversation::chooseAssistant(const QString &id)
+void Conversation::chooseAssistant(const QString &id, bool remember)
 {
     const auto it = std::find_if(m_assistants.cbegin(), m_assistants.cend(),
                                  [&id](const Assistant &a) { return a.id == id; });
@@ -440,7 +566,8 @@ void Conversation::chooseAssistant(const QString &id)
     // Remembered, so that the next time Split Rock starts, from its window or
     // from Search, it starts with the same assistant. Only the choice is kept;
     // the conversation is not.
-    QSettings(chosenFile(), QSettings::IniFormat).setValue(QStringLiteral("Assistant/chosen"), id);
+    if (remember)
+        QSettings(chosenFile(), QSettings::IniFormat).setValue(QStringLiteral("Assistant/chosen"), id);
     m_choosing = false;
     Q_EMIT assistantChanged();
     Q_EMIT choosingChanged();
@@ -453,7 +580,90 @@ void Conversation::chooseAssistant(const QString &id)
         setPhase(QStringLiteral("ready"));
         return;
     }
+    if (m_current.local && m_local) {
+        setNotice({});
+        setProblem({}, {});
+        if (m_local->choice().id.isEmpty())
+            m_local->survey();
+        if (!m_local->isReady()) {
+            // The model comes first; the person decides to download it.
+            setPhase(QStringLiteral("download"));
+            return;
+        }
+    }
     startAssistant();
+}
+
+void Conversation::setLocalModel(LocalModel *model)
+{
+    m_local = model;
+    if (m_local) {
+        connect(m_local, &LocalModel::changed, this, [this] {
+            if (m_current.local && m_phase == QLatin1String("download") && m_local->isReady())
+                startAssistant();
+        });
+    }
+    Q_EMIT assistantsChanged();
+}
+
+QObject *Conversation::localModelObject() const
+{
+    return m_local;
+}
+
+const Assistant *Conversation::handOffTarget() const
+{
+    for (const Assistant &a : m_assistants) {
+        if (!a.guide && !a.local && a.unavailable.isEmpty())
+            return &a;
+    }
+    return nullptr;
+}
+
+void Conversation::handOff()
+{
+    const Assistant *target = handOffTarget();
+    if (!target || m_handOff.isEmpty() || m_phase == QLatin1String("working"))
+        return;
+    const QString question = m_question;
+    chooseAssistant(target->id, false);
+    if (!question.isEmpty())
+        ask(question);
+}
+
+QJsonObject Conversation::framingMeta() const
+{
+    QJsonArray skills;
+    for (const Skill &skill : m_skills.skills()) {
+        skills.append(QJsonObject{{QStringLiteral("id"), skill.id},
+                                  {QStringLiteral("title"), skill.title},
+                                  {QStringLiteral("also"), QJsonArray::fromStringList(skill.also)}});
+    }
+    QJsonArray cards;
+    const QList<std::pair<QString, QString>> upkeep{
+        {QStringLiteral("update"), QStringLiteral("update the whole computer, or check whether an update worked")},
+        {QStringLiteral("space"), QStringLiteral("free up space when the disk is full or nearly full")},
+        {QStringLiteral("install"), QStringLiteral("install an app or find one for a job")},
+        {QStringLiteral("restore"), QStringLiteral("go back to a restore point, as things were before")},
+        {QStringLiteral("health"), QStringLiteral("a health check, when the computer is slow, hot or something seems wrong")},
+        {QStringLiteral("community"), QStringLiteral("update apps from the AUR, the community's own apps")},
+    };
+    for (const auto &[name, what] : upkeep) {
+        if (std::any_of(m_chores.cbegin(), m_chores.cend(), [&name](const auto &c) { return c.first == name; }))
+            cards.append(QJsonObject{{QStringLiteral("name"), name}, {QStringLiteral("what"), what}});
+    }
+    const Assistant *target = handOffTarget();
+    return QJsonObject{{QStringLiteral("kind"), QStringLiteral("framing")},
+                       {QStringLiteral("skills"), m_skills.isEmpty() || m_skillRequests.isEmpty() ? QJsonArray() : skills},
+                       {QStringLiteral("cards"), m_changeRequests.isEmpty() ? QJsonArray() : cards},
+                       {QStringLiteral("handOffTo"), target ? target->name : QString()}};
+}
+
+void Conversation::sendReport()
+{
+    const QJsonObject meta = std::exchange(m_reportMeta, QJsonObject());
+    send(std::exchange(m_report, QString()), std::exchange(m_reportShown, QString()),
+         meta.isEmpty() ? QJsonObject{{QStringLiteral("kind"), QStringLiteral("report")}} : meta);
 }
 
 bool Conversation::resumeChosen()
@@ -568,13 +778,23 @@ void Conversation::startAssistant()
         Q_EMIT notebookChanged();
     });
 
-    acp::LaunchSpec launch = serveLaunch(m_current, QProcessEnvironment::systemEnvironment(), m_workDir->path());
+    Assistant serving = m_current;
+    if (m_current.local && m_local) {
+        // What Genie on this computer runs: the engine, the model that fits,
+        // and whether it goes to the graphics chip.
+        serving.environment.insert(QStringLiteral("SPLIT_ROCK_DESK_ENGINE"), m_local->engine());
+        serving.environment.insert(QStringLiteral("SPLIT_ROCK_DESK_MODEL"), m_local->path());
+        serving.environment.insert(QStringLiteral("SPLIT_ROCK_DESK_LAYERS"), m_local->layers());
+        serving.readable.append(m_local->path());
+    }
+    acp::LaunchSpec launch = serveLaunch(serving, QProcessEnvironment::systemEnvironment(), m_workDir->path());
     if (!fenceProgram().isEmpty()) {
         FenceRoom room;
+        room.devices = m_current.devices;
         room.writable = {m_current.home, m_workDir->path()};
         if (m_notebook)
             room.writable.append(m_notebook->folder());
-        room.readable = m_current.readable;
+        room.readable = serving.readable;
         if (!m_current.home.isEmpty()) {
             m_openRequests = QDir(m_current.home).filePath(QStringLiteral(".split-rock/open-requests"));
             QFile::remove(m_openRequests);
@@ -851,7 +1071,8 @@ void Conversation::ask(const QString &text)
     // Asked before the assistant is ready, as from Search the moment it opens:
     // the question waits, shown, and goes as soon as the assistant can take it.
     if (!m_current.id.isEmpty() && !m_choosing
-        && (m_phase == QLatin1String("starting") || m_phase == QLatin1String("signIn")
+        && (m_phase == QLatin1String("starting") || m_phase == QLatin1String("download")
+            || m_phase == QLatin1String("signIn")
             || m_phase == QLatin1String("signingIn"))) {
         keepTurn();
         clearAnswer();
@@ -952,7 +1173,7 @@ void Conversation::answerFromGuide(const QString &question)
     Q_EMIT answerChanged();
 }
 
-void Conversation::send(const QString &prompt, const QString &shown)
+void Conversation::send(const QString &prompt, const QString &shown, const QJsonObject &meta)
 {
     if (!m_client)
         return;
@@ -963,20 +1184,27 @@ void Conversation::send(const QString &prompt, const QString &shown)
     setNotice({});
     setPhase(QStringLiteral("working"));
 
+    // Each block says what it is under _meta, which assistants that don't
+    // know it pass over, and Genie on this computer reads.
+    const auto block = [](const QString &text, const QJsonObject &label) {
+        return QJsonObject{{QStringLiteral("type"), QStringLiteral("text")},
+                           {QStringLiteral("text"), text},
+                           {QStringLiteral("_meta"), QJsonObject{{QStringLiteral("splitRock"), label}}}};
+    };
+    const auto kind = [](const char *name) { return QJsonObject{{QStringLiteral("kind"), QLatin1String(name)}}; };
     QJsonArray blocks;
     if (!m_framed) {
-        blocks.append(QJsonObject{{QStringLiteral("type"), QStringLiteral("text")},
-                                  {QStringLiteral("text"), framing() + QStringLiteral("\n\n") + settingsWords()}});
+        blocks.append(block(framing() + QStringLiteral("\n\n") + settingsWords(), framingMeta()));
         // What the notebook remembers, as the conversation starts.
         const QString memory = m_notebook ? m_notebook->memory() : QString();
         if (!memory.isEmpty())
-            blocks.append(QJsonObject{{QStringLiteral("type"), QStringLiteral("text")}, {QStringLiteral("text"), memory}});
+            blocks.append(block(memory, kind("memory")));
         m_framed = true;
     }
     if (!m_aside.isEmpty())
-        blocks.append(QJsonObject{{QStringLiteral("type"), QStringLiteral("text")},
-                                  {QStringLiteral("text"), std::exchange(m_aside, QString())}});
-    blocks.append(QJsonObject{{QStringLiteral("type"), QStringLiteral("text")}, {QStringLiteral("text"), prompt}});
+        blocks.append(block(std::exchange(m_aside, QString()), kind("aside")));
+    blocks.append(block(prompt, meta.isEmpty() ? kind("question") : meta));
+    m_handOff.clear();
 
     m_client->prompt(blocks, [this](const QString &stopReason, const std::optional<acp::RpcError> &error) {
         if (error && error->code == acp::AuthRequiredCode) {
@@ -986,6 +1214,14 @@ void Conversation::send(const QString &prompt, const QString &shown)
         if (error && error->code == acp::AgentStoppedCode)
             return; // Reported by the stop itself.
         setPhase(QStringLiteral("ready"));
+        // Genie on this computer asks for the bigger assistant.
+        if (!error && m_current.local && m_client
+            && m_client->lastPromptMeta().value(QStringLiteral("splitRock")).toObject().value(QStringLiteral("handOff")).toBool()) {
+            if (const Assistant *target = handOffTarget()) {
+                m_handOff = target->name;
+                Q_EMIT answerChanged();
+            }
+        }
         if (error) {
             setNotice(QStringLiteral("%1 couldn't answer. %2").arg(m_current.name, error->message));
         } else if (stopReason == QLatin1String("refusal")) {
@@ -1110,8 +1346,9 @@ void Conversation::propose(const ChangeProposal &proposed)
                                   "is open, and propose single changes only.")
                        .arg(proposed.title, updater, productName());
         m_reportShown = QStringLiteral("Opened the Update card");
+        m_reportMeta = {{QStringLiteral("kind"), QStringLiteral("update")}, {QStringLiteral("ok"), true}};
         if (m_client && m_phase == QLatin1String("ready"))
-            send(std::exchange(m_report, QString()), std::exchange(m_reportShown, QString()));
+            sendReport();
         return;
     }
     // One of Split Rock's own cards, asked for by name.
@@ -1125,8 +1362,9 @@ void Conversation::propose(const ChangeProposal &proposed)
             : QStringLiteral("%1 couldn't open its %2 card: another card is busy. Tell the person to wait for it to "
                              "finish.").arg(productName(), proposed.card);
         m_reportShown = opened ? QStringLiteral("Opened a card") : QStringLiteral("Another card is busy");
+        m_reportMeta = {{QStringLiteral("kind"), QStringLiteral("card")}, {QStringLiteral("ok"), opened}};
         if (m_client && m_phase == QLatin1String("ready"))
-            send(std::exchange(m_report, QString()), std::exchange(m_reportShown, QString()));
+            sendReport();
         return;
     }
     const Appearance now = Appearance::current();
@@ -1146,8 +1384,9 @@ void Conversation::propose(const ChangeProposal &proposed)
                                   "the person it isn't installed.\n%3")
                        .arg(proposed.title, unknown, now.describe());
         m_reportShown = QStringLiteral("Checking the name: %1 isn't installed").arg(unknown);
+        m_reportMeta = {{QStringLiteral("kind"), QStringLiteral("refused")}, {QStringLiteral("ok"), false}};
         if (m_client && m_phase == QLatin1String("ready"))
-            send(std::exchange(m_report, QString()), std::exchange(m_reportShown, QString()));
+            sendReport();
         return;
     }
     const ChangeProposal change = ChangeRunner::withKnownUndo(settled, now);
@@ -1273,7 +1512,7 @@ void Conversation::setPhase(const QString &phase)
         QTimer::singleShot(0, this, [this] {
             if (m_phase != QLatin1String("ready") || m_report.isEmpty() || !m_client)
                 return;
-            send(std::exchange(m_report, QString()), std::exchange(m_reportShown, QString()));
+            sendReport();
         });
         return;
     }
@@ -1316,6 +1555,7 @@ void Conversation::clearAnswer()
     m_card.clear();
     m_cardOpen = false;
     m_proposal.reset();
+    m_handOff.clear();
     m_kept = false;
     m_fixed = false;
     m_rememberAnswered = false;

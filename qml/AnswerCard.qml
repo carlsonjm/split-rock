@@ -130,6 +130,15 @@ Rectangle {
             width: parent.width
             spacing: 8
             topPadding: 4
+            // Genie on this computer hands a bigger change to the assistant
+            // the person has set up, with the same question.
+            Pill {
+                objectName: "handOffPill"
+                visible: conversation.handOffTo !== ""
+                filled: true
+                text: "Ask " + conversation.handOffTo
+                onClicked: conversation.handOff()
+            }
             Pill {
                 objectName: "doItPill"
                 visible: card.hasCard

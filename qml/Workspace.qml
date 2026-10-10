@@ -658,6 +658,7 @@ Item {
                         case "community": return communityStep
                         }
                         switch (conversation.phase) {
+                        case "download": return downloadStep
                         case "starting": return startingStep
                         case "signIn":
                         case "signingIn": return signInStep
@@ -1025,6 +1026,7 @@ Item {
 
     Component { id: chooseStep; AssistantList {} }
     Component { id: startingStep; StartingPanel {} }
+    Component { id: downloadStep; DownloadPanel {} }
     Component { id: signInStep; SignInPanel {} }
     Component { id: problemStep; ProblemPanel {} }
     Component { id: doItStep; DoItCard {} }

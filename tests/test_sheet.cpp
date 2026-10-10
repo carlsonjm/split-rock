@@ -5,6 +5,8 @@
 #include "app/Conversation.h"
 #include "FakeKadunce.h"
 #include "PretendFixture.h"
+#include "PretendModel.h"
+#include "app/LocalModel.h"
 #include "app/Notebook.h"
 #include "app/QmlContext.h"
 #include "app/SystemUpdate.h"
@@ -12,6 +14,7 @@
 #include "guide/GuideLibrary.h"
 
 #include <QDir>
+#include <QFile>
 #include <QGuiApplication>
 #include <QPalette>
 #include <QQmlApplicationEngine>
@@ -19,7 +22,9 @@
 #include <QQuickItem>
 #include <QQuickWindow>
 #include <QScreen>
+#include <QSettings>
 #include <QSignalSpy>
+#include <QStandardPaths>
 #include <QTemporaryDir>
 #include <QTest>
 
@@ -930,6 +935,189 @@ private Q_SLOTS:
         shows(QStringLiteral("spaceCard"), QStringLiteral("41-space-narrow"));
         space->close();
         QTRY_VERIFY(!find(full, QStringLiteral("spaceCard")));
+    }
+    // The tiles say what Genie noticed on this computer, updates waiting
+    // first, and a tap opens the card that helps.
+    void theTilesSayWhatGenieNoticed()
+    {
+        PretendFixture f;
+        QVERIFY(f.isValid());
+        Conversation c({f.assistant(QStringLiteral("signed-in.json"))});
+        SystemUpdate *update = c.systemUpdate();
+        update->setElevate({});
+        update->setLookScript(QStringLiteral("cat '" FIXTURES_DIR "/update/look.txt'"));
+        HealthCheck *health = c.healthCheck();
+        health->setLookScript(QStringLiteral("cat '" FIXTURES_DIR "/chores/health-look.txt'"));
+        QQmlApplicationEngine engine;
+        QQuickWindow *window = open(engine, c);
+        QVERIFY(window);
+        c.chooseAssistant(QStringLiteral("pretend"));
+        QTRY_COMPARE(c.phase(), QStringLiteral("ready"));
+
+        update->peek();
+        health->lookQuietly();
+        QTRY_VERIFY(update->waiting() > 0);
+        QTRY_VERIFY(!health->items().isEmpty());
+        // The quiet looks open no card.
+        QVERIFY(update->stage().isEmpty() && health->stage().isEmpty());
+        const QVariantList tiles = c.tiles();
+        QCOMPARE(tiles.size(), 3);
+        QCOMPARE(tiles.first().toMap().value(QStringLiteral("text")).toString(),
+                 QStringLiteral("%1 updates are waiting").arg(update->waiting()));
+        QCOMPARE(tiles.first().toMap().value(QStringLiteral("card")).toString(), QStringLiteral("update"));
+        for (const QVariant &tile : tiles)
+            QVERIFY(!tile.toMap().value(QStringLiteral("noticed")).toString().isEmpty());
+        QTRY_VERIFY(find(window, QStringLiteral("tile0")) && find(window, QStringLiteral("tile0"))->isVisible());
+        settle();
+        QVERIFY(overflowing(window).isEmpty());
+        shoot(window, QStringLiteral("54-tiles-noticed"));
+
+        QMetaObject::invokeMethod(find(window, QStringLiteral("tile0")), "clicked");
+        QTRY_COMPARE(update->stage(), QStringLiteral("ready"));
+        update->close();
+        // What the look found is kept for the next start; the other tests
+        // start from a computer that was never looked at.
+        QSettings(QStringLiteral("split-rock"), QStringLiteral("upkeep")).remove(QStringLiteral("health"));
+    }
+
+    // With nothing noticed, the tiles offer Genie's cards taking turns with
+    // quick apps this computer has, and a quick tile only opens its app.
+    void theQuickTilesOpenAnApp()
+    {
+        PretendFixture f;
+        QVERIFY(f.isValid());
+        const QString apps = QStandardPaths::writableLocation(QStandardPaths::ApplicationsLocation);
+        QVERIFY(QDir().mkpath(apps));
+        QFile desktop(apps + QStringLiteral("/org.kde.spectacle.desktop"));
+        QVERIFY(desktop.open(QIODevice::WriteOnly));
+        desktop.write("[Desktop Entry]\nType=Application\nName=Spectacle\nExec=true\n");
+        desktop.close();
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        const QString opened = dir.filePath(QStringLiteral("opened"));
+
+        Conversation c({f.assistant(QStringLiteral("signed-in.json"))});
+        c.setLauncher({QStringLiteral("sh"), QStringLiteral("-c"), QStringLiteral("echo \"$1\" > '%1'").arg(opened),
+                       QStringLiteral("launcher")});
+        QQmlApplicationEngine engine;
+        QQuickWindow *window = open(engine, c);
+        QVERIFY(window);
+        c.chooseAssistant(QStringLiteral("pretend"));
+        QTRY_COMPARE(c.phase(), QStringLiteral("ready"));
+
+        QStringList words;
+        for (const QVariant &tile : c.tiles())
+            words << tile.toMap().value(QStringLiteral("text")).toString();
+        QCOMPARE(words, (QStringList{QStringLiteral("Give this computer a health check"), QStringLiteral("Install a new app"),
+                                     QStringLiteral("Take a screenshot")}));
+        QTRY_VERIFY(find(window, QStringLiteral("tile2")) && find(window, QStringLiteral("tile2"))->isVisible());
+        settle();
+        QVERIFY(overflowing(window).isEmpty());
+        shoot(window, QStringLiteral("55-tiles-quick"));
+
+        QMetaObject::invokeMethod(find(window, QStringLiteral("tile2")), "clicked");
+        QTRY_VERIFY(QFileInfo::exists(opened) && QFileInfo(opened).size() > 0);
+        QFile got(opened);
+        QVERIFY(got.open(QIODevice::ReadOnly));
+        QCOMPARE(got.readAll().trimmed(), QByteArray("org.kde.spectacle"));
+        // No card opens and nothing is asked.
+        QCOMPARE(c.phase(), QStringLiteral("ready"));
+        QVERIFY(desktop.remove());
+    }
+
+    // Genie on this computer: its one-time download, then an answer, then a
+    // change too big for it, handed to the assistant the person brought.
+    void genieOnThisComputer()
+    {
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        // A server that takes the request and never answers, so the download
+        // can be seen partway.
+        QTcpServer silent;
+        QVERIFY(silent.listen(QHostAddress::LocalHost, 0));
+        const QJsonObject small{{QStringLiteral("id"), QStringLiteral("small")},
+                                {QStringLiteral("file"), QStringLiteral("small.gguf")},
+                                {QStringLiteral("bytes"), 2.5e9},
+                                {QStringLiteral("sha256"), QString(64, QLatin1Char('a'))},
+                                {QStringLiteral("needs"), QJsonObject{{QStringLiteral("memoryGiB"), 0}, {QStringLiteral("graphics"), false}}},
+                                {QStringLiteral("urls"), QJsonArray{QStringLiteral("http://127.0.0.1:%1/small.gguf").arg(silent.serverPort())}}};
+        const QString catalogue = dir.filePath(QStringLiteral("models.json"));
+        QFile file(catalogue);
+        QVERIFY(file.open(QIODevice::WriteOnly));
+        file.write(QJsonDocument(QJsonObject{{QStringLiteral("models"), QJsonArray{small}}}).toJson());
+        file.close();
+        const QString models = dir.filePath(QStringLiteral("models"));
+        LocalModel local(QStringLiteral("/bin/true"), catalogue, models);
+        local.surveyAs(8, false);
+
+        PretendModel pretendModel;
+        const QString question = QStringLiteral("How do I take a screenshot?");
+        pretendModel.answers.insert(question, QStringLiteral("Press Print Screen. Spectacle opens, and you can save the picture or copy it."));
+        const QString bigger = QStringLiteral("Set up my printer");
+        pretendModel.routes.insert(bigger, {{QStringLiteral("kind"), QStringLiteral("change")},
+                                            {QStringLiteral("target"), QStringLiteral("none")},
+                                            {QStringLiteral("worry"), QStringLiteral("none")},
+                                            {QStringLiteral("query"), QString()}});
+        Assistant desk = localAssistant(QStringLiteral(DESK_PROGRAM), QStringLiteral("/bin/true"), dir.filePath(QStringLiteral("state")));
+        desk.unavailable.clear();
+        desk.mayRunUnfenced = true;
+        desk.environment.insert(QStringLiteral("SPLIT_ROCK_DESK_SERVER"), pretendModel.url().toString());
+        PretendFixture f;
+        QVERIFY(f.isValid());
+        Assistant codex = f.assistant(QStringLiteral("hand-off.json"));
+        codex.name = QStringLiteral("Codex");
+        Conversation c({desk, codex});
+        c.setLocalModel(&local);
+
+        QQmlApplicationEngine engine;
+        QQuickWindow *window = open(engine, c);
+        QVERIFY(window);
+        c.chooseAssistant(QStringLiteral("local"));
+        QCOMPARE(c.phase(), QStringLiteral("download"));
+        QTRY_VERIFY(find(window, QStringLiteral("downloadPill")) && find(window, QStringLiteral("downloadPill"))->isVisible());
+        settle();
+        QVERIFY(overflowing(window).isEmpty());
+        shoot(window, QStringLiteral("50-genie-download"));
+
+        // Partway: what came before is carried on from.
+        QDir().mkpath(models);
+        QFile part(QDir(models).filePath(QStringLiteral("small.gguf.part")));
+        QVERIFY(part.open(QIODevice::WriteOnly));
+        QVERIFY(part.resize(qint64(1.05e9)));
+        part.close();
+        QMetaObject::invokeMethod(find(window, QStringLiteral("downloadPill")), "clicked");
+        QCOMPARE(local.state(), QStringLiteral("downloading"));
+        QTRY_VERIFY(find(window, QStringLiteral("downloadProgress")) && find(window, QStringLiteral("downloadProgress"))->isVisible());
+        settle();
+        QVERIFY(overflowing(window).isEmpty());
+        shoot(window, QStringLiteral("51-genie-downloading"));
+        local.cancel();
+
+        // Downloaded: Genie starts.
+        QFile whole(local.path());
+        QVERIFY(whole.open(QIODevice::WriteOnly));
+        whole.close();
+        local.surveyAs(8, false);
+        QTRY_VERIFY2_WITH_TIMEOUT(c.phase() == QLatin1String("ready"),
+                                  qPrintable(c.phase() + QLatin1Char(' ') + c.problem() + QLatin1Char(' ') + c.problemDetails()), 15000);
+
+        c.ask(question);
+        QTRY_COMPARE_WITH_TIMEOUT(c.phase(), QStringLiteral("ready"), 15000);
+        QTRY_VERIFY(find(window, QStringLiteral("headline")) && find(window, QStringLiteral("headline"))->isVisible());
+        settle();
+        QVERIFY(!find(window, QStringLiteral("handOffPill")) || !find(window, QStringLiteral("handOffPill"))->isVisible());
+        shoot(window, QStringLiteral("52-genie-answer"));
+
+        c.ask(bigger);
+        QTRY_COMPARE_WITH_TIMEOUT(c.handOffTo(), QStringLiteral("Codex"), 15000);
+        QTRY_VERIFY(find(window, QStringLiteral("handOffPill")) && find(window, QStringLiteral("handOffPill"))->isVisible());
+        settle();
+        QVERIFY(overflowing(window).isEmpty());
+        shoot(window, QStringLiteral("53-genie-hand-off"));
+
+        QMetaObject::invokeMethod(find(window, QStringLiteral("handOffPill")), "clicked");
+        QCOMPARE(c.assistantId(), QStringLiteral("pretend"));
+        QTRY_COMPARE_WITH_TIMEOUT(c.headline(), QStringLiteral("Let's add the printer."), 15000);
     }
 };
 

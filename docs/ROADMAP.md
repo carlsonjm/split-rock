@@ -132,6 +132,12 @@ computer), and Free up space, Install an app, Restore points, Health check and
 Community apps (`DECISIONS.md`, Upkeep has cards of its own). Each still needs
 its first run on a spare machine.
 
+**Brought into 1.0:** Split Rock on this computer, the assistant that needs no
+account (`DECISIONS.md`, Genie on this computer). Built: the front desk, the
+model's download and the hand-off. Still to prove: a third run on the
+maintainer's tablet against the trial's questions and both blind sets of unsafe
+asks, then its first real cards on a freshly installed computer.
+
 **Proves:** the common jobs from real use are covered without Show details ever
 being needed.
 
@@ -148,7 +154,8 @@ being needed.
 
 ## Not planned
 
-- An AI model of Split Rock's own.
+- Training an AI model of Split Rock's own. Split Rock on this computer runs
+  an open model as it is published.
 - Handling anyone's account, payment or password.
 - Selling an assistant account, or paying for anyone's use.
 - Acting without a card.

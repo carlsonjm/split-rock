@@ -9,6 +9,8 @@ Rectangle {
     property int fontSize: 14
     property int padding: 18
     property string iconPath
+    // A small dot before the words: something Genie noticed, in its colour.
+    property color dot: "transparent"
     // A filled pill's colour, and its ink: the accent unless a card has its
     // own.
     property color tone: theme.accent
@@ -36,6 +38,13 @@ Rectangle {
         id: row
         anchors.centerIn: parent
         spacing: 8
+        Rectangle {
+            visible: pill.dot.a > 0
+            anchors.verticalCenter: parent.verticalCenter
+            width: 8; height: 8
+            radius: 4
+            color: pill.dot
+        }
         Icon {
             visible: pill.iconPath !== ""
             anchors.verticalCenter: parent.verticalCenter

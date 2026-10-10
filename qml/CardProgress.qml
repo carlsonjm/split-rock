@@ -7,6 +7,8 @@ Column {
     property int done: 0
     property int total: 0
     property string now
+    // "3 of 12" beside what it is doing; off where the count means nothing.
+    property bool showCount: true
     property color tone: theme.accent
     property alias barObjectName: bar.objectName
     width: parent ? parent.width : 0
@@ -48,7 +50,7 @@ Column {
         }
         Text {
             id: countText
-            visible: progress.total > 0
+            visible: progress.total > 0 && progress.showCount
             text: progress.done + " of " + progress.total
             color: theme.quiet
             font.pixelSize: 14

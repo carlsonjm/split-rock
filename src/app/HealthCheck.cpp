@@ -70,7 +70,8 @@ QString days(qint64 n)
     return QStringLiteral("%1 days ago").arg(n);
 }
 
-// Where the last look's time is kept: the only thing the check writes.
+// Where the last look's time and findings are kept: the only things the check
+// writes.
 const QString Organization = QStringLiteral("split-rock");
 const QString Settings = QStringLiteral("upkeep");
 
@@ -87,12 +88,56 @@ QVariantMap HealthCheck::Item::toMap() const
             {QStringLiteral("question"), question}};
 }
 
+HealthCheck::Item HealthCheck::Item::fromMap(const QVariantMap &map)
+{
+    return {map.value(QStringLiteral("id")).toString(),        map.value(QStringLiteral("title")).toString(),
+            map.value(QStringLiteral("state")).toString(),     map.value(QStringLiteral("detail")).toString(),
+            map.value(QStringLiteral("action")).toString(),    map.value(QStringLiteral("actionLabel")).toString(),
+            map.value(QStringLiteral("question")).toString()};
+}
+
+QString HealthCheck::tile(const Item &item)
+{
+    if (item.state == QLatin1String("good"))
+        return {};
+    // The detail's words without its full stop.
+    QString detail = item.detail;
+    if (detail.endsWith(QLatin1Char('.')))
+        detail.chop(1);
+    if (item.id == QLatin1String("services")) {
+        const int n = detail.startsWith(QLatin1String("One ")) ? 1 : detail.section(QLatin1Char(' '), 0, 0).toInt();
+        return n > 1 ? QStringLiteral("%1 background services didn't start").arg(n)
+                     : QStringLiteral("A background service didn't start");
+    }
+    if (item.id == QLatin1String("space"))
+        return QStringLiteral("Only %1 free on the disk").arg(detail.section(QStringLiteral(" free"), 0, 0));
+    if (item.id == QLatin1String("drive"))
+        return item.state == QLatin1String("bad") ? QStringLiteral("The drive reports a problem")
+                                                  : QStringLiteral("The drive is wearing out");
+    if (item.id == QLatin1String("battery"))
+        return QStringLiteral("The battery has worn down");
+    if (item.id == QLatin1String("updates"))
+        return detail;
+    if (item.id == QLatin1String("restore"))
+        return item.action == QLatin1String("ask") ? QStringLiteral("No restore points are being taken")
+                                                   : QStringLiteral("The newest restore point is old");
+    if (item.id == QLatin1String("settings"))
+        return QStringLiteral("New settings files wait beside yours");
+    if (item.id == QLatin1String("crashes"))
+        return QStringLiteral("%1 crashes this week").arg(detail.section(QLatin1Char(' '), 0, 0));
+    if (item.id == QLatin1String("pkgcache"))
+        return QStringLiteral("Old update copies take %1").arg(detail.section(QStringLiteral("take "), 1));
+    return item.title;
+}
+
 HealthCheck::HealthCheck(QObject *parent)
     : Chore(parent)
     , m_checked(QSettings(Organization, Settings).value(QStringLiteral("health/checked")).toDateTime())
     , m_lastAttention(QSettings(Organization, Settings).value(QStringLiteral("health/attention"), -1).toInt())
     , m_lookScript(LookScript)
 {
+    for (const QVariant &item : QSettings(Organization, Settings).value(QStringLiteral("health/items")).toList())
+        m_items.append(Item::fromMap(item.toMap()));
 }
 
 bool HealthCheck::busy() const
@@ -320,7 +365,7 @@ void HealthCheck::checkIfDue()
 {
     if (busy() || !stage().isEmpty())
         return;
-    if (m_checked.isValid() && m_checked.daysTo(QDateTime::currentDateTime()) < 7)
+    if (m_checked.isValid() && m_checked.secsTo(QDateTime::currentDateTime()) < 20 * 60 * 60)
         return;
     look(false);
 }
@@ -338,6 +383,7 @@ void HealthCheck::look(bool open)
         QSettings settings(Organization, Settings);
         settings.setValue(QStringLiteral("health/checked"), m_checked);
         settings.setValue(QStringLiteral("health/attention"), m_lastAttention);
+        settings.setValue(QStringLiteral("health/items"), itemList());
         qInfo().noquote() << QStringLiteral("%1: the health check found %2 to look at").arg(productName()).arg(attention());
         if (!m_quiet)
             setStage(QStringLiteral("done"));

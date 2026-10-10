@@ -345,23 +345,27 @@ Window {
                     width: page.width
                     spacing: 14
 
-                    // Questions to start from.
+                    // What Genie noticed on this computer, then what it can
+                    // do here.
                     Flow {
                         width: parent.width
                         spacing: 8
                         visible: !conversation.choosing && !window.cardMode && (conversation.phase === "ready" || conversation.phase === "working")
                         Repeater {
-                            model: conversation.suggestions
+                            model: conversation.tiles
                             Pill {
+                                objectName: "tile" + index
                                 implicitHeight: 40
                                 padding: 16
-                                readonly property bool picked: conversation.question === modelData
+                                readonly property bool picked: modelData.question !== "" && conversation.question === modelData.question
                                 filled: picked
                                 enabled: window.canAsk
-                                text: modelData
+                                text: modelData.text
+                                dot: modelData.noticed === "bad" ? theme.bad : modelData.noticed === "warn" ? theme.warn : "transparent"
                                 onClicked: {
-                                    field.text = modelData
-                                    conversation.ask(modelData)
+                                    if (modelData.question !== "")
+                                        field.text = modelData.question
+                                    conversation.openTile(modelData)
                                 }
                             }
                         }
@@ -384,6 +388,7 @@ Window {
                             case "community": return communityCard
                             }
                             switch (conversation.phase) {
+                            case "download": return downloadPanel
                             case "starting": return starting
                             case "signIn":
                             case "signingIn": return signInPanel
@@ -437,5 +442,6 @@ Window {
     Component { id: communityCard; CommunityCard {} }
     Component { id: signInPanel; SignInPanel { signInWith: id => window.signInThroughFull(id) } }
     Component { id: starting; StartingPanel {} }
+    Component { id: downloadPanel; DownloadPanel {} }
     Component { id: problemPanel; ProblemPanel {} }
 }

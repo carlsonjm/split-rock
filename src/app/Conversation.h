@@ -8,12 +8,14 @@
 #include "app/AppInstall.h"
 #include "app/CommunityApps.h"
 #include "app/HealthCheck.h"
+#include "app/LocalModel.h"
 #include "app/RestorePoints.h"
 #include "app/SpaceCleanup.h"
 #include "app/SystemUpdate.h"
 #include "guide/GuideLibrary.h"
 #include "guide/SkillShelf.h"
 
+#include <QJsonObject>
 #include <QObject>
 #include <QSet>
 #include <QTemporaryDir>
@@ -42,7 +44,8 @@ class Conversation : public QObject
     Q_PROPERTY(QString assistantId READ assistantId NOTIFY assistantChanged)
     Q_PROPERTY(QString assistantName READ assistantName NOTIFY assistantChanged)
     Q_PROPERTY(QString assistantCost READ assistantCost NOTIFY assistantChanged)
-    // choose, starting, signIn, signingIn, ready, working or problem.
+    // choose, download, starting, signIn, signingIn, ready, working or
+    // problem. download: Genie on this computer is waiting for its model.
     Q_PROPERTY(QString phase READ phase NOTIFY phaseChanged)
     Q_PROPERTY(QVariantList signInChoices READ signInChoices NOTIFY signInChanged)
     Q_PROPERTY(QVariantList notOffered READ notOffered NOTIFY signInChanged)
@@ -63,6 +66,11 @@ class Conversation : public QObject
     Q_PROPERTY(QString problem READ problem NOTIFY noticeChanged)
     Q_PROPERTY(QString problemDetails READ problemDetails NOTIFY noticeChanged)
     Q_PROPERTY(QStringList suggestions READ suggestions NOTIFY assistantChanged)
+    // The tiles above the conversation: first what Genie noticed on this
+    // computer, then what it can do here. Each: text, card (an upkeep card to
+    // open, or empty), question (to ask otherwise) and noticed (warn or bad,
+    // or empty for an offer).
+    Q_PROPERTY(QVariantList tiles READ tiles NOTIFY tilesChanged)
     // The questions asked earlier in this conversation, each with its answer:
     // question, headline, steps and more. The one being answered is not here.
     Q_PROPERTY(QVariantList turns READ turns NOTIFY turnsChanged)
@@ -103,6 +111,11 @@ class Conversation : public QObject
     // The upkeep card open now, by its name, or empty; and whether one is
     // looking or changing something, when no other may start.
     Q_PROPERTY(QString chore READ chore NOTIFY choreChanged)
+    // Genie on this computer's model and its download; null without one.
+    Q_PROPERTY(QObject *localModel READ localModelObject NOTIFY assistantsChanged)
+    // The assistant this answer can be handed to, by name, when Genie on this
+    // computer says it needs a bigger one; otherwise empty.
+    Q_PROPERTY(QString handOffTo READ handOffTo NOTIFY answerChanged)
     Q_PROPERTY(bool choreBusy READ choreBusy NOTIFY choreChanged)
 
 public:
@@ -144,12 +157,26 @@ public:
     QString problem() const { return m_problem; }
     QString problemDetails() const { return m_problemDetails; }
     QStringList suggestions() const;
+    QVariantList tiles() const;
+    // Opens a tile's card, or asks its question.
+    Q_INVOKABLE void openTile(const QVariantMap &tile);
+    // Tests open the quick apps with a program of their own.
+    void setLauncher(const QStringList &program) { m_launcher = program; }
     QVariantList turns() const { return m_turns; }
     QVariantList refusedChanges() const { return m_refusedChanges; }
 
     Q_INVOKABLE void showAssistants();
     Q_INVOKABLE void hideAssistants();
-    Q_INVOKABLE void chooseAssistant(const QString &id);
+    // remember: the choice is kept for the next start, as it is when the
+    // person chooses; a hand-off isn't kept.
+    Q_INVOKABLE void chooseAssistant(const QString &id, bool remember = true);
+    // Genie on this computer's model. Not owned.
+    void setLocalModel(LocalModel *model);
+    QObject *localModelObject() const;
+    QString handOffTo() const { return m_handOff; }
+    // Ask the bigger assistant: the same question, to the assistant named by
+    // handOffTo.
+    Q_INVOKABLE void handOff();
     // Starts the assistant the person chose last time, if none is chosen yet
     // and it is still offered. True when an assistant is chosen afterwards.
     bool resumeChosen();
@@ -224,6 +251,7 @@ Q_SIGNALS:
     void assistantsChanged();
     void choosingChanged();
     void assistantChanged();
+    void tilesChanged();
     void phaseChanged();
     void signInChanged();
     void answerChanged();
@@ -236,7 +264,14 @@ Q_SIGNALS:
     void choreChanged();
 
 private:
+    // The quick tiles: their words and the app each opens.
+    static const QList<std::pair<QString, QString>> &quickApps();
     void startAssistant();
+    // The assistant a bigger change goes to: the first one set up that isn't
+    // the guide or Genie on this computer. Null when there is none.
+    const Assistant *handOffTarget() const;
+    void sendReport();
+    QJsonObject framingMeta() const;
     void stopAssistant();
     void startSession();
     void askFirst();
@@ -244,7 +279,9 @@ private:
     void signInWithoutTerminal(const SignInChoice &choice);
     void signInDidNotFinish(const QString &details);
     void stopSignInProcess();
-    void send(const QString &prompt, const QString &shown);
+    // meta labels the prompt for Genie on this computer: a question, unless
+    // it says what else.
+    void send(const QString &prompt, const QString &shown, const QJsonObject &meta = QJsonObject());
     void setPhase(const QString &phase);
     void setNotice(const QString &notice);
     void setProblem(const QString &problem, const QString &details);
@@ -303,11 +340,17 @@ private:
     AppInstall *m_install = nullptr;
     RestorePoints *m_restore = nullptr;
     HealthCheck *m_health = nullptr;
+    QStringList m_launcher;
     CommunityApps *m_community = nullptr;
     std::optional<ChangeProposal> m_proposal;
     // How a change went, told to the assistant once it is ready.
     QString m_report;
     QString m_reportShown;
+    // What the report was, for Genie on this computer, which answers it in
+    // its own fixed words: kind, ok and title.
+    QJsonObject m_reportMeta;
+    LocalModel *m_local = nullptr;
+    QString m_handOff;
     // Told to the assistant with the next question: what happened since.
     QString m_aside;
     bool m_framed = false;
