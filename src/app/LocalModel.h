@@ -16,9 +16,9 @@ class QNetworkReply;
 namespace splitrock {
 
 // The model Genie on this computer runs, and its one-time download
-// (docs/DECISIONS.md, Genie on this computer). Only the model that fits the
-// computer is downloaded: the larger one where there are 16 GB of memory and a
-// graphics chip it can use, the smaller one everywhere else.
+// (docs/DECISIONS.md, Genie on this computer). Only the first model in the
+// list that fits the computer is downloaded; today the list has one, the same
+// for every computer.
 class LocalModel : public QObject
 {
     Q_OBJECT

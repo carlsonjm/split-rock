@@ -61,8 +61,8 @@ Claude Code.
 ## Split Rock on this computer
 
 Split Rock's own assistant needs no account and no program of the person's: a
-one-time download of an open model (Qwen3, about 2.5 GB, or about 5 GB where the
-computer has 16 GB of memory and a graphics chip), run by llama.cpp, which comes
+one-time download of an open model (Qwen3 4B, about 2.5 GB, the same for every
+computer), run by llama.cpp, which comes
 with Split Rock. It answers and makes everyday changes through the Do it card;
 bigger fixes pass to the assistant the person signed in to, usually Codex
 (`DECISIONS.md`, Genie on this computer).

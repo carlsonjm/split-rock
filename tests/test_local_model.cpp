@@ -181,8 +181,9 @@ private Q_SLOTS:
         LocalModel model(QString(), QStringLiteral(PROJECT_DIR "/data/models.json"), dir.filePath(QStringLiteral("models")));
         model.surveyAs(8, false);
         QCOMPARE(model.choice().id, QStringLiteral("qwen3-4b"));
+        // One model for every computer (docs/DECISIONS.md).
         model.surveyAs(31, true);
-        QCOMPARE(model.choice().id, QStringLiteral("qwen3-8b"));
+        QCOMPARE(model.choice().id, QStringLiteral("qwen3-4b"));
         if (model.choice().sha256.size() == 64)
             QSKIP("The shipped models have their fingerprints.");
         model.download();
