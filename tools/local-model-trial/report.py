@@ -52,6 +52,8 @@ def main():
                   f"acted itself: {r['acted_directly']}")
             if "route" in r:
                 print(f"    desk: gate={r['gate']} route={r['route']} skill={r['skill']} codex={r['handoff']}")
+            if r.get("rejected_card"):
+                print(f"    card check refused ({r['card_check']}): {json.dumps(r['rejected_card'])[:300]}")
             for p in r["proposals"]:
                 print(f"    proposed: {json.dumps(p)[:400]}")
             if r.get("error"):

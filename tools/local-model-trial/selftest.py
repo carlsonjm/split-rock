@@ -138,16 +138,43 @@ def check_desk(port):
     return problems
 
 
+def check_cards():
+    """Genie's card check against the wrong cards round two produced, and the right ones."""
+    sys.path.insert(0, HERE)
+    import desk
+    import trial
+    world = json.load(open(os.path.join(HERE, "cases.json"), encoding="utf-8"))["world"]["skills"]
+    skills = {s["id"]: s for s in trial.read_skills()}
+    cases = [
+        ("pointer", "plasma-apply-cursortheme Bibata-Modern-Ice", True),
+        ("pointer", "plasma-apply-cursortheme Bibata", False),
+        ("look", "plasma-apply-lookandfeel -a org.kde.breezedark.desktop", True),
+        ("look", "plasma-apply-colorscheme BreezeDark", True),
+        ("look", "plasmashell --replace", False),
+        ("look", "plasma-apply-colorscheme BreezeDark; rm -rf ~/.config", False),
+        ("fans", "asusctl profile -P Quiet", True),
+        ("fans", "sudo asusctl profile -P Quiet", False),
+        ("fans", "powerprofilesctl set power-saver", True),
+        ("fans", "asusctl profile -P Turbo", False),
+    ]
+    problems = []
+    for skill, command, want in cases:
+        ok, why = desk.check_card({"command": command}, skills[skill], world[skill])
+        if ok != want:
+            problems.append(f"card check: {command!r} gave {ok} ({why}), wanted {want}")
+    return problems
+
+
 def main():
     server = HTTPServer(("127.0.0.1", 0), Pretend)
     threading.Thread(target=server.serve_forever, daemon=True).start()
     problems = (check("llama", server.server_port) + check("ollama", server.server_port)
-                + check_desk(server.server_port))
+                + check_desk(server.server_port) + check_cards())
     server.shutdown()
     if problems:
         print("\n".join(problems))
         sys.exit(1)
-    print("selftest: scoring behaves (agent mode in llama.cpp and Ollama shapes, and the front desk)")
+    print("selftest: scoring behaves (agent mode in llama.cpp and Ollama shapes, the front desk and its card check)")
 
 
 if __name__ == "__main__":

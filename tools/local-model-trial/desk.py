@@ -13,7 +13,10 @@ does, and every size failed at it. Here Genie keeps the steering:
    about the computer, and no tools.
 4. For a change with a skill, Genie runs the skill's look-around itself and
    the model fills in the Do it card, again held to the card's shape.
-5. A change with no skill is handed to Codex.
+5. Genie checks the card before anyone sees it: its command must be one the
+   skill names, with names from the look-around. A card that fails goes to
+   Codex instead.
+6. A change with no skill is handed to Codex.
 
 Needs llama.cpp's llama-server, already started with the model.
 """
@@ -22,6 +25,7 @@ import argparse
 import json
 import os
 import re
+import shlex
 import sys
 import time
 
@@ -77,6 +81,42 @@ CARD_SCHEMA = {
 }
 
 
+def skill_commands(skill):
+    """The command shapes a skill's Change section names, such as plasma-apply-cursortheme <name>."""
+    change = re.search(r"^## Change\s*$(.*?)^## ", skill["text"] + "\n## ", re.M | re.S)
+    spans = re.findall(r"`([^`]+)`", change.group(1) if change else "")
+    return [" ".join(span.split()) for span in spans if "<" in span]
+
+
+def check_card(card, skill, seen):
+    """Genie's card check. Returns (True, "") or (False, why); nothing here asks a model."""
+    command = (card or {}).get("command", "").strip()
+    if not command:
+        return False, "no command"
+    if re.search(r"[;&|`$<>(){}\n\\]", command) or re.search(r"\b(sudo|pkexec|doas|su)\b", command):
+        return False, "joins commands or asks for administrator rights"
+    try:
+        words = shlex.split(command)
+    except ValueError:
+        return False, "unreadable command"
+    for shape in skill_commands(skill):
+        parts = shape.split()
+        if len(parts) != len(words):
+            continue
+        names = []
+        for part, word in zip(parts, words):
+            if part.startswith("<") and part.endswith(">"):
+                names.append(word)
+            elif part != word:
+                break
+        else:
+            for name in names:
+                if not re.search(r"(?<![\w.-])" + re.escape(name) + r"(?![\w.-])", seen):
+                    return False, f"{name} isn't on this computer"
+            return True, ""
+    return False, "not a command this skill names"
+
+
 def gate(ask):
     for name, pattern, answer in GATE:
         if pattern.search(ask):
@@ -99,7 +139,8 @@ def ask_model(args, messages, schema=None):
 
 def handle(args, case, skills, world, framing):
     """One ask through the front desk. Returns what happened, for scoring."""
-    out = {"gate": None, "route": None, "skill": None, "card": None, "answer": "", "handoff": False, "timings": []}
+    out = {"gate": None, "route": None, "skill": None, "card": None, "answer": "", "handoff": False, "timings": [],
+           "rejected_card": None, "card_check": ""}
     name, fixed = gate(case["ask"])
     if name:
         out["gate"] = name
@@ -141,9 +182,14 @@ def handle(args, case, skills, world, framing):
                                  [{"role": "user", "content": case["ask"]}], CARD_SCHEMA)
         out["timings"].append(timing)
         try:
-            out["card"] = json.loads(text)
+            card = json.loads(text)
         except json.JSONDecodeError:
-            out["card"] = None
+            card = None
+        ok, why = check_card(card, skill, seen)
+        if ok:
+            out["card"] = card
+        else:
+            out["rejected_card"], out["card_check"], out["handoff"] = card, why, True
         return out
 
     if route.get("kind") == "change":
@@ -270,6 +316,7 @@ def main():
                         "skills_opened": [got["skill"]] if got["card"] is not None else [],
                         "proposals": [got["card"]] if got["card"] else [], "acted_directly": [],
                         "gate": got["gate"], "route": got["route"], "skill": got["skill"], "handoff": got["handoff"],
+                        "rejected_card": got.get("rejected_card"), "card_check": got.get("card_check", ""),
                         "checks": checks, "passed": passed, "seconds": round(seconds, 1), "calls": got["timings"],
                         "error": error})
         mark = "pass" if passed else "FAIL " + "; ".join(c["check"] for c in checks if not c["ok"])

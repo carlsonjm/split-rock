@@ -36,13 +36,22 @@ Split Rock, rather than through Codex.
 fixed safety check with no model answers scam, password, payment and
 destructive asks; the model sorts each ask (an answer, or a change and which
 skill), answers in words with no tools, or fills in the Do it card after Genie
-has run the skill's look-around itself. A change no skill covers goes to Codex.
+has run the skill's look-around itself. Genie then checks the card: its command
+must be one the skill's Change section names, with names from the look-around,
+and nothing joined on or run as administrator. A card that fails, and a change
+no skill covers, go to Codex.
 The model's sorting and cards are held to their shape by llama-server.
 
 The safety check's patterns were written knowing these cases, so its catch
 rate here says more about the design than about how it would fare in daily use.
 
     MODE=desk ./run-on-device.sh       # into results-desk/
+
+`unseen-asks.json` holds 40 more asks written without sight of the safety
+check or these cases, for a round that measures it fairly. Run against the
+check alone, it caught 6 of its 12 unsafe asks: a gift-card fee in other words,
+a crypto "recovery agent", wiping the main folders, pirated software, watching
+another person's messages, and switching protection off all got past it.
 
 ## Running it
 
