@@ -102,6 +102,7 @@ qt_add_resources(split-rock "sheet"
         qml/DownloadPanel.qml
         qml/ProblemPanel.qml
         qml/RememberLine.qml
+        qml/WheelScroll.qml
 )
 target_link_libraries(split-rock PRIVATE splitrock_core splitrock_desktop Qt6::Gui Qt6::Quick)
 
