@@ -3,7 +3,7 @@ import QtQuick
 import "Icons.js" as Icons
 
 // The full view, as docs/mockup/Workspace.dc.html draws it: the conversation,
-// and the notebook in a panel at the right that folds away. A wide window
+// and This Device in a drawer at the right that folds away. A wide window
 // opens with the notebook beside the conversation; a narrow one, such as a
 // Bento column, opens with the conversation alone, and the notebook slides over
 // it when asked for. Choosing an assistant, signing in and the Do it card
@@ -13,7 +13,45 @@ Item {
 
     readonly property bool canAsk: conversation.phase === "ready"
     readonly property bool working: conversation.phase === "working"
-    property int tab: 0
+
+    // This Device's closets, each folded until tapped. The device's
+    // troubleshooting starts open while it has a problem still open.
+    property bool systemOpen: false
+    property bool aboutOpen: false
+    // Open while the device has a problem still open; the person folds it.
+    property bool troubleOpen: false
+    Component.onCompleted: troubleOpen = conversation.deviceStillOpen.length > 0
+    Connections {
+        target: conversation
+        function onNotebookChanged() {
+            if (conversation.deviceStillOpen.length > 0)
+                full.troubleOpen = true
+        }
+    }
+    property bool changesOpen: false
+    // The closet the card open in the conversation brings to the top.
+    readonly property string paired: ({ changes: "changes", health: "trouble", restore: "system" })[conversation.chore] || ""
+
+    function closetOpen(name) {
+        return ({ system: systemOpen, about: aboutOpen, trouble: troubleOpen, changes: changesOpen })[name] || false
+    }
+    function toggleCloset(name) {
+        if (name === "system") systemOpen = !systemOpen
+        else if (name === "about") aboutOpen = !aboutOpen
+        else if (name === "trouble") troubleOpen = !troubleOpen
+        else if (name === "changes") changesOpen = !changesOpen
+    }
+    function closetTitle(name) {
+        return ({ system: "System", about: "About me", trouble: "Troubleshooting", changes: "Changes" })[name] || ""
+    }
+    // What a folded closet holds, in a word or a number.
+    function closetCount(name) {
+        if (name === "trouble")
+            return conversation.deviceStillOpen.length > 0 ? conversation.deviceStillOpen.length + " open" : ""
+        if (name === "changes")
+            return conversation.changes.length > 0 ? "" + conversation.changes.length : ""
+        return ""
+    }
 
     // Too narrow for the two side by side: the notebook covers the conversation.
     readonly property bool narrow: width < 720
@@ -81,10 +119,21 @@ Item {
             x: 42; y: 3
             width: Math.min(640, parent.width - 42)
             spacing: 10
+            // Thinking: three dots and the word, so a wait never reads as
+            // an answer that went nowhere.
             Row {
+                objectName: "thinking"
                 visible: answer.waiting
                 height: 22
                 spacing: 7
+                Text {
+                    anchors.verticalCenter: parent.verticalCenter
+                    rightPadding: 4
+                    text: "Thinking"
+                    color: theme.quiet
+                    font.pixelSize: 15
+                    font.weight: Font.DemiBold
+                }
                 Repeater {
                     model: 3
                     Rectangle {
@@ -536,7 +585,7 @@ Item {
             implicitHeight: 40
             opacity: 1 - full.notebookProgress
             visible: opacity > 0
-            text: "Notebook"
+            text: "This Device"
             iconPath: Icons.panel
             onClicked: full.toggleNotebook()
         }
@@ -550,7 +599,19 @@ Item {
             contentHeight: bubbles.implicitHeight
             clip: true
             boundsBehavior: Flickable.StopAtBounds
-            onContentHeightChanged: contentY = Math.max(0, contentHeight - height)
+            function toEnd() {
+                contentY = Math.max(0, contentHeight - height)
+            }
+            onContentHeightChanged: toEnd()
+            onHeightChanged: toEnd()
+            // A new question, an answer starting, or a card closing moves the
+            // conversation, once laid out, to its newest part.
+            Connections {
+                target: conversation
+                function onAnswerChanged() { Qt.callLater(history.toEnd) }
+                function onPhaseChanged() { Qt.callLater(history.toEnd) }
+                function onChoreChanged() { Qt.callLater(history.toEnd) }
+            }
 
             Column {
                 id: bubbles
@@ -716,7 +777,7 @@ Item {
                     width: parent.width
                     elide: Text.ElideRight
                     visible: wideField.text === ""
-                    text: "Ask, or say what you want done"
+                    text: full.working ? "Thinking… the square stops it" : "Ask, or say what you want done"
                     color: theme.quiet
                     font: wideField.font
                 }
@@ -771,7 +832,11 @@ Item {
         color: theme.sheet
     }
 
-    // The notebook: this computer, about the person, and what was kept.
+    // The drawer: This Device. The upkeep tiles on top; under them the
+    // closets, each folded until tapped. The card open in the conversation
+    // brings the closet that goes with it to the top, open: What changed its
+    // changes, the health check the device's troubleshooting, restore points
+    // the system.
     Flickable {
         id: aside
         objectName: "notebook"
@@ -791,41 +856,15 @@ Item {
 
             Item {
                 width: parent.width
-                height: tabs.height
-                Flow {
-                    id: tabs
-                    width: parent.width - foldButton.width - 8
-                    spacing: 4
-                    Repeater {
-                        model: ["This computer", "About me", "Kept"]
-                        Rectangle {
-                            readonly property bool picked: full.tab === index
-                            width: tabLabel.implicitWidth + 32
-                            height: 40
-                            radius: 20
-                            color: picked ? theme.accentSoft : tabArea.containsMouse ? theme.chip : "transparent"
-                            Accessible.role: Accessible.PageTab
-                            Accessible.name: modelData
-                            Accessible.selected: picked
-                            Text {
-                                id: tabLabel
-                                anchors.centerIn: parent
-                                text: modelData
-                                color: parent.picked ? theme.accent : theme.text
-                                font.pixelSize: 14
-                                font.weight: Font.DemiBold
-                            }
-                            MouseArea {
-                                id: tabArea
-                                anchors.fill: parent
-                                hoverEnabled: true
-                                cursorShape: Qt.PointingHandCursor
-                                onClicked: full.tab = index
-                            }
-                        }
-                    }
+                height: 40
+                Text {
+                    anchors.verticalCenter: parent.verticalCenter
+                    text: "This Device"
+                    color: theme.text
+                    font.pixelSize: 17
+                    font.weight: Font.Bold
                 }
-                // Folds the notebook away.
+                // Folds the drawer away.
                 Rectangle {
                     id: foldButton
                     objectName: "foldNotebook"
@@ -833,7 +872,7 @@ Item {
                     width: 40; height: 40; radius: 20
                     color: foldArea.containsMouse ? theme.chip : "transparent"
                     Accessible.role: Accessible.Button
-                    Accessible.name: "Fold the notebook away"
+                    Accessible.name: "Fold This Device away"
                     Icon {
                         anchors.centerIn: parent
                         width: 18; height: 18
@@ -850,176 +889,205 @@ Item {
                 }
             }
 
-            Text {
+            // The closet that goes with the card open now, on top and open.
+            Closet {
+                objectName: "pairedCloset"
+                visible: full.paired !== ""
+                name: full.paired
+                pinned: true
+            }
+
+            // The upkeep cards, opened in the conversation.
+            Heading { text: "LOOK AFTER IT" }
+            UpkeepShelf {
                 width: parent.width
-                wrapMode: Text.WordWrap
-                text: conversation.canKeep ? "Kept in your notebook, as plain notes." : "Nothing is kept yet."
+                onOpened: if (full.narrow) full.toggleNotebook()
+            }
+
+            Repeater {
+                model: ["system", "about", "trouble", "changes"]
+                Closet {
+                    visible: modelData !== full.paired
+                    name: modelData
+                }
+            }
+        }
+    }
+
+    // A closet: a heading that folds what it holds away, and what it holds.
+    component Closet: Column {
+        id: closet
+        property string name
+        // Shown open with the card it goes with; its heading doesn't fold it.
+        property bool pinned: false
+        readonly property bool open: pinned || full.closetOpen(name)
+        width: parent ? parent.width : 0
+        spacing: 10
+
+        Item {
+            width: closet.width
+            height: 40
+            Accessible.role: Accessible.Button
+            Accessible.name: full.closetTitle(closet.name)
+            Heading {
+                anchors.verticalCenter: parent.verticalCenter
+                text: full.closetTitle(closet.name).toUpperCase()
+            }
+            Text {
+                anchors.right: chevron.left
+                anchors.rightMargin: 8
+                anchors.verticalCenter: parent.verticalCenter
+                visible: !closet.open && text !== ""
+                text: full.closetCount(closet.name)
                 color: theme.quiet
                 font.pixelSize: 12
                 font.weight: Font.DemiBold
             }
+            Icon {
+                id: chevron
+                visible: !closet.pinned
+                anchors.right: parent.right
+                anchors.rightMargin: 11
+                anchors.verticalCenter: parent.verticalCenter
+                width: 18; height: 18
+                path: Icons.chevron
+                color: theme.quiet
+                rotation: closet.open ? 180 : 0
+            }
+            MouseArea {
+                anchors.fill: parent
+                enabled: !closet.pinned
+                cursorShape: closet.pinned ? Qt.ArrowCursor : Qt.PointingHandCursor
+                onClicked: full.toggleCloset(closet.name)
+            }
+        }
 
-            // This computer.
-            Column {
-                visible: full.tab === 0
-                width: parent.width
-                spacing: 16
+        Loader {
+            active: closet.open
+            visible: active
+            onLoaded: item.width = Qt.binding(() => closet.width)
+            sourceComponent: ({ system: systemCloset, about: aboutCloset, trouble: troubleCloset,
+                                changes: changesCloset })[closet.name] || null
+        }
 
-                Grid {
-                    id: tiles
-                    width: parent.width
-                    columns: width >= 560 ? 3 : 1
-                    spacing: 10
-                    Tile {
-                        width: (parent.width - (tiles.columns - 1) * 10) / tiles.columns
-                        label: "COMPUTER"
-                        value: computerName !== "" ? computerName : "Not reported"
-                    }
-                    Tile {
-                        width: (parent.width - (tiles.columns - 1) * 10) / tiles.columns
-                        label: "SYSTEM"
-                        value: systemName
-                    }
-                    Tile {
-                        objectName: "lastRestorePoint"
-                        width: (parent.width - (tiles.columns - 1) * 10) / tiles.columns
-                        label: "LAST RESTORE POINT"
-                        value: conversation.restore.newest !== "" ? conversation.restore.newest : "Tap to see"
-                        MouseArea {
-                            anchors.fill: parent
-                            cursorShape: Qt.PointingHandCursor
-                            onClicked: if (conversation.openChore("restore") && full.narrow) full.toggleNotebook()
-                        }
-                    }
-                }
+        Rectangle {
+            visible: !closet.pinned
+            width: closet.width
+            height: 1
+            color: theme.line
+        }
+    }
 
-                // The upkeep cards, opened in the conversation.
-                Heading { text: "LOOK AFTER IT" }
-                UpkeepShelf {
-                    width: parent.width
-                    columns: 2
-                    onOpened: if (full.narrow) full.toggleNotebook()
-                }
-
-                Heading { text: "CHANGES" }
-                Column {
-                    objectName: "changes"
-                    width: parent.width
-                    spacing: 8
-                    Line {
-                        visible: conversation.refusedChanges.length === 0 && conversation.changes.length === 0
-                        text: "Nothing has changed on this computer."
-                    }
-                    // What Split Rock changed, newest first, each with Undo
-                    // while it can be put back.
-                    Repeater {
-                        model: conversation.changes
-                        Line {
-                            objectName: "change-" + index
-                            when: full.shortDate(modelData.date)
-                            text: modelData.title
-                            status: ({ making: "Making it", done: "Done", failed: "Didn't work",
-                                       undone: "Undone", undoFailed: "Undo didn't work" })[modelData.status] || ""
-                            action: modelData.canUndo && !conversation.changing ? "Undo" : ""
-                            onActed: conversation.undoChange(modelData.id)
-                        }
-                    }
-                    Repeater {
-                        model: conversation.refusedChanges
-                        Line {
-                            when: "Just now"
-                            text: modelData.heading
-                            status: "Asked, not changed"
-                        }
-                    }
-                }
-
-                Heading { text: "FIXED PROBLEMS" }
-                Line {
-                    visible: conversation.fixedProblems.length === 0
-                    width: parent.width
-                    text: "None yet. Problems " + productName + " helps fix are written down here."
-                }
-                Repeater {
-                    model: conversation.fixedProblems
-                    Line {
-                        width: parent.width
-                        when: full.shortDate(modelData.when)
-                        text: modelData.text
-                    }
-                }
-
-                // What is known about this device: what is still open, then
-                // what was solved.
-                Heading { text: "THIS DEVICE" }
-                Column {
-                    objectName: "deviceKnown"
-                    width: parent.width
-                    spacing: 8
-                    Line {
-                        visible: conversation.deviceFixes.length === 0 && conversation.deviceStillOpen.length === 0
-                        text: "Nothing learned about this device yet. Its problems, and what fixed them, are kept here."
-                    }
-                    SubHeading {
-                        visible: conversation.deviceStillOpen.length > 0
-                        text: "Open"
-                    }
-                    Repeater {
-                        model: conversation.deviceStillOpen
-                        OpenProblem {
-                            objectName: "deviceOpen-" + index
-                            text: modelData
-                        }
-                    }
-                    SubHeading {
-                        visible: conversation.deviceFixes.length > 0
-                        topPadding: conversation.deviceStillOpen.length > 0 ? 8 : 0
-                        text: "Solved"
-                    }
-                    Repeater {
-                        model: conversation.deviceFixes
-                        DeviceFix {
-                            objectName: "deviceFix-" + index
-                            path: modelData.path
-                            title: modelData.title
-                            why: modelData.why
-                            steps: modelData.steps
-                        }
-                    }
+    // System: the computer, its system, and its newest restore point.
+    Component {
+        id: systemCloset
+        Grid {
+            id: tiles
+            columns: width >= 560 ? 3 : 1
+            spacing: 10
+            Tile {
+                width: (tiles.width - (tiles.columns - 1) * 10) / tiles.columns
+                label: "COMPUTER"
+                value: computerName !== "" ? computerName : "Not reported"
+            }
+            Tile {
+                width: (tiles.width - (tiles.columns - 1) * 10) / tiles.columns
+                label: "SYSTEM"
+                value: systemName
+            }
+            Tile {
+                objectName: "lastRestorePoint"
+                width: (tiles.width - (tiles.columns - 1) * 10) / tiles.columns
+                label: "LAST RESTORE POINT"
+                value: conversation.restore.newest !== "" ? conversation.restore.newest : "Tap to see"
+                MouseArea {
+                    anchors.fill: parent
+                    cursorShape: Qt.PointingHandCursor
+                    onClicked: if (conversation.openChore("restore") && full.narrow) full.toggleNotebook()
                 }
             }
+        }
+    }
 
+    // About me: how the person likes to be helped.
+    Component {
+        id: aboutCloset
+        Line {
+            text: conversation.aboutMe !== "" ? conversation.aboutMe
+                : "How you like to be helped, and who helps you. " + productName
+                  + " writes this only after you say yes."
+        }
+    }
+
+    // Troubleshooting: what this device still has wrong, then what fixed
+    // what it had.
+    Component {
+        id: troubleCloset
+        Column {
+            objectName: "deviceKnown"
+            spacing: 8
             Line {
-                visible: full.tab === 1
-                width: parent.width
-                text: conversation.aboutMe !== "" ? conversation.aboutMe
-                    : "How you like to be helped, and who helps you. " + productName
-                      + " writes this only after you say yes."
+                visible: conversation.deviceFixes.length === 0 && conversation.deviceStillOpen.length === 0
+                text: "Nothing learned about this device yet. Its problems, and what fixed them, are kept here."
             }
-
-            // Kept: every kept answer, newest first, with Forget where the
-            // record's rows have Undo.
-            Column {
-                objectName: "keptList"
-                visible: full.tab === 2
-                width: parent.width
-                spacing: 8
-                Line {
-                    visible: conversation.keptNotes.length === 0
-                    width: parent.width
-                    text: "Nothing is kept yet. Keep this, under an answer, files it here by topic."
+            SubHeading {
+                visible: conversation.deviceStillOpen.length > 0
+                text: "Open"
+            }
+            Repeater {
+                model: conversation.deviceStillOpen
+                OpenProblem {
+                    objectName: "deviceOpen-" + index
+                    text: modelData
                 }
-                Repeater {
-                    model: conversation.keptNotes
-                    Line {
-                        objectName: "kept-" + index
-                        width: parent.width
-                        when: full.shortDate(Qt.formatDate(modelData.date, "d MMMM yyyy"))
-                        text: modelData.title
-                        status: modelData.topic
-                        action: "Forget"
-                        onActed: conversation.forget(modelData.path)
-                    }
+            }
+            SubHeading {
+                visible: conversation.deviceFixes.length > 0
+                topPadding: conversation.deviceStillOpen.length > 0 ? 8 : 0
+                text: "Solved"
+            }
+            Repeater {
+                model: conversation.deviceFixes
+                DeviceFix {
+                    objectName: "deviceFix-" + index
+                    path: modelData.path
+                    title: modelData.title
+                    why: modelData.why
+                    steps: modelData.steps
+                }
+            }
+        }
+    }
+
+    // Changes: what Split Rock changed, newest first, each with Undo while it
+    // can be put back.
+    Component {
+        id: changesCloset
+        Column {
+            objectName: "changes"
+            spacing: 8
+            Line {
+                visible: conversation.refusedChanges.length === 0 && conversation.changes.length === 0
+                text: "Nothing has changed on this computer."
+            }
+            Repeater {
+                model: conversation.changes
+                Line {
+                    objectName: "change-" + index
+                    when: full.shortDate(modelData.date)
+                    text: modelData.title
+                    status: ({ making: "Making it", done: "Done", failed: "Didn't work",
+                               undone: "Undone", undoFailed: "Undo didn't work" })[modelData.status] || ""
+                    action: modelData.canUndo && !conversation.changing ? "Undo" : ""
+                    onActed: conversation.undoChange(modelData.id)
+                }
+            }
+            Repeater {
+                model: conversation.refusedChanges
+                Line {
+                    when: "Just now"
+                    text: modelData.heading
+                    status: "Asked, not changed"
                 }
             }
         }

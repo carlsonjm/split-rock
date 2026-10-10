@@ -30,6 +30,8 @@ findmnt -no OPTIONS / 2>/dev/null
 cat /proc/cmdline 2>/dev/null
 echo "@@ home"
 findmnt -no OPTIONS /home 2>/dev/null
+echo "@@ limits"
+grep -E '^(NUMBER_CLEANUP|NUMBER_LIMIT|NUMBER_LIMIT_IMPORTANT)=' /etc/snapper/configs/root 2>/dev/null
 echo "@@ tools"
 command -v btrfs-assistant-launcher >/dev/null 2>&1 && echo btrfs-assistant-launcher
 command -v btrfs-assistant >/dev/null 2>&1 && echo btrfs-assistant
@@ -67,7 +69,8 @@ QVariantMap RestorePoints::Point::toMap() const
             {QStringLiteral("date"), date},
             {QStringLiteral("when"), when(date)},
             {QStringLiteral("what"), what},
-            {QStringLiteral("kind"), kind}};
+            {QStringLiteral("kind"), kind},
+            {QStringLiteral("own"), own}};
 }
 
 RestorePoints::RestorePoints(QObject *parent)
@@ -105,21 +108,44 @@ QString RestorePoints::describe(const QString &description, const QString &clean
             return said(QStringLiteral("remove"), QStringLiteral("Before freeing up space"));
         if (job.startsWith(QLatin1String("Install ")))
             return said(QStringLiteral("install"), QStringLiteral("Before installing %1").arg(job.mid(8)));
+        if (job.startsWith(QLatin1String("Remove ")))
+            return said(QStringLiteral("remove"), QStringLiteral("Before removing %1").arg(job.mid(7)));
         if (job.startsWith(QLatin1String("Community ")))
             return said(QStringLiteral("install"), QStringLiteral("Before updating %1").arg(job.mid(10)));
         return said(QStringLiteral("other"), QStringLiteral("Before a change: %1").arg(job));
     }
 
-    // snap-pac's: the pacman command line, as "pacman -S firefox".
+    // snap-pac's: the pacman command line, as "pacman -S firefox", or as a
+    // helper ran it, "pacman --upgrade --color=always --noconfirm -- /path".
     const QStringList words = d.split(QLatin1Char(' '), Qt::SkipEmptyParts);
     const qsizetype at = words.indexOf(QStringLiteral("pacman"));
     if (at >= 0 && at + 1 < words.size()) {
-        const QString op = words.at(at + 1);
+        QString op;
         QStringList names;
-        for (qsizetype i = at + 2; i < words.size(); ++i) {
-            if (!words.at(i).startsWith(QLatin1Char('-')))
-                names.append(words.at(i));
+        bool fromCommunity = false;
+        for (qsizetype i = at + 1; i < words.size(); ++i) {
+            const QString &w = words.at(i);
+            if (w == QLatin1String("--sync") || w == QLatin1String("-sync"))
+                op = op.isEmpty() ? QStringLiteral("-S") : op;
+            else if (w == QLatin1String("--upgrade") || w == QLatin1String("-upgrade"))
+                op = op.isEmpty() ? QStringLiteral("-U") : op;
+            else if (w == QLatin1String("--remove") || w == QLatin1String("-remove"))
+                op = op.isEmpty() ? QStringLiteral("-R") : op;
+            else if (w == QLatin1String("--sysupgrade") || w == QLatin1String("-sysupgrade"))
+                op += QLatin1Char('u');
+            else if (w.startsWith(QLatin1Char('-')) && !w.startsWith(QLatin1String("--")) && w.size() > 1 && w.at(1).isUpper())
+                op = op.isEmpty() ? w : op;
+            else if (w.startsWith(QLatin1Char('-')))
+                continue;
+            else if (w.contains(QLatin1Char('/'))) {
+                // A package file a community app helper built.
+                fromCommunity = fromCommunity || w.contains(QLatin1String("/.cache/paru")) || w.contains(QLatin1String("/.cache/yay"))
+                    || w.contains(QLatin1String("/.cache/"));
+            } else
+                names.append(w);
         }
+        if (op.startsWith(QLatin1String("-U")) && fromCommunity)
+            return said(QStringLiteral("install"), QStringLiteral("Before installing a community app"));
         const QString list = names.mid(0, 3).join(QStringLiteral(", ")) + (names.size() > 3 ? QStringLiteral("…") : QString());
         if (op.startsWith(QLatin1String("-S")) && (op.contains(QLatin1Char('u')) || names.isEmpty()))
             return said(QStringLiteral("update"), QStringLiteral("Before updating the computer"));
@@ -132,6 +158,12 @@ QString RestorePoints::describe(const QString &description, const QString &clean
                                                                   : QStringLiteral("Before removing %1").arg(list));
     }
     return said(QStringLiteral("other"), d.isEmpty() ? QStringLiteral("Restore point") : d);
+}
+
+bool RestorePoints::isOwn(const QString &description)
+{
+    static const QRegularExpression own(QStringLiteral(R"(^\s*(Split Rock|Genie): )"));
+    return own.match(description).hasMatch();
 }
 
 QList<RestorePoints::Point> RestorePoints::readList(const QString &json)
@@ -156,8 +188,9 @@ QList<RestorePoints::Point> RestorePoints::readList(const QString &json)
         Point p;
         p.number = number;
         p.date = QDateTime::fromString(row.value(QStringLiteral("date")).toString(), QStringLiteral("yyyy-MM-dd HH:mm:ss"));
-        p.what = describe(row.value(QStringLiteral("description")).toString(),
-                          row.value(QStringLiteral("cleanup")).toString(), &p.kind);
+        const QString description = row.value(QStringLiteral("description")).toString();
+        p.what = describe(description, row.value(QStringLiteral("cleanup")).toString(), &p.kind);
+        p.own = isOwn(description);
         points.append(p);
     }
     std::sort(points.begin(), points.end(), [](const Point &a, const Point &b) { return a.number > b.number; });
@@ -182,6 +215,19 @@ RestorePoints::Look RestorePoints::readLook(const QString &output)
     // The person's own folder on a volume of its own, which restore points
     // of the system leave as it is.
     look.homeSeparate = found.value(QStringLiteral("home")).join(QLatin1Char(' ')).contains(QLatin1String("subvol="));
+    // How many the system keeps before it clears the oldest, as snapper's
+    // number cleanup does: "50", or a range such as "2-10", whose top counts.
+    for (const QString &line : found.value(QStringLiteral("limits"))) {
+        const QString key = line.section(QLatin1Char('='), 0, 0);
+        const QString value = line.section(QLatin1Char('='), 1).remove(QLatin1Char('"')).trimmed();
+        const int top = value.section(QLatin1Char('-'), -1).toInt();
+        if (key == QLatin1String("NUMBER_CLEANUP"))
+            look.cleanup = value == QLatin1String("yes");
+        else if (key == QLatin1String("NUMBER_LIMIT"))
+            look.limit = top;
+        else if (key == QLatin1String("NUMBER_LIMIT_IMPORTANT"))
+            look.limitImportant = top;
+    }
     const QStringList tools = found.value(QStringLiteral("tools"));
     look.keepTool = tools.value(0);
     // Started from a restore point: / is mounted from its snapshot.
@@ -198,6 +244,21 @@ QVariantList RestorePoints::pointList() const
     for (const Point &p : m_look.points)
         list.append(p.toMap());
     return list;
+}
+
+QString RestorePoints::keeping() const
+{
+    if (!m_look.cleanup || m_look.limit <= 0)
+        return {};
+    const QString kept = m_look.limitImportant > 0
+        ? QStringLiteral("the newest %1, plus %2 marked important, such as those before a new kernel").arg(m_look.limit).arg(m_look.limitImportant)
+        : QStringLiteral("the newest %1").arg(m_look.limit);
+    return QStringLiteral("You don't need to delete any. The computer clears old ones by itself and keeps %1.").arg(kept);
+}
+
+int RestorePoints::ownCount() const
+{
+    return int(std::count_if(m_look.points.cbegin(), m_look.points.cend(), [](const Point &p) { return p.own; }));
 }
 
 QString RestorePoints::newest() const

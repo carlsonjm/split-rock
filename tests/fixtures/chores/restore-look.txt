@@ -18,6 +18,10 @@ rw,relatime,ssd,space_cache=v2,subvolid=256,subvol=/@
 initrd=\initramfs-linux.img root=UUID=1234 rw rootflags=subvol=/@
 @@ home
 rw,relatime,ssd,space_cache=v2,subvolid=257,subvol=/@home
+@@ limits
+NUMBER_CLEANUP="yes"
+NUMBER_LIMIT="50"
+NUMBER_LIMIT_IMPORTANT="2-15"
 @@ tools
 btrfs-assistant-launcher
 @@ end

@@ -195,7 +195,12 @@ public:
     Q_INVOKABLE bool solveStillOpen(const QString &problem, const QString &fix);
     // A solved problem came back: back under Still open.
     Q_INVOKABLE bool reopenFix(const QString &path);
-    QString remember() const { return m_rememberAnswered || m_phase == QLatin1String("working") ? QString() : m_answer.remember; }
+    // Genie on this computer never offers it: what a small model would keep
+    // about the person can't be trusted to be right.
+    QString remember() const
+    {
+        return m_rememberAnswered || m_current.local || m_phase == QLatin1String("working") ? QString() : m_answer.remember;
+    }
     bool fixed() const { return m_fixed; }
     // "Remember that?": yes writes it into About me.md; no lets it go.
     Q_INVOKABLE bool rememberYes();
@@ -291,6 +296,7 @@ private:
     void setProblem(const QString &problem, const QString &details);
     void clearAnswer();
     void answerFromGuide(const QString &question);
+
     QList<GuideEntry> tours() const;
     void keepTurn();
     // A request the fence and the notebook's rules allow.

@@ -10,8 +10,6 @@ target="${1:?usage: fetch-assistants.sh TARGET_DIR}"
 # together with docs/ASSISTANTS.md.
 declare -A packages=(
     [codex]="@zed-industries/codex-acp@0.16.0"
-    [claude]="@agentclientprotocol/claude-agent-acp@0.85.1"
-    [gemini]="@google/gemini-cli@0.62.0"
 )
 
 if ! command -v npm >/dev/null 2>&1; then
@@ -20,7 +18,7 @@ if ! command -v npm >/dev/null 2>&1; then
 fi
 
 mkdir -p "${target}"
-for name in codex claude gemini; do
+for name in codex; do
     spec="${packages[${name}]}"
     dir="${target}/${name}"
     stamp="${dir}/.fetched"

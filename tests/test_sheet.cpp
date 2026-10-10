@@ -262,12 +262,11 @@ private Q_SLOTS:
         QQuickWindow *full = shell->full();
         full->setGeometry(0, 0, 1280, 768);
         QQuickItem *view = find(full, QStringLiteral("fullView"));
-        view->setProperty("tab", 2);
-        QTRY_VERIFY(find(full, QStringLiteral("kept-0")));
-        shoot(full, QStringLiteral("13-kept"));
-        QMetaObject::invokeMethod(find(full, QStringLiteral("kept-0")), "acted");
+        // Kept answers are read in the notes app; This Device lists none.
+        QVERIFY(!find(full, QStringLiteral("keptList")));
+        QVERIFY(c.forget(c.keptNotes().first().toMap().value(QStringLiteral("path")).toString()));
         QTRY_COMPARE(c.keptNotes().size(), 0);
-        view->setProperty("tab", 1);
+        view->setProperty("aboutOpen", true);
         shoot(full, QStringLiteral("14-about-me"));
     }
 
@@ -312,6 +311,9 @@ private Q_SLOTS:
         QTRY_VERIFY(shell->full() && shell->full()->isVisible());
         QQuickWindow *full = shell->full();
         QQuickItem *view = find(full, QStringLiteral("fullView"));
+        // Wide enough for This Device beside the conversation.
+        full->setGeometry(0, 0, 1280, 760);
+        QTRY_COMPARE(full->width(), 1280);
         // The device's fix opens to show what to do.
         QTRY_VERIFY(find(full, QStringLiteral("deviceFix-0")));
         QVERIFY(find(full, QStringLiteral("deviceOpen-0")));
@@ -342,14 +344,16 @@ private Q_SLOTS:
                 const bool open = view->property("notebookShown").toBool();
                 QCOMPARE(find(full, QStringLiteral("notebook"))->isVisible(), open);
                 QCOMPARE(find(full, QStringLiteral("notebookButton"))->isVisible(), !open);
-                for (const int tab : {0, 1, 2}) {
-                    view->setProperty("tab", tab);
+                // Every closet folded, then every one open.
+                for (const bool closets : {false, true}) {
+                    for (const char *closet : {"systemOpen", "aboutOpen", "troubleOpen", "changesOpen"})
+                        view->setProperty(closet, closets);
                     QTest::qWait(50);
                     const QStringList past = overflowing(full);
-                    QVERIFY2(past.isEmpty(), qPrintable(QStringLiteral("at %1 wide, notebook %2, tab %3: %4").arg(width)
-                        .arg(open ? QStringLiteral("open") : QStringLiteral("folded")).arg(tab).arg(past.join(QStringLiteral("; ")))));
+                    QVERIFY2(past.isEmpty(), qPrintable(QStringLiteral("at %1 wide, This Device %2, closets %3: %4").arg(width)
+                        .arg(open ? QStringLiteral("open") : QStringLiteral("folded"))
+                        .arg(closets ? QStringLiteral("open") : QStringLiteral("folded")).arg(past.join(QStringLiteral("; ")))));
                 }
-                view->setProperty("tab", 0);
                 shoot(full, QStringLiteral("15-full-%1-%2").arg(width).arg(open ? QStringLiteral("open") : QStringLiteral("folded")));
             }
             // Back to what the width chooses.
@@ -537,7 +541,9 @@ private Q_SLOTS:
         QQuickWindow *full = shell->full();
         QVERIFY(find(full, QStringLiteral("fullView")));
         QVERIFY(find(full, QStringLiteral("wideField"))->isVisible());
-        QVERIFY(find(full, QStringLiteral("changes")));
+        // The changes, in their closet in This Device.
+        find(full, QStringLiteral("fullView"))->setProperty("changesOpen", true);
+        QTRY_VERIFY(find(full, QStringLiteral("changes")));
         // The refused change's card is still the person's to decide on.
         QVERIFY(find(full, QStringLiteral("doItCard")));
         full->setGeometry(0, 0, 1280, 768);
@@ -907,6 +913,19 @@ private Q_SLOTS:
         install->install(QStringLiteral("shelf:pdfarranger"));
         QTRY_COMPARE(install->stage(), QStringLiteral("done"));
         shows(QStringLiteral("installCard"), QStringLiteral("34-install-done"));
+        // Removing one: the installed apps the words fit, then a yes.
+        install->setSearchScript(printing(QStringLiteral("remove-search.txt")));
+        QVERIFY(c.openChore(QStringLiteral("install"), QStringLiteral("uninstall MaiN Keyboard")));
+        QTRY_COMPARE(install->stage(), QStringLiteral("results"));
+        QVERIFY(install->removing());
+        shows(QStringLiteral("installCard"), QStringLiteral("46-remove-results"));
+        install->remove(QStringLiteral("shelf:main-keyboard-git"));
+        QCOMPARE(install->stage(), QStringLiteral("confirm"));
+        shows(QStringLiteral("installCard"), QStringLiteral("47-remove-confirm"));
+        install->confirmRemove();
+        QTRY_COMPARE(install->stage(), QStringLiteral("removed"));
+        shows(QStringLiteral("installCard"), QStringLiteral("48-remove-done"));
+        install->setSearchScript(printing(QStringLiteral("install-search.txt")));
 
         QVERIFY(c.openChore(QStringLiteral("restore")));
         QTRY_COMPARE(restore->stage(), QStringLiteral("ready"));

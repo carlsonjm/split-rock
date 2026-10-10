@@ -3,20 +3,53 @@ import QtQuick
 import "Icons.js" as Icons
 
 // The upkeep cards, each a tile in its own colour: tapped, its card opens in
-// the conversation.
-Grid {
+// the conversation. Laid out as a bento: as many columns as fit, chosen so the
+// rows come out even, every tile in a row the same height, and a last row
+// that comes out short stretched across the width.
+Flow {
     id: shelf
     // Asked for when a tile opens its card, as the notebook folds away on a
     // narrow window.
     signal opened(string name)
-    columns: width >= 600 ? 3 : 2
     spacing: 10
+    // The narrowest a tile is drawn.
+    property real narrowest: 156
+    readonly property int count: chores.length
+    readonly property int columns: {
+        const fit = Math.max(1, Math.floor((width + spacing) / (narrowest + spacing)))
+        // The most columns that fit and leave no row short; otherwise as
+        // many as fit.
+        for (let n = Math.min(fit, count); n > 1; --n) {
+            if (count % n === 0)
+                return n
+        }
+        return Math.min(fit, count)
+    }
+    // The tallest tile's own height, which every tile takes.
+    property real tallest: 96
+
+    function tileWidth(index) {
+        const inLastRow = count % columns
+        const n = inLastRow !== 0 && index >= count - inLastRow ? inLastRow : columns
+        return (width - (n - 1) * spacing) / n
+    }
+
+    function measure() {
+        let most = 96
+        for (let i = 0; i < tiles.count; ++i) {
+            const tile = tiles.itemAt(i)
+            if (tile)
+                most = Math.max(most, tile.natural)
+        }
+        tallest = most
+    }
+    onWidthChanged: Qt.callLater(measure)
 
     readonly property var health: conversation.health
     readonly property var chores: [
         { name: "update", title: "Check for updates", sub: "Everything, with a restore point first" },
         { name: "space", title: "Free up space", sub: "Old copies and leftovers" },
-        { name: "install", title: "Install an app", sub: "Say what you need" },
+        { name: "install", title: "Install an app", sub: "Say what you need, or remove one" },
         { name: "health", title: "Health check",
           sub: shelf.health.lastChecked === "" ? "A look over the computer"
              : shelf.health.attention === 0 ? "All good, " + shelf.health.lastChecked.toLowerCase()
@@ -28,6 +61,7 @@ Grid {
     ]
 
     Repeater {
+        id: tiles
         model: shelf.chores
         Rectangle {
             id: tile
@@ -35,8 +69,10 @@ Grid {
             readonly property color tone: theme.hue(theme.choreHue[modelData.name])
             readonly property bool open: conversation.chore === modelData.name
             readonly property bool attention: modelData.name === "health" && shelf.health.attention > 0
-            width: (shelf.width - (shelf.columns - 1) * shelf.spacing) / shelf.columns
-            height: Math.max(96, tileColumn.implicitHeight + 28)
+            readonly property real natural: tileColumn.implicitHeight + 28
+            onNaturalChanged: Qt.callLater(shelf.measure)
+            width: shelf.tileWidth(index)
+            height: shelf.tallest
             radius: 18
             enabled: !conversation.choreBusy || open
             opacity: enabled ? 1 : 0.45

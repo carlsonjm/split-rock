@@ -11,7 +11,9 @@
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QMap>
+#include <QHash>
 #include <QRegularExpression>
+#include <QSet>
 #include <QSettings>
 #include <QVariantMap>
 
@@ -88,6 +90,50 @@ QString days(qint64 n)
 // writes.
 const QString Organization = QStringLiteral("split-rock");
 const QString Settings = QStringLiteral("upkeep");
+
+// The question about this week's crashes, with what Split Rock knows of each
+// app, so the answer is about these apps rather than crashes in general.
+QString crashQuestion(const QList<std::pair<QString, int>> &apps, int total, int together)
+{
+    static const QHash<QString, QString> known{
+        {QStringLiteral("xdg-desktop-portal-kde"),
+         QStringLiteral("the part of the desktop that opens file pickers, screenshots and screen sharing for apps; "
+                        "it often crashes as the desktop shuts down at a sign-out or restart, or after a desktop "
+                        "update until the next restart")},
+        {QStringLiteral("kscreen-doctor"),
+         QStringLiteral("a small tool that other programs run to change screen settings such as the refresh rate or "
+                        "resolution; nobody opens it by hand, so a program on this computer runs it, such as a "
+                        "power or display tool, and that program is the one to look at")},
+        {QStringLiteral("ksecretd"),
+         QStringLiteral("the desktop's password keeper (KWallet), which apps ask for saved passwords; it can crash "
+                        "as the desktop shuts down or while the wallet is locked")},
+        {QStringLiteral("kwin_wayland"),
+         QStringLiteral("the part that draws every window; when it crashes, windows flash or the session restarts")},
+        {QStringLiteral("plasmashell"),
+         QStringLiteral("the desktop itself: the panel, the wallpaper and its widgets")},
+        {QStringLiteral("kded6"), QStringLiteral("the desktop's background helper for many small services")},
+    };
+    QStringList names;
+    QStringList about;
+    for (qsizetype i = 0; i < std::min<qsizetype>(3, apps.size()); ++i) {
+        const auto &[name, count] = apps.at(i);
+        names.append(count > 1 ? QStringLiteral("%1 (%2 times)").arg(name).arg(count) : name);
+        if (known.contains(name))
+            about.append(QStringLiteral("%1 is %2.").arg(name, known.value(name)));
+    }
+    QString question = QStringLiteral("These apps crashed on my computer this week: %1.").arg(names.join(QStringLiteral(", ")));
+    if (!about.isEmpty())
+        question += QLatin1Char(' ') + about.join(QLatin1Char(' '));
+    if (total > 1 && together * 2 >= total)
+        question += QStringLiteral(" Most of the crashes happened at the same moments as each other, which points "
+                                   "to one cause, such as signing out or restarting, rather than each app failing on "
+                                   "its own.");
+    else if (total > 1)
+        question += QStringLiteral(" They happened at different times, each on its own.");
+    question += QStringLiteral(" For each app, say in a sentence what it is and the likely reason here, then what I "
+                               "can do.");
+    return question;
+}
 
 } // namespace
 
@@ -303,6 +349,10 @@ QList<HealthCheck::Item> HealthCheck::readLook(const QString &output, const QDat
     {
         const QJsonDocument doc = QJsonDocument::fromJson(found.value(QStringLiteral("crashes")).join(QLatin1Char('\n')).toUtf8());
         QMap<QString, int> byApp;
+        // Which apps crashed in each minute, to tell crashes that came
+        // together, as at a sign-out, from ones that came alone.
+        QMap<qint64, QSet<QString>> byMinute;
+        QList<std::pair<qint64, QString>> each;
         int total = 0;
         for (const QJsonValue &v : doc.array()) {
             const QString exe = v.toObject().value(QStringLiteral("exe")).toString().section(QLatin1Char('/'), -1);
@@ -310,7 +360,13 @@ QList<HealthCheck::Item> HealthCheck::readLook(const QString &output, const QDat
                 continue;
             ++byApp[exe];
             ++total;
+            const qint64 minute = qint64(v.toObject().value(QStringLiteral("time")).toDouble() / 60e6);
+            byMinute[minute].insert(exe);
+            each.append({minute, exe});
         }
+        const int together = int(std::count_if(each.cbegin(), each.cend(), [&byMinute](const auto &e) {
+            return byMinute.value(e.first).size() > 1;
+        }));
         if (doc.isArray()) {
             if (total == 0) {
                 items.append({QStringLiteral("crashes"), QStringLiteral("Crashes"), QStringLiteral("good"),
@@ -328,8 +384,7 @@ QList<HealthCheck::Item> HealthCheck::readLook(const QString &output, const QDat
                                          : QStringLiteral("%1 this week: %2.").arg(total).arg(names.join(QStringLiteral(", "))),
                               total >= 3 ? QStringLiteral("ask") : QString(),
                               total >= 3 ? QStringLiteral("Ask about it") : QString(),
-                              QStringLiteral("These apps crashed on my computer this week: %1. Why might that be, and "
-                                             "what can I do?").arg(names.join(QStringLiteral(", ")))});
+                              crashQuestion(apps, total, together)});
             }
         }
     }

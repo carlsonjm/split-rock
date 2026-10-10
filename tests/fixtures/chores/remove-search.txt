@@ -1,0 +1,18 @@
+@@ shelf
+Identifier: org.kde.okular [desktop-application]
+Name: Okular
+Summary: Universal document viewer
+Package: okular
+---
+@@ flathub
+@@ installed
+okular
+main-keyboard-git
+linux-cachyos
+org.videolan.VLC
+@@ owned
+okular
+main-keyboard-git
+linux-cachyos
+org.videolan.VLC	VLC
+@@ end

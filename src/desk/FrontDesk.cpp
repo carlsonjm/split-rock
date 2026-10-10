@@ -64,7 +64,7 @@ QJsonObject message(const QString &role, const QString &content)
 bool asksForAChange(const QString &question)
 {
     static const QRegularExpression doIt(QStringLiteral(
-        "^\\s*(please\\s+)?(make|turn|set|change|switch|put|use|give|let|install|open|free|clean|update|"
+        "^\\s*(please\\s+)?(make|turn|set|change|switch|put|use|give|let|install|uninstall|remove|delete|open|free|clean|update|"
         "can you|could you|would you|will you|i want|i'd like|i would like|help me)\\b|"
         "\\b(make it|make the|turn (it|on|off)|switch (it|to|back)|change (it|the|to)|put (it|the) back|"
         "can (it|you|i have)|could (it|you)|please)\\b"),
@@ -94,7 +94,7 @@ QString cardTitle(const QString &card)
     if (card == QLatin1String("space"))
         return QStringLiteral("Free up space");
     if (card == QLatin1String("install"))
-        return QStringLiteral("Install an app");
+        return QStringLiteral("Install or remove an app");
     if (card == QLatin1String("restore"))
         return QStringLiteral("Go back to a restore point");
     if (card == QLatin1String("health"))
@@ -107,6 +107,13 @@ QString cardTitle(const QString &card)
 }
 
 } // namespace
+
+bool isReport(const QString &kind)
+{
+    static const QStringList kinds{QStringLiteral("report"), QStringLiteral("change"), QStringLiteral("card"),
+                                   QStringLiteral("update"), QStringLiteral("chore"), QStringLiteral("refused")};
+    return kinds.contains(kind);
+}
 
 QStringList skillCommands(const QString &skillText, const QString &section)
 {
@@ -301,7 +308,8 @@ QString FrontDesk::sortingWords() const
         "Settings skills:\n%1"
         "Upkeep cards:\n%2"
         "worry is the kind of unsafe ask (%3), or \"none\".\n"
-        "query is, only for the install card, the app or kind of app wanted, such as \"pdf editor\"; otherwise empty.")
+        "query is, only for the install card, the app or kind of app wanted, such as \"pdf editor\", or the app to "
+        "remove; otherwise empty.")
         .arg(skills, cards, Gate::kinds().join(QStringLiteral(", ")));
 }
 
@@ -459,6 +467,16 @@ void FrontDesk::route(const QString &question)
             finish(false);
             return;
         }
+        // Removing an app is the app card's, whatever card the model picked:
+        // it finds the app and asks before it removes anything.
+        static const QRegularExpression removeApp(QStringLiteral("\\b(uninstall|deinstall|get rid of)\\b|"
+                                                                 "^\\s*(please\\s+)?(remove|delete)\\b"),
+                                                  QRegularExpression::CaseInsensitiveOption);
+        if (kind != QLatin1String("answer") && removeApp.match(question).hasMatch() && offers(QStringLiteral("install"))
+            && !m_shelf.skill(target)) {
+            openCard(question, QStringLiteral("install"), query);
+            return;
+        }
         // Looking back at what changed goes to the What changed card, unless
         // the model found a settings skill that makes the change asked for.
         const bool skillChange = kind == QLatin1String("change") && m_shelf.skill(target);
@@ -514,6 +532,9 @@ QString FrontDesk::cardFor(const QString &question) const
         {QStringLiteral("health"), QRegularExpression(QStringLiteral(
              "\\b(so |really |very )?slow\\b|health check|check (the |my |this )?(computer|system|tablet|laptop)|"
              "something (is |seems )?wrong with (the |my |this )?(computer|system)"), QRegularExpression::CaseInsensitiveOption)},
+        {QStringLiteral("install"), QRegularExpression(QStringLiteral(
+             "\\b(uninstall|deinstall|get rid of)\\b|\\b(remove|delete)\\b.{0,40}\\b(app|program|game|browser|keyboard|player|editor)\\b|"
+             "^\\s*(please\\s+)?(remove|delete)\\s+\\S+\\s*$"), QRegularExpression::CaseInsensitiveOption)},
         {QStringLiteral("restore"), QRegularExpression(QStringLiteral(
              "restore point|go back to (how it was|yesterday|before)|undo (the |an )?update|roll ?back"), QRegularExpression::CaseInsensitiveOption)},
     };
@@ -560,7 +581,11 @@ void FrontDesk::openCard(const QString &question, const QString &card, const QSt
     Q_EMIT routed(QStringLiteral("card:") + card);
     QJsonObject proposal{{QStringLiteral("title"), cardTitle(card)}, {QStringLiteral("card"), card}};
     if (card == QLatin1String("install")) {
-        const QString wanted = query.trimmed().isEmpty() ? question : query.trimmed();
+        // An ask to remove an app goes over whole, so the card knows to
+        // remove rather than find one.
+        static const QRegularExpression remove(QStringLiteral("\\b(uninstall|deinstall|remove|delete|get rid of)\\b"),
+                                               QRegularExpression::CaseInsensitiveOption);
+        const QString wanted = query.trimmed().isEmpty() || remove.match(question).hasMatch() ? question : query.trimmed();
         proposal.insert(QStringLiteral("query"), wanted.left(80));
     }
     if (!m_tools->propose(proposal)) {

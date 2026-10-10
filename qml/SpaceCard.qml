@@ -34,7 +34,7 @@ CardFrame {
             case "done": return "Freed up " + card.job.freed
             case "failed": return "Freeing up space didn't finish"
             }
-            return card.job.chosenKb > 0 ? card.job.chosenSize + " can come free" : "Pick what to clear"
+            return card.job.chosenKb > 0 ? "Up to " + card.job.chosenSize + " can come free" : "Pick what to clear"
         }
         sub: {
             switch (card.stage) {
@@ -42,6 +42,10 @@ CardFrame {
             case "nothing": return "There are no leftovers worth clearing."
             case "clearing": return "You can keep working."
             case "failed": return card.job.why
+            case "done":
+                if (card.job.heldBack !== "")
+                    return card.job.heldBack
+                break
             }
             return card.job.diskKb > 0 ? card.size(card.job.freeKb) + " free of " + card.size(card.job.diskKb) + "." : ""
         }
