@@ -93,6 +93,7 @@ qt_add_resources(test_sheet "sheet_for_test"
         ${PROJECT_SOURCE_DIR}/qml/DownloadPanel.qml
         ${PROJECT_SOURCE_DIR}/qml/ProblemPanel.qml
         ${PROJECT_SOURCE_DIR}/qml/RememberLine.qml
+        ${PROJECT_SOURCE_DIR}/qml/WheelScroll.qml
 )
 
 # The conversation's bus interface, driven by a client that loads none of Split
