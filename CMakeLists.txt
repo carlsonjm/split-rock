@@ -168,5 +168,9 @@ target_compile_definitions(split-rock PRIVATE
 qt_add_executable(split-rock-pretend-assistant src/pretend/main.cpp)
 target_link_libraries(split-rock-pretend-assistant PRIVATE Qt6::Core)
 
-enable_testing()
-add_subdirectory(tests)
+# A package build leaves the tests out.
+option(BUILD_TESTING "Build the tests" ON)
+if(BUILD_TESTING)
+    enable_testing()
+    add_subdirectory(tests)
+endif()
