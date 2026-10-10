@@ -21,6 +21,10 @@ CardFrame {
                 return
             card.job.close()
             conversation.ask(item.question)
+        } else if (item.action === "restart") {
+            card.job.restart()
+        } else if (item.action === "downloads") {
+            card.job.openDownloads()
         } else if (item.action !== "") {
             conversation.openChore(item.action)
         }

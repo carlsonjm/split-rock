@@ -36,6 +36,7 @@ add_library(splitrock_core STATIC
     src/app/SpaceCleanup.cpp
     src/app/AppInstall.cpp
     src/app/RestorePoints.cpp
+    src/app/RecentChanges.cpp
     src/app/HealthCheck.cpp
     src/app/CommunityApps.cpp
     src/guide/GuideLibrary.cpp
@@ -90,6 +91,7 @@ qt_add_resources(split-rock "sheet"
         qml/InstallCard.qml
         qml/RestoreCard.qml
         qml/HealthCard.qml
+        qml/ChangesCard.qml
         qml/CommunityCard.qml
         qml/UpkeepShelf.qml
         qml/SignInPanel.qml

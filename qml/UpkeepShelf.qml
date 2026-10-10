@@ -21,7 +21,9 @@ Grid {
           sub: shelf.health.lastChecked === "" ? "A look over the computer"
              : shelf.health.attention === 0 ? "All good, " + shelf.health.lastChecked.toLowerCase()
              : shelf.health.attention === 1 ? "1 thing to look at" : shelf.health.attention + " things to look at" },
-        { name: "restore", title: "Restore points", sub: "Go back to before a change" },
+        // Restore points open from What changed's Go back, and from the
+        // health check, so the shelf keeps six tiles.
+        { name: "changes", title: "What changed", sub: "Undo, or go back to before" },
         { name: "community", title: "Community apps", sub: "Read, then update, AUR apps" }
     ]
 

@@ -925,8 +925,62 @@ private Q_SLOTS:
         QTRY_COMPARE(community->stage(), QStringLiteral("reviewed"));
         shows(QStringLiteral("communityCard"), QStringLiteral("39-community-review"));
 
+        // What changed, from a look written for today, so the days read as
+        // they would on the computer.
+        QTemporaryDir changesDir;
+        {
+            const QDateTime now = QDateTime::currentDateTime();
+            const auto stamp = [&now](int daysAgo, const QString &time) {
+                return QStringLiteral("[%1T%2+0000]").arg(now.date().addDays(-daysAgo).toString(Qt::ISODate), time);
+            };
+            const auto secs = [&now](int daysAgo) { return QString::number(now.addDays(-daysAgo).toSecsSinceEpoch()); };
+            QFile look(changesDir.filePath(QStringLiteral("look.txt")));
+            QVERIFY(look.open(QIODevice::WriteOnly));
+            look.write(QStringLiteral(
+                "@@ pacman\n"
+                "%1 [ALPM] upgraded plasma-workspace (6.7.3-1 -> 6.7.4-1)\n"
+                "%1 [ALPM] upgraded linux-cachyos (6.17.1-2 -> 6.17.2-1)\n"
+                "%1 [ALPM] upgraded mesa (1:25.2.3-1 -> 1:25.2.4-1)\n"
+                "%1 [ALPM] upgraded firefox (131.0-1 -> 132.0-1)\n"
+                "%1 [ALPM] upgraded libfoo (1-1 -> 2-1)\n"
+                "%2 [ALPM] installed vlc (3.0.21-1)\n"
+                "%2 [ALPM] installed libvlc-dep (1-1)\n"
+                "@@ explicit\nfirefox\nvlc\n"
+                "@@ settings\n%3 kwinrc\n%3 kdeglobals\n%4 kcminputrc\n"
+                "@@ failed\nsystem|bluetooth.service|%3|Bluetooth service\n"
+                "@@ kernel\n6.17.1-2-cachyos\nmissing\n"
+                "@@ snapper\nyes\n@@ end\n")
+                           .arg(stamp(1, QStringLiteral("09:10:00")), stamp(3, QStringLiteral("08:00:00")), secs(0), secs(3))
+                           .toUtf8());
+        }
+        RecentChanges *recent = c.recentChanges();
+        recent->setLookScript(QStringLiteral("cat '") + changesDir.filePath(QStringLiteral("look.txt")) + QLatin1Char('\''));
+        recent->setRecords([] {
+            ChangeRunner::Record pointer;
+            pointer.id = QStringLiteral("c1");
+            pointer.made = QDateTime::currentDateTime().addSecs(-3600);
+            pointer.proposal.title = QStringLiteral("Use the Bibata pointer");
+            pointer.proposal.undo = QStringLiteral("plasma-apply-cursortheme breeze_cursors");
+            pointer.status = QStringLiteral("done");
+            return QList<ChangeRunner::Record>{pointer};
+        });
+        QVERIFY(c.openChore(QStringLiteral("changes")));
+        QTRY_COMPARE(recent->stage(), QStringLiteral("ready"));
+        shows(QStringLiteral("changesCard"), QStringLiteral("42-changes-ready"));
+        // The whole card at once, for the screens.
+        full->setGeometry(0, 0, 1280, 1500);
+        shows(QStringLiteral("changesCard"), QStringLiteral("45-changes-whole"));
+        full->setGeometry(0, 0, 1280, 800);
+        recent->setRecords({});
+        QVERIFY(c.openChore(QStringLiteral("changes")));
+        QTRY_COMPARE(recent->stage(), QStringLiteral("ready"));
+        shows(QStringLiteral("changesCard"), QStringLiteral("43-changes-nothing-to-undo"));
+
         // A narrow window, as a Bento column: nothing runs past its edge.
         full->setGeometry(0, 0, 420, 800);
+        QVERIFY(c.openChore(QStringLiteral("changes")));
+        QTRY_COMPARE(recent->stage(), QStringLiteral("ready"));
+        shows(QStringLiteral("changesCard"), QStringLiteral("44-changes-narrow"));
         QVERIFY(c.openChore(QStringLiteral("health")));
         QTRY_COMPARE(health->stage(), QStringLiteral("done"));
         shows(QStringLiteral("healthCard"), QStringLiteral("40-health-narrow"));

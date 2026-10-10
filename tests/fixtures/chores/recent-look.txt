@@ -1,0 +1,33 @@
+@@ pacman
+[2026-09-20T10:00:00-0500] [ALPM] upgraded old (1-1 -> 2-1)
+[2026-10-01T10:00:00-0500] [ALPM] upgraded foo (1-1 -> 2-1)
+[2026-10-08T09:10:00-0500] [ALPM] upgraded plasma-workspace (6.7.3-1 -> 6.7.4-1)
+[2026-10-08T09:10:01-0500] [ALPM] upgraded linux-cachyos (6.17.1-2 -> 6.17.2-1)
+[2026-10-08T09:10:02-0500] [ALPM] upgraded mesa (1:25.2.3-1 -> 1:25.2.4-1)
+[2026-10-08T09:10:03-0500] [ALPM] upgraded firefox (131.0-1 -> 132.0-1)
+[2026-10-08T09:10:04-0500] [ALPM] upgraded libfoo (1-1 -> 2-1)
+[2026-10-09T08:00:00-0500] [ALPM] installed libvlc-dep (1-1)
+[2026-10-09T08:00:01-0500] [ALPM] installed vlc (3.0.21-1)
+[2026-10-09T08:05:00-0500] [ALPM] removed okular (24.08-1)
+@@ explicit
+firefox
+vlc
+@@ flatpak
+Oct  9 12:01:02  deploy update  org.mozilla.firefox
+Oct  9 12:01:03  deploy update  org.freedesktop.Platform.GL.default
+Oct  7 12:00:00  deploy install  com.spotify.Client
+@@ settings
+1791558000.4200000000 kwinrc
+1791558000.1000000000 kdeglobals
+1791561600.0000000000 plasmashellrc
+1791471600.0000000000 kcminputrc
+1791471600.0000000000 kscreen/outputs/abc
+@@ failed
+system|bluetooth.service|1791554400|Bluetooth service
+user|syncthing.service||Syncthing - Open Source Continuous File Synchronization
+@@ kernel
+6.17.1-2-cachyos
+missing
+@@ snapper
+yes
+@@ end

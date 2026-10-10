@@ -5,6 +5,8 @@
 #include "app/RestorePoints.h"
 
 #include <QDebug>
+#include <QProcess>
+#include <QStandardPaths>
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
@@ -49,6 +51,18 @@ echo "@@ crashes"
 command -v coredumpctl >/dev/null 2>&1 && coredumpctl list --since "7 days ago" --json=short --no-pager 2>/dev/null
 echo "@@ pkgcache"
 du -sk /var/cache/pacman/pkg 2>/dev/null | cut -f1
+echo "@@ kernel"
+uname -r
+# Missing only counts where kernels are installed as packages at all.
+if [ -d "/usr/lib/modules/$(uname -r)" ] || [ -z "$(ls -A /usr/lib/modules 2>/dev/null)" ]; then echo present; else echo missing; fi
+echo "@@ packages"
+command -v pacman >/dev/null 2>&1 && pacman -Dk 2>&1 | grep '^error' | head -n 20
+echo "@@ lock"
+[ -e /var/lib/pacman/db.lck ] && ! pgrep -x 'pacman|paru|yay|pamac|pamac-daemon|packagekitd' >/dev/null 2>&1 && echo stuck
+echo "@@ downloads"
+d=$(xdg-user-dir DOWNLOAD 2>/dev/null)
+{ [ -z "$d" ] || [ "$d" = "$HOME" ]; } && d="$HOME/Downloads"
+[ -d "$d" ] && find "$d" -mindepth 1 -maxdepth 1 -type f -ctime +90 -atime +90 -printf '%s\n' 2>/dev/null
 echo "@@ end"
 )SH");
 
@@ -125,6 +139,13 @@ QString HealthCheck::tile(const Item &item)
         return QStringLiteral("New settings files wait beside yours");
     if (item.id == QLatin1String("crashes"))
         return QStringLiteral("%1 crashes this week").arg(detail.section(QLatin1Char(' '), 0, 0));
+    if (item.id == QLatin1String("restart"))
+        return QStringLiteral("Restart to finish the update");
+    if (item.id == QLatin1String("packages"))
+        return item.title == QLatin1String("Installing") ? QStringLiteral("An update was cut off")
+                                                         : QStringLiteral("The installed apps list has a problem");
+    if (item.id == QLatin1String("downloads"))
+        return QStringLiteral("Old downloads take %1").arg(detail.section(QStringLiteral(" take "), 1));
     if (item.id == QLatin1String("pkgcache"))
         return QStringLiteral("Old update copies take %1").arg(detail.section(QStringLiteral("take "), 1));
     return item.title;
@@ -322,6 +343,57 @@ QList<HealthCheck::Item> HealthCheck::readLook(const QString &output, const QDat
                           QStringLiteral("Free up space"), {}});
     }
 
+    // A new kernel installed under the one running: the last update finishes
+    // when the computer starts again.
+    {
+        const QStringList kernel = found.value(QStringLiteral("kernel"));
+        if (kernel.size() >= 2 && kernel.at(1) == QLatin1String("missing"))
+            items.append({QStringLiteral("restart"), QStringLiteral("Restart"), QStringLiteral("warn"),
+                          QStringLiteral("A restart finishes the last update. Until then, some devices and apps may not work."),
+                          QStringLiteral("restart"), QStringLiteral("Restart"), {}});
+    }
+
+    // The package manager's own list of what is installed.
+    {
+        if (found.value(QStringLiteral("lock")).contains(QStringLiteral("stuck"))) {
+            items.append({QStringLiteral("packages"), QStringLiteral("Installing"), QStringLiteral("bad"),
+                          QStringLiteral("An update or install was cut off, so nothing else can install until it's put right."),
+                          QStringLiteral("ask"), QStringLiteral("Ask about it"),
+                          QStringLiteral("The package manager on my computer is locked (/var/lib/pacman/db.lck is there) "
+                                         "but nothing is installing. Was an update cut off, and how do I put it right "
+                                         "safely?")});
+        } else if (const QStringList errors = found.value(QStringLiteral("packages")); !errors.isEmpty()) {
+            items.append({QStringLiteral("packages"), QStringLiteral("Installed apps"), QStringLiteral("bad"),
+                          errors.size() == 1 ? QStringLiteral("The list of what's installed has a problem.")
+                                             : QStringLiteral("The list of what's installed has %1 problems.").arg(errors.size()),
+                          QStringLiteral("ask"), QStringLiteral("Ask about it"),
+                          QStringLiteral("Checking my computer's list of installed packages (pacman -Dk) found this:\n%1\n"
+                                         "What does it mean, and how do I fix it safely?").arg(errors.join(QLatin1Char('\n')))});
+        }
+    }
+
+    // Downloads that sat unopened for three months, when they take a lot. They
+    // are the person's own files, so the card only opens the folder: moving
+    // them to the Trash would free nothing until it is emptied, and deleting
+    // them can't be undone.
+    {
+        int count = 0;
+        qint64 bytes = 0;
+        for (const QString &line : found.value(QStringLiteral("downloads"))) {
+            bool ok = false;
+            const qint64 b = line.toLongLong(&ok);
+            if (ok) {
+                bytes += b;
+                ++count;
+            }
+        }
+        if (bytes >= 1024LL * 1024 * 1024)
+            items.append({QStringLiteral("downloads"), QStringLiteral("Old downloads"), QStringLiteral("warn"),
+                          QStringLiteral("%1 files you downloaded over three months ago and haven't opened since take %2.")
+                              .arg(count).arg(size(bytes / 1024)),
+                          QStringLiteral("downloads"), QStringLiteral("Show them"), {}});
+    }
+
     // Problems first, then what's worth a look, then what's good.
     const auto rank = [](const Item &i) {
         return i.state == QLatin1String("bad") ? 0 : i.state == QLatin1String("warn") ? 1 : 2;
@@ -352,6 +424,13 @@ QString HealthCheck::lastChecked() const
         return QString();
     const qint64 ago = m_checked.daysTo(QDateTime::currentDateTime());
     return ago <= 0 ? QStringLiteral("Today") : ago == 1 ? QStringLiteral("Yesterday") : QStringLiteral("%1 days ago").arg(ago);
+}
+
+void HealthCheck::openDownloads()
+{
+    const QString folder = QStandardPaths::writableLocation(QStandardPaths::DownloadLocation);
+    if (!folder.isEmpty())
+        QProcess::startDetached(QStringLiteral("xdg-open"), {folder});
 }
 
 void HealthCheck::check()

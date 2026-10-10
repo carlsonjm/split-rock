@@ -9,6 +9,8 @@
 #include <QProcess>
 #include <QRegularExpression>
 
+#include <limits>
+
 namespace splitrock::desk {
 
 namespace {
@@ -70,6 +72,21 @@ bool asksForAChange(const QString &question)
     return doIt.match(question).hasMatch();
 }
 
+// Words that look back at something that changed or stopped working: "undo
+// that", "it worked yesterday", "why did this stop working?".
+bool looksBack(const QString &question)
+{
+    static const QRegularExpression back(QStringLiteral(
+        "\\bundo (that|it|this|what you did|the last|my last|the change)\\b|\\bput (it|that|things|everything) back\\b|"
+        "\\bchange (it|that) back\\b|\\bwhat('s| has)? changed\\b|\\bsomething (has )?changed\\b|"
+        "\\b(was|were) (working|fine|ok|okay) (yesterday|before|earlier|this morning|last week)\\b|"
+        "\\bworked (fine )?(yesterday|before|earlier|last week)\\b|\\bstopped working\\b|\\bstop working\\b|"
+        "\\b(isn't|is not|doesn't|does not|won't|no longer) work(s|ing)?\\b.{0,24}\\b(any ?more|since|after)\\b|"
+        "\\bbroke (after|since)\\b"),
+        QRegularExpression::CaseInsensitiveOption);
+    return back.match(question).hasMatch();
+}
+
 QString cardTitle(const QString &card)
 {
     if (card == QLatin1String("update"))
@@ -84,25 +101,97 @@ QString cardTitle(const QString &card)
         return QStringLiteral("Check the computer's health");
     if (card == QLatin1String("community"))
         return QStringLiteral("Update community apps");
+    if (card == QLatin1String("changes"))
+        return QStringLiteral("What changed");
     return card;
 }
 
 } // namespace
 
-QStringList skillCommands(const QString &skillText)
+QStringList skillCommands(const QString &skillText, const QString &section)
 {
-    static const QRegularExpression change(QStringLiteral("^## Change\\s*$(.*?)(?=^## |\\z)"),
-                                           QRegularExpression::MultilineOption | QRegularExpression::DotMatchesEverythingOption);
+    const QRegularExpression part(QStringLiteral("^## %1\\s*$(.*?)(?=^## |\\z)").arg(QRegularExpression::escape(section)),
+                                  QRegularExpression::MultilineOption | QRegularExpression::DotMatchesEverythingOption);
     static const QRegularExpression span(QStringLiteral("`([^`]+)`"));
     QStringList shapes;
-    const QString section = change.match(skillText).captured(1);
-    for (auto it = span.globalMatch(section); it.hasNext();) {
-        const QString text = it.next().captured(1).simplified();
-        if (text.contains(QLatin1Char('<')))
-            shapes.append(text);
+    const QString text = part.match(skillText).captured(1);
+    for (auto it = span.globalMatch(text); it.hasNext();) {
+        const QString shape = it.next().captured(1).simplified();
+        if (shape.contains(QLatin1Char('<')))
+            shapes.append(shape);
     }
     return shapes;
 }
+
+namespace {
+
+// The words of a command a skill names, or of one the model wrote, and the
+// names a shape leaves open in it ("<app>"), in order; false when the command
+// is not that shape.
+bool fitsShape(const QStringList &words, const QString &shape, QStringList *names = nullptr,
+               QStringList *holes = nullptr)
+{
+    const QStringList parts = QProcess::splitCommand(shape);
+    if (parts.size() != words.size())
+        return false;
+    for (qsizetype i = 0; i < parts.size(); ++i) {
+        if (parts.at(i).startsWith(QLatin1Char('<')) && parts.at(i).endsWith(QLatin1Char('>'))) {
+            if (names)
+                names->append(words.at(i));
+            if (holes)
+                holes->append(parts.at(i));
+        } else if (parts.at(i) != words.at(i)) {
+            return false;
+        }
+    }
+    return true;
+}
+
+// Words joined into a command line, each quoted where a shell would read it
+// otherwise.
+QString shellJoin(const QStringList &words)
+{
+    static const QRegularExpression plain(QStringLiteral("^[A-Za-z0-9_@%+=:,./-]+$"));
+    QStringList quoted;
+    for (const QString &word : words) {
+        quoted.append(plain.match(word).hasMatch() ? word
+                                                   : QLatin1Char('\'') + QString(word).replace(QLatin1Char('\''), QStringLiteral("'\\''")) + QLatin1Char('\''));
+    }
+    return quoted.join(QLatin1Char(' '));
+}
+
+// The shape among shapes that leaves open the same names, in order, filled
+// with names; empty when there is none. Of several, the one closest to the
+// command's own words: "systemctl --user is-active <service>" after
+// "systemctl --user restart <service>".
+QString filled(const QStringList &shapes, const QStringList &holes, const QStringList &names, const QStringList &command)
+{
+    QStringList best;
+    int bestScore = std::numeric_limits<int>::min();
+    for (const QString &shape : shapes) {
+        QStringList parts = QProcess::splitCommand(shape);
+        QStringList open;
+        int score = 0;
+        for (const QString &part : parts) {
+            if (part.startsWith(QLatin1Char('<')) && part.endsWith(QLatin1Char('>')))
+                open.append(part);
+            else
+                score += command.contains(part) ? 1 : -1;
+        }
+        if (open != holes || score <= bestScore)
+            continue;
+        qsizetype n = 0;
+        for (QString &part : parts) {
+            if (part.startsWith(QLatin1Char('<')) && part.endsWith(QLatin1Char('>')))
+                part = names.at(n++);
+        }
+        best = parts;
+        bestScore = score;
+    }
+    return best.isEmpty() ? QString() : shellJoin(best);
+}
+
+} // namespace
 
 QString checkCard(const QJsonObject &card, const QString &skillText, const QString &seen)
 {
@@ -117,18 +206,8 @@ QString checkCard(const QJsonObject &card, const QString &skillText, const QStri
     if (words.isEmpty())
         return QStringLiteral("unreadable command");
     for (const QString &shape : skillCommands(skillText)) {
-        const QStringList parts = shape.split(QLatin1Char(' '), Qt::SkipEmptyParts);
-        if (parts.size() != words.size())
-            continue;
         QStringList names;
-        bool fits = true;
-        for (qsizetype i = 0; i < parts.size() && fits; ++i) {
-            if (parts.at(i).startsWith(QLatin1Char('<')) && parts.at(i).endsWith(QLatin1Char('>')))
-                names.append(words.at(i));
-            else
-                fits = parts.at(i) == words.at(i);
-        }
-        if (!fits)
+        if (!fitsShape(words, shape, &names))
             continue;
         for (const QString &name : names) {
             const QRegularExpression listed(QStringLiteral("(?<![\\w.-])%1(?![\\w.-])").arg(QRegularExpression::escape(name)),
@@ -139,6 +218,39 @@ QString checkCard(const QJsonObject &card, const QString &skillText, const QStri
         return {};
     }
     return QStringLiteral("not a command this skill names");
+}
+
+QJsonObject withSkillsOwnUndo(const QJsonObject &card, const QString &skillText)
+{
+    const QStringList words = QProcess::splitCommand(card.value(QStringLiteral("command")).toString().trimmed());
+    QStringList names;
+    QStringList holes;
+    bool matched = false;
+    for (const QString &shape : skillCommands(skillText)) {
+        names.clear();
+        holes.clear();
+        if (fitsShape(words, shape, &names, &holes)) {
+            matched = true;
+            break;
+        }
+    }
+    QJsonObject out = card;
+    if (!matched)
+        return out;
+    for (const char *section : {"Undo", "Check"}) {
+        const QStringList shapes = skillCommands(skillText, QLatin1String(section));
+        if (shapes.isEmpty())
+            continue;
+        const QString key = QString::fromLatin1(section).toLower();
+        out.insert(key, filled(shapes, holes, names, words));
+    }
+    // A change with nothing to put back, such as starting a service again,
+    // says so in the skill; whatever undo the model wrote is not run.
+    static const QRegularExpression nothing(QStringLiteral("^## Undo\\s*$[^#]*leave \"undo\" empty"),
+                                            QRegularExpression::MultilineOption | QRegularExpression::CaseInsensitiveOption);
+    if (nothing.match(skillText).hasMatch())
+        out.insert(QStringLiteral("undo"), QString());
+    return out;
 }
 
 bool claimsDone(const QString &answer)
@@ -347,6 +459,13 @@ void FrontDesk::route(const QString &question)
             finish(false);
             return;
         }
+        // Looking back at what changed goes to the What changed card, unless
+        // the model found a settings skill that makes the change asked for.
+        const bool skillChange = kind == QLatin1String("change") && m_shelf.skill(target);
+        if (!skillChange && looksBack(question) && offers(QStringLiteral("changes"))) {
+            openCard(question, QStringLiteral("changes"), {});
+            return;
+        }
         for (const auto &card : m_context.cards) {
             if (card.first == target && kind == QLatin1String("change")) {
                 openCard(question, target, query);
@@ -376,6 +495,11 @@ void FrontDesk::route(const QString &question)
         }
         answer(question);
     });
+}
+
+bool FrontDesk::offers(const QString &card) const
+{
+    return std::any_of(m_context.cards.cbegin(), m_context.cards.cend(), [&card](const auto &c) { return c.first == card; });
 }
 
 QString FrontDesk::cardFor(const QString &question) const
@@ -484,14 +608,14 @@ void FrontDesk::fillCard(const QString &question, const Skill &skill)
                 "do what they asked for, and not something else? fits is true only if it plainly does.")
                 .arg(question, card.value(QStringLiteral("title")).toString(), card.value(QStringLiteral("what")).toString());
             m_model->complete(QJsonArray{message(QStringLiteral("user"), fit)}, yesNoShape(), SortingSlot, FitTokens, {},
-                              [this, generation, card](const QString &text, const QString &error) {
+                              [this, generation, card, skillText](const QString &text, const QString &error) {
                 if (generation != m_generation)
                     return;
                 if (!error.isEmpty() || !QJsonDocument::fromJson(text.toUtf8()).object().value(QStringLiteral("fits")).toBool()) {
                     handOff(QStringLiteral("the card doesn't do what was asked"));
                     return;
                 }
-                QJsonObject proposal = card;
+                QJsonObject proposal = withSkillsOwnUndo(card, skillText);
                 if (proposal.value(QStringLiteral("undo")).toString().trimmed().isEmpty())
                     proposal.remove(QStringLiteral("undo"));
                 if (proposal.value(QStringLiteral("check")).toString().trimmed().isEmpty())
