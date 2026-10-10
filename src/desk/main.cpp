@@ -14,6 +14,9 @@
 //   SPLIT_ROCK_DESK_SERVER   instead of the three above, a llama-server
 //                            already running, for tests and trials
 //
+// With --sorting it prints the words and shape the model sorts asks with,
+// for the framing block on standard input, and exits (tools/desk-trial).
+//
 // What it hands Split Rock goes through the fence's stand-ins:
 // split-rock-skill to open a settings skill, split-rock-change to propose.
 
@@ -74,6 +77,30 @@ QString facts()
     else
         words += QStringLiteral(", with KDE Plasma 6. Software comes from Discover, Plasma's app store.");
     return words;
+}
+
+// What Split Rock's framing block says: the shelf, the upkeep cards and who
+// takes a bigger change, with the computer's facts read here.
+Context contextFrom(const QJsonObject &meta)
+{
+    Context context;
+    for (const QJsonValue &value : meta.value(QStringLiteral("skills")).toArray()) {
+        const QJsonObject object = value.toObject();
+        Skill skill;
+        skill.id = object.value(QStringLiteral("id")).toString();
+        skill.title = object.value(QStringLiteral("title")).toString();
+        for (const QJsonValue &also : object.value(QStringLiteral("also")).toArray())
+            skill.also.append(also.toString());
+        if (!skill.id.isEmpty())
+            context.skills.append(skill);
+    }
+    for (const QJsonValue &value : meta.value(QStringLiteral("cards")).toArray()) {
+        const QJsonObject object = value.toObject();
+        context.cards.append({object.value(QStringLiteral("name")).toString(), object.value(QStringLiteral("what")).toString()});
+    }
+    context.handOffTo = meta.value(QStringLiteral("handOffTo")).toString();
+    context.facts = facts();
+    return context;
 }
 
 class StandIns : public Tools
@@ -323,7 +350,9 @@ private:
             const QString kind = meta.value(QStringLiteral("kind")).toString();
             labelled = labelled || !kind.isEmpty();
             if (kind == QLatin1String("framing")) {
-                readFraming(meta);
+                const QString memory = m_context.memory;
+                m_context = contextFrom(meta);
+                m_context.memory = memory;
             } else if (kind == QLatin1String("memory")) {
                 m_context.memory = text;
             } else if (kind == QLatin1String("report")) {
@@ -344,28 +373,6 @@ private:
         if (!labelled)
             log(QStringLiteral("the prompt carried no labels; taking its last block as the question"));
         m_desk->ask(question.trimmed());
-    }
-
-    void readFraming(const QJsonObject &meta)
-    {
-        m_context.skills.clear();
-        for (const QJsonValue &value : meta.value(QStringLiteral("skills")).toArray()) {
-            const QJsonObject object = value.toObject();
-            Skill skill;
-            skill.id = object.value(QStringLiteral("id")).toString();
-            skill.title = object.value(QStringLiteral("title")).toString();
-            for (const QJsonValue &also : object.value(QStringLiteral("also")).toArray())
-                skill.also.append(also.toString());
-            if (!skill.id.isEmpty())
-                m_context.skills.append(skill);
-        }
-        m_context.cards.clear();
-        for (const QJsonValue &value : meta.value(QStringLiteral("cards")).toArray()) {
-            const QJsonObject object = value.toObject();
-            m_context.cards.append({object.value(QStringLiteral("name")).toString(), object.value(QStringLiteral("what")).toString()});
-        }
-        m_context.handOffTo = meta.value(QStringLiteral("handOffTo")).toString();
-        m_context.facts = facts();
     }
 
     void send(const QJsonObject &message)
@@ -427,6 +434,22 @@ private:
 int main(int argc, char **argv)
 {
     QCoreApplication app(argc, argv);
+    // For trials: the sorting's words and shape for a framing block read on
+    // standard input, so a trial can ask the model to sort with the safety
+    // check left out and measure the model alone.
+    if (app.arguments().contains(QStringLiteral("--sorting"))) {
+        std::string text, line;
+        while (std::getline(std::cin, line))
+            text += line + '\n';
+        Model model{QUrl(), QString()};
+        StandIns tools;
+        FrontDesk desk(&model, &tools);
+        desk.setContext(contextFrom(QJsonDocument::fromJson(QByteArray::fromStdString(text)).object()));
+        const QJsonObject sorting{{QStringLiteral("words"), desk.sortingWords()},
+                                  {QStringLiteral("shape"), desk.sortingShape()}};
+        std::fputs(QJsonDocument(sorting).toJson().constData(), stdout);
+        return 0;
+    }
     Agent agent;
     StdinReader reader;
     QObject::connect(&reader, &StdinReader::line, &agent, &Agent::handle, Qt::QueuedConnection);
