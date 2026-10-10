@@ -31,8 +31,8 @@ struct ChangeProposal {
     // back by Undo.
     QStringList files;
     // One of Split Rock's own upkeep cards to open instead of a command:
-    // update, space, install, restore, health or community. query is what
-    // the person asked to install, for install.
+    // update, space, install, restore, health, community or changes. query
+    // is what the person asked to install, for install.
     QString card;
     QString query;
 

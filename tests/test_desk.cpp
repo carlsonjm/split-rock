@@ -99,6 +99,8 @@ private:
         Context c;
         c.skills = shelf.skills();
         c.cards = {{QStringLiteral("update"), QStringLiteral("update the whole computer")},
+                   {QStringLiteral("changes"), QStringLiteral("what changed lately, with Undo")},
+                   {QStringLiteral("restore"), QStringLiteral("go back to a restore point")},
                    {QStringLiteral("space"), QStringLiteral("free up space")},
                    {QStringLiteral("install"), QStringLiteral("install an app")},
                    {QStringLiteral("health"), QStringLiteral("a health check")}};
@@ -177,6 +179,13 @@ private Q_SLOTS:
         QTest::newRow("sudo") << "fans" << "sudo asusctl profile -P Quiet" << false;
         QTest::newRow("power saver") << "fans" << "powerprofilesctl set power-saver" << true;
         QTest::newRow("no Turbo here") << "fans" << "asusctl profile -P Turbo" << false;
+        QTest::newRow("startup app off") << "startup" << "sh " PROJECT_DIR "/skills/plasma/startup-app.sh off discord" << true;
+        QTest::newRow("startup app not there") << "startup" << "sh " PROJECT_DIR "/skills/plasma/startup-app.sh off zoom" << false;
+        QTest::newRow("startup helper elsewhere") << "startup" << "sh /tmp/startup-app.sh off discord" << false;
+        QTest::newRow("own service off") << "startup" << "systemctl --user disable --now syncthing.service" << true;
+        QTest::newRow("failed service again") << "services" << "systemctl restart bluetooth.service" << true;
+        QTest::newRow("a service that didn't fail") << "services" << "systemctl restart sddm.service" << false;
+        QTest::newRow("stopping is not starting") << "services" << "systemctl stop bluetooth.service" << false;
     }
 
     void cardCheck()
@@ -354,6 +363,90 @@ private Q_SLOTS:
         run = ask(desk, printer);
         QVERIFY(!run.handOff);
         QVERIFY(run.said.contains(QLatin1String("ChatGPT")));
+    }
+
+    // A skill that names its own undo and check: Genie fills them in from the
+    // command, and whatever the model wrote for them is never run.
+    void theSkillsOwnUndoIsUsed()
+    {
+        PretendModel model;
+        PretendTools tools;
+        tools.seen = readDocument(QStringLiteral(FIXTURES_DIR "/desk/seen.json")).object();
+        const QString discord = QStringLiteral("Stop Discord opening every time I log in");
+        model.routes.insert(discord, sorted(QStringLiteral("change"), QStringLiteral("startup")));
+        model.cards.insert(discord, {{QStringLiteral("title"), QStringLiteral("Stop Discord starting at sign-in")},
+                                     {QStringLiteral("what"), QStringLiteral("Discord no longer opens by itself")},
+                                     {QStringLiteral("why"), QStringLiteral("you asked")},
+                                     {QStringLiteral("command"), QStringLiteral("sh " PROJECT_DIR "/skills/plasma/startup-app.sh off discord")},
+                                     {QStringLiteral("admin"), false},
+                                     {QStringLiteral("undo"), QStringLiteral("rm -rf ~/.config")},
+                                     {QStringLiteral("check"), QString()}});
+        Model client(model.url(), {});
+        FrontDesk desk(&client, &tools);
+        desk.setContext(context());
+        Run run = ask(desk, discord);
+        QVERIFY2(!run.handOff, qPrintable(run.routes.join(QLatin1Char(','))));
+        QCOMPARE(tools.proposals.size(), 1);
+        QCOMPARE(tools.proposals.last().value(QStringLiteral("undo")).toString(),
+                 QStringLiteral("sh " PROJECT_DIR "/skills/plasma/startup-app.sh on discord"));
+        QCOMPARE(tools.proposals.last().value(QStringLiteral("check")).toString(),
+                 QStringLiteral("sh " PROJECT_DIR "/skills/plasma/startup-app.sh state discord"));
+
+        // Starting a failed service again has nothing to put back, and its
+        // check is the one for the same kind of service.
+        const QString bluetooth = QStringLiteral("Bluetooth isn't working, can you start it again?");
+        model.routes.insert(bluetooth, sorted(QStringLiteral("change"), QStringLiteral("services")));
+        model.cards.insert(bluetooth, {{QStringLiteral("title"), QStringLiteral("Start Bluetooth again")},
+                                       {QStringLiteral("what"), QStringLiteral("the Bluetooth service starts again")},
+                                       {QStringLiteral("why"), QStringLiteral("it failed at startup")},
+                                       {QStringLiteral("command"), QStringLiteral("systemctl restart bluetooth.service")},
+                                       {QStringLiteral("admin"), true},
+                                       {QStringLiteral("undo"), QStringLiteral("systemctl stop bluetooth.service")},
+                                       {QStringLiteral("check"), QString()}});
+        run = ask(desk, bluetooth);
+        QVERIFY2(!run.handOff, qPrintable(run.routes.join(QLatin1Char(','))));
+        QCOMPARE(tools.proposals.size(), 2);
+        QVERIFY(!tools.proposals.last().contains(QStringLiteral("undo")));
+        QCOMPARE(tools.proposals.last().value(QStringLiteral("check")).toString(),
+                 QStringLiteral("systemctl is-active bluetooth.service"));
+    }
+
+    // "Undo that", "it worked yesterday": the What changed card, whether the
+    // model sorted the ask as a question or found nothing; a skill that makes
+    // the change asked for still comes first.
+    void lookingBackOpensWhatChanged()
+    {
+        PretendModel model;
+        PretendTools tools;
+        tools.seen = readDocument(QStringLiteral(FIXTURES_DIR "/desk/seen.json")).object();
+        Model client(model.url(), {});
+        FrontDesk desk(&client, &tools);
+        desk.setContext(context());
+        const QStringList back{QStringLiteral("undo that"), QStringLiteral("Can you put it back how it was?"),
+                               QStringLiteral("My wifi was working yesterday and now it isn't"),
+                               QStringLiteral("Why did the sound stop working?"),
+                               QStringLiteral("Something changed and the screen looks wrong")};
+        for (const QString &question : back) {
+            model.routes.insert(question, sorted(QStringLiteral("answer"), QStringLiteral("none")));
+            const qsizetype before = tools.proposals.size();
+            const Run run = ask(desk, question);
+            QVERIFY2(tools.proposals.size() == before + 1, qPrintable(question + QLatin1String(": ") + run.routes.join(QLatin1Char(','))));
+            QCOMPARE(tools.proposals.last().value(QStringLiteral("card")).toString(), QStringLiteral("changes"));
+            QVERIFY(run.said.contains(QLatin1String("What changed")));
+        }
+
+        // Undoing an update is going back to a restore point.
+        const QString update = QStringLiteral("Undo the update from this morning");
+        model.routes.insert(update, sorted(QStringLiteral("change"), QStringLiteral("none")));
+        ask(desk, update);
+        QCOMPARE(tools.proposals.last().value(QStringLiteral("card")).toString(), QStringLiteral("restore"));
+
+        // Not looking back: an everyday question is answered.
+        const QString how = QStringLiteral("How do I change the wallpaper?");
+        model.routes.insert(how, sorted(QStringLiteral("answer"), QStringLiteral("none")));
+        const qsizetype before = tools.proposals.size();
+        ask(desk, how);
+        QCOMPARE(tools.proposals.size(), before);
     }
 
     void reportsAreGenieOwnWords()

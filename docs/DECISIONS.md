@@ -738,3 +738,54 @@ job" read as a job search, so the tile says Install a new app.)
 Rejected: the same three questions for everyone, which read as a help page;
 and offers only, which say nothing about the computer itself.
 
+
+## Recovery starts from what changed
+
+"Undo that", "put it back", "something changed", "it worked yesterday" and "why
+did this stop working?" open the What changed card, whichever assistant is in
+use. It looks as the person over the last two weeks and lists, a day at a time,
+newest first: changes made from Do it cards, each with Undo, the newest of them
+on a button of its own; what the package manager updated, installed and
+removed, naming only what a person would notice ("the Plasma desktop 6.7.4",
+"the Linux kernel"); Flathub apps; the desktop's settings files that were
+written, by what they hold ("Windows and effects") and said to be by the
+person or the desktop itself, since the desktop writes some of them on its
+own; background services that stopped working; and a new kernel waiting for a
+restart. An update, install or removal goes back through the Restore points
+card where the computer takes restore points, and is asked about where it
+doesn't; settings and services are asked about, with the day and the names in
+the question; "Ask what caused it" hands the whole list to the assistant. The
+card itself changes nothing. On Genie on this computer the front desk opens it
+for these words without the model's help, unless the model found a settings
+skill that makes the change asked for. On the upkeep shelf it takes Restore
+points' tile, which opens from the card's Go back and from the health check,
+so the shelf keeps six tiles. (The maintainer, 10 October: Maintenance and
+Recovery before the announcement; What changed as a card of its own.)
+
+Maintenance gains two settings skills and three health checks:
+
+- **Startup**: the apps and the person's own services that start at sign-in,
+  and turning one off or back on, for the person only. An app is turned off
+  the way the desktop's Autostart page does it, with a hidden copy of its entry
+  in the person's autostart folder, by a helper that ships beside the skill;
+  turning it back on removes the copy Split Rock wrote, or the mark, so the
+  entry is as it was. Parts of the desktop itself are left off the list.
+- **Services**: services that failed, with what each said last, and starting
+  one again, as the person or through the system's prompt. Only a service
+  listed as failed can be on the card.
+- **The health check** also says when a restart finishes the last update,
+  when an update or install was cut off or the list of installed packages has
+  a problem, which it hands to the assistant, and when downloads left
+  unopened for three months take a gigabyte or more, which only opens the
+  Downloads folder.
+
+A skill may name its own undo and check, with the same names left open as its
+change. Genie then fills them in from the command on the card, and the model's
+own are never run; a skill that says there is nothing to put back has its
+undo left empty.
+
+Rejected: answering "what changed?" in words, which leaves Undo a tab away and
+asks a small model to summarise a long list correctly; moving old downloads to
+the Trash from Free up space, which frees nothing until the Trash is emptied,
+and deleting them, which can't be undone; restarting any service the model
+names; and a seventh tile on the shelf, which leaves one alone on its row.

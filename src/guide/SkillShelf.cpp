@@ -5,6 +5,7 @@
 
 #include <QDir>
 #include <QFile>
+#include <QFileInfo>
 #include <QProcess>
 #include <QRegularExpression>
 #include <QSet>
@@ -60,6 +61,9 @@ Skill SkillShelf::parse(const QString &path, const QString &text, const QString 
         return {};
     }
     skill.text = lines.mid(end + 1).join(QLatin1Char('\n')).trimmed();
+    // A skill may ship a helper beside it, named from {here}: the folder it
+    // was read from, wherever it is installed.
+    skill.text.replace(QStringLiteral("{here}"), QFileInfo(path).absolutePath());
 
     // The look is the first sh block under "## Look around".
     static const QRegularExpression look(QStringLiteral("^## Look around\\s*\\n+```sh\\n(.*?)^```"),

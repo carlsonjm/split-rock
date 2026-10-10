@@ -62,7 +62,7 @@ QtObject {
     readonly property color hueInk: dark ? "#10141A" : "#FFFFFF"
     // Which colour each card is.
     readonly property var choreHue: ({
-        update: "blue", space: "teal", install: "violet", restore: "amber", health: "green", community: "orange"
+        update: "blue", space: "teal", install: "violet", restore: "amber", health: "green", community: "orange", changes: "pink"
     })
     readonly property string mono: "monospace"
     // Corners: cards, the composer and bubbles.

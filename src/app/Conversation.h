@@ -9,6 +9,7 @@
 #include "app/CommunityApps.h"
 #include "app/HealthCheck.h"
 #include "app/LocalModel.h"
+#include "app/RecentChanges.h"
 #include "app/RestorePoints.h"
 #include "app/SpaceCleanup.h"
 #include "app/SystemUpdate.h"
@@ -106,6 +107,7 @@ class Conversation : public QObject
     Q_PROPERTY(QObject *space READ spaceObject CONSTANT)
     Q_PROPERTY(QObject *install READ installObject CONSTANT)
     Q_PROPERTY(QObject *restore READ restoreObject CONSTANT)
+    Q_PROPERTY(QObject *recent READ recentObject CONSTANT)
     Q_PROPERTY(QObject *health READ healthObject CONSTANT)
     Q_PROPERTY(QObject *community READ communityObject CONSTANT)
     // The upkeep card open now, by its name, or empty; and whether one is
@@ -226,7 +228,9 @@ public:
     QObject *installObject() const;
     RestorePoints *restorePoints() const { return m_restore; }
     QObject *restoreObject() const;
+    QObject *recentObject() const;
     HealthCheck *healthCheck() const { return m_health; }
+    RecentChanges *recentChanges() const { return m_recent; }
     QObject *healthObject() const;
     CommunityApps *communityApps() const { return m_community; }
     QObject *communityObject() const;
@@ -339,6 +343,7 @@ private:
     SpaceCleanup *m_space = nullptr;
     AppInstall *m_install = nullptr;
     RestorePoints *m_restore = nullptr;
+    RecentChanges *m_recent = nullptr;
     HealthCheck *m_health = nullptr;
     QStringList m_launcher;
     CommunityApps *m_community = nullptr;

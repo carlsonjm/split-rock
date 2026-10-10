@@ -44,15 +44,21 @@ struct Context {
     QString memory;
 };
 
-// The command shapes a skill's Change section names, such as
-// "plasma-apply-cursortheme <name>".
-QStringList skillCommands(const QString &skillText);
+// The command shapes a section of a skill names, such as
+// "plasma-apply-cursortheme <name>" under Change.
+QStringList skillCommands(const QString &skillText, const QString &section = QStringLiteral("Change"));
 
 // Genie's card check, which asks no model. Empty when the card may be shown;
 // otherwise why not. Its command must be one the skill names, with each name
 // as the skill's look-around read it on this computer, and nothing joined on
 // or run as administrator.
 QString checkCard(const QJsonObject &card, const QString &skillText, const QString &seen);
+
+// The card with the undo and check its skill names for the command, filled
+// with the command's own names, where the skill names them; the model's own
+// are not used then. A skill that says there is nothing to put back leaves
+// the undo empty.
+QJsonObject withSkillsOwnUndo(const QJsonObject &card, const QString &skillText);
 
 // An answer that says a change was made, which an answer in words never does.
 bool claimsDone(const QString &answer);
@@ -117,6 +123,8 @@ private:
     void handOff(const QString &why);
     QString answerWords() const;
     QJsonArray withHistory(const QString &system, const QString &question, int turns) const;
+    // Split Rock offers the upkeep card of that name.
+    bool offers(const QString &card) const;
     // The upkeep card an ask plainly needs, by its words, or empty.
     QString cardFor(const QString &question) const;
     void remember(const QString &question, const QString &answer);

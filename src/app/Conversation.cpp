@@ -159,6 +159,10 @@ Conversation::Conversation(QList<Assistant> assistants, QObject *parent)
     addChore(QStringLiteral("health"), m_health);
     m_community = new CommunityApps(this);
     addChore(QStringLiteral("community"), m_community);
+    m_recent = new RecentChanges(this);
+    m_recent->setRecords([this] { return m_runner->records(); });
+    addChore(QStringLiteral("changes"), m_recent);
+    connect(m_runner, &ChangeRunner::made, m_recent, &RecentChanges::refreshOwn);
     connect(this, &Conversation::assistantChanged, this, &Conversation::tilesChanged);
     connect(m_update, &SystemUpdate::waitingChanged, this, &Conversation::tilesChanged);
     connect(m_health, &Chore::changed, this, &Conversation::tilesChanged);
@@ -170,6 +174,7 @@ Conversation::Conversation(QList<Assistant> assistants, QObject *parent)
             Q_EMIT notebookChanged();
         }
         Q_EMIT changesChanged();
+        m_recent->refreshOwn();
         // Told with the person's next question, so the assistant knows the
         // change it made is gone and how the desktop looks now.
         m_aside = QStringLiteral("Since your last answer the person tapped Undo on \"%1\", and %2.")
@@ -200,6 +205,11 @@ QObject *Conversation::installObject() const
 QObject *Conversation::restoreObject() const
 {
     return m_restore;
+}
+
+QObject *Conversation::recentObject() const
+{
+    return m_recent;
 }
 
 QObject *Conversation::healthObject() const
@@ -294,6 +304,8 @@ bool Conversation::openChore(const QString &name, const QString &query)
         m_health->check();
     else if (name == QLatin1String("community"))
         m_community->check();
+    else if (name == QLatin1String("changes"))
+        m_recent->check();
     return true;
 }
 
@@ -326,7 +338,9 @@ QString Conversation::framing()
         "For upkeep, %1 has cards of its own, which look first, take restore points and show progress: propose "
         "{\"title\": a short instruction, \"card\": one of update (update the whole computer), space (free up "
         "space), install (install an app, with \"query\": what the person needs, such as \"pdf editor\"), restore "
-        "(go back to a restore point), health (a health check) or community (update apps from the AUR)} instead of "
+        "(go back to a restore point), health (a health check), community (update apps from the AUR) or changes (what "
+        "changed on this computer lately, each with its way back: for \"undo that\", \"something changed\" or \"why did "
+        "this stop working?\")} instead of "
         "a command for those. "
         "Propose one change at a time, with a short, specific command that finishes on its own; to open a window, "
         "start it with kstart so the command returns at once. Before proposing, "
@@ -460,7 +474,11 @@ QVariantList Conversation::tiles() const
             const QString text = HealthCheck::tile(item);
             if (text.isEmpty())
                 continue;
-            if (!item.action.isEmpty() && item.action != QLatin1String("ask") && hasCard(item.action))
+            // A restart is offered on the Health check card, behind the
+            // desktop's own prompt.
+            if (item.action == QLatin1String("restart") && hasCard(QStringLiteral("health")))
+                add(text, QStringLiteral("health"), {}, item.state);
+            else if (!item.action.isEmpty() && item.action != QLatin1String("ask") && hasCard(item.action))
                 add(text, item.action, {}, item.state);
             else if (!item.question.isEmpty())
                 add(text, {}, item.question, item.state);
@@ -647,6 +665,9 @@ QJsonObject Conversation::framingMeta() const
         {QStringLiteral("restore"), QStringLiteral("go back to a restore point, as things were before")},
         {QStringLiteral("health"), QStringLiteral("a health check, when the computer is slow, hot or something seems wrong")},
         {QStringLiteral("community"), QStringLiteral("update apps from the AUR, the community's own apps")},
+        {QStringLiteral("changes"), QStringLiteral("what changed on this computer lately, with Undo: for \"undo that\", "
+                                                   "\"put it back\", \"something changed\", \"it worked yesterday\" or "
+                                                   "\"why did this stop working?\"")},
     };
     for (const auto &[name, what] : upkeep) {
         if (std::any_of(m_chores.cbegin(), m_chores.cend(), [&name](const auto &c) { return c.first == name; }))

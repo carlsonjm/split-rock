@@ -8,6 +8,7 @@
 #include "app/CommunityApps.h"
 #include "app/Conversation.h"
 #include "app/HealthCheck.h"
+#include "app/RecentChanges.h"
 #include "app/RestorePoints.h"
 #include "app/SpaceCleanup.h"
 
@@ -476,6 +477,192 @@ private Q_SLOTS:
         QCOMPARE(gitOut(recipes + QStringLiteral("/demo"), {QStringLiteral("rev-parse"), QStringLiteral("HEAD")}), head);
         // Done, it leaves the list.
         QVERIFY(community.apps().isEmpty());
+    }
+
+    // What changed: a day at a time, newest first, each with its way back.
+    void whatChangedReadsEachDay()
+    {
+        QList<ChangeRunner::Record> records;
+        ChangeRunner::Record pointer;
+        pointer.id = QStringLiteral("c1");
+        pointer.made = QDateTime(QDate(2026, 10, 9), QTime(11, 30));
+        pointer.proposal.title = QStringLiteral("Use the Bibata pointer");
+        pointer.proposal.undo = QStringLiteral("plasma-apply-cursortheme breeze_cursors");
+        pointer.status = QStringLiteral("done");
+        records.append(pointer);
+        ChangeRunner::Record fans = pointer;
+        fans.id = QStringLiteral("c0");
+        fans.made = QDateTime(QDate(2026, 10, 8), QTime(20, 0));
+        fans.proposal.title = QStringLiteral("Set the fans to Quiet");
+        fans.status = QStringLiteral("undone");
+        fans.undone = QDateTime(QDate(2026, 10, 9), QTime(9, 0));
+        records.append(fans);
+        ChangeRunner::Record old = pointer;
+        old.id = QStringLiteral("c-old");
+        old.made = QDateTime(QDate(2026, 9, 1), QTime(9, 0));
+        records.append(old);
+
+        const RecentChanges::Look look = RecentChanges::readLook(fixture(QStringLiteral("recent-look.txt")), records, Now);
+        QMap<QString, RecentChanges::Item> byId;
+        QStringList order;
+        for (const RecentChanges::Item &item : look.items) {
+            byId.insert(item.id, item);
+            order.append(item.id);
+        }
+        QVERIFY(look.restorePoints);
+        // Today first: the restart the update waits for, then the change made
+        // from a card, then the rest, newest first.
+        QCOMPARE(order.mid(0, 2), (QStringList{QStringLiteral("restart"), QStringLiteral("own-c1")}));
+        QCOMPARE(byId.value(QStringLiteral("own-c1")).action, QStringLiteral("undo"));
+        QCOMPARE(byId.value(QStringLiteral("own-c1")).change, QStringLiteral("c1"));
+        // Put back already: nothing to undo.
+        QCOMPARE(byId.value(QStringLiteral("own-c0")).action, QString());
+        QVERIFY(byId.value(QStringLiteral("own-c0")).detail.startsWith(QLatin1String("Put back")));
+        // Older than two weeks is left out.
+        QVERIFY(!byId.contains(QStringLiteral("own-c-old")));
+        QVERIFY(!byId.contains(QStringLiteral("update-2026-09-20")));
+
+        const RecentChanges::Item update = byId.value(QStringLiteral("update-2026-10-08"));
+        QCOMPARE(update.title, QStringLiteral("5 parts of the system updated"));
+        QVERIFY2(update.detail.contains(QLatin1String("the Plasma desktop 6.7.4")), qPrintable(update.detail));
+        QVERIFY(update.detail.contains(QLatin1String("the Linux kernel 6.17.2")));
+        QVERIFY(update.detail.contains(QLatin1String("the graphics drivers")));
+        QCOMPARE(update.action, QStringLiteral("restore"));
+        QVERIFY(update.question.contains(QLatin1String("parts of the system yesterday, including")));
+        QCOMPARE(byId.value(QStringLiteral("update-2026-10-01")).detail, QStringLiteral("Nothing a person would notice by name"));
+
+        // Only what the person installed is named.
+        QCOMPARE(byId.value(QStringLiteral("install-2026-10-09")).title, QStringLiteral("Installed vlc"));
+        QCOMPARE(byId.value(QStringLiteral("install-2026-10-09")).detail, QStringLiteral("With 1 part it needs"));
+        QCOMPARE(byId.value(QStringLiteral("remove-2026-10-09")).title, QStringLiteral("Removed okular"));
+
+        // Flathub apps, without the parts that come with them.
+        QCOMPARE(byId.value(QStringLiteral("apps-2026-10-09")).detail, QStringLiteral("Updated Firefox"));
+        QCOMPARE(byId.value(QStringLiteral("apps-2026-10-07")).detail, QStringLiteral("Installed Spotify"));
+
+        // Settings by what they hold; a file a person wouldn't know is left out.
+        QCOMPARE(byId.value(QStringLiteral("settings-2026-10-09")).detail,
+                 QStringLiteral("Look, colours and fonts · Windows and effects"));
+        QCOMPARE(byId.value(QStringLiteral("settings-2026-10-08")).detail,
+                 QStringLiteral("Displays · Mouse, touchpad and pointer"));
+
+        QCOMPARE(byId.value(QStringLiteral("service-bluetooth.service")).title, QStringLiteral("Stopped working: Bluetooth service"));
+        QVERIFY(byId.value(QStringLiteral("service-syncthing.service")).detail.contains(QLatin1String("of yours")));
+        QCOMPARE(byId.value(QStringLiteral("restart")).action, QStringLiteral("restart"));
+
+        // Without restore points, going back is asked about.
+        QString none = fixture(QStringLiteral("recent-look.txt"));
+        none.replace(QStringLiteral("@@ snapper\nyes\n"), QStringLiteral("@@ snapper\n"));
+        const RecentChanges::Look without = RecentChanges::readLook(none, {}, Now);
+        for (const RecentChanges::Item &item : without.items) {
+            if (item.kind == QLatin1String("update"))
+                QCOMPARE(item.action, QStringLiteral("ask"));
+        }
+        // Nothing at all: nothing to show.
+        QVERIFY(RecentChanges::readLook(QStringLiteral("@@ kernel\n6.1\npresent\n@@ end\n"), {}, Now).items.isEmpty());
+    }
+
+    void whatChangedOpensByNameAndUndoesFromTheCard()
+    {
+        RecentChanges recent;
+        recent.setLookScript(printing(QStringLiteral("recent-look.txt")));
+        QList<ChangeRunner::Record> records;
+        ChangeRunner::Record pointer;
+        pointer.id = QStringLiteral("c1");
+        pointer.made = QDateTime::currentDateTime();
+        pointer.proposal.title = QStringLiteral("Use the Bibata pointer");
+        pointer.proposal.undo = QStringLiteral("plasma-apply-cursortheme breeze_cursors");
+        pointer.status = QStringLiteral("done");
+        records.append(pointer);
+        recent.setRecords([&records] { return records; });
+        recent.check();
+        QCOMPARE(recent.stage(), QStringLiteral("looking"));
+        QTRY_COMPARE(recent.stage(), QStringLiteral("ready"));
+        QCOMPARE(recent.latestMap().value(QStringLiteral("change")).toString(), QStringLiteral("c1"));
+        QVERIFY(recent.question().contains(QLatin1String("Use the Bibata pointer")));
+        // Once undone, it has nothing more to undo, without looking again.
+        records.first().status = QStringLiteral("undone");
+        records.first().undone = QDateTime::currentDateTime();
+        recent.refreshOwn();
+        QVERIFY(recent.latestMap().isEmpty());
+    }
+
+    void theHealthCheckSeesRestartsPackagesAndDownloads()
+    {
+        const QString look = fixture(QStringLiteral("health-look.txt")).replace(
+            QStringLiteral("@@ end"),
+            QStringLiteral("@@ kernel\n6.17.1-2-cachyos\nmissing\n@@ packages\nerror: missing 'libfoo' dependency for 'bar'\n"
+                           "@@ lock\n@@ downloads\n900000000\n400000000\n@@ end"));
+        QMap<QString, HealthCheck::Item> byId;
+        for (const HealthCheck::Item &i : HealthCheck::readLook(look, Now))
+            byId.insert(i.id, i);
+        QCOMPARE(byId.value(QStringLiteral("restart")).action, QStringLiteral("restart"));
+        QCOMPARE(HealthCheck::tile(byId.value(QStringLiteral("restart"))), QStringLiteral("Restart to finish the update"));
+        QCOMPARE(byId.value(QStringLiteral("packages")).state, QStringLiteral("bad"));
+        QVERIFY(byId.value(QStringLiteral("packages")).question.contains(QLatin1String("libfoo")));
+        QCOMPARE(byId.value(QStringLiteral("downloads")).action, QStringLiteral("downloads"));
+        QVERIFY(byId.value(QStringLiteral("downloads")).detail.startsWith(QLatin1String("2 files")));
+
+        // An install cut off is said before anything about the list.
+        QString stuck = look;
+        stuck.replace(QStringLiteral("@@ lock\n"), QStringLiteral("@@ lock\nstuck\n"));
+        for (const HealthCheck::Item &i : HealthCheck::readLook(stuck, Now)) {
+            if (i.id == QLatin1String("packages"))
+                QCOMPARE(HealthCheck::tile(i), QStringLiteral("An update was cut off"));
+        }
+        // Nothing found, nothing said.
+        for (const HealthCheck::Item &i : HealthCheck::readLook(fixture(QStringLiteral("health-look.txt")), Now))
+            QVERIFY(i.id != QLatin1String("restart") && i.id != QLatin1String("packages") && i.id != QLatin1String("downloads"));
+    }
+
+    // The startup skill's helper, in the test's own home: an app is hidden for
+    // this person only, and turned back on exactly as it was.
+    void aStartupAppTurnsOffAndBackOn()
+    {
+        QTemporaryDir home;
+        QTemporaryDir system;
+        QVERIFY(write(system.filePath(QStringLiteral("autostart/sys.desktop")),
+                      QStringLiteral("[Desktop Entry]\nName=Sys\nExec=sys\n")));
+        const QString mine = home.filePath(QStringLiteral(".config/autostart/mine.desktop"));
+        const QString original = QStringLiteral("[Desktop Entry]\nName=Mine\nExec=mine\n");
+        QVERIFY(write(mine, original));
+        const auto helper = [&](const QStringList &arguments, int *exitCode = nullptr) {
+            QProcess p;
+            QProcessEnvironment env = QProcessEnvironment::systemEnvironment();
+            env.insert(QStringLiteral("HOME"), home.path());
+            env.remove(QStringLiteral("XDG_CONFIG_HOME"));
+            env.insert(QStringLiteral("XDG_CONFIG_DIRS"), system.path());
+            p.setProcessEnvironment(env);
+            p.start(QStringLiteral("sh"), QStringList{QStringLiteral(PROJECT_DIR "/skills/plasma/startup-app.sh")} + arguments);
+            p.waitForFinished(10000);
+            if (exitCode)
+                *exitCode = p.exitCode();
+            return QString::fromUtf8(p.readAllStandardOutput()).trimmed();
+        };
+        const QString hid = home.filePath(QStringLiteral(".config/autostart/sys.desktop"));
+        QCOMPARE(helper({QStringLiteral("state"), QStringLiteral("sys")}), QStringLiteral("on"));
+        int code = -1;
+        helper({QStringLiteral("off"), QStringLiteral("sys")}, &code);
+        QCOMPARE(code, 0);
+        QVERIFY(QFile::exists(hid));
+        QCOMPARE(helper({QStringLiteral("state"), QStringLiteral("sys")}), QStringLiteral("off"));
+        helper({QStringLiteral("on"), QStringLiteral("sys")}, &code);
+        QCOMPARE(code, 0);
+        QVERIFY(!QFile::exists(hid));
+
+        helper({QStringLiteral("off"), QStringLiteral("mine")}, &code);
+        QCOMPARE(code, 0);
+        QCOMPARE(helper({QStringLiteral("state"), QStringLiteral("mine")}), QStringLiteral("off"));
+        helper({QStringLiteral("on"), QStringLiteral("mine")}, &code);
+        QFile file(mine);
+        QVERIFY(file.open(QIODevice::ReadOnly));
+        QCOMPARE(QString::fromUtf8(file.readAll()), original);
+
+        // Nothing outside the autostart folders is reached.
+        helper({QStringLiteral("off"), QStringLiteral("../../.bashrc")}, &code);
+        QCOMPARE(code, 2);
+        helper({QStringLiteral("off"), QStringLiteral("nothing")}, &code);
+        QCOMPARE(code, 1);
     }
 
     void aCardIsOpenedByName()

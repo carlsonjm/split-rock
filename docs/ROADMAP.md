@@ -129,8 +129,11 @@ updates with a snapshot first, finding a download, installing an app.
 
 **Built ahead:** the Update card (`DECISIONS.md`, The Update card updates the
 computer), and Free up space, Install an app, Restore points, Health check and
-Community apps (`DECISIONS.md`, Upkeep has cards of its own). Each still needs
-its first run on a spare machine.
+Community apps (`DECISIONS.md`, Upkeep has cards of its own). Then Maintenance
+and Recovery: the What changed card, where "undo that" goes, the startup and
+services skills, and the health check's restart, package and downloads checks
+(`DECISIONS.md`, Recovery starts from what changed). Each still needs its first
+run on a spare machine.
 
 **Brought into 1.0:** Split Rock on this computer, the assistant that needs no
 account (`DECISIONS.md`, Genie on this computer). Built: the front desk, the

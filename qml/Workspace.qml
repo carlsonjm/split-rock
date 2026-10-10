@@ -656,6 +656,7 @@ Item {
                         case "restore": return restoreStep
                         case "health": return healthStep
                         case "community": return communityStep
+                        case "changes": return changesStep
                         }
                         switch (conversation.phase) {
                         case "download": return downloadStep
@@ -1036,4 +1037,5 @@ Item {
     Component { id: restoreStep; RestoreCard {} }
     Component { id: healthStep; HealthCard {} }
     Component { id: communityStep; CommunityCard {} }
+    Component { id: changesStep; ChangesCard {} }
 }

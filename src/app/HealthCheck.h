@@ -11,7 +11,9 @@ namespace splitrock {
 // The Health check card: a look over the computer that only reads. Whether
 // every service started, the space left, what the drive and the battery
 // report, when it was last updated, the newest restore point, settings files
-// waiting beside the person's own, and apps that crashed this week. Each is
+// waiting beside the person's own, apps that crashed this week, a restart an
+// update waits for, the package manager's list of what is installed, and
+// downloads left unopened for months. Each is
 // good, worth a look, or a problem, with the card that helps, or a question
 // for the assistant.
 //
@@ -24,7 +26,8 @@ class HealthCheck : public Chore
 {
     Q_OBJECT
     // Each: id, title, state (good, warn or bad), detail, action (update,
-    // space, restore, community, ask or empty), actionLabel and question.
+    // space, restore, community, restart, downloads, ask or empty),
+    // actionLabel and question.
     Q_PROPERTY(QVariantList items READ itemList NOTIFY changed)
     // How many are worth a look or a problem.
     Q_PROPERTY(int attention READ attention NOTIFY changed)
@@ -53,6 +56,8 @@ public:
 
     // Opens the card and looks.
     Q_INVOKABLE void check();
+    // Opens the person's Downloads folder in the file manager.
+    Q_INVOKABLE void openDownloads();
     // Looks without opening the card, when the last look is a day old.
     void checkIfDue();
     // Looks without opening the card, now.

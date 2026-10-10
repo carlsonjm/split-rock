@@ -386,6 +386,7 @@ Window {
                             case "restore": return restoreCard
                             case "health": return healthCard
                             case "community": return communityCard
+                            case "changes": return changesCard
                             }
                             switch (conversation.phase) {
                             case "download": return downloadPanel
@@ -440,6 +441,7 @@ Window {
     Component { id: restoreCard; RestoreCard {} }
     Component { id: healthCard; HealthCard {} }
     Component { id: communityCard; CommunityCard {} }
+    Component { id: changesCard; ChangesCard {} }
     Component { id: signInPanel; SignInPanel { signInWith: id => window.signInThroughFull(id) } }
     Component { id: starting; StartingPanel {} }
     Component { id: downloadPanel; DownloadPanel {} }

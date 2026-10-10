@@ -39,9 +39,13 @@ var history = "M3 12a9 9 0 1 0 3-6.7L3 8 M3 3v5h5 M12 7v5l4 2"
 var pulse = "M22 12h-4l-3 9L9 3l-3 9H2"
 var box = "M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z M3.27 6.96L12 12.01l8.73-5.05 M12 22.08V12"
 var search = "M11 4a7 7 0 1 0 0 14a7 7 0 1 0 0-14 M21 21l-4.35-4.35"
+// Undo: an arrow turning back.
+var undo = "M9 14L4 9l5-5 M4 9h10.5a5.5 5.5 0 0 1 0 11H11"
+// A setting: a sliders mark.
+var sliders = "M4 21v-7 M4 10V3 M12 21v-9 M12 8V3 M20 21v-5 M20 12V3 M1 14h6 M9 8h6 M17 16h6"
 var back = "M15 18l-6-6 6-6"
 
 // Each upkeep card's icon.
 function forChore(name) {
-    return ({ update: refresh, space: drive, install: download, restore: history, health: pulse, community: box })[name] || refresh
+    return ({ update: refresh, space: drive, install: download, restore: history, health: pulse, community: box, changes: undo })[name] || refresh
 }
