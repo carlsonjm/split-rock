@@ -6,23 +6,28 @@ Ask a question in your own words. Split Rock explains the answer, or makes the
 change after you approve it, and keeps what it learns in a notebook of plain
 notes so the next problem starts from what is already known.
 
-**Status:** early. There is nothing to install yet. Milestone 0, a test program
-that talks to real assistants and changes nothing, is built and waiting on its
-live sign-in check. The concept is in [docs/CONCEPT.md](docs/CONCEPT.md) and the
-plan in [docs/ROADMAP.md](docs/ROADMAP.md). Inside Shuffle it is Shuffle Genie.
+**Status:** early. Shuffle's packages carry it as Genie; on its own there is no
+package yet, only a developer install (below). The concept is in
+[docs/CONCEPT.md](docs/CONCEPT.md) and the plan in
+[docs/ROADMAP.md](docs/ROADMAP.md).
 
 ## What it does
 
-Out of the box, with no account, it gives a tour of the desktop and a
-troubleshooting guide: known problems and their fixes, kept up to date with
-each release. Sign in with an assistant you already pay for, such as ChatGPT,
-and it becomes a helper on your desktop that can do the following, with that
-use billed to your own account:
+Out of the box, with no account, Split Rock on this computer answers and helps:
+an open model that runs on the computer itself after a one-time download, so
+nothing you ask leaves it. For bigger fixes, sign in to Codex with the ChatGPT
+plan you already pay for, and that use is billed to your own account.
 
 - **Answers.** "How do I make the writing bigger?" It explains in plain words,
-  one step at a time.
+  one step at a time, and answers known problems from a troubleshooting guide
+  written ahead of time and kept up to date with each release.
 - **Does it, with permission.** It shows a card saying what will change and how
   to undo it, and changes nothing until you tap Do it.
+- **Looks after the computer.** Cards of their own check for updates and run
+  them with a restore point first, free up space, install or remove an app,
+  give the computer a health check, show what changed lately with a way to
+  undo it or go back to before, and review updates to community (AUR) apps
+  before building them.
 - **Remembers.** What it changed, what you asked it to keep, and what it learned
   about this computer go into your notebook.
 - **Keeps this computer working.** Unusual hardware too, such as a tablet with
@@ -38,30 +43,35 @@ use billed to your own account:
 
 ## How it works
 
-Split Rock does not include an AI of its own, sells no account and pays for no
-use. You choose an assistant you already use, and that assistant signs you in
-through its own window. Split Rock talks to it through the Agent Client
-Protocol, so it works with any assistant that supports it, and never sees your
-account or your bill.
+Split Rock sells no account and pays for no use. Its own assistant, Split Rock
+on this computer, runs Qwen3 4B, an open model by the Qwen team under the
+Apache 2.0 licence, with llama.cpp: about 2.5 GB, downloaded once and checked
+before use. It answers, opens the cards for everyday jobs, and passes anything
+bigger to Codex. Codex signs you in to ChatGPT through its own window, and
+Split Rock never sees your account or your bill. Both talk to Split Rock
+through the Agent Client Protocol, and both run fenced in: they can read what
+they need to explain the computer, and change it only through a card you
+approve.
 
 Your notebook is an ordinary folder of notes. Split Rock shows it for you; any
-notes app that reads plain notes can open it too. Where Gooseberry is
-installed, what you keep becomes notes there, beside your own.
+notes app that reads plain notes can open it too.
 
 ## With Shuffle
 
-Split Rock works on any KDE Plasma desktop. Inside Shuffle it is the workspace
-assistant, and it can also arrange your workspace when Shuffle is installed.
+Split Rock works on any KDE Plasma desktop. Inside Shuffle it is Genie, the
+workspace assistant: Search hosts its conversation, its card holds the centre
+of Spread, and Shuffle installs the llama.cpp it runs on.
 
 ## Development
 
 Read [AGENTS.md](AGENTS.md) before working in this repository. The documentation
 index is [docs/README.md](docs/README.md). Run `./verify.sh` before proposing a
-change; it needs CMake, a C++20 compiler and Qt 6.4 or later.
+change; it needs CMake, a C++20 compiler, Qt 6.4 or later and Python 3.
 
 `./run.sh` builds Split Rock and opens its window from this checkout. Its first
-run downloads the assistants' adapters into `build/m0`, which needs Node.js and
-npm.
+run downloads Codex's adapter into `build/m0`, which needs Node.js and npm.
+Every assistant runs in bubblewrap, and Split Rock on this computer needs
+llama.cpp's `llama-server`.
 `./run.sh --pretend tests/pretend-scripts/signed-in.json` adds the pretend
 assistant, which needs no account.
 
@@ -69,12 +79,14 @@ assistant, which needs no account.
 
 `./install.sh` builds Split Rock, runs every check, and installs it for every
 account on this computer: the program, its entry in the launcher, the service
-Search starts it with, the guide and the tour, and the assistants' adapters.
-It asks for the administrator password once, to write under `/usr`.
-`./uninstall.sh` removes exactly that, and leaves the notebook and every
-assistant's sign-in where they are. The installed Split Rock keeps its sign-ins
-in its own folder, not in this checkout, so sign in once more after installing.
-It needs bubblewrap, the sandbox the assistant runs in.
+Search starts it with, the guide, the tour and the settings skills, Codex's
+adapter, and the front desk of Split Rock on this computer with its model list
+and the model's licence. It does not install llama.cpp. It asks for the
+administrator password once, to write under `/usr`. `./uninstall.sh` removes
+exactly that, and leaves the notebook, every assistant's sign-in and the
+downloaded model where they are. The installed Split Rock keeps its sign-ins in
+its own folder, not in this checkout, so sign in once more after installing.
+It needs bubblewrap, the sandbox the assistants run in.
 
 This is a developer install for the maintainer's own computer, so Milestone 1
 can be used every day. It is not the package Milestone 3 brings, and nobody
