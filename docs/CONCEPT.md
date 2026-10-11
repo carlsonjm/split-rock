@@ -13,7 +13,8 @@ should not need one now.
 
 Pat already pays for a chatbot in daily life, most often ChatGPT. An assistant
 on the desktop that answers anything and fixes things, with that same account,
-is a reason to switch.
+is a reason to switch. Without one, Split Rock still answers and does the
+everyday jobs on the computer itself.
 
 Pat's first question is "where did everything go?" Split Rock is where Pat asks
 it.
@@ -40,16 +41,21 @@ What it has never had is someone to ask.
 
 Split Rock comes in two layers.
 
-- **In the box, with no account.** A tour of the desktop, and a troubleshooting
-  guide: known problems, in the words a person would use, each with its fix.
-  The guide is written ahead of time, ships with Split Rock and is updated with
-  each release. A desktop that installs Split Rock's extras adds entries of its
-  own. Nothing here needs an account or a network.
-- **Unlocked by Pat's own assistant account.** Pat signs in to an assistant they
-  already pay for, and Split Rock becomes a butler on the desktop: it answers
-  anything, troubleshoots what the guide does not cover, and makes changes
-  through the Do it card. The use is billed to Pat's own account, at Pat's
-  choice. Split Rock sells no account and pays for no use.
+- **In the box, with no account.** Split Rock on this computer: an open model
+  that runs on the computer itself after a one-time download, so nothing Pat
+  asks leaves it. It answers, answers from the troubleshooting guide where an
+  entry fits, and makes everyday changes through the Do it card and the upkeep
+  cards. The guide holds known problems, in the words a person would use, each
+  with its fix; it is written ahead of time, ships with Split Rock and is
+  updated with each release, and a desktop that installs Split Rock's extras
+  adds entries of its own. Where the model can't run, the guide and a tour of
+  the desktop work on their own, with no account and no network.
+- **Unlocked by Pat's own assistant account.** Pat signs in to Codex with the
+  ChatGPT plan they already pay for, and Split Rock becomes a butler on the
+  desktop: it answers anything, troubleshoots what the guide does not cover,
+  and makes bigger changes through the Do it card. The use is billed to Pat's
+  own account, at Pat's choice. Split Rock sells no account and pays for no
+  use.
 
 How the guide's entries are kept, and how a desktop adds its own, is in
 `DECISIONS.md`.
@@ -62,21 +68,22 @@ a tablet such as the ASUS ROG Flow Z13, with its own power firmware and kernel
 quirks, breaks in ways a plain laptop never does, and Windows used to hide that
 behind the maker's own software.
 
-So Split Rock learns the computer it is on. It is local: it starts fresh on every
-computer, reads what the hardware reports at setup, and keeps what it learns
-about the device in the notebook's `Device/` folder, which grows with use. With
-an account, the assistant troubleshoots what the guide does not cover and finds
-the maker's documentation for that hardware; every fix lands in
-`This computer.md` and the device's folder, so the next time starts from what
-worked. Nothing learned on one computer reaches another.
+So Split Rock learns the computer it is on. It is local: it starts fresh on
+every computer, reads what the hardware reports at setup, and keeps what it
+learns about the device in the notebook's `Device/` folder, which grows with
+use. With an account, the assistant troubleshoots what the guide does not cover
+and finds the maker's documentation for that hardware; every fix lands in `This
+computer.md` and the device's folder, so the next time starts from what worked.
+Nothing learned on one computer reaches another.
 
 ## The first five minutes
 
 1. Split Rock opens on its own once, after installation.
-2. It says hello and offers a short tour of the desktop. The tour, and the
-   troubleshooting guide behind it, work without any account.
-3. It offers to unlock the rest with an assistant account Pat already has. Pat
-   can choose one, or Not now.
+2. It says hello and offers Split Rock on this computer, which needs no
+   account, only a one-time download. Where that can't run, it offers a short
+   tour of the desktop and the troubleshooting guide, which need neither.
+3. It offers to unlock bigger fixes with an assistant account Pat already has.
+   Pat can choose one, or Not now.
 4. Pat's first real question gets an answer, a guide entry, or a Do it card.
 
 Split Rock must be useful at step 2. An assistant that is a blank box until Pat
@@ -120,32 +127,34 @@ holds the exact command or setting.
 
 | Need | Approach | Notes |
 | --- | --- | --- |
-| An assistant account | Pat signs in with an account they already pay for, through that assistant's own sign-in | Or skips it and keeps the tour and the guide |
-| The assistant program | Any agent that speaks the Agent Client Protocol | Each agent owns its sign-in and billing |
-| What the assistant needs to run | Installed silently with Split Rock | Many agents ship as Node.js programs; Pat never sees that |
+| An assistant account | Pat signs in with an account they already pay for, through that assistant's own sign-in | Or skips it and keeps Split Rock on this computer |
+| The assistant program | Split Rock on this computer, or Codex, each speaking the Agent Client Protocol | Each agent owns its sign-in and billing |
+| A model on the computer | Qwen3 4B, an open model, downloaded once and run by llama.cpp | About 2.5 GB, the same for every computer (`ASSISTANTS.md`) |
+| What the assistant needs to run | Installed silently with Split Rock | Codex runs on Node.js; Pat never sees that |
 | Known problems and their fixes | The troubleshooting guide, shipped with Split Rock and updated with each release | A desktop adds its own entries |
 | A place to remember | A plain folder of notes that Split Rock shows itself; kept answers go to Gooseberry where it is installed | Any plain-notes app can open it too |
 | A way to undo system changes | A snapshot before every system change, where the disk supports it, and a copy of any personal settings file it changes | Btrfs supports snapshots; snapshots usually leave personal settings out |
 | Administrator rights | KDE's own password prompt, per action | Split Rock never holds the password |
-| Acting on the desktop | Split Rock's own tools, offered to the agent over MCP | Desktop-specific tools switch on only where that desktop is installed |
+| Acting on the desktop | Split Rock's own tools, which the agent finds inside its fence: a change proposed for a card, a settings skill, an upkeep card | Desktop-specific tools switch on only where that desktop is installed |
 | Help from a person | "Send this to someone": a plain summary of the problem and what was tried | For whoever Pat turns to |
 
 ### The account
 
-Setup offers only assistants Pat can sign in to without a terminal, and the
-first one offered is the easiest sign-in to an account Pat most likely already
-pays for: ChatGPT, through Codex. Split Rock says plainly that the assistant's
-use is billed to Pat's account, reads what each one offers at setup rather than
-promising it in advance, and never signs Pat up for anything. Not now keeps the
-tour and the guide. What each assistant offers is in `ASSISTANTS.md`.
+Split Rock on this computer needs no account. For bigger fixes, setup offers
+only assistants Pat can sign in to without a terminal: ChatGPT, through Codex,
+the easiest sign-in to an account Pat most likely already pays for. Split Rock
+says plainly that the assistant's use is billed to Pat's account, reads what
+each one offers at setup rather than promising it in advance, and never signs
+Pat up for anything. Not now keeps Split Rock on this computer. What each
+assistant offers is in `ASSISTANTS.md`.
 
 ### The notebook
 
 No notes app is required. The notebook is a plain folder, chosen at setup and
-`~/Documents/Notebook` by default, that Split Rock shows in its own Notebook
-tab. KDE's Marknote or Obsidian can open the same folder for anyone who wants
-more; apps that keep notes in a database or online are not supported, because
-the assistant cannot read them as plain files.
+`~/Documents/Notebook` by default, that Split Rock shows in its own This Device
+drawer, beside the conversation. KDE's Marknote or Obsidian can open the same
+folder for anyone who wants more; apps that keep notes in a database or online
+are not supported, because the assistant cannot read them as plain files.
 
 Inside it:
 
@@ -155,8 +164,9 @@ Inside it:
   from what Split Rock reads on the computer and growing with use.
 - `About me.md`: how Pat likes to be helped and who helps Pat, written only
   after Pat says yes.
-- `Notes/`: every answer Pat kept, filed by topic without Pat filing anything,
-  unless Gooseberry is installed, where kept answers become Gooseberry notes.
+- `Notes/`: every answer Pat kept, filed by topic without Pat filing anything.
+  Where Gooseberry is installed, kept answers are to become Gooseberry notes
+  instead (`ROADMAP.md`, Later).
 - `ASSISTANT.md`: the rules the assistant follows in this notebook, written at
   setup.
 
@@ -164,9 +174,11 @@ Conversations are not saved. How memory works is in `MEMORY.md`.
 
 ## Risks
 
-- **The box has to stand on its own.** Without an account, Pat has only the tour
-  and the guide. A thin guide, or one that falls behind a release, leaves Pat
-  with nothing; it is written and checked with every release for that reason.
+- **The box has to stand on its own.** Without an account, Pat has Split Rock
+  on this computer, a small model that can be wrong, so the guide it answers
+  from and the cards it opens are checked ahead of time. A thin guide, or one
+  that falls behind a release, leaves Pat with little; it is written and checked
+  with every release for that reason.
   Whether to unlock the rest, and what it costs, is Pat's choice, not a risk.
 - **The Agent Client Protocol is young.** Agents and their sign-in methods will
   change under Split Rock.

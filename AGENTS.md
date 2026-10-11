@@ -8,8 +8,9 @@ For every task, read only this startup set, in order:
 4. The suite record, kept privately in the Shuffle repository and read from its
    checkout beside this one: `../shuffle/docs/suite/CURRENT_STATE.md`,
    `../shuffle/docs/suite/ROADMAP-CC.md` and `../shuffle/docs/suite/SWARM.md`.
-   When it is not checked out, say that the suite plan was unavailable rather
-   than inventing an order.
+   `ROADMAP-CC.md` is a frozen record; its first line points to the suite's
+   maintained roadmap. When the record is not checked out, say that the suite
+   plan was unavailable rather than inventing an order.
 
 Then open only the documents the work touches; `docs/README.md` routes each
 subject to its document. Before proposing an approach, check
@@ -22,7 +23,7 @@ and adds no separate protocol.
 
 These hold in every Shuffle repository.
 
-- The maintainer approves product behavior and visual direction before
+- The product owner approves product behavior and visual direction before
   implementation begins. Engineering may present evidence, constraints and
   alternatives; an unapproved proposal does not become a candidate.
 - One implementation owner per repository. A second worker is read-only review or
@@ -45,7 +46,7 @@ These hold here, because this program acts on a person's computer.
 ## Writing here
 
 - `docs/ROADMAP.md` is the plan for this repository; suite order lives in the
-  suite record.
+  suite's maintained roadmap.
 - A ruling goes in `docs/DECISIONS.md` as its rule, why it holds, and what was
   rejected.
 - Public text stays fit to publish: no attribution by initial, and no paths into

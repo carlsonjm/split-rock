@@ -54,8 +54,10 @@ Rejected: storing credentials to avoid repeated prompts.
 
 ## Useful before any account
 
-The tour and the troubleshooting guide work with no assistant connected (see
-"Two layers: the guide in the box, the butler unlocked").
+Split Rock is useful with no account: Split Rock on this computer answers from
+the guide and makes everyday changes, and where it can't run, the tour and the
+troubleshooting guide work with no assistant connected (see "Two layers: the
+guide in the box, the butler unlocked", and "Genie on this computer").
 
 Rejected: an assistant that does nothing until the person signs up for
 something.
@@ -114,7 +116,9 @@ see, and the one thing Split Rock promises Pat never has to see.
 
 ## Claude is offered only with an Anthropic key
 
-Split Rock starts Claude's adapter with subscription sign-in hidden. This holds
+Claude is not offered (Two assistants: on this computer, and Codex); this holds
+for when it is offered again. Split Rock starts Claude's adapter with
+subscription sign-in hidden. This holds
 on the maintainer's machine too, because it is a rule about the product, not
 about who uses it.
 
@@ -140,8 +144,7 @@ assistant proposes can also be made from the Do it card, which says plainly how
 it would be undone: from the system snapshot taken first, from the copies of the
 person's files made first, or by the way back the assistant gave. A change with
 none of these says it can't be undone automatically before the person taps.
-Nothing runs without the tap. (The maintainer, 5 October, replacing the ruling
-of 3 October that offered only a fixed set.)
+Nothing runs without the tap.
 
 Why: a fixed set that grows one change at a time leaves most everyday problems
 going elsewhere for a fix, which is the opposite of the product, and real use is
@@ -154,8 +157,9 @@ person is promised.
 ## ChatGPT first, Claude with a key second
 
 Setup offers ChatGPT through Codex first: a browser sign-in to an account many
-people already pay for, and the maintainer's preferred assistant. Claude with an
-Anthropic key is offered next. (The maintainer, 3 October.)
+people already pay for. Claude with an Anthropic key is offered next. Claude is
+not offered (Two assistants: on this computer, and Codex); this holds for when
+it is offered again.
 
 Rejected: Claude first, because a key means a developer website and billing per
 use; and waiting for Anthropic to approve subscription sign-in before building.
@@ -164,7 +168,7 @@ use; and waiting for Anthropic to approve subscription sign-in before building.
 
 A conversation lasts until the person starts a new one, logs out or restarts,
 and is never written to disk. What is worth remembering is written into the
-notebook as `MEMORY.md` describes. (The maintainer, 3 October.)
+notebook as `MEMORY.md` describes.
 
 Rejected: saving every conversation, which fills the notebook with what nobody
 chose to keep and makes it harder for the assistant to find what matters.
@@ -172,7 +176,6 @@ chose to keep and makes it harder for the assistant to find what matters.
 ## No change without a card, however small
 
 Even a small change, such as text size, gets a card; a small one needs one tap.
-(The maintainer, 3 October.)
 
 Rejected: making small changes at once with an Undo afterwards. Where small ends
 would blur, and one simple promise is worth more than the saved tap.
@@ -183,8 +186,8 @@ Where Gooseberry, the notes component, is installed, what the person keeps and
 the memory the assistant needs to call on later become Gooseberry notes, added
 and read only through Gooseberry's notes tool. Split Rock keeps its own `Notes/`
 until then, and always keeps `This computer.md` and `About me.md`. The fence is
-unchanged: the assistant still writes files only in the notebook. (The
-maintainer, 3 October.)
+unchanged: the assistant still writes files only in the notebook. This is
+not built yet (`ROADMAP.md`, Later).
 
 Rejected: kept notes only in the notebook, which splits the person's notes in
 two and keeps them off Gooseberry's board and planner; and reading Gooseberry's
@@ -195,7 +198,6 @@ folder directly, which would make its layout a contract and hide what was read.
 When Gooseberry is installed after answers were kept in `Notes/`, Split Rock
 asks once, on a card, whether to move them, and introduces Gooseberry in a few
 steps. Like every decision, it is the person's, brought to them as a question.
-(The maintainer, 3 October.)
 
 Rejected: moving them without asking, which breaks the card; and leaving them
 silently, which leaves two places to look without the person knowing.
@@ -206,7 +208,6 @@ The concept and these decisions are the approval for Milestone 0. It is built
 whole, then handed over for testing against its proof, rather than brought back
 step by step. A question the documents do not answer still comes to the
 maintainer before it is guessed, and nothing in it may change the computer.
-(The maintainer, 4 October.)
 
 Rejected: options before each step, which the documents already settle.
 
@@ -215,7 +216,7 @@ Rejected: options before each step, which the documents already settle.
 The five screens in `mockup/` are the approved layout and behaviour: the Just
 Type answer, the expanded coworking card, the Do it card, working on a note, and
 Search's doors. An agent builds to them without asking again; a later ruling
-wins where they disagree. (The maintainer, 4 October.)
+wins where they disagree.
 
 ## The window takes Search's shape
 
@@ -232,7 +233,6 @@ less a 10 px gutter, and the full window, with the full view of
 `mockup/Workspace.dc.html`, takes over from it (below).
 There is no Back, at either size: Back belongs to Search, and this is the
 assistant's own window. Esc, or a tap beside the card, closes it.
-(The maintainer, on the tablet, 4 October.)
 
 ## No panel widget in Milestone 1; the rest of Milestone 1 as proposed
 
@@ -244,7 +244,8 @@ this computer uses, newest first, with Forget where those rows have Undo.
 assistant offers what to remember, Split Rock asks, and Split Rock writes it to
 `About me.md` only after Remember. That fixed it, a button under the answer
 beside Keep this, records the problem and what fixed it in
-`This computer.md`. (The maintainer, 4 October.)
+`This computer.md`. The Kept tab, and Forget with it, gave way to This Device
+(This Device: one drawer, and the side follows the card).
 
 Rejected: a panel widget of its own now, which is a Plasma add-on to build and
 only the tablet can test; Forget only by saying "forget that"; the person
@@ -263,7 +264,7 @@ notebook, never to `This computer.md`, `ASSISTANT.md` or `About me.md`, which
 Split Rock writes, and never with anything in it that is never written down; every other
 request is refused and shown on the Do it card, as in Milestone 0. Where the
 computer has no bubblewrap, a real assistant is not started, and `install.sh`
-says so before installing. (Engineering, 4 October, from the ruling above.)
+says so before installing.
 
 Rejected: refusing every write, which leaves the device's folder to Split Rock
 alone; and trusting an assistant's own sandbox, which differs between
@@ -275,8 +276,7 @@ Keep this files the answer in `Notes/`, in a topic folder Split Rock chooses
 from the question's words, and every write is checked for what is never written
 down. Having the assistant choose the topic, and filing into Gooseberry where it
 is installed (`MEMORY.md`), come later: Gooseberry offers no way yet for another
-program to add a note, and its quick note is Search's own session. (Engineering,
-4 October.)
+program to add a note, and its quick note is Search's own session.
 
 Rejected: a turn in the conversation asking the assistant for a topic, which
 the person would see and pay for.
@@ -292,9 +292,8 @@ modes, drawn in Search's own window, as it hosts Gooseberry's quick note:
 Split Rock keeps the conversation and offers it on the session bus
 (`DESKTOP.md` § The conversation in Search), and Search keeps nothing. So that
 the conversation is there when Search asks, Split Rock runs once, keeps running
-after its windows close, and is started by Search's first call. The maintainer
-passed the same model for Gooseberry on the tablet, and wants Genie the same
-way. (The maintainer, 4 October.)
+after its windows close, and is started by Search's first call. Gooseberry
+works the same way.
 
 Rejected: the card as what the icon opens, which cannot be resized or placed
 beside another window; and Search drawing the conversation from a copy of its
@@ -317,36 +316,35 @@ Kadunce makes the Active card: in Spread Kadunce grows the centre and hands it
 to that window when it arrives, and over an Active card the card stays up until
 Kadunce shows the full window as the selected card, then fades. The full view
 of `mockup/Workspace.dc.html` lives in that window, under the desktop's own
-title bar. (The maintainer, 4 October.)
+title bar.
 
 It follows that signing in happens in the full window. The card sits above
 every window, so a browser an assistant opens for its sign-in could not come in
 front of it; a way to sign in chosen in the card opens the full window first,
-and the sign-in starts once it has the conversation. (Engineering, following
-from the card's surface.)
+and the sign-in starts once it has the conversation.
 
 Rejected: an ordinary window for the card, which Kadunce makes a card of its
 own; and the full view inside the grown card, which would leave the
 conversation on a surface above every window.
 
 Search hosting the assistant's conversation inside its own window is a
-different thing, and waits on the background service of Milestone 1
-(`ROADMAP.md`).
+different thing (The icon opens the full window; Search hosts the
+conversation).
 
 Rejected: the Just Type sheet rising from the bottom, which the on-screen keys
 covered.
 
 ## Shuffle Genie inside Shuffle, Split Rock on its own
 
-Jack is retired. Inside Shuffle the product is Shuffle Genie, and Search's pill
+Inside Shuffle the product is Shuffle Genie, and Search's pill
 and the window's header say Genie. On its own, on any Plasma desktop, the
 application is Split Rock. The repository stays Split Rock. Its mark is a genie
 lamp in the suite's line style, kept as one file, `assets/mark.svg`, which every
 surface that draws the assistant uses, so that it is swapped in one place. Genie
 waits on a registered trademark search, as Shuffle Ace does: other AI
-assistants are already called Genie. (The maintainer, 4 October.)
+assistants are already called Genie.
 
-Rejected: Jack, the working name until now.
+Rejected: the earlier working name.
 
 ## The person is leaving decades of Windows
 
@@ -354,8 +352,7 @@ Split Rock is for someone who has used Windows for decades and has just moved to
 Linux: at ease with a computer, new to this one. Age is not the point, and
 nothing in Split Rock is framed by it. Scam questions stay first-class, framed
 by what decades of Windows taught: that a warning in a window can be real, that
-support may phone, and that a fix is a program to download. (The maintainer,
-3 October.)
+support may phone, and that a fix is a program to download.
 
 Rejected: a senior in their seventies, set up by a relative, as the person
 tested against. It framed the product by frailty rather than by the switch, and
@@ -366,7 +363,7 @@ missed what the person brings: decades of habits from another system.
 Troubleshooting the device Split Rock runs on is one of its main jobs, not a side
 case, including unusual hardware such as a tablet like the ASUS ROG Flow Z13,
 with its own power firmware and kernel quirks. Milestone 1 proves it on that
-kind of device. (The maintainer, 3 October.)
+kind of device.
 
 Rejected: treating hardware problems as out of scope for an assistant about the
 desktop. They are what a person leaving Windows meets first, and what they can
@@ -382,21 +379,20 @@ rest: Split Rock becomes a butler on the desktop that answers anything and makes
 changes through the Do it card, at the person's own cost. Split Rock sells no
 account and pays for no use. It is for someone who already pays for a chatbot
 in daily life, most often ChatGPT. What the account costs is the person's
-choice, not a risk for Split Rock to manage. (The maintainer, 3 October.)
+choice, not a risk for Split Rock to manage.
 
 Rejected: Split Rock selling, bundling or paying for assistant use, which would
 make it responsible for accounts and billing; and an assistant that is only
 useful with an account.
 
-Since 10 October the butler also comes without an account, on the computer
-itself (Genie on this computer, below). An account still unlocks the bigger
+The butler also comes without an account, on the computer itself (Genie on
+this computer, below). An account still unlocks the bigger
 fixes.
 
 ## The guide's entries: plain files in shared folders, one per problem
 
 Split Rock owns the format of the troubleshooting guide and its general Plasma
 entries. A desktop adds its own entries without Split Rock depending on it.
-(Engineering, 4 October.)
 
 - **An entry** is one Markdown file for one known problem. Its header gives an
   `id`, unique in its folder; a `title`, the problem as a person would say it;
@@ -436,7 +432,7 @@ Split Rock starts each assistant with a folder of its own for its sign-in and
 settings, and without any key, token or assistant setting from the
 person's environment. A copy of the same assistant the person uses elsewhere is
 never read or changed, and none of its settings can loosen how Split Rock's
-copy behaves. (Engineering, 4 October; Milestone 0.)
+copy behaves.
 
 Rejected: sharing the person's existing sign-ins, which would let Split Rock's
 copy replace them, and could carry over settings that let an assistant act
@@ -447,7 +443,7 @@ without asking.
 Some agents advertise sign-in as running their own program again. Split Rock
 runs it hidden, with nothing typed into it, and offers the page it opens; if it
 needs anything typed, it fails, and that assistant's sign-in counts as needing
-a terminal. (Engineering, 4 October; Milestone 0 checks it live.)
+a terminal. Milestone 0's live sign-in check confirms it.
 
 Rejected: leaving such methods out without trying, which would drop Claude
 before knowing whether its Console sign-in finishes in the browser.
@@ -456,8 +452,7 @@ before knowing whether its Console sign-in finishes in the browser.
 
 Assistants write their own transcripts and logs into their folders. Split Rock
 removes those whenever the assistant stops, and again before it starts, keeping
-only the sign-in. (Engineering, 4 October; it carries out "Conversations are
-not saved".)
+only the sign-in. It carries out "Conversations are not saved".
 
 Rejected: letting each assistant keep its history on disk, which would save the
 conversation the person was promised is not saved.
@@ -470,7 +465,6 @@ header (`id`, `title`, `applies`, `checked`, `format`), and a body of numbered
 steps, each one action and what the person will see. In this repository Split
 Rock's own entries live in `guide/plasma/` and `tour/plasma/`, installed as they
 are; `checked` reads `unreleased` until the first release checks them.
-(Engineering, 4 October.)
 
 Rejected: a second format for the tour, which would give a desktop two ways to
 add its own and two to keep up to date.
@@ -487,7 +481,6 @@ Rock knows only what it can read on the computer. Nothing learned on one compute
 reaches another: releases update the general Plasma entries and a desktop's own
 entries, never device knowledge gathered from people's computers. The ASUS ROG
 Flow Z13's lessons are the test machine's own `Device/`, not shipped content.
-(The maintainer, 4 October.)
 
 Rejected: shipping device folders learned on one machine, which gives every
 person someone else's setup; and collecting what each copy learns for future
@@ -499,7 +492,7 @@ releases, which needs each person's permission and carries a security risk.
 `maker`, `matches` (the text the hardware's product name contains), `checked`
 and `format`, and says how the device was recognised, what it is, what is known
 about it, and the maker's documentation found so far. The device's entries sit
-beside it in the guide's format. (Engineering, 4 October.)
+beside it in the guide's format.
 
 Rejected: folding device knowledge into `This computer.md`, which is the undo
 record and has to stay short enough to read.
@@ -539,7 +532,6 @@ The pointer theme is part of the look. A theme named loosely, such as "Altas"
 for "Altas-Dark", is taken as the one installed theme it fits, and the card
 names that one. A proposal naming a theme that fits none, or several, is not
 shown to the person; the assistant is asked again with the installed names.
-(Engineering, 5 October, after the first tests on the tablet.)
 
 Rejected: letting the assistant run changes itself after asking, which puts the
 fence's safety in the assistant's hands; and a helper that holds administrator
@@ -564,8 +556,7 @@ else on the line, as it still runs inside the fence. A look-around still running
 seconds is stopped. With each question Split Rock adds a hint at the skill that
 fits it best, when one clearly does; the assistant makes the pick and may open
 another skill, or none. Where the assistant runs without the fence, it is told
-the look up front as before. (The maintainer, 5 October: the
-assistant picks from the shelf, and Split Rock may hint.)
+the look up front as before.
 
 Rejected: telling the assistant everything about every setting at the start,
 which grows with each skill and slows every conversation; Split Rock choosing
@@ -581,7 +572,7 @@ never the Do it card. A proposal whose command updates the whole system
 the package lists without updating (`pacman -Sy`), opens the Update card
 instead of a Do it card, and the assistant is told so. The Update tile on the
 upkeep shelf opens it too. Installing or removing one package is still a change like
-any other. (The maintainer, 9 October: the card interface for updates.)
+any other.
 
 The card looks first, as the person: what is waiting and what of it a person
 notices, the notices Arch posted since the last update, the power, the free
@@ -617,12 +608,10 @@ assistant's mark, with no box around it, at a reading size; a question is a
 soft bubble at the right; cards and the composer float a step above the sheet
 with a hairline edge and larger corners. The mark's blue is the conversation's
 one colour, deepened on a light sheet: primary buttons, the send button,
-progress, focus and step numbers take it, where Itasca's rule keeps a shell
-monochrome. The card window keeps Search's shape. (The maintainer, 9 October:
-make the chat look more premium, outside Itasca's rules where that helps.)
+progress, focus and step numbers take it, where the suite's visual language keeps
+a shell monochrome. The card window keeps Search's shape.
 
-Later the same evening the maintainer passed the look and asked for more
-colour. The blue now runs into violet across the question bubble, the send
+The blue runs into violet across the question bubble, the send
 button and progress, and each upkeep card has a hue of its own, washed across
 its top and carried by its shelf tile and its icon: Update blue, Free up space
 teal, Install an app violet, Restore points amber, Health check green and
@@ -641,9 +630,7 @@ through the system's own password prompt once, written in `This computer.md`
 before it starts and reported to the assistant after. The cards are fixed in
 Split Rock; the assistant opens one by proposing it (`"card"` in a proposal,
 with an optional query) and never writes their commands. A shelf on the welcome
-page and in the notebook opens each. (The maintainer, 9 October: the card
-interface passed, kept working on its other uses, except a Shuffle catch-up on
-Plasma day, which Shuffle's own preparation covers.)
+page and in the notebook opens each.
 
 - **Free up space** offers the package cache, the system journal, old crash
   reports, the person's cache and leftover app builds, Flatpak runtimes nothing
@@ -669,15 +656,16 @@ Plasma day, which Shuffle's own preparation covers.)
 
 Rejected: running `snapper rollback` from the card; mixing community packages
 into Install an app or the update; building a community update from the latest
-recipe instead of the one the person reviewed; and a Shuffle catch-up card.
+recipe instead of the one the person reviewed; and a Shuffle catch-up card on
+the day Plasma releases, which Shuffle's own preparation covers.
 
 ## The app icon keeps an icon theme's margin
 
 The icon's tile sits inside the margin icon themes leave around application
 artwork, 42 of 48 in Colloid, so it is the size of the apps beside it in a dock,
-a launcher or Search. (The maintainer, 7 October, for pixel-matched demo videos.)
+a launcher or Search.
 
-Rejected: the tile drawn to the icon's edges, chosen on 6 October, which reads
+Rejected: the tile drawn to the icon's edges, chosen first, which reads
 a size larger than every themed app next to it.
 
 ## Genie on this computer
@@ -687,9 +675,8 @@ Split Rock offers an assistant of its own that runs on the computer, named
 answers questions and makes everyday changes through the same Do it cards, with
 no account, and nothing the person asks leaves the computer. A change bigger
 than it can make by itself ends with an Ask button that passes the question to
-the assistant the person brought, usually Codex. (The maintainer, 10 October,
-after two trials on the tablet: the second, with the front desk, was "far
-better" and feasible for 1.0.)
+the assistant the person brought, usually Codex. In trials on a tablet the
+model did far better behind the front desk below than on its own.
 
 - **The model is Split Rock's own download, made once.** It is fetched the
   first time the person chooses it, after they tap Download: Qwen3 4B, about
@@ -718,7 +705,7 @@ Rejected: Ollama, a second service to install and keep running; letting the
 model run commands in an agent loop, which a small model does not do safely;
 the larger 8B model on computers with 16 GB of memory and a graphics chip,
 which scored lower than the 4B in the third trial (115 of 144 against 125) for
-twice the download (the maintainer, 10 October); and
+twice the download; and
 a local model with no hand-off, which leaves bigger fixes with nowhere to go.
 
 ## The tiles say what Genie noticed
@@ -731,9 +718,8 @@ nothing needs the person, the tiles offer what Genie can do here instead,
 from its upkeep cards taking turns with quick tiles such as Take a screenshot,
 which only open an app the computer already has and so need no card. Both
 looks only read, run quietly while Split Rock runs, and open no card by
-themselves. (The maintainer, 10 October: the fixed tiles read as generic for a
-butler; updates waiting is the first one they must show; "Find an app for a
-job" read as a job search, so the tile says Install a new app.)
+themselves. "Find an app for a job" read as a job search, so the tile says
+Install a new app.
 
 Rejected: the same three questions for everyone, which read as a help page;
 and offers only, which say nothing about the computer itself.
@@ -759,8 +745,7 @@ card itself changes nothing. On Genie on this computer the front desk opens it
 for these words without the model's help, unless the model found a settings
 skill that makes the change asked for. On the upkeep shelf it takes Restore
 points' tile, which opens from the card's Go back and from the health check,
-so the shelf keeps six tiles. (The maintainer, 10 October: Maintenance and
-Recovery before the announcement; What changed as a card of its own.)
+so the shelf keeps six tiles.
 
 Maintenance gains two settings skills and three health checks:
 
@@ -799,9 +784,7 @@ guide itself, as written, whenever an entry fits the question, so the guide is
 no longer a choice of its own there; it stays one only where Split Rock on this
 computer can't run. Split Rock on this computer never offers to remember
 something about the person, since what a small model would keep can't be
-trusted to be right. (The maintainer, 10 October, after a day of real use:
-"Now that local exists, Claude and Gemini can get the axe"; other paid
-assistants are for later.)
+trusted to be right. Other paid assistants may be looked at later.
 
 Rejected: keeping Claude Agent and Gemini CLI, never tested to ship; the guide
 as a separate choice beside an assistant that already knows it; and the small
@@ -816,9 +799,8 @@ The person says yes on the card, so a change never stops to ask again: the
 package manager is given its yes (`--noconfirm`), and Flatpak its own
 (`-y --noninteractive`), for installs, removals and updates, whichever
 assistant wrote the command. The card shows the command as written; the record
-keeps it so. (The maintainer, 10 October: "Codex was also unable to uninstall,
-which is a critical failure". pacman stopped at "Do you want to remove these
-packages? [Y/n]" with no one to answer, and the change failed.)
+keeps it so. Without it, pacman stopped at "Do you want to remove these
+packages? [Y/n]" with no one to answer, and a removal failed.
 
 Rejected: answering the question by feeding "y" to the change, which answers
 every other question it might ask too.
@@ -848,8 +830,7 @@ System, About me, Troubleshooting (the device's open and solved problems,
 open while one is still open) and Changes. An upkeep card open in the
 conversation brings the closet that goes with it to the top, open: What
 changed its Changes, the health check Troubleshooting, Restore points the
-System. (The maintainer, 10 October: "an action card should have a paired
-sidebar"; "Remove the 3 tab system, its one drawer: This Device".)
+System.
 
 Kept goes from the drawer: kept answers are plain notes, read and searched in
 the notes app where Gooseberry is installed. Fixed problems goes too: the
@@ -866,8 +847,7 @@ or the system did by itself, as CachyOS's snap-pac does before every install,
 removal and update; a helper's command line is said in words ("Before
 installing a community app"). The card says the computer clears old ones by
 itself, with how many it keeps, read from its own settings, so no one needs
-to delete them. (The maintainer, 10 October: "I never asked for a restore
-point, how many is this thing grabbing?")
+to delete them.
 
 Rejected: deleting restore points from the card, which the system's own
 cleanup already does on a schedule the person never has to think about.

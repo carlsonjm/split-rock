@@ -7,17 +7,18 @@ from its entry and its card stands over the work.
 
 ## The entry
 
-The desktop file id is `io.github.carlsonjm.SplitRock`, and it is every
-window's application id, so a card workspace knows Split Rock's windows as
-Split Rock's. The desktop file is `data/io.github.carlsonjm.SplitRock.desktop.in`.
-Until Milestone 3's package, `install.sh` installs it, with the program, its
-icon, the bus service file, the guide, the tour and the assistants' adapters,
-for every account; `uninstall.sh` removes them. That is a developer install
-for the maintainer's own computer, not the package.
+The desktop file id is `io.github.carlsonjm.SplitRock`, and it is every window's
+application id, so a card workspace knows Split Rock's windows as Split Rock's.
+The desktop file is `data/io.github.carlsonjm.SplitRock.desktop.in`. Until
+Milestone 3's package, `install.sh` installs it, with the program, its icon, the
+bus service file, the guide, the tour, the settings skills, Codex's adapter, and
+Split Rock on this computer's front desk with its model list and the model's
+licence, for every account; `uninstall.sh` removes them. That is a developer
+install for the maintainer's own computer, not the package.
 
 | Start | What opens |
 | --- | --- |
-| Split Rock's icon, with no arguments | The full window, the view in `mockup/Workspace.dc.html`: an ordinary resizable window that a card workspace can place beside another. The notebook is a panel at its right that folds away: open beside the conversation when the window is wide, folded when it is narrow, where it slides over the conversation when opened. Nothing in it runs past the window's sides at any width down to 360 points |
+| Split Rock's icon, with no arguments | The full window, the view in `mockup/Workspace.dc.html`: an ordinary resizable window that a card workspace can place beside another. This Device, the notebook's drawer, is a panel at its right that folds away: open beside the conversation when the window is wide, folded when it is narrow, where it slides over the conversation when opened. Nothing in it runs past the window's sides at any width down to 360 points |
 | Ask, in the icon's menu, or `--ask` | The card in Search's shape; in Spread it holds the centre (`DECISIONS.md`) |
 | `--background` | Nothing: the conversation waits for Search, as when Search's first call starts Split Rock |
 
@@ -50,23 +51,23 @@ variants:
 
 | Key | Type | What it is |
 | --- | --- | --- |
-| `phase` | `s` | `choose`, `sign-in`, `starting`, `ready`, `answering` or `failed` |
+| `phase` | `s` | `choose`, `sign-in`, `download`, `starting`, `ready`, `answering` or `failed`; `download` while Split Rock on this computer waits for its model, which is downloaded in the full window |
 | `assistant` | `s` | The assistant's name, as shown; empty until one is chosen |
 | `question` | `s` | The question being answered |
 | `answer` | `s` | The answer's headline, its one short first line; for an answer that opens with its steps, the first paragraph after them |
 | `more` | `as` | The answer's other paragraphs, in order, after the steps |
 | `steps` | `as` | The answer's numbered steps, in order |
 | `suggestions` | `as` | Questions to start from |
-| `canDoIt` | `b` | Do it would make the change the answer asks for; never in Milestone 0 |
-| `doItReason` | `s` | Why Do it is unavailable; empty when the answer asks to change nothing |
+| `canDoIt` | `b` | Always false: Do it is never done from Search; the card is decided in the full window |
+| `doItReason` | `s` | Set whenever the answer has a card, saying why Do it is unavailable here; empty when the answer asks to change nothing |
 | `kept` | `b` | Keep this was used on this answer |
 | `problem` | `s` | What went wrong, in plain words, while the phase is `failed` |
 | `remember` | `s` | What the assistant offers to remember about the person, until the person answers; Search asks "Remember that?" with it |
 | `fixed` | `b` | That fixed it was used on this answer |
 
-`more`, `remember` and `fixed`, and the actions `remember`, `dont-remember` and
-`fixed`, were added after the first version of this table; a version-1 caller
-may ignore them, so the version stays `1`.
+`more`, `remember` and `fixed`, the actions `remember`, `dont-remember` and
+`fixed`, and the `download` phase were added after the first version of this
+table; a version-1 caller may ignore them, so the version stays `1`.
 
 Search shows Do it when `canDoIt` is true or `doItReason` is not empty, and
 unavailable, with the reason, when only the reason is there.
@@ -74,10 +75,10 @@ unavailable, with the reason, when only the reason is there.
 | Method | What it does |
 | --- | --- |
 | `ProtocolVersion() → u` | The version, `1` |
-| `Start() → a{sv}` | Starts the conversation with the assistant the person chose last time, or resumes the one already going. With none chosen the phase is `choose`, and with the assistant not signed in it becomes `sign-in`: Search offers Expand, which opens the full window to finish it |
-| `Ask(s text) → a{sv}` | Asks; the reply's phase is `answering`, and the answer streams through `Changed`. Asked while the assistant is `starting` or at `sign-in`, the question waits, shown in `question`, and is asked as soon as the assistant is ready, as Search asks the moment it opens |
+| `Start() → a{sv}` | Starts the conversation with the assistant the person chose last time, or resumes the one already going. With none chosen the phase is `choose`; with the assistant not signed in it becomes `sign-in`, and with Split Rock on this computer's model not yet downloaded, `download`: Search offers Expand, which opens the full window to finish it |
+| `Ask(s text) → a{sv}` | Asks; the reply's phase is `answering`, and the answer streams through `Changed`. Asked while the assistant is `starting`, at `sign-in` or at `download`, the question waits, shown in `question`, and is asked as soon as the assistant is ready, as Search asks the moment it opens |
 | `Cancel() → a{sv}` | Stops the answer in progress; what was said so far stays. A question still waiting for the assistant is dropped |
-| `Act(s action) → a{sv}` | `show-me-how`: the steps to make the asked-for change by hand. `do-it`: the Do it card in the full window, where Do it is unavailable in Milestone 0. `keep`: Keep this, which files the answer in the notebook; `kept` is then true. `remember` and `dont-remember`: the answer to "Remember that?"; only `remember` writes. `fixed`: That fixed it, which records the problem and its fix in `This computer.md` |
+| `Act(s action) → a{sv}` | `show-me-how`: the steps to make the asked-for change by hand. `do-it`: opens the full window on the answer's card, where the person decides. `keep`: Keep this, which files the answer in the notebook; `kept` is then true. `remember` and `dont-remember`: the answer to "Remember that?"; only `remember` writes. `fixed`: That fixed it, which records the problem and its fix in `This computer.md` |
 | `OpenWindow(s requestToken) → b` | Opens the full window on this conversation, or brings it forward |
 
 | Signal | When |
@@ -87,16 +88,16 @@ unavailable, with the reason, when only the reason is there.
 
 | Error | When |
 | --- | --- |
-| `io.github.carlsonjm.SplitRock.Error.NotReady` | `Ask` with no assistant chosen, after it failed, or while an answer is still coming; `show-me-how` before the assistant is ready or with nothing answered |
-| `io.github.carlsonjm.SplitRock.Error.NotAvailable` | `keep` with no notebook, and `do-it` on an answer that asks to change nothing |
+| `io.github.carlsonjm.SplitRock.Error.NotReady` | `Ask` with no assistant chosen, after it failed, or while an answer is still coming; `show-me-how`, `keep` or `fixed` before the assistant is ready or with nothing answered |
+| `io.github.carlsonjm.SplitRock.Error.NotAvailable` | `keep` or `fixed` with no notebook; `remember` or `dont-remember` with nothing offered; `show-me-how` with the guide chosen; and `do-it` on an answer that asks to change nothing |
 | `io.github.carlsonjm.SplitRock.Error.Refused` | `keep`, `remember` or `fixed` with something in it that is never written down; the message says what, in plain words |
 | `org.freedesktop.DBus.Error.InvalidArgs` | An empty question, or an action not listed |
 
 For Expand, Search calls `OpenWindow` with a token of its own and waits for
 `WindowShown` with that token: from then the full window, whose application is
 `io.github.carlsonjm.SplitRock`, is on screen, and Search can hand the moment
-to Kadunce so the window takes the card's place.
+to Cards so the window takes the card's place.
 
-Only the person's choice of assistant is written down, in
+Of the conversation, only the person's choice of assistant is written down, in
 `split-rockrc` in the person's settings folder, so the next start begins with
 the same one. The conversation itself is never saved (`MEMORY.md`).
