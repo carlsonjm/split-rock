@@ -59,7 +59,9 @@ struct Desk {
         hooks.now = [this] { return now; };
         hooks.doNotDisturb = [this] { return doNotDisturb; };
         hooks.notify = [this](const QString &summary, const QString &body) { ticker.append(summary + QStringLiteral(" | ") + body); };
-        hooks.openCard = [this](const QString &card) { opened.append(card); };
+        hooks.openCard = [this](const QString &card, const QString &query) {
+            opened.append(query.isEmpty() ? card : card + QStringLiteral(": ") + query);
+        };
         core = std::make_unique<Core>(dir.filePath(QStringLiteral("core")), dir.filePath(QStringLiteral("corerc")), hooks);
     }
 
@@ -236,6 +238,26 @@ private Q_SLOTS:
         QVERIFY(!QFile::exists(d.dir.filePath(QStringLiteral("core/storage.tsv"))));
     }
 
+    void searchOpensEachUpkeepCard()
+    {
+        Desk d;
+        QStringList ids;
+        for (const QVariantMap &action : Core::actions()) {
+            ids.append(action.value(QStringLiteral("id")).toString());
+            QVERIFY(!action.value(QStringLiteral("title")).toString().isEmpty());
+            QVERIFY(!action.value(QStringLiteral("keywords")).toStringList().isEmpty());
+        }
+        QCOMPARE(ids, (QStringList{QStringLiteral("update"), QStringLiteral("space"), QStringLiteral("install"),
+                                   QStringLiteral("health"), QStringLiteral("changes"), QStringLiteral("restore"),
+                                   QStringLiteral("community")}));
+        QVERIFY(d.core->openAction(QStringLiteral("health"), QStringLiteral("health")));
+        // Only Install an app takes what was typed.
+        QVERIFY(d.core->openAction(QStringLiteral("install"), QStringLiteral(" install pdf editor ")));
+        QVERIFY(!d.core->openAction(QStringLiteral("format-the-disk"), QString()));
+        QCOMPARE(d.opened, (QStringList{QStringLiteral("health"), QStringLiteral("install: install pdf editor")}));
+        QVERIFY(d.logbook().contains(QStringLiteral("Search  You opened Health check.")));
+    }
+
     void theBusOffersTheFacts()
     {
         // The test's own bus connection to itself, where there is a bus.
@@ -254,6 +276,11 @@ private Q_SLOTS:
         QVERIFY2(facts.isValid(), qPrintable(facts.error().message()));
         QCOMPARE(facts.value().size(), 1);
         QCOMPARE(facts.value().first().value(QStringLiteral("line")).toString(), QStringLiteral("92% full"));
+        const QDBusReply<QList<QVariantMap>> actions
+            = bus.call(QDBusMessage::createMethodCall(QLatin1String(CoreService::Service), QLatin1String(CoreService::Path),
+                                                      QStringLiteral("io.github.carlsonjm.SplitRock.Core"), QStringLiteral("Actions")));
+        QVERIFY2(actions.isValid(), qPrintable(actions.error().message()));
+        QCOMPARE(actions.value().size(), 7);
         bus.unregisterService(QLatin1String(CoreService::Service));
         bus.unregisterObject(QLatin1String(CoreService::Path));
     }

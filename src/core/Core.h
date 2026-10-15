@@ -37,8 +37,9 @@ public:
         std::function<bool()> doNotDisturb = [] { return false; };
         // An ordinary notification, for the ticker.
         std::function<void(const QString &summary, const QString &body)> notify;
-        // Opens the card the fact's action names, such as "space".
-        std::function<void(const QString &card)> openCard;
+        // Opens an upkeep card by its name, such as "space", with what the
+        // person typed for the cards that take it.
+        std::function<void(const QString &card, const QString &query)> openCard;
     };
 
     // folder: where its files are kept. settings: the person's settings file,
@@ -52,6 +53,14 @@ public:
     QList<QVariantMap> facts() const;
     // The person answered a fact: "open", "not-now" or "dismiss".
     bool act(const QString &topic, const QString &action);
+
+    // The upkeep cards Search can open by their words: id, title, sub,
+    // icon and keywords each. They act only after the person's yes, on the
+    // card.
+    static QList<QVariantMap> actions();
+    // Opens one; query is passed on only to the card that takes it, Install
+    // an app. False for an action not listed.
+    bool openAction(const QString &id, const QString &query);
 
     QString folder() const { return m_folder; }
     static QString defaultFolder();

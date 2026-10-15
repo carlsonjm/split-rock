@@ -922,6 +922,45 @@ private Q_SLOTS:
         QMetaObject::invokeMethod(find(window.get(), QStringLiteral("spaceClose")), "clicked");
         QTRY_VERIFY(!window->isVisible());
         QVERIFY(c.chore().isEmpty());
+
+        // Every other card opens the same way, as Search opens it.
+        const auto printing = [&chores](const QString &name) { return QStringLiteral("cat '") + chores + name + QLatin1Char('\''); };
+        SystemUpdate *update = c.systemUpdate();
+        update->setElevate({});
+        update->setLookScript(QStringLiteral("cat '" FIXTURES_DIR "/update/look.txt'"));
+        update->setReport({});
+        AppInstall *install = c.appInstall();
+        install->setElevate({});
+        install->setSearchScript(printing(QStringLiteral("install-search.txt")));
+        install->setReport({});
+        c.healthCheck()->setLookScript(printing(QStringLiteral("health-look.txt")));
+        c.healthCheck()->setReport({});
+        c.restorePoints()->setLookScript(printing(QStringLiteral("restore-look.txt")));
+        c.restorePoints()->setReport({});
+        c.communityApps()->setElevate({});
+        c.communityApps()->setLookScript(printing(QStringLiteral("community-look.txt")));
+        c.communityApps()->setReport({});
+        const struct { const char *name; const char *query; const char *card; const char *stage; const char *title; } each[] = {
+            {"update", "", "updateCard", "ready", "Update"},
+            {"install", "pdf editor", "installCard", "results", "Install a new app"},
+            {"health", "", "healthCard", "done", "Health check"},
+            {"restore", "", "restoreCard", "ready", "Restore points"},
+            {"community", "", "communityCard", "ready", "Community apps"},
+        };
+        for (const auto &card : each) {
+            const QString name = QString::fromLatin1(card.name);
+            QVERIFY2(c.openChore(name, QString::fromLatin1(card.query)), card.name);
+            window->show();
+            QCOMPARE(window->title(), QString::fromLatin1(card.title));
+            QTRY_VERIFY2(find(window.get(), QString::fromLatin1(card.card)) && find(window.get(), QString::fromLatin1(card.card))->isVisible(), card.name);
+            QObject *job = c.property(card.name).value<QObject *>();
+            QTRY_COMPARE(job->property("stage").toString(), QString::fromLatin1(card.stage));
+            settle();
+            QVERIFY2(overflowing(window.get()).isEmpty(), card.name);
+            shoot(window.get(), QStringLiteral("61-") + name + QStringLiteral("-on-its-own"));
+            QMetaObject::invokeMethod(job, "close");
+            QTRY_VERIFY2(!window->isVisible(), card.name);
+        }
     }
 
     void theUpkeepCardsShowEachStep()

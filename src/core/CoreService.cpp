@@ -35,4 +35,14 @@ bool CoreService::Act(const QString &topic, const QString &action)
     return m_core->act(topic, action);
 }
 
+QList<QVariantMap> CoreService::Actions() const
+{
+    return Core::actions();
+}
+
+bool CoreService::OpenAction(const QString &id, const QString &query)
+{
+    return m_core->openAction(id, query);
+}
+
 } // namespace splitrock::core

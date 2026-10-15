@@ -124,7 +124,7 @@ bool Core::act(const QString &topic, const QString &action)
     if (action == QLatin1String("open")) {
         write(QStringLiteral("Storage  You opened Free up space."));
         if (m_hooks.openCard)
-            m_hooks.openCard(QStringLiteral("space"));
+            m_hooks.openCard(QStringLiteral("space"), QString());
     } else if (action == QLatin1String("not-now")) {
         write(QStringLiteral("Storage  You said not now; quiet until %1% full.").arg(m_attention.quietUntil));
     } else {
@@ -134,6 +134,51 @@ bool Core::act(const QString &topic, const QString &action)
     if (islandBefore != m_attention.islandOpen)
         Q_EMIT factChanged(storageFact());
     return true;
+}
+
+QList<QVariantMap> Core::actions()
+{
+    const auto action = [](const char *id, const char *title, const char *sub, const char *icon,
+                           std::initializer_list<const char *> words) {
+        QStringList keywords;
+        for (const char *word : words)
+            keywords.append(QString::fromUtf8(word));
+        return QVariantMap{{QStringLiteral("id"), QString::fromUtf8(id)},
+                           {QStringLiteral("title"), QString::fromUtf8(title)},
+                           {QStringLiteral("sub"), QString::fromUtf8(sub)},
+                           {QStringLiteral("icon"), QString::fromUtf8(icon)},
+                           {QStringLiteral("keywords"), keywords}};
+    };
+    // The same cards, words and order as the upkeep shelf.
+    return {
+        action("update", "Check for updates", "Everything, with a restore point first", "system-software-update",
+               {"update", "updates", "upgrade", "check for updates"}),
+        action("space", "Free up space", "Old copies and leftovers", "drive-harddisk",
+               {"free up space", "space", "storage", "disk", "clean up", "cleanup"}),
+        action("install", "Install an app", "Say what you need, or remove one", "system-software-install",
+               {"install", "install an app", "uninstall", "remove an app", "get an app"}),
+        action("health", "Health check", "A look over the computer", "security-high",
+               {"health", "health check", "check my computer", "diagnose", "troubleshoot"}),
+        action("changes", "What changed", "Undo, or go back to before", "edit-undo",
+               {"what changed", "changed", "undo", "something changed", "stopped working"}),
+        action("restore", "Restore points", "Go back to an earlier state", "document-revert",
+               {"restore", "restore point", "restore points", "snapshot", "go back"}),
+        action("community", "Community apps", "Read, then update, AUR apps", "applications-other",
+               {"community apps", "aur", "community"}),
+    };
+}
+
+bool Core::openAction(const QString &id, const QString &query)
+{
+    for (const QVariantMap &action : actions()) {
+        if (action.value(QStringLiteral("id")).toString() != id)
+            continue;
+        write(QStringLiteral("Search  You opened %1.").arg(action.value(QStringLiteral("title")).toString()));
+        if (m_hooks.openCard)
+            m_hooks.openCard(id, id == QLatin1String("install") ? query.trimmed() : QString());
+        return true;
+    }
+    return false;
 }
 
 void Core::write(const QString &line)

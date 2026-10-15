@@ -134,8 +134,11 @@ int main(int argc, char **argv)
         return 0;
 
     const QString drive = parser.isSet(driveOption) ? parser.value(driveOption) : QDir::homePath();
-    const auto openCard = [](const QString &card) {
-        QProcess::startDetached(splitRockProgram(), {QStringLiteral("--card"), card});
+    const auto openCard = [](const QString &card, const QString &query) {
+        QStringList arguments{QStringLiteral("--card"), card};
+        if (!query.isEmpty())
+            arguments << QStringLiteral("--query") << query;
+        QProcess::startDetached(splitRockProgram(), arguments);
     };
 
     Core *core = nullptr;

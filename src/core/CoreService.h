@@ -32,6 +32,8 @@ public Q_SLOTS:
     Q_SCRIPTABLE uint ProtocolVersion() const;
     Q_SCRIPTABLE QList<QVariantMap> Facts() const;
     Q_SCRIPTABLE bool Act(const QString &topic, const QString &action);
+    Q_SCRIPTABLE QList<QVariantMap> Actions() const;
+    Q_SCRIPTABLE bool OpenAction(const QString &id, const QString &query);
 
 Q_SIGNALS:
     Q_SCRIPTABLE void FactChanged(const QVariantMap &fact);

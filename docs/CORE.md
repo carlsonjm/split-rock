@@ -72,6 +72,8 @@ card, said not now, or left it, so real use can set these limits.
 | `ProtocolVersion() → u` | The version, `1` |
 | `Facts() → aa{sv}` | Every fact Core has now; none for a topic switched off |
 | `Act(s topic, s action) → b` | The person answered a fact: `open` opens its card, `not-now` and `dismiss` quiet it. False for any other topic or action |
+| `Actions() → aa{sv}` | The upkeep cards Search can open by their words: `id`, `title`, `sub`, `icon` and `keywords` (`as`) each |
+| `OpenAction(s id, s query) → b` | Opens that card on its own. `query` goes only to Install an app, which searches for it, or removes an app when it starts with "uninstall" or "remove". False for an id not listed |
 | `FactChanged(a{sv})` | A fact changed: its words, its level or whether it wants the island |
 
 Each fact is a dictionary of strings to variants:
@@ -89,9 +91,19 @@ Each fact is a dictionary of strings to variants:
 | `actionText` | `s` | What the card is called: `Free up space` |
 | `keywords` | `as` | The words Search finds it by |
 
+## Actions from Search
+
+Every upkeep card opens from Search on its own, with no conversation: Check
+for updates, Free up space, Install an app, Health check, What changed, Restore
+points and Community apps. Core lists them with the words each is found by,
+and Search matches what is typed against them without asking Core anything.
+Enter on one asks Core to open it. Each card looks first and changes nothing
+until the person's yes, as it always has. The logbook records each one opened.
+
 ## Opening a card
 
-Core opens a card by starting `split-rock --card space`. Split Rock then opens
+Core opens a card by starting `split-rock --card space`, or
+`split-rock --card install --query "pdf editor"` for the card that takes words. Split Rock then opens
 that one upkeep card on its own, in an ordinary window titled after the card,
 with no conversation and no assistant started. The window closes when the card
 does, and can't be closed while the card is busy.

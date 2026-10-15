@@ -3,7 +3,7 @@
 // Milestone 0's program: Split Rock, talking to real assistants over the Agent
 // Client Protocol, and offering its conversation to Search on the session bus.
 //
-//   split-rock [--ask | --background | --card NAME] [--assistants DIR] [--state DIR] [--pretend SCRIPT] [--guide DIR]...
+//   split-rock [--ask | --background | --card NAME [--query TEXT]] [--assistants DIR] [--state DIR] [--pretend SCRIPT] [--guide DIR]...
 //
 // With no arguments, as from its entry, it opens the full window. --ask opens
 // the card in Search's shape; --background opens nothing, as when Search's
@@ -58,6 +58,9 @@ namespace {
 const QCommandLineOption askOption(QStringLiteral("ask"), QStringLiteral("Open the card in Search's shape."));
 const QCommandLineOption backgroundOption(QStringLiteral("background"),
                                           QStringLiteral("Open nothing: the conversation waits for Search."));
+const QCommandLineOption queryOption(QStringLiteral("query"),
+                                     QStringLiteral("With --card install: what to look for, or to remove."),
+                                     QStringLiteral("text"));
 const QCommandLineOption cardOption(QStringLiteral("card"),
                                     QStringLiteral("Open one upkeep card on its own: update, space, health, changes or restore."),
                                     QStringLiteral("name"));
@@ -113,7 +116,7 @@ int main(int argc, char **argv)
     const QCommandLineOption guideOption(QStringLiteral("guide"),
                                          QStringLiteral("Also read the guide and tour under this folder."),
                                          QStringLiteral("dir"));
-    parser.addOptions({askOption, backgroundOption, cardOption, assistantsOption, stateOption, notebookOption, pretendOption, guideOption});
+    parser.addOptions({askOption, backgroundOption, cardOption, queryOption, assistantsOption, stateOption, notebookOption, pretendOption, guideOption});
     parser.process(app);
 
     // The one running Split Rock answers instead.
@@ -215,8 +218,8 @@ int main(int argc, char **argv)
 
     // An upkeep card on its own, made the first time one is asked for.
     QQuickWindow *actionWindow = nullptr;
-    const auto openAction = [&](const QString &name) {
-        if (!conversation.openChore(name))
+    const auto openAction = [&](const QString &name, const QString &query) {
+        if (!conversation.openChore(name, query))
             return;
         if (!actionWindow) {
             QQmlComponent component(&engine, QUrl(QStringLiteral("qrc:/qml/ActionWindow.qml")));
@@ -233,12 +236,12 @@ int main(int argc, char **argv)
 
     const auto handle = [&](const QStringList &arguments) {
         QCommandLineParser request;
-        request.addOptions({askOption, backgroundOption, cardOption, assistantsOption, stateOption, notebookOption, pretendOption, guideOption});
+        request.addOptions({askOption, backgroundOption, cardOption, queryOption, assistantsOption, stateOption, notebookOption, pretendOption, guideOption});
         request.parse(arguments);
         if (request.isSet(backgroundOption))
             return;
         if (request.isSet(cardOption)) {
-            openAction(request.value(cardOption));
+            openAction(request.value(cardOption), request.value(queryOption));
             return;
         }
         // The assistant the person chose last time starts with the window.
