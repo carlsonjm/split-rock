@@ -8,6 +8,7 @@
 #include "core/Core.h"
 #include "core/CoreService.h"
 #include "core/Storage.h"
+#include "core/Updates.h"
 
 #include <QDBusConnection>
 #include <QDBusConnectionInterface>
@@ -47,6 +48,7 @@ struct Desk {
     double percent = 50;
     bool doNotDisturb = false;
     QStringList ticker;
+    QStringList topics;
     QStringList opened;
     std::unique_ptr<Core> core;
 
@@ -58,7 +60,10 @@ struct Desk {
         hooks.look = [this](const QDateTime &when) { return at(when, percent); };
         hooks.now = [this] { return now; };
         hooks.doNotDisturb = [this] { return doNotDisturb; };
-        hooks.notify = [this](const QString &summary, const QString &body) { ticker.append(summary + QStringLiteral(" | ") + body); };
+        hooks.notify = [this](const QString &topic, const QString &summary, const QString &body) {
+            ticker.append(summary + QStringLiteral(" | ") + body);
+            topics.append(topic);
+        };
         hooks.openCard = [this](const QString &card, const QString &query) {
             opened.append(query.isEmpty() ? card : card + QStringLiteral(": ") + query);
         };
@@ -72,7 +77,35 @@ struct Desk {
         core->check();
     }
 
+    // A look for updates: this many waiting, the last full update this many
+    // days ago (none when negative).
+    void updates(int waiting, int daysSince, int minutesLater = 30)
+    {
+        now = now.addSecs(minutesLater * 60);
+        UpdatesLook seen;
+        seen.at = now;
+        seen.known = true;
+        seen.waiting = waiting;
+        if (daysSince >= 0)
+            seen.lastUpdate = now.addDays(-daysSince);
+        core->seeUpdates(seen);
+    }
+
+    void setNotice(const QString &notice)
+    {
+        QSettings settings(dir.filePath(QStringLiteral("corerc")), QSettings::IniFormat);
+        settings.setValue(QStringLiteral("General/Notice"), notice);
+    }
+
     QVariantMap fact() const { return core->facts().value(0); }
+    QVariantMap fact(const QString &topic) const
+    {
+        for (const QVariantMap &fact : core->facts()) {
+            if (fact.value(QStringLiteral("topic")).toString() == topic)
+                return fact;
+        }
+        return {};
+    }
     QString logbook() const { return read(dir.filePath(QStringLiteral("core/logbook.txt"))); }
 };
 
@@ -272,6 +305,177 @@ private Q_SLOTS:
         QVERIFY(!d.core->openAction(QStringLiteral("format-the-disk"), QString()));
         QCOMPARE(d.opened, (QStringList{QStringLiteral("health"), QStringLiteral("install: install pdf editor")}));
         QVERIFY(d.logbook().contains(QStringLiteral("Search  You opened Health check.")));
+    }
+
+    void updatesAreJudgedByDaysBehind()
+    {
+        UpdatesLook look;
+        look.at = Start;
+        QVERIFY(!judge(look, QDateTime()).known);
+
+        look.known = true;
+        look.waiting = 12;
+        look.lastUpdate = Start.addDays(-9);
+        UpdatesFact fact = judge(look, QDateTime());
+        QVERIFY(fact.known);
+        QCOMPARE(fact.daysBehind, 9);
+        QCOMPARE(fact.level, Level::Ticker);
+        QCOMPARE(fact.line, QStringLiteral("12 waiting"));
+        QCOMPARE(fact.detail, QStringLiteral("Last updated 9 days ago"));
+
+        look.lastUpdate = Start.addDays(-6);
+        QCOMPARE(judge(look, QDateTime()).level, Level::Quiet);
+        look.lastUpdate = Start.addDays(-21);
+        QCOMPARE(judge(look, QDateTime()).level, Level::Island);
+
+        // Nothing waiting is quiet however long ago the last update was.
+        look.waiting = 0;
+        fact = judge(look, QDateTime());
+        QCOMPARE(fact.level, Level::Quiet);
+        QCOMPARE(fact.line, QStringLiteral("Up to date"));
+        QCOMPARE(fact.daysBehind, 0);
+
+        // No record of updates: counted from when Core first saw them waiting.
+        look.waiting = 3;
+        look.lastUpdate = QDateTime();
+        fact = judge(look, Start.addDays(-8));
+        QCOMPARE(fact.level, Level::Ticker);
+        QCOMPARE(fact.detail, QStringLiteral("Waiting for 8 days"));
+
+        // Notice moves the marks.
+        look.lastUpdate = Start.addDays(-4);
+        QCOMPARE(judge(look, QDateTime(), UpdatesLimits{3, 10}).level, Level::Ticker);
+        QCOMPARE(judge(look, QDateTime(), UpdatesLimits{21, 45}).level, Level::Quiet);
+    }
+
+    void theCheckersAreReadPlainly()
+    {
+        QCOMPARE(countLines(QStringLiteral("linux 6.17.1-1 -> 6.17.2-1\nmesa 25.2.4-1 -> 25.2.5-1\n\n")), 2);
+        QCOMPARE(countLines(QString()), 0);
+        const QString log = QStringLiteral(
+            "[2026-10-01T10:00:00-0500] [PACMAN] Running 'pacman -Syu'\n"
+            "[2026-10-01T10:00:01-0500] [PACMAN] starting full system upgrade\n"
+            "[2026-10-03T08:00:00-0500] [PACMAN] Running 'pacman -S gimp'\n"
+            "[2026-10-09T21:30:00-0500] [PACMAN] starting full system upgrade\n"
+            "[2026-10-09T21:31:00-0500] [ALPM] upgraded linux (6.17.1-1 -> 6.17.2-1)\n");
+        QCOMPARE(lastFullUpdate(log), QDateTime(QDate(2026, 10, 10), QTime(2, 30), QTimeZone::utc()));
+        QVERIFY(!lastFullUpdate(QStringLiteral("[2026-10-03T08:00:00-0500] [PACMAN] Running 'pacman -S gimp'\n")).isValid());
+    }
+
+    void updatesSpeakAWeekWorseAtATime()
+    {
+        Desk d;
+        d.updates(12, 2);
+        QVERIFY(d.ticker.isEmpty());
+        QCOMPARE(d.fact(QStringLiteral("updates")).value(QStringLiteral("line")).toString(), QStringLiteral("12 waiting"));
+        QVERIFY(d.logbook().contains(QStringLiteral("Updates  First look since starting: 12 waiting, Last updated 2 days ago.")));
+
+        d.updates(14, 7);
+        QCOMPARE(d.ticker, QStringList{QStringLiteral("Updates · 14 waiting | Last updated 7 days ago")});
+        QCOMPARE(d.topics, QStringList{QStringLiteral("updates")});
+        // More updates on the same day are not worse; a week later is.
+        d.updates(20, 13);
+        QCOMPARE(d.ticker.size(), 1);
+        d.updates(20, 14);
+        QCOMPARE(d.ticker.size(), 2);
+
+        // Three weeks behind: the island, Updates' own, beside Storage's.
+        d.updates(25, 21);
+        QCOMPARE(d.fact(QStringLiteral("updates")).value(QStringLiteral("attention")).toString(), QStringLiteral("island"));
+        d.look(91);
+        QCOMPARE(d.fact(QStringLiteral("storage")).value(QStringLiteral("attention")).toString(), QStringLiteral("island"));
+        QCOMPARE(d.core->facts().size(), 2);
+
+        QVERIFY(d.core->act(QStringLiteral("updates"), QStringLiteral("open")));
+        QCOMPARE(d.opened, QStringList{QStringLiteral("update")});
+        QVERIFY(d.logbook().contains(QStringLiteral("Updates  You opened Check for updates.")));
+
+        // Updated: settled, and the next wait starts over.
+        d.updates(0, 0);
+        QVERIFY(d.logbook().contains(QStringLiteral("Updates  Settled at Up to date, Last updated today.")));
+        QCOMPARE(d.fact(QStringLiteral("updates")).value(QStringLiteral("level")).toString(), QStringLiteral("quiet"));
+        d.updates(5, 7, 60 * 24 * 7);
+        QCOMPARE(d.ticker.last(), QStringLiteral("Updates · 5 waiting | Last updated 7 days ago"));
+    }
+
+    void notNowQuietsUpdatesForAWeek()
+    {
+        Desk d;
+        d.updates(30, 22);
+        QVERIFY(d.core->act(QStringLiteral("updates"), QStringLiteral("not-now")));
+        QVERIFY(d.logbook().contains(QStringLiteral("Updates  You said not now; quiet until 29 days behind.")));
+        d.updates(30, 28, 60 * 24 * 2);
+        QVERIFY(d.ticker.isEmpty());
+        QCOMPARE(d.fact(QStringLiteral("updates")).value(QStringLiteral("attention")).toString(), QStringLiteral("none"));
+        d.updates(30, 29);
+        QCOMPARE(d.fact(QStringLiteral("updates")).value(QStringLiteral("attention")).toString(), QStringLiteral("island"));
+    }
+
+    void aFailedLookLeavesTheLastFact()
+    {
+        Desk d;
+        d.updates(4, 8);
+        d.core->seeUpdates(UpdatesLook{d.now.addSecs(60), false, 0, {}});
+        QCOMPARE(d.fact(QStringLiteral("updates")).value(QStringLiteral("waiting")).toInt(), 4);
+        QCOMPARE(d.ticker.size(), 1);
+    }
+
+    void updatesSurviveARestart()
+    {
+        Desk d;
+        d.updates(9, 10);
+        d.make();
+        QCOMPARE(d.fact(QStringLiteral("updates")).value(QStringLiteral("line")).toString(), QStringLiteral("9 waiting"));
+        d.updates(9, 10);
+        QCOMPARE(d.ticker.size(), 1);
+        const QString saved = read(d.dir.filePath(QStringLiteral("core/attention.ini")));
+        QVERIFY(saved.contains(QStringLiteral("[Updates]")));
+        QVERIFY(saved.contains(QStringLiteral("Waiting=9")));
+    }
+
+    void theNoticeSettingMovesEveryTopicsMarks()
+    {
+        Desk d;
+        QCOMPARE(d.core->notice(), QStringLiteral("balanced"));
+        d.setNotice(QStringLiteral("quiet"));
+        QCOMPARE(d.core->storageLimits().ticker, 85);
+        QCOMPARE(d.core->updatesLimits().ticker, 21);
+        d.look(80);
+        d.updates(10, 10);
+        QVERIFY(d.ticker.isEmpty());
+
+        d.setNotice(QStringLiteral("eager"));
+        QCOMPARE(d.core->storageLimits().island, 85);
+        QCOMPARE(d.core->updatesLimits().island, 10);
+        d.look(80);
+        d.updates(10, 4);
+        QCOMPARE(d.topics, (QStringList{QStringLiteral("storage"), QStringLiteral("updates")}));
+
+        // A change is felt at once, without waiting for the next look.
+        Desk e;
+        e.updates(10, 5);
+        QVERIFY(e.ticker.isEmpty());
+        e.setNotice(QStringLiteral("eager"));
+        e.core->reconsider();
+        QCOMPARE(e.topics, QStringList{QStringLiteral("updates")});
+
+        // Anything else reads as balanced.
+        d.setNotice(QStringLiteral("loud"));
+        QCOMPARE(d.core->notice(), QStringLiteral("balanced"));
+    }
+
+    void updatesSwitchedOffAreSilentAndAbsent()
+    {
+        Desk d;
+        {
+            QSettings settings(d.dir.filePath(QStringLiteral("corerc")), QSettings::IniFormat);
+            settings.setValue(QStringLiteral("Updates/Enabled"), false);
+        }
+        QVERIFY(!d.core->watchesUpdates());
+        d.updates(40, 40);
+        QVERIFY(d.fact(QStringLiteral("updates")).isEmpty());
+        QVERIFY(d.ticker.isEmpty());
+        QVERIFY(!d.core->act(QStringLiteral("updates"), QStringLiteral("open")));
     }
 
     void theBusOffersTheFacts()

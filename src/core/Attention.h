@@ -46,11 +46,31 @@ struct Spoken {
     bool settled = false;
 };
 
+// Any topic's fact, as the rules above read it: how loud it may be, a score
+// that grows as it gets worse (how full, how many days behind), how much
+// worse is worth speaking again, and whether it has settled, so what was
+// said is forgotten.
+struct Measure {
+    bool known = false;
+    Level level = Level::Quiet;
+    int score = 0;
+    int step = 3;
+    bool settled = false;
+};
+
+Spoken decide(const Measure &measure, Attention &state, const QDateTime &now, bool doNotDisturb,
+              const AttentionLimits &limits = {});
+
+// Storage's fact as a measure: the score is how full, and it settles well
+// below the ticker's mark.
+Measure measure(const StorageFact &fact, const StorageLimits &storage = {}, const AttentionLimits &limits = {});
+
 Spoken decide(const StorageFact &fact, Attention &state, const QDateTime &now, bool doNotDisturb,
               const StorageLimits &storage = {}, const AttentionLimits &limits = {});
 
 // The person answered the island or the ticker: "open", "not-now" or
-// "dismiss". False for any other action.
-bool answer(Attention &state, const QString &action, int percent, const AttentionLimits &limits = {});
+// "dismiss". Not now quiets the fact until its score is a step worse. False
+// for any other action.
+bool answer(Attention &state, const QString &action, int score, int step = 3);
 
 } // namespace splitrock::core

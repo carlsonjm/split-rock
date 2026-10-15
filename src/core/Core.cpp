@@ -14,6 +14,7 @@ namespace splitrock::core {
 namespace {
 
 const QString Storage = QStringLiteral("storage");
+const QString Updates = QStringLiteral("updates");
 
 QString stamp(const QDateTime &at)
 {
@@ -42,7 +43,8 @@ Core::Core(const QString &folder, const QString &settings, Hooks hooks, QObject 
     loadSamples();
     loadAttention();
     trimLogbook();
-    m_storage = judge(m_samples);
+    m_storage = judge(m_samples, storageLimits());
+    m_updates = judge(m_updatesLook, m_waitingSince, updatesLimits());
 }
 
 bool Core::enabled(const QString &topic) const
@@ -51,6 +53,60 @@ bool Core::enabled(const QString &topic) const
     // A topic's own switch, under the switch for all of Core.
     return settings.value(QStringLiteral("General/Enabled"), true).toBool()
         && settings.value(topic.left(1).toUpper() + topic.mid(1) + QStringLiteral("/Enabled"), true).toBool();
+}
+
+QString Core::notice() const
+{
+    const QString notice = QSettings(m_settings, QSettings::IniFormat)
+                               .value(QStringLiteral("General/Notice"), QStringLiteral("balanced"))
+                               .toString();
+    if (notice == QLatin1String("quiet") || notice == QLatin1String("eager"))
+        return notice;
+    return QStringLiteral("balanced");
+}
+
+StorageLimits Core::storageLimits() const
+{
+    StorageLimits limits;
+    const QString n = notice();
+    if (n == QLatin1String("quiet")) {
+        limits.ticker = 85;
+        limits.island = 95;
+    } else if (n == QLatin1String("eager")) {
+        limits.ticker = 70;
+        limits.island = 85;
+    }
+    return limits;
+}
+
+UpdatesLimits Core::updatesLimits() const
+{
+    UpdatesLimits limits;
+    const QString n = notice();
+    if (n == QLatin1String("quiet")) {
+        limits.ticker = 21;
+        limits.island = 45;
+    } else if (n == QLatin1String("eager")) {
+        limits.ticker = 3;
+        limits.island = 10;
+    }
+    return limits;
+}
+
+void Core::tell(const QString &topic, const QString &title, const Spoken &spoken, const QString &line,
+                const QString &detail)
+{
+    if (spoken.ignored)
+        write(QStringLiteral("%1  The island went unanswered for a day, so it closed.").arg(title));
+    if (spoken.settled)
+        write(QStringLiteral("%1  Settled at %2, %3.").arg(title, line, detail));
+    if (spoken.ticker) {
+        write(QStringLiteral("%1  Told the ticker: %2, %3.").arg(title, line, detail));
+        if (m_hooks.notify)
+            m_hooks.notify(topic, title + QStringLiteral(" · ") + line, detail);
+    }
+    if (spoken.island)
+        write(QStringLiteral("%1  Showed the island: %2, %3.").arg(title, line, detail));
 }
 
 void Core::check()
@@ -66,32 +122,81 @@ void Core::check()
 
     const StorageFact before = m_storage;
     const bool islandBefore = m_attention.islandOpen;
-    m_storage = judge(m_samples);
+    const StorageLimits limits = storageLimits();
+    m_storage = judge(m_samples, limits);
     const bool dnd = m_hooks.doNotDisturb && m_hooks.doNotDisturb();
-    const Spoken spoken = decide(m_storage, m_attention, now, dnd);
+    const Spoken spoken = decide(m_storage, m_attention, now, dnd, limits);
 
     // One line each time Core starts, so the logbook shows it is looking even
     // while the drive gives it nothing to say.
     if (!m_looked)
         write(QStringLiteral("Storage  First look since starting: %1, %2.").arg(m_storage.line, m_storage.detail));
     m_looked = true;
-    if (spoken.ignored)
-        write(QStringLiteral("Storage  The island went unanswered for a day, so it closed."));
-    if (spoken.settled)
-        write(QStringLiteral("Storage  Settled at %1, %2.").arg(m_storage.line, m_storage.detail));
-    if (spoken.ticker) {
-        write(QStringLiteral("Storage  Told the ticker: %1, %2.").arg(m_storage.line, m_storage.detail));
-        if (m_hooks.notify)
-            m_hooks.notify(QStringLiteral("Storage · ") + m_storage.line, m_storage.detail);
-    }
-    if (spoken.island)
-        write(QStringLiteral("Storage  Showed the island: %1, %2.").arg(m_storage.line, m_storage.detail));
+    tell(Storage, QStringLiteral("Storage"), spoken, m_storage.line, m_storage.detail);
     if (spoken.ticker || spoken.island || spoken.ignored || spoken.settled || islandBefore != m_attention.islandOpen)
-        saveAttention();
+        saveAttention(Storage);
 
     if (before.percent != m_storage.percent || before.level != m_storage.level || before.detail != m_storage.detail
         || islandBefore != m_attention.islandOpen)
         Q_EMIT factChanged(storageFact());
+}
+
+void Core::reconsider()
+{
+    check();
+    if (!m_updatesLook.known)
+        return;
+    UpdatesLook again = m_updatesLook;
+    again.at = m_hooks.now();
+    seeUpdates(again);
+}
+
+bool Core::watchesUpdates() const
+{
+    return enabled(Updates);
+}
+
+void Core::seeUpdates(const UpdatesLook &look)
+{
+    if (!enabled(Updates))
+        return;
+    if (!look.known) {
+        if (!m_updatesLooked)
+            write(QStringLiteral("Updates  Could not check for updates; will try again later."));
+        m_updatesLooked = true;
+        return;
+    }
+    const UpdatesFact before = m_updates;
+    const bool islandBefore = m_updatesAttention.islandOpen;
+
+    // Since when updates have waited without a break, for a computer with no
+    // record of its own.
+    if (look.waiting <= 0)
+        m_waitingSince = QDateTime();
+    else if (!m_waitingSince.isValid())
+        m_waitingSince = look.at;
+    m_updatesLook = look;
+    const UpdatesLimits limits = updatesLimits();
+    m_updates = judge(look, m_waitingSince, limits);
+
+    Measure measure;
+    measure.known = true;
+    measure.level = m_updates.level;
+    measure.score = m_updates.daysBehind;
+    measure.step = 7;
+    measure.settled = m_updates.waiting == 0;
+    const bool dnd = m_hooks.doNotDisturb && m_hooks.doNotDisturb();
+    const Spoken spoken = decide(measure, m_updatesAttention, look.at, dnd);
+
+    if (!m_updatesLooked)
+        write(QStringLiteral("Updates  First look since starting: %1, %2.").arg(m_updates.line, m_updates.detail));
+    m_updatesLooked = true;
+    tell(Updates, QStringLiteral("Updates"), spoken, m_updates.line, m_updates.detail);
+    saveAttention(Updates);
+
+    if (!before.known || before.waiting != m_updates.waiting || before.level != m_updates.level
+        || before.detail != m_updates.detail || islandBefore != m_updatesAttention.islandOpen)
+        Q_EMIT factChanged(updatesFact());
 }
 
 QList<QVariantMap> Core::facts() const
@@ -99,7 +204,27 @@ QList<QVariantMap> Core::facts() const
     QList<QVariantMap> facts;
     if (enabled(Storage) && m_storage.known)
         facts.append(storageFact());
+    if (enabled(Updates) && m_updates.known)
+        facts.append(updatesFact());
     return facts;
+}
+
+QVariantMap Core::updatesFact() const
+{
+    return {
+        {QStringLiteral("topic"), Updates},
+        {QStringLiteral("title"), QStringLiteral("Updates")},
+        {QStringLiteral("line"), m_updates.line},
+        {QStringLiteral("detail"), m_updates.detail},
+        {QStringLiteral("waiting"), m_updates.waiting},
+        {QStringLiteral("daysBehind"), m_updates.daysBehind},
+        {QStringLiteral("level"), levelName(m_updates.level)},
+        {QStringLiteral("attention"), m_updatesAttention.islandOpen ? QStringLiteral("island") : QStringLiteral("none")},
+        {QStringLiteral("icon"), QStringLiteral("system-software-update")},
+        {QStringLiteral("actionText"), QStringLiteral("Check for updates")},
+        {QStringLiteral("keywords"), QStringList{QStringLiteral("updates"), QStringLiteral("update"),
+                                                 QStringLiteral("upgrade"), QStringLiteral("check for updates")}},
+    };
 }
 
 QVariantMap Core::storageFact() const
@@ -121,10 +246,31 @@ QVariantMap Core::storageFact() const
 
 bool Core::act(const QString &topic, const QString &action)
 {
+    if (topic == Updates) {
+        if (!enabled(Updates) || !m_updates.known)
+            return false;
+        const bool islandBefore = m_updatesAttention.islandOpen;
+        if (!answer(m_updatesAttention, action, m_updates.daysBehind, 7))
+            return false;
+        if (action == QLatin1String("open")) {
+            write(QStringLiteral("Updates  You opened Check for updates."));
+            if (m_hooks.openCard)
+                m_hooks.openCard(QStringLiteral("update"), QString());
+        } else {
+            const int days = m_updatesAttention.quietUntil;
+            write(QStringLiteral("Updates  You %1; quiet until %2 days behind.")
+                      .arg(action == QLatin1String("not-now") ? QStringLiteral("said not now") : QStringLiteral("dismissed it"))
+                      .arg(days));
+        }
+        saveAttention(Updates);
+        if (islandBefore != m_updatesAttention.islandOpen)
+            Q_EMIT factChanged(updatesFact());
+        return true;
+    }
     if (topic != Storage || !enabled(Storage) || !m_storage.known)
         return false;
     const bool islandBefore = m_attention.islandOpen;
-    if (!answer(m_attention, action, m_storage.percent))
+    if (!answer(m_attention, action, m_storage.percent, AttentionLimits().step))
         return false;
     if (action == QLatin1String("open")) {
         write(QStringLiteral("Storage  You opened Free up space."));
@@ -135,7 +281,7 @@ bool Core::act(const QString &topic, const QString &action)
     } else {
         write(QStringLiteral("Storage  You dismissed it; quiet until %1% full.").arg(m_attention.quietUntil));
     }
-    saveAttention();
+    saveAttention(Storage);
     if (islandBefore != m_attention.islandOpen)
         Q_EMIT factChanged(storageFact());
     return true;
@@ -268,32 +414,67 @@ void Core::saveSamples(bool all)
     file.commit();
 }
 
+namespace {
+
+void loadState(QSettings &saved, const QString &group, Attention &state)
+{
+    saved.beginGroup(group);
+    state.spokenLevel = Level(qBound(0, saved.value(QStringLiteral("SpokenLevel"), 0).toInt(), 2));
+    state.spokenPercent = saved.value(QStringLiteral("SpokenPercent"), 0).toInt();
+    state.quietUntil = saved.value(QStringLiteral("QuietUntil"), 0).toInt();
+    state.islandOpen = saved.value(QStringLiteral("IslandOpen"), false).toBool();
+    state.islandSince = QDateTime::fromString(saved.value(QStringLiteral("IslandSince")).toString(), Qt::ISODate);
+    state.islandsDay = QDate::fromString(saved.value(QStringLiteral("IslandsDay")).toString(), Qt::ISODate);
+    state.islandsToday = saved.value(QStringLiteral("IslandsToday"), 0).toInt();
+    saved.endGroup();
+}
+
+void saveState(QSettings &saved, const QString &group, const Attention &state)
+{
+    saved.beginGroup(group);
+    saved.setValue(QStringLiteral("SpokenLevel"), int(state.spokenLevel));
+    saved.setValue(QStringLiteral("SpokenPercent"), state.spokenPercent);
+    saved.setValue(QStringLiteral("QuietUntil"), state.quietUntil);
+    saved.setValue(QStringLiteral("IslandOpen"), state.islandOpen);
+    saved.setValue(QStringLiteral("IslandSince"), state.islandSince.toUTC().toString(Qt::ISODate));
+    saved.setValue(QStringLiteral("IslandsDay"), state.islandsDay.toString(Qt::ISODate));
+    saved.setValue(QStringLiteral("IslandsToday"), state.islandsToday);
+    saved.endGroup();
+}
+
+QDateTime savedTime(const QSettings &saved, const QString &key)
+{
+    return QDateTime::fromString(saved.value(key).toString(), Qt::ISODate);
+}
+
+} // namespace
+
 void Core::loadAttention()
 {
     QSettings saved(QDir(m_folder).filePath(QStringLiteral("attention.ini")), QSettings::IniFormat);
-    saved.beginGroup(QStringLiteral("Storage"));
-    m_attention.spokenLevel = Level(qBound(0, saved.value(QStringLiteral("SpokenLevel"), 0).toInt(), 2));
-    m_attention.spokenPercent = saved.value(QStringLiteral("SpokenPercent"), 0).toInt();
-    m_attention.quietUntil = saved.value(QStringLiteral("QuietUntil"), 0).toInt();
-    m_attention.islandOpen = saved.value(QStringLiteral("IslandOpen"), false).toBool();
-    m_attention.islandSince = QDateTime::fromString(saved.value(QStringLiteral("IslandSince")).toString(), Qt::ISODate);
-    saved.endGroup();
-    m_attention.islandsDay = QDate::fromString(saved.value(QStringLiteral("Storage/IslandsDay")).toString(), Qt::ISODate);
-    m_attention.islandsToday = saved.value(QStringLiteral("Storage/IslandsToday"), 0).toInt();
+    loadState(saved, QStringLiteral("Storage"), m_attention);
+    loadState(saved, QStringLiteral("Updates"), m_updatesAttention);
+    // The last look for updates, so a new start has the fact before it looks again.
+    m_updatesLook.at = savedTime(saved, QStringLiteral("Updates/LookedAt"));
+    m_updatesLook.known = m_updatesLook.at.isValid();
+    m_updatesLook.waiting = saved.value(QStringLiteral("Updates/Waiting"), 0).toInt();
+    m_updatesLook.lastUpdate = savedTime(saved, QStringLiteral("Updates/LastUpdate"));
+    m_waitingSince = savedTime(saved, QStringLiteral("Updates/WaitingSince"));
 }
 
-void Core::saveAttention() const
+void Core::saveAttention(const QString &topic) const
 {
     QSettings saved(QDir(m_folder).filePath(QStringLiteral("attention.ini")), QSettings::IniFormat);
-    saved.beginGroup(QStringLiteral("Storage"));
-    saved.setValue(QStringLiteral("SpokenLevel"), int(m_attention.spokenLevel));
-    saved.setValue(QStringLiteral("SpokenPercent"), m_attention.spokenPercent);
-    saved.setValue(QStringLiteral("QuietUntil"), m_attention.quietUntil);
-    saved.setValue(QStringLiteral("IslandOpen"), m_attention.islandOpen);
-    saved.setValue(QStringLiteral("IslandSince"), m_attention.islandSince.toUTC().toString(Qt::ISODate));
-    saved.endGroup();
-    saved.setValue(QStringLiteral("Storage/IslandsDay"), m_attention.islandsDay.toString(Qt::ISODate));
-    saved.setValue(QStringLiteral("Storage/IslandsToday"), m_attention.islandsToday);
+    if (topic == Updates) {
+        saveState(saved, QStringLiteral("Updates"), m_updatesAttention);
+        const auto time = [](const QDateTime &at) { return at.isValid() ? at.toUTC().toString(Qt::ISODate) : QString(); };
+        saved.setValue(QStringLiteral("Updates/LookedAt"), time(m_updatesLook.at));
+        saved.setValue(QStringLiteral("Updates/Waiting"), m_updatesLook.waiting);
+        saved.setValue(QStringLiteral("Updates/LastUpdate"), time(m_updatesLook.lastUpdate));
+        saved.setValue(QStringLiteral("Updates/WaitingSince"), time(m_waitingSince));
+        return;
+    }
+    saveState(saved, QStringLiteral("Storage"), m_attention);
 }
 
 } // namespace splitrock::core

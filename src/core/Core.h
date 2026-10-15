@@ -3,6 +3,7 @@
 
 #include "core/Attention.h"
 #include "core/Storage.h"
+#include "core/Updates.h"
 
 #include <QDateTime>
 #include <QList>
@@ -22,7 +23,8 @@ namespace splitrock::core {
 // Everything it keeps is a plain file in its folder:
 //   logbook.txt    what it saw and said, and what the person did, by day
 //   storage.tsv    its looks at the drive: time, size and free, in kilobytes
-//   attention.ini  what it has said, so it never says it twice
+//   attention.ini  what it has said, so it never says it twice, and its
+//                  last look for updates
 // Each is cut back to the last 90 days.
 class Core : public QObject
 {
@@ -35,8 +37,9 @@ public:
         std::function<QDateTime()> now = [] { return QDateTime::currentDateTimeUtc(); };
         // Whether Do Not Disturb is on.
         std::function<bool()> doNotDisturb = [] { return false; };
-        // An ordinary notification, for the ticker.
-        std::function<void(const QString &summary, const QString &body)> notify;
+        // An ordinary notification, for the ticker, from one topic; tapping
+        // it answers that topic with "open".
+        std::function<void(const QString &topic, const QString &summary, const QString &body)> notify;
         // Opens an upkeep card by its name, such as "space", with what the
         // person typed for the cards that take it.
         std::function<void(const QString &card, const QString &query)> openCard;
@@ -46,8 +49,22 @@ public:
     // where each topic can be switched off.
     Core(const QString &folder, const QString &settings, Hooks hooks, QObject *parent = nullptr);
 
-    // Looks now, and speaks if a fact got worse.
+    // Looks at the drive now, and speaks if a fact got worse.
     void check();
+    // A look for updates, taken outside because it waits on the network; it
+    // speaks if the fact got worse. A failed look leaves the last fact standing.
+    void seeUpdates(const UpdatesLook &look);
+    // The person's settings changed: every fact is judged again by them now,
+    // the drive with a fresh look and updates from their last.
+    void reconsider();
+    // Whether the Updates topic is switched on, so the program knows to look.
+    bool watchesUpdates() const;
+
+    // How readily Core speaks, the person's Notice setting: "quiet",
+    // "balanced" or "eager". The limits each topic holds to follow it.
+    QString notice() const;
+    StorageLimits storageLimits() const;
+    UpdatesLimits updatesLimits() const;
 
     // Every fact Core has, for the surfaces; none for a topic switched off.
     QList<QVariantMap> facts() const;
@@ -75,11 +92,15 @@ Q_SIGNALS:
 private:
     bool enabled(const QString &topic) const;
     QVariantMap storageFact() const;
+    QVariantMap updatesFact() const;
+    // Logbook lines and the ticker for what one decision said.
+    void tell(const QString &topic, const QString &title, const Spoken &spoken, const QString &line,
+              const QString &detail);
     void write(const QString &line);
     void loadSamples();
     void saveSamples(bool all);
     void loadAttention();
-    void saveAttention() const;
+    void saveAttention(const QString &topic) const;
     void trimLogbook();
 
     QString m_folder;
@@ -89,6 +110,11 @@ private:
     StorageFact m_storage;
     Attention m_attention;
     bool m_looked = false;
+    UpdatesLook m_updatesLook;
+    QDateTime m_waitingSince;
+    UpdatesFact m_updates;
+    Attention m_updatesAttention;
+    bool m_updatesLooked = false;
 };
 
 } // namespace splitrock::core

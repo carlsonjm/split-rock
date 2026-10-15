@@ -7,8 +7,8 @@ surfaces when a fact deserves attention. Search, the island and the ticker show
 what it says; the upkeep cards do the work, after the person's yes. The
 conversation is a separate part and Core never needs it.
 
-Its first topic is Storage. Each topic after it repeats the same pattern: what
-Core watches, the card it can open, and the words it uses.
+Its topics are Storage and Updates. Each repeats the same pattern: what Core
+watches, the card it can open, and the words it uses.
 
 ## What holds
 
@@ -23,11 +23,12 @@ Core watches, the card it can open, and the words it uses.
     by time
   - `storage.tsv`: its looks at the drive: time, size and free space in
     kilobytes
-  - `attention.ini`: what it has said, so it never says it twice
+  - `attention.ini`: what it has said, so it never says it twice, and its
+    last look for updates
 - Core as a whole, or any one topic, is switched off in `split-rock-corerc` in
   the person's settings folder (`[General] Enabled=false`, or
-  `[Storage] Enabled=false`). A topic switched off is neither watched nor
-  offered.
+  `[Storage] Enabled=false`, `[Updates] Enabled=false`). A topic switched off
+  is neither watched nor offered.
 - Core starts at sign-in, from `io.github.carlsonjm.splitrock.Core.desktop` in
   the system's autostart folder, so it keeps its schedule whether or not a
   surface has asked for it yet. A second start ends at once.
@@ -51,19 +52,52 @@ the drive is filling.
 | Ticker | 75% full or more | One ordinary notification: "Storage · 76% full", "120 GB free". Tapping it opens Free up space |
 | Island | 90% full or more, or at least 80% full and full within 14 days at the current rate | Search's island. Tapping it opens Free up space |
 
+## Updates
+
+Core looks for updates two minutes after it starts, every 6 hours after, and
+two minutes after pacman's log stops changing, so a finished update is seen at
+once. It counts the system's updates with `checkupdates`, which fetches the
+package lists into a folder of its own, adds Flatpak apps with updates, and
+reads the time of the last full update from pacman's log. A computer without
+`checkupdates` has no Updates fact. A look that fails, such as with no
+network, leaves the last fact standing.
+
+| Level | When | Where it shows |
+| --- | --- | --- |
+| Quiet | Nothing waiting, or updates waiting under 7 days after the last full update | Search only, when asked |
+| Ticker | Updates waiting, 7 days or more since the last full update | "Updates · 12 waiting", "Last updated 9 days ago". Tapping it opens Check for updates |
+| Island | Updates waiting, 21 days or more since the last full update | Search's island. Tapping it opens Check for updates |
+
+The step is a week: Updates speaks again only a week further behind, and Not
+now quiets it for a week. Nothing waiting is settled. Without a record of the
+last update, the days count from when Core first saw updates waiting.
+
+## Notice
+
+One setting moves every topic's marks together: `[General] Notice` in
+`split-rock-corerc`, which Shuffle Settings shows as Reminders (Less, Balanced,
+More). Core feels a change as soon as the file is saved.
+
+| Notice | Storage: ticker, island | Updates: ticker, island |
+| --- | --- | --- |
+| `quiet` | 85%, 95% | 21 days, 45 days |
+| `balanced` (the default) | 75%, 90% | 7 days, 21 days |
+| `eager` | 70%, 85% | 3 days, 10 days |
+
 ## How often Core speaks
 
 - A fact speaks only when it gets worse, never because time passed: once at the
-  ticker, once at the island, then again only after it is 3 points fuller.
-- Not now, or dismissing the island, quiets the fact until it is 3 points
-  fuller.
+  ticker, once at the island, then again only after it is a step worse (3
+  points fuller; a week further behind).
+- Not now, or dismissing the island, quiets the fact until it is a step worse.
 - At most one island a day for each topic; each keeps its own allowance, so
   one topic never silences another. Past that, the ticker carries it.
 - Do Not Disturb leaves only the ticker.
 - An island nobody touches closes after a day, and the logbook says it went
   unanswered.
-- When the drive falls 2 points under the ticker's mark, the fact has settled:
-  what was said is forgotten, so the next time it fills, Core speaks again.
+- When the drive falls 2 points under the ticker's mark, or nothing is left to
+  update, the fact has settled: what was said is forgotten, so the next time it
+  gets worse, Core speaks again.
 
 The logbook records Core's first look after each start, every time it spoke,
 and whether the person opened the card, said not now, or left it, so real use
@@ -91,15 +125,16 @@ Each fact is a dictionary of strings to variants:
 
 | Key | Type | What it is |
 | --- | --- | --- |
-| `topic` | `s` | `storage` |
-| `title` | `s` | `Storage` |
-| `line` | `s` | `91% full` |
-| `detail` | `s` | `45 GB free · filling about 2 GB a day`; the rate only when it is at least 100 MB a day |
-| `percent` | `i` | How full, in whole points |
+| `topic` | `s` | `storage` or `updates` |
+| `title` | `s` | `Storage`, `Updates` |
+| `line` | `s` | `91% full`, `12 waiting`, `Up to date` |
+| `detail` | `s` | `45 GB free · filling about 2 GB a day` (the rate only when it is at least 100 MB a day), `Last updated 9 days ago` |
+| `percent` | `i` | Storage only: how full, in whole points |
+| `waiting`, `daysBehind` | `i` | Updates only: how many, and days since the last full update |
 | `level` | `s` | `quiet`, `ticker` or `island` |
 | `attention` | `s` | `island` while the island should show it, `none` otherwise |
 | `icon` | `s` | An icon name from the icon theme |
-| `actionText` | `s` | What the card is called: `Free up space` |
+| `actionText` | `s` | What the card is called: `Free up space`, `Check for updates` |
 | `keywords` | `as` | The words Search finds it by |
 
 ## Actions from Search
