@@ -191,6 +191,12 @@ configure_file(data/io.github.carlsonjm.splitrock.Core.service.in
     ${CMAKE_CURRENT_BINARY_DIR}/data/io.github.carlsonjm.splitrock.Core.service @ONLY)
 install(FILES ${CMAKE_CURRENT_BINARY_DIR}/data/io.github.carlsonjm.splitrock.Core.service
     DESTINATION ${CMAKE_INSTALL_DATADIR}/dbus-1/services)
+# Where systemd runs the person's services, Core runs as one tied to the
+# signed-in desktop, however it was started, so signing out stops it.
+configure_file(data/split-rock-core.service.in
+    ${CMAKE_CURRENT_BINARY_DIR}/data/split-rock-core.service @ONLY)
+install(FILES ${CMAKE_CURRENT_BINARY_DIR}/data/split-rock-core.service
+    DESTINATION ${CMAKE_INSTALL_PREFIX}/lib/systemd/user)
 # Core starts at sign-in, so it looks on its schedule whether or not anything
 # has asked it yet.
 configure_file(data/io.github.carlsonjm.splitrock.Core-autostart.desktop.in

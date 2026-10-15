@@ -1,0 +1,12 @@
+[Unit]
+Description=Split Rock Core, the front desk
+Documentation=https://github.com/carlsonjm/split-rock/blob/main/docs/CORE.md
+# Core belongs to the signed-in desktop: signing out stops it, so the next
+# sign-in starts the program as it is installed then.
+PartOf=graphical-session.target
+
+[Service]
+Type=dbus
+BusName=io.github.carlsonjm.splitrock.Core
+ExecStart=@SPLIT_ROCK_CORE_PROGRAM@
+Slice=background.slice

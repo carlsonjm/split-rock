@@ -1,3 +1,4 @@
 [D-BUS Service]
 Name=io.github.carlsonjm.splitrock.Core
 Exec=@SPLIT_ROCK_CORE_PROGRAM@
+SystemdService=split-rock-core.service

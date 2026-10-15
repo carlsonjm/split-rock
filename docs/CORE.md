@@ -31,6 +31,11 @@ Core watches, the card it can open, and the words it uses.
 - Core starts at sign-in, from `io.github.carlsonjm.splitrock.Core.desktop` in
   the system's autostart folder, so it keeps its schedule whether or not a
   surface has asked for it yet. A second start ends at once.
+- Where systemd runs the person's services, Core runs as
+  `split-rock-core.service`, part of the signed-in desktop, whether sign-in or
+  the session bus started it: signing out stops it, so the next sign-in runs
+  the program as installed then. `install.sh` also replaces a running Core
+  with the one it just installed.
 - Every surface works as it always has without Core. A surface finds Core on the
   session bus or carries on without it.
 
