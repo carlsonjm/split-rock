@@ -28,6 +28,9 @@ Core watches, the card it can open, and the words it uses.
   the person's settings folder (`[General] Enabled=false`, or
   `[Storage] Enabled=false`). A topic switched off is neither watched nor
   offered.
+- Core starts at sign-in, from `io.github.carlsonjm.splitrock.Core.desktop` in
+  the system's autostart folder, so it keeps its schedule whether or not a
+  surface has asked for it yet. A second start ends at once.
 - Every surface works as it always has without Core. A surface finds Core on the
   session bus or carries on without it.
 

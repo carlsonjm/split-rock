@@ -191,6 +191,12 @@ configure_file(data/io.github.carlsonjm.splitrock.Core.service.in
     ${CMAKE_CURRENT_BINARY_DIR}/data/io.github.carlsonjm.splitrock.Core.service @ONLY)
 install(FILES ${CMAKE_CURRENT_BINARY_DIR}/data/io.github.carlsonjm.splitrock.Core.service
     DESTINATION ${CMAKE_INSTALL_DATADIR}/dbus-1/services)
+# Core starts at sign-in, so it looks on its schedule whether or not anything
+# has asked it yet.
+configure_file(data/io.github.carlsonjm.splitrock.Core-autostart.desktop.in
+    ${CMAKE_CURRENT_BINARY_DIR}/data/io.github.carlsonjm.splitrock.Core-autostart.desktop @ONLY)
+install(FILES ${CMAKE_CURRENT_BINARY_DIR}/data/io.github.carlsonjm.splitrock.Core-autostart.desktop
+    DESTINATION ${CMAKE_INSTALL_FULL_SYSCONFDIR}/xdg/autostart RENAME io.github.carlsonjm.splitrock.Core.desktop)
 
 # The pretend assistant: speaks the protocol and follows a script, so every test
 # runs with no account, no network and nothing on the computer to change.

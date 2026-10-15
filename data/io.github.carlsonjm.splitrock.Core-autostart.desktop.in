@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=Split Rock Core
+Comment=Looks after the computer and says when something needs attention
+Exec=@SPLIT_ROCK_CORE_PROGRAM@
+Icon=io.github.carlsonjm.SplitRock
+NoDisplay=true
+X-KDE-autostart-phase=2
