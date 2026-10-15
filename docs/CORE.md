@@ -60,8 +60,10 @@ the drive is filling.
 - When the drive falls 2 points under the ticker's mark, the fact has settled:
   what was said is forgotten, so the next time it fills, Core speaks again.
 
-The logbook records every time Core spoke and whether the person opened the
-card, said not now, or left it, so real use can set these limits.
+The logbook records Core's first look after each start, every time it spoke,
+and whether the person opened the card, said not now, or left it, so real use
+can set these limits. Below the ticker's mark it writes nothing more: a quiet
+drive gives it nothing to say.
 
 ## On the bus
 
@@ -110,4 +112,6 @@ Core opens a card by starting `split-rock --card space`, or
 `split-rock --card install --query "pdf editor"` for the card that takes words. Split Rock then opens
 that one upkeep card on its own, in an ordinary window titled after the card,
 with no conversation and no assistant started. The window closes when the card
-does, and can't be closed while the card is busy.
+does, and can't be closed while the card is busy. A card that hands over to
+another, as Health check does to Free up space, keeps the window: the next card
+opens in it.

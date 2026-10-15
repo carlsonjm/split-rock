@@ -215,6 +215,8 @@ private Q_SLOTS:
         QCOMPARE(tsv.count(QLatin1Char('\n')), 2);
         QVERIFY(tsv.startsWith(QStringLiteral("2026-10-15T09:30:00Z\t524288000\t")));
         QVERIFY(d.logbook().contains(QStringLiteral("Storage  Showed the island: 91% full, 45 GB free.")));
+        // The first look after a start is written down even when Core says nothing.
+        QCOMPARE(d.logbook().count(QStringLiteral("First look since starting: 70% full")), 1);
 
         // A new start remembers the fact and what was said, so it says nothing twice.
         d.make();
@@ -222,6 +224,7 @@ private Q_SLOTS:
         QCOMPARE(d.fact().value(QStringLiteral("attention")).toString(), QStringLiteral("island"));
         d.look(91);
         QVERIFY(d.ticker.isEmpty());
+        QCOMPARE(d.logbook().count(QStringLiteral("First look since starting")), 2);
     }
 
     void itKeepsNinetyDays()

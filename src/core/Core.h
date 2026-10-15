@@ -88,6 +88,7 @@ private:
     QList<Sample> m_samples;
     StorageFact m_storage;
     Attention m_attention;
+    bool m_looked = false;
 };
 
 } // namespace splitrock::core

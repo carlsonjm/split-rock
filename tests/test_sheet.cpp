@@ -961,6 +961,18 @@ private Q_SLOTS:
             QMetaObject::invokeMethod(job, "close");
             QTRY_VERIFY2(!window->isVisible(), card.name);
         }
+
+        // A card that hands over to another keeps the window: Health check's
+        // Free up space opens in the same window rather than closing it.
+        QVERIFY(c.openChore(QStringLiteral("health")));
+        window->show();
+        QTRY_COMPARE(c.healthCheck()->property("stage").toString(), QStringLiteral("done"));
+        QVERIFY(c.openChore(QStringLiteral("space")));
+        QTRY_COMPARE(space->stage(), QStringLiteral("ready"));
+        settle();
+        QVERIFY(window->isVisible());
+        QCOMPARE(window->title(), QStringLiteral("Free up space"));
+        QVERIFY(find(window.get(), QStringLiteral("spaceCard")) && find(window.get(), QStringLiteral("spaceCard"))->isVisible());
     }
 
     void theUpkeepCardsShowEachStep()
