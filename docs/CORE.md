@@ -55,8 +55,9 @@ the drive is filling.
 ## Updates
 
 Core looks for updates two minutes after it starts, every 6 hours after, and
-two minutes after pacman's log stops changing, so a finished update is seen at
-once. It counts the system's updates with `checkupdates`, which fetches the
+two minutes after pacman's log, or the mark a Flatpak installation (the
+system's or the person's own) sets on each install and update, stops changing,
+so a finished update is seen at once. It counts the system's updates with `checkupdates`, which fetches the
 package lists into a folder of its own, adds Flatpak apps with updates, and
 reads the time of the last full update from pacman's log. A computer without
 `checkupdates` has no Updates fact. A look that fails, such as with no
