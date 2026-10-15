@@ -59,5 +59,22 @@ fi
 # Plasma's list of applications gains Split Rock.
 kbuildsycoca6 >/dev/null 2>&1 || true
 
+# A Core already running for this account is replaced by the one just
+# installed: ended, then started again through the session bus, as Search
+# starts it. However it was started, the program it runs is the new one.
+systemctl --user daemon-reload >/dev/null 2>&1 || true
+if pgrep -x -u "$(id -u)" split-rock-core >/dev/null 2>&1; then
+    systemctl --user stop split-rock-core.service >/dev/null 2>&1 || true
+    pkill -x -u "$(id -u)" split-rock-core >/dev/null 2>&1 || true
+    for _ in 1 2 3 4 5 6 7 8 9 10; do
+        pgrep -x -u "$(id -u)" split-rock-core >/dev/null 2>&1 || break
+        sleep 0.2
+    done
+    if dbus-send --session --print-reply --dest=io.github.carlsonjm.splitrock.Core /Core \
+            io.github.carlsonjm.SplitRock.Core.ProtocolVersion >/dev/null 2>&1; then
+        echo "Core restarted with the new program."
+    fi
+fi
+
 echo "Split Rock installed. Find it in the launcher; inside Shuffle it is Genie."
-echo "A Split Rock already running keeps the old program until you log out or end it."
+echo "A Split Rock window already open keeps the old program until you close it or log out."

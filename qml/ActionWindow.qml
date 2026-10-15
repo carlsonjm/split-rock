@@ -43,13 +43,21 @@ Window {
         return null
     }
 
-    // The card closed, from its own Close or Not now.
+    // The card closed, from its own Close or Not now. One card handing over
+    // to another, as Health check does to Free up space, closes the first
+    // before the second opens, so the window waits a moment and stays open
+    // for the card that follows.
     Connections {
         target: conversation
         function onChoreChanged() {
             if (conversation.chore === "")
-                actionWindow.visible = false
+                Qt.callLater(actionWindow.closeIfEmpty)
         }
+    }
+
+    function closeIfEmpty() {
+        if (conversation.chore === "")
+            actionWindow.visible = false
     }
 
     onClosing: close => {

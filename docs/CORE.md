@@ -31,6 +31,11 @@ Core watches, the card it can open, and the words it uses.
 - Core starts at sign-in, from `io.github.carlsonjm.splitrock.Core.desktop` in
   the system's autostart folder, so it keeps its schedule whether or not a
   surface has asked for it yet. A second start ends at once.
+- Where systemd runs the person's services, Core runs as
+  `split-rock-core.service`, part of the signed-in desktop, whether sign-in or
+  the session bus started it: signing out stops it, so the next sign-in runs
+  the program as installed then. `install.sh` also replaces a running Core
+  with the one it just installed.
 - Every surface works as it always has without Core. A surface finds Core on the
   session bus or carries on without it.
 
@@ -60,8 +65,10 @@ the drive is filling.
 - When the drive falls 2 points under the ticker's mark, the fact has settled:
   what was said is forgotten, so the next time it fills, Core speaks again.
 
-The logbook records every time Core spoke and whether the person opened the
-card, said not now, or left it, so real use can set these limits.
+The logbook records Core's first look after each start, every time it spoke,
+and whether the person opened the card, said not now, or left it, so real use
+can set these limits. Below the ticker's mark it writes nothing more: a quiet
+drive gives it nothing to say.
 
 ## On the bus
 
@@ -110,4 +117,6 @@ Core opens a card by starting `split-rock --card space`, or
 `split-rock --card install --query "pdf editor"` for the card that takes words. Split Rock then opens
 that one upkeep card on its own, in an ordinary window titled after the card,
 with no conversation and no assistant started. The window closes when the card
-does, and can't be closed while the card is busy.
+does, and can't be closed while the card is busy. A card that hands over to
+another, as Health check does to Free up space, keeps the window: the next card
+opens in it.

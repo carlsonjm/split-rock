@@ -70,6 +70,11 @@ void Core::check()
     const bool dnd = m_hooks.doNotDisturb && m_hooks.doNotDisturb();
     const Spoken spoken = decide(m_storage, m_attention, now, dnd);
 
+    // One line each time Core starts, so the logbook shows it is looking even
+    // while the drive gives it nothing to say.
+    if (!m_looked)
+        write(QStringLiteral("Storage  First look since starting: %1, %2.").arg(m_storage.line, m_storage.detail));
+    m_looked = true;
     if (spoken.ignored)
         write(QStringLiteral("Storage  The island went unanswered for a day, so it closed."));
     if (spoken.settled)

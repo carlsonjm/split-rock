@@ -36,6 +36,10 @@ else
         fi
     done
 fi
+# A Core still running for this account ends with its program.
+systemctl --user stop split-rock-core.service >/dev/null 2>&1 || true
+pkill -x -u "$(id -u)" split-rock-core >/dev/null 2>&1 || true
+systemctl --user daemon-reload >/dev/null 2>&1 || true
 kbuildsycoca6 >/dev/null 2>&1 || true
 
 echo "Split Rock removed. The notebook and your assistants' sign-ins stay where they were."
