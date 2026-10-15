@@ -93,6 +93,8 @@ private:
     bool enabled(const QString &topic) const;
     QVariantMap storageFact() const;
     QVariantMap updatesFact() const;
+    // Judges the drive from the looks so far, and speaks if it got worse.
+    void judgeStorage(const QDateTime &now);
     // Logbook lines and the ticker for what one decision said.
     void tell(const QString &topic, const QString &title, const Spoken &spoken, const QString &line,
               const QString &detail);

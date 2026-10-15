@@ -411,6 +411,18 @@ private Q_SLOTS:
         QCOMPARE(d.fact(QStringLiteral("updates")).value(QStringLiteral("attention")).toString(), QStringLiteral("island"));
     }
 
+    // Updated before Core said anything: the logbook still says so.
+    void updatingQuietlyIsWrittenDown()
+    {
+        Desk d;
+        d.updates(3, 2);
+        QVERIFY(d.ticker.isEmpty());
+        d.updates(0, 0);
+        QCOMPARE(d.logbook().count(QStringLiteral("Updates  Settled at Up to date, Last updated today.")), 1);
+        d.updates(0, 0);
+        QCOMPARE(d.logbook().count(QStringLiteral("Settled at Up to date")), 1);
+    }
+
     void aFailedLookLeavesTheLastFact()
     {
         Desk d;
@@ -451,13 +463,17 @@ private Q_SLOTS:
         d.updates(10, 4);
         QCOMPARE(d.topics, (QStringList{QStringLiteral("storage"), QStringLiteral("updates")}));
 
-        // A change is felt at once, without waiting for the next look.
+        // A change is felt at once, without waiting for the next look, and
+        // without a new look at the drive.
         Desk e;
+        e.look(72);
         e.updates(10, 5);
         QVERIFY(e.ticker.isEmpty());
         e.setNotice(QStringLiteral("eager"));
         e.core->reconsider();
-        QCOMPARE(e.topics, QStringList{QStringLiteral("updates")});
+        e.core->reconsider();
+        QCOMPARE(e.topics, (QStringList{QStringLiteral("storage"), QStringLiteral("updates")}));
+        QCOMPARE(read(e.dir.filePath(QStringLiteral("core/storage.tsv"))).count(QLatin1Char('\n')), 1);
 
         // Anything else reads as balanced.
         d.setNotice(QStringLiteral("loud"));

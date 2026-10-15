@@ -119,7 +119,13 @@ void Core::check()
         return;
     m_samples.append(sample);
     saveSamples(false);
+    judgeStorage(now);
+}
 
+void Core::judgeStorage(const QDateTime &now)
+{
+    if (m_samples.isEmpty())
+        return;
     const StorageFact before = m_storage;
     const bool islandBefore = m_attention.islandOpen;
     const StorageLimits limits = storageLimits();
@@ -143,7 +149,10 @@ void Core::check()
 
 void Core::reconsider()
 {
-    check();
+    // Judged again from the looks already taken: a change of settings is no
+    // reason to look at the drive.
+    if (enabled(Storage))
+        judgeStorage(m_hooks.now());
     if (!m_updatesLook.known)
         return;
     UpdatesLook again = m_updatesLook;
@@ -192,6 +201,9 @@ void Core::seeUpdates(const UpdatesLook &look)
         write(QStringLiteral("Updates  First look since starting: %1, %2.").arg(m_updates.line, m_updates.detail));
     m_updatesLooked = true;
     tell(Updates, QStringLiteral("Updates"), spoken, m_updates.line, m_updates.detail);
+    // Updated while Core had said nothing yet: the logbook still records it.
+    if (!spoken.settled && before.known && before.waiting > 0 && m_updates.waiting == 0)
+        write(QStringLiteral("Updates  Settled at %1, %2.").arg(m_updates.line, m_updates.detail));
     saveAttention(Updates);
 
     if (!before.known || before.waiting != m_updates.waiting || before.level != m_updates.level
