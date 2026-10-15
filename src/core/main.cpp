@@ -16,8 +16,8 @@
 // --every     minutes between looks at the drive (default: 30)
 // --updates-every
 //             hours between looks for updates (default: 6); it also looks a
-//             little after pacman's log stops changing, so a finished update
-//             is seen at once
+//             little after pacman's log or a Flatpak installation stops
+//             changing, so a finished update is seen at once
 //
 // Core runs once: a second start ends at once.
 
@@ -290,14 +290,32 @@ int main(int argc, char **argv)
     updatesEvery.setInterval(std::chrono::hours(qMax(1, parser.value(updatesOption).toInt())));
     QObject::connect(&updatesEvery, &QTimer::timeout, &desk, lookForUpdates);
     updatesEvery.start();
-    const QString pacmanLog = QStringLiteral("/var/log/pacman.log");
+    // What changes when an update finishes: pacman's log, and the mark each
+    // Flatpak installation, the system's and the person's own, sets on every
+    // install or update. A mark is replaced, not edited, so its folder is
+    // watched too, and the mark again whenever it comes back.
+    const QStringList flatpaks{QStringLiteral("/var/lib/flatpak"),
+                               QStandardPaths::writableLocation(QStandardPaths::GenericDataLocation)
+                                   + QStringLiteral("/flatpak")};
+    QStringList marks{QStringLiteral("/var/log/pacman.log")};
+    for (const QString &flatpak : flatpaks)
+        marks.append(flatpak + QStringLiteral("/.changed"));
     QFileSystemWatcher logWatcher;
     QTimer settled;
     settled.setSingleShot(true);
     settled.setInterval(std::chrono::minutes(2));
     QObject::connect(&settled, &QTimer::timeout, &desk, lookForUpdates);
-    if (QFile::exists(pacmanLog))
-        logWatcher.addPath(pacmanLog);
+    const auto watchMarks = [&logWatcher, marks, flatpaks] {
+        for (const QString &mark : marks) {
+            if (!logWatcher.files().contains(mark) && QFile::exists(mark))
+                logWatcher.addPath(mark);
+        }
+        for (const QString &flatpak : flatpaks) {
+            if (!logWatcher.directories().contains(flatpak) && QFileInfo(flatpak).isDir())
+                logWatcher.addPath(flatpak);
+        }
+    };
+    watchMarks();
     // Settings, such as how readily Core speaks, take effect when they are
     // written. The folder is watched, since a settings file is replaced, not
     // edited, when it is saved.
@@ -312,12 +330,13 @@ int main(int argc, char **argv)
                          settingsSaved = saved;
                          desk.reconsider();
                      });
-    QObject::connect(&logWatcher, &QFileSystemWatcher::fileChanged, &desk, [&logWatcher, &settled, pacmanLog] {
-        // A log turned over is watched afresh.
-        if (!logWatcher.files().contains(pacmanLog) && QFile::exists(pacmanLog))
-            logWatcher.addPath(pacmanLog);
+    // An update ending is seen two minutes after the last change.
+    const auto changed = [&settled, watchMarks] {
+        watchMarks();
         settled.start();
-    });
+    };
+    QObject::connect(&logWatcher, &QFileSystemWatcher::fileChanged, &desk, changed);
+    QObject::connect(&logWatcher, &QFileSystemWatcher::directoryChanged, &desk, changed);
 
     return app.exec();
 }
