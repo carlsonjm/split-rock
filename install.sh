@@ -37,7 +37,7 @@ cmake -S "${project_root}" -B "${build_dir}" "${generator[@]}" \
     -DCMAKE_BUILD_TYPE=RelWithDebInfo \
     -DCMAKE_INSTALL_PREFIX=/usr \
     -DSPLIT_ROCK_ADAPTERS_DIR="${build_dir}/assistants" >/dev/null
-cmake --build "${build_dir}" --parallel --target split-rock split-rock-desk
+cmake --build "${build_dir}" --parallel --target split-rock split-rock-desk split-rock-core
 # Shuffle's install key, where it is set up, installs with no password: the
 # build is laid out here with this account's own rights, and a root-owned helper
 # takes the files as a stream and puts only Split Rock's own in place.

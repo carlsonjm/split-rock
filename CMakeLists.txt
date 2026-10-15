@@ -98,6 +98,7 @@ qt_add_resources(split-rock "sheet"
         qml/AssistantList.qml
         qml/Workspace.qml
         qml/FullWindow.qml
+        qml/ActionWindow.qml
         qml/StartingPanel.qml
         qml/DownloadPanel.qml
         qml/ProblemPanel.qml
@@ -167,6 +168,35 @@ install(FILES data/licences/Apache-2.0.txt DESTINATION ${CMAKE_INSTALL_LIBDIR}/s
 target_compile_definitions(split-rock PRIVATE
     SPLIT_ROCK_INSTALLED_DESK="${CMAKE_INSTALL_FULL_LIBDIR}/split-rock/split-rock-desk"
     SPLIT_ROCK_INSTALLED_MODELS="${CMAKE_INSTALL_FULL_LIBDIR}/split-rock/models.json")
+
+# Core, the front desk: a background program with no window that looks at the
+# computer and tells the desktop's surfaces (docs/CORE.md). It needs only Qt's
+# core and the bus, and none of the conversation or the model.
+add_library(splitrock_core_watch STATIC
+    src/core/Attention.cpp
+    src/core/Core.cpp
+    src/core/CoreService.cpp
+    src/core/Storage.cpp
+)
+target_include_directories(splitrock_core_watch PUBLIC src)
+target_link_libraries(splitrock_core_watch PUBLIC Qt6::Core Qt6::DBus)
+target_compile_options(splitrock_core_watch PRIVATE -Wall -Wextra)
+qt_add_executable(split-rock-core src/core/main.cpp)
+target_link_libraries(split-rock-core PRIVATE splitrock_core_watch)
+target_compile_definitions(split-rock-core PRIVATE PROJECT_VERSION="${PROJECT_VERSION}"
+    SPLIT_ROCK_INSTALLED_PROGRAM="${SPLIT_ROCK_PROGRAM}")
+install(TARGETS split-rock-core RUNTIME DESTINATION ${CMAKE_INSTALL_LIBDIR}/split-rock)
+set(SPLIT_ROCK_CORE_PROGRAM "${CMAKE_INSTALL_FULL_LIBDIR}/split-rock/split-rock-core")
+configure_file(data/io.github.carlsonjm.splitrock.Core.service.in
+    ${CMAKE_CURRENT_BINARY_DIR}/data/io.github.carlsonjm.splitrock.Core.service @ONLY)
+install(FILES ${CMAKE_CURRENT_BINARY_DIR}/data/io.github.carlsonjm.splitrock.Core.service
+    DESTINATION ${CMAKE_INSTALL_DATADIR}/dbus-1/services)
+# Core starts at sign-in, so it looks on its schedule whether or not anything
+# has asked it yet.
+configure_file(data/io.github.carlsonjm.splitrock.Core-autostart.desktop.in
+    ${CMAKE_CURRENT_BINARY_DIR}/data/io.github.carlsonjm.splitrock.Core-autostart.desktop @ONLY)
+install(FILES ${CMAKE_CURRENT_BINARY_DIR}/data/io.github.carlsonjm.splitrock.Core-autostart.desktop
+    DESTINATION ${CMAKE_INSTALL_FULL_SYSCONFDIR}/xdg/autostart RENAME io.github.carlsonjm.splitrock.Core.desktop)
 
 # The pretend assistant: speaks the protocol and follows a script, so every test
 # runs with no account, no network and nothing on the computer to change.
