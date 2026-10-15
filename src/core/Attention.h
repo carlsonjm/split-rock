@@ -29,7 +29,8 @@ struct AttentionLimits {
     int step = 3;
     // How far below the ticker's mark the fact must fall to count as settled.
     int settle = 2;
-    // Islands a day, from all of Core.
+    // Islands a day for this topic. Each topic keeps its own allowance, so
+    // one never uses up another's.
     int islandsPerDay = 1;
     // An island nobody touched closes after this long.
     int islandHours = 24;

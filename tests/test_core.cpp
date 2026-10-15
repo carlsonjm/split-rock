@@ -93,6 +93,8 @@ private Q_SLOTS:
         QCOMPARE(fact.detail, QStringLiteral("150 GB free"));
         QVERIFY(!fact.trendKnown);
 
+        QCOMPARE(judge({at(Start, 74)}).level, Level::Quiet);
+        QCOMPARE(judge({at(Start, 75)}).level, Level::Ticker);
         QCOMPARE(judge({at(Start, 86)}).level, Level::Ticker);
         QCOMPARE(judge({at(Start, 91)}).level, Level::Island);
 
@@ -115,18 +117,18 @@ private Q_SLOTS:
     void itSpeaksOnceAtEachLevelAndOnlyWhenWorse()
     {
         Desk d;
-        d.look(80);
+        d.look(70);
         QVERIFY(d.ticker.isEmpty());
 
-        d.look(86);
+        d.look(76);
         QCOMPARE(d.ticker.size(), 1);
-        QCOMPARE(d.ticker.first(), QStringLiteral("Storage · 86% full | 70 GB free"));
+        QCOMPARE(d.ticker.first(), QStringLiteral("Storage · 76% full | 120 GB free"));
         // Time passing says nothing new.
-        d.look(86, 600);
-        d.look(87);
+        d.look(76, 600);
+        d.look(78);
         QCOMPARE(d.ticker.size(), 1);
         // Worse by the step: once more.
-        d.look(89);
+        d.look(79);
         QCOMPARE(d.ticker.size(), 2);
 
         // The island, once; not again the same day, even worse.
@@ -143,8 +145,19 @@ private Q_SLOTS:
         // Freed: it settles, and the next fill speaks again.
         d.look(60);
         QVERIFY(d.logbook().contains(QStringLiteral("Settled at 60% full")));
-        d.look(86, 60 * 24 * 8);
+        d.look(76, 60 * 24 * 8);
         QCOMPARE(d.ticker.size(), 4);
+    }
+
+    // Storage's island allowance is its own, kept with its own record.
+    void theAllowanceBelongsToTheTopic()
+    {
+        Desk d;
+        d.look(91);
+        const QString saved = read(d.dir.filePath(QStringLiteral("core/attention.ini")));
+        QVERIFY(saved.contains(QStringLiteral("[Storage]")));
+        QVERIFY(saved.contains(QStringLiteral("IslandsToday=1")));
+        QVERIFY(!saved.contains(QStringLiteral("[Islands]")));
     }
 
     void notNowQuietsItUntilItWorsens()
@@ -196,7 +209,7 @@ private Q_SLOTS:
     void whatItKeepsIsReadableAndSurvivesARestart()
     {
         Desk d;
-        d.look(80);
+        d.look(70);
         d.look(91);
         const QString tsv = read(d.dir.filePath(QStringLiteral("core/storage.tsv")));
         QCOMPARE(tsv.count(QLatin1Char('\n')), 2);

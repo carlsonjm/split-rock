@@ -39,8 +39,8 @@ the drive is filling.
 
 | Level | When | Where it shows |
 | --- | --- | --- |
-| Quiet | Under 85% full, and not filling fast | Search only, when asked |
-| Ticker | 85% full or more | One ordinary notification: "Storage · 86% full", "70 GB free". Tapping it opens Free up space |
+| Quiet | Under 75% full, and not filling fast | Search only, when asked |
+| Ticker | 75% full or more | One ordinary notification: "Storage · 76% full", "120 GB free". Tapping it opens Free up space |
 | Island | 90% full or more, or at least 80% full and full within 14 days at the current rate | Search's island. Tapping it opens Free up space |
 
 ## How often Core speaks
@@ -49,7 +49,8 @@ the drive is filling.
   ticker, once at the island, then again only after it is 3 points fuller.
 - Not now, or dismissing the island, quiets the fact until it is 3 points
   fuller.
-- At most one island a day from all of Core. Past that, the ticker carries it.
+- At most one island a day for each topic; each keeps its own allowance, so
+  one topic never silences another. Past that, the ticker carries it.
 - Do Not Disturb leaves only the ticker.
 - An island nobody touches closes after a day, and the logbook says it went
   unanswered.

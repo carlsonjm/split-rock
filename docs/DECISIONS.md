@@ -858,8 +858,8 @@ Core, the front desk, is a second program in this repository beside the
 conversation (`CORE.md`). The upkeep cards are its hands and open on their own;
 the conversation is optional, and Core never needs it. It runs as the person,
 never calls a language model, never changes the computer, and keeps only plain
-files the person can read. A fact speaks only when it gets worse, with a daily
-allowance for the island.
+files the person can read. A fact speaks only when it gets worse, and each topic
+has its own daily allowance for the island, so one never silences another.
 
 Why: the checks and cards Core relies on are already written and tested here,
 in the open, and one repository proves that what Core says matches what the

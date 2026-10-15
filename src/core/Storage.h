@@ -46,7 +46,7 @@ struct StorageFact {
 // The limits Core holds to. Fixed here, never learned.
 struct StorageLimits {
     // The ticker from this full, the island from this full.
-    int ticker = 85;
+    int ticker = 75;
     int island = 90;
     // Filling fast: full within this many days, once at least this full.
     int fastDays = 14;

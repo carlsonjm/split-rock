@@ -273,8 +273,8 @@ void Core::loadAttention()
     m_attention.islandOpen = saved.value(QStringLiteral("IslandOpen"), false).toBool();
     m_attention.islandSince = QDateTime::fromString(saved.value(QStringLiteral("IslandSince")).toString(), Qt::ISODate);
     saved.endGroup();
-    m_attention.islandsDay = QDate::fromString(saved.value(QStringLiteral("Islands/Day")).toString(), Qt::ISODate);
-    m_attention.islandsToday = saved.value(QStringLiteral("Islands/Today"), 0).toInt();
+    m_attention.islandsDay = QDate::fromString(saved.value(QStringLiteral("Storage/IslandsDay")).toString(), Qt::ISODate);
+    m_attention.islandsToday = saved.value(QStringLiteral("Storage/IslandsToday"), 0).toInt();
 }
 
 void Core::saveAttention() const
@@ -287,8 +287,8 @@ void Core::saveAttention() const
     saved.setValue(QStringLiteral("IslandOpen"), m_attention.islandOpen);
     saved.setValue(QStringLiteral("IslandSince"), m_attention.islandSince.toUTC().toString(Qt::ISODate));
     saved.endGroup();
-    saved.setValue(QStringLiteral("Islands/Day"), m_attention.islandsDay.toString(Qt::ISODate));
-    saved.setValue(QStringLiteral("Islands/Today"), m_attention.islandsToday);
+    saved.setValue(QStringLiteral("Storage/IslandsDay"), m_attention.islandsDay.toString(Qt::ISODate));
+    saved.setValue(QStringLiteral("Storage/IslandsToday"), m_attention.islandsToday);
 }
 
 } // namespace splitrock::core
