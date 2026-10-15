@@ -53,6 +53,18 @@ add_dependencies(test_local_model split-rock-desk)
 split_rock_test(test_kadunce)
 target_link_libraries(test_kadunce PRIVATE splitrock_desktop)
 
+# Core, the front desk: its judgement, when it speaks, its files and its bus
+# interface, with looks and a clock of the test's own.
+# On a bus of its own, so the bus interface is tested too.
+find_program(DBUS_RUN_SESSION dbus-run-session REQUIRED)
+add_executable(test_core test_core.cpp)
+target_link_libraries(test_core PRIVATE splitrock_core_watch Qt6::DBus Qt6::Test)
+add_test(NAME test_core COMMAND ${DBUS_RUN_SESSION}
+    --config-file=${CMAKE_CURRENT_SOURCE_DIR}/bus/private-bus.conf -- $<TARGET_FILE:test_core>)
+set(TEST_CORE_ENVIRONMENT ${TEST_ENVIRONMENT})
+list(FILTER TEST_CORE_ENVIRONMENT EXCLUDE REGEX "^DBUS_SESSION_BUS_ADDRESS=")
+set_tests_properties(test_core PROPERTIES ENVIRONMENT "${TEST_CORE_ENVIRONMENT}" TIMEOUT 60)
+
 split_rock_test(test_sheet FakeKadunce.h PretendModel.h)
 target_link_libraries(test_sheet PRIVATE splitrock_desktop Qt6::Gui Qt6::Quick)
 target_compile_definitions(test_sheet PRIVATE DESK_PROGRAM="$<TARGET_FILE:split-rock-desk>")
@@ -62,6 +74,7 @@ qt_add_resources(test_sheet "sheet_for_test"
     BASE "${PROJECT_SOURCE_DIR}"
     FILES
         ${PROJECT_SOURCE_DIR}/qml/Main.qml
+        ${PROJECT_SOURCE_DIR}/qml/ActionWindow.qml
         ${PROJECT_SOURCE_DIR}/qml/Theme.qml
         ${PROJECT_SOURCE_DIR}/qml/Icon.qml
         ${PROJECT_SOURCE_DIR}/qml/Icons.js

@@ -18,6 +18,9 @@
 #include <QGuiApplication>
 #include <QPalette>
 #include <QQmlApplicationEngine>
+#include <QQmlComponent>
+
+#include <memory>
 #include <QQmlContext>
 #include <QQuickItem>
 #include <QQuickWindow>
@@ -884,6 +887,43 @@ private Q_SLOTS:
         update->close();
         QTRY_VERIFY(!find(full, QStringLiteral("updateCard")));
     }
+    // Core opens Free up space on its own: an ordinary window with the card
+    // in it, no conversation, and no assistant started.
+    void anUpkeepCardOpensOnItsOwn()
+    {
+        PretendFixture f;
+        QVERIFY(f.isValid());
+        Conversation c({f.assistant(QStringLiteral("signed-in.json"))});
+        const QString chores = QStringLiteral(FIXTURES_DIR "/chores/");
+        SpaceCleanup *space = c.spaceCleanup();
+        space->setElevate({});
+        space->setLookScript(QStringLiteral("cat '") + chores + QStringLiteral("space-look.txt'"));
+        space->setReport({});
+
+        QQmlApplicationEngine engine;
+        engine.rootContext()->setContextProperty(QStringLiteral("conversation"), &c);
+        exposeProduct(engine.rootContext());
+        QQmlComponent component(&engine, QUrl(QStringLiteral("qrc:/qml/ActionWindow.qml")));
+        std::unique_ptr<QQuickWindow> window(qobject_cast<QQuickWindow *>(component.create(engine.rootContext())));
+        QVERIFY2(window, qPrintable(component.errorString()));
+
+        QVERIFY(c.openChore(QStringLiteral("space")));
+        window->show();
+        QVERIFY(QTest::qWaitForWindowExposed(window.get()));
+        QCOMPARE(window->title(), QStringLiteral("Free up space"));
+        QTRY_COMPARE(space->stage(), QStringLiteral("ready"));
+        QTRY_VERIFY(find(window.get(), QStringLiteral("spaceCard")) && find(window.get(), QStringLiteral("spaceCard"))->isVisible());
+        QVERIFY(c.assistantId().isEmpty());
+        settle();
+        QVERIFY(overflowing(window.get()).isEmpty());
+        shoot(window.get(), QStringLiteral("60-space-on-its-own"));
+
+        // Not now closes the card, and the window with it.
+        QMetaObject::invokeMethod(find(window.get(), QStringLiteral("spaceClose")), "clicked");
+        QTRY_VERIFY(!window->isVisible());
+        QVERIFY(c.chore().isEmpty());
+    }
+
     void theUpkeepCardsShowEachStep()
     {
         PretendFixture f;

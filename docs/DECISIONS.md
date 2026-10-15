@@ -851,3 +851,22 @@ to delete them.
 
 Rejected: deleting restore points from the card, which the system's own
 cleanup already does on a schedule the person never has to think about.
+
+## Core lives in Split Rock, as a program of its own
+
+Core, the front desk, is a second program in this repository beside the
+conversation (`CORE.md`). The upkeep cards are its hands and open on their own;
+the conversation is optional, and Core never needs it. It runs as the person,
+never calls a language model, never changes the computer, and keeps only plain
+files the person can read. A fact speaks only when it gets worse, with a daily
+allowance for the island.
+
+Why: the checks and cards Core relies on are already written and tested here,
+in the open, and one repository proves that what Core says matches what the
+card then shows.
+
+Rejected: a repository of its own, which would copy working code and keep two
+copies in step; Core inside Shuffle's own repository, which is private and
+downstream, so the components could not rely on it; and letting the model
+interpret facts in the background, where its known weak spots would act
+unasked.

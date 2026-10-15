@@ -153,6 +153,20 @@ to prove: its first real cards on a freshly installed computer.
 **Proves:** the common jobs from real use are covered without Show details ever
 being needed.
 
+## Core: the front desk
+
+Core watches the computer and speaks through the desktop's own surfaces, with
+the upkeep cards as its hands (`CORE.md`). Its first slice is Storage, end to
+end: the ticker, Search's island, Free up space opening on its own, and Search
+finding the fact.
+
+**Built so far:** Core with Storage, its logbook and its limits on speaking, its
+bus interface, and `split-rock --card` opening an upkeep card on its own.
+
+**Proves:** on a test machine whose drive is filled on purpose, each surface
+speaks once, in order, never twice in the same place, and stops when space is
+freed; removing Core leaves every surface as it was.
+
 ## Later
 
 - Scenes: "get me ready for work" opens and arranges a saved set of

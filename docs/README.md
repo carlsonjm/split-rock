@@ -17,10 +17,11 @@ Paths are from the repository root.
 | `docs/DECISIONS.md` | Every settled ruling and what it rejected |
 | `docs/ROADMAP.md` | What is planned, in order, and what is not |
 | `docs/INPUT.md` | Every input, opening with its controls map |
+| `docs/CORE.md` | Core, the front desk: what it watches, when it speaks, the files it keeps, and its bus interface |
 | `docs/DESKTOP.md` | The entry, the card, and the conversation offered to Search on the session bus |
 | `data/` | The desktop file and the session bus's service file, filled in at build time; `models.json`, the model Split Rock on this computer downloads, with its size and checksum; and the model's licence in `licences/` |
-| `src/` | The protocol layer (`acp/`); the assistants, the conversation, changes and the upkeep cards (`app/`); Split Rock on this computer's front desk (`desk/`); the guide reader and the skill shelf (`guide/`); where the card stands and Kadunce's companion guest (`desktop/`); the pretend assistant (`pretend/`) |
-| `qml/` | The windows: the card in Search's shape, the full window with This Device, the Do it card, the upkeep cards and the model's download |
+| `src/` | The protocol layer (`acp/`); the assistants, the conversation, changes and the upkeep cards (`app/`); Split Rock on this computer's front desk (`desk/`); the guide reader and the skill shelf (`guide/`); where the card stands and Kadunce's companion guest (`desktop/`); the pretend assistant (`pretend/`); Core, the front desk (`core/`) |
+| `qml/` | The windows: the card in Search's shape, the full window with This Device, the Do it card, the upkeep cards, an upkeep card on its own, and the model's download |
 | `tests/` | The tests, each against the pretend assistant only, and its scripts in `tests/pretend-scripts/`; `tests/bus/` drives the conversation's bus interface on a private bus |
 | `guide/plasma/` | The troubleshooting guide's general Plasma entries, one known problem each |
 | `tour/plasma/` | The tour's general Plasma steps |

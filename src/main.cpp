@@ -3,11 +3,13 @@
 // Milestone 0's program: Split Rock, talking to real assistants over the Agent
 // Client Protocol, and offering its conversation to Search on the session bus.
 //
-//   split-rock [--ask | --background] [--assistants DIR] [--state DIR] [--pretend SCRIPT] [--guide DIR]...
+//   split-rock [--ask | --background | --card NAME] [--assistants DIR] [--state DIR] [--pretend SCRIPT] [--guide DIR]...
 //
 // With no arguments, as from its entry, it opens the full window. --ask opens
 // the card in Search's shape; --background opens nothing, as when Search's
-// first call starts it. Split Rock runs once: a second start hands its
+// first call starts it. --card opens one upkeep card, such as space, on its
+// own in an ordinary window, with no conversation and no assistant started:
+// Core opens Free up space this way (docs/CORE.md). Split Rock runs once: a second start hands its
 // arguments to the one running and ends.
 //
 // --assistants  where the assistants' adapters were fetched
@@ -41,6 +43,7 @@
 #include <QTimer>
 #include <QUrl>
 #include <QQmlApplicationEngine>
+#include <QQmlComponent>
 #include <QQmlContext>
 #include <QQuickWindow>
 #include <QSocketNotifier>
@@ -55,6 +58,9 @@ namespace {
 const QCommandLineOption askOption(QStringLiteral("ask"), QStringLiteral("Open the card in Search's shape."));
 const QCommandLineOption backgroundOption(QStringLiteral("background"),
                                           QStringLiteral("Open nothing: the conversation waits for Search."));
+const QCommandLineOption cardOption(QStringLiteral("card"),
+                                    QStringLiteral("Open one upkeep card on its own: update, space, health, changes or restore."),
+                                    QStringLiteral("name"));
 
 // The session ends Split Rock with a signal. It quits the usual way instead, so
 // the assistant is stopped and its record of the conversation removed.
@@ -107,7 +113,7 @@ int main(int argc, char **argv)
     const QCommandLineOption guideOption(QStringLiteral("guide"),
                                          QStringLiteral("Also read the guide and tour under this folder."),
                                          QStringLiteral("dir"));
-    parser.addOptions({askOption, backgroundOption, assistantsOption, stateOption, notebookOption, pretendOption, guideOption});
+    parser.addOptions({askOption, backgroundOption, cardOption, assistantsOption, stateOption, notebookOption, pretendOption, guideOption});
     parser.process(app);
 
     // The one running Split Rock answers instead.
@@ -207,12 +213,34 @@ int main(int argc, char **argv)
     QObject::connect(&noticing, &QTimer::timeout, &conversation, notice);
     noticing.start();
 
+    // An upkeep card on its own, made the first time one is asked for.
+    QQuickWindow *actionWindow = nullptr;
+    const auto openAction = [&](const QString &name) {
+        if (!conversation.openChore(name))
+            return;
+        if (!actionWindow) {
+            QQmlComponent component(&engine, QUrl(QStringLiteral("qrc:/qml/ActionWindow.qml")));
+            actionWindow = qobject_cast<QQuickWindow *>(component.create(engine.rootContext()));
+            if (!actionWindow) {
+                qWarning().noquote() << component.errorString();
+                return;
+            }
+        }
+        actionWindow->show();
+        actionWindow->raise();
+        actionWindow->requestActivate();
+    };
+
     const auto handle = [&](const QStringList &arguments) {
         QCommandLineParser request;
-        request.addOptions({askOption, backgroundOption, assistantsOption, stateOption, notebookOption, pretendOption, guideOption});
+        request.addOptions({askOption, backgroundOption, cardOption, assistantsOption, stateOption, notebookOption, pretendOption, guideOption});
         request.parse(arguments);
         if (request.isSet(backgroundOption))
             return;
+        if (request.isSet(cardOption)) {
+            openAction(request.value(cardOption));
+            return;
+        }
         // The assistant the person chose last time starts with the window.
         conversation.resumeChosen();
         if (request.isSet(askOption))
@@ -250,6 +278,7 @@ int main(int argc, char **argv)
     handle(app.arguments());
     const int code = app.exec();
     // The windows go first, while everything they show is still there.
+    delete actionWindow;
     qDeleteAll(engine.rootObjects());
     return code;
 }
