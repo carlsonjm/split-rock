@@ -177,6 +177,7 @@ add_library(splitrock_core_watch STATIC
     src/core/Core.cpp
     src/core/CoreService.cpp
     src/core/Storage.cpp
+    src/core/Updates.cpp
 )
 target_include_directories(splitrock_core_watch PUBLIC src)
 target_link_libraries(splitrock_core_watch PUBLIC Qt6::Core Qt6::DBus)
