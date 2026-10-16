@@ -3,6 +3,7 @@
 
 #include <QDir>
 #include <QFile>
+#include <QRegularExpression>
 #include <QSaveFile>
 #include <QSettings>
 #include <QStandardPaths>
@@ -342,6 +343,17 @@ bool Core::openAction(const QString &id, const QString &query)
         return true;
     }
     return false;
+}
+
+bool Core::removeApp(const QString &desktopId)
+{
+    static const QRegularExpression shape(QStringLiteral("^[A-Za-z0-9_][A-Za-z0-9._+-]{0,200}\\.desktop$"));
+    if (!shape.match(desktopId).hasMatch())
+        return false;
+    write(QStringLiteral("Search  You asked to remove %1.").arg(desktopId.chopped(8)));
+    if (m_hooks.openCard)
+        m_hooks.openCard(QStringLiteral("uninstall"), desktopId);
+    return true;
 }
 
 void Core::write(const QString &line)

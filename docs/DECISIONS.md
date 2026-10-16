@@ -884,6 +884,14 @@ alone needed, after a restore point, and a removal another app depends on stops
 with nothing removed. What the system runs on (the kernel, the desktop, the
 package manager, Shuffle's own parts and the like) is never listed.
 
+Search's Uninstall names the app by its menu entry; the card finds the package
+that owns it and opens at the yes. Before any yes, the administrator's helper
+says, read only, whether the system runs on it: by its name, by Plasma's own
+groups (`plasma` and `kde-system`, which hold System Settings, Konsole and
+Dolphin), or because another installed package needs it. Any of those says
+why and stays, before a password is asked, and the helper's remove job
+refuses them too.
+
 Rejected: removing from the Do it card alone, which the local model can't
 write safely; and a separate Remove an app tile, which would make the shelf
 seven.

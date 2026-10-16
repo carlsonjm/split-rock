@@ -45,4 +45,9 @@ bool CoreService::OpenAction(const QString &id, const QString &query)
     return m_core->openAction(id, query);
 }
 
+bool CoreService::RemoveApp(const QString &desktopId)
+{
+    return m_core->removeApp(desktopId);
+}
+
 } // namespace splitrock::core

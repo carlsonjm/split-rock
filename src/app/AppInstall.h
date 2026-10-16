@@ -75,14 +75,20 @@ public:
     Q_INVOKABLE void back();
     // Opens the card to say which app to remove.
     Q_INVOKABLE void askRemove();
+    // Opens the card straight to removing the app with that desktop file id,
+    // such as org.videolan.vlc.desktop, as Search asks: the package or
+    // Flatpak that owns it is found, and the card waits for a yes. One the
+    // system can't run without, or one nothing owns, is said and left.
+    void removeApp(const QString &desktopId);
 
     // Words that ask to remove an app rather than find one, and the words
     // that are left once those are taken out: "uninstall MaiN Keyboard" is
     // MaiN Keyboard.
     static bool asksToRemove(const QString &words);
     static QString withoutRemoveWords(const QString &words);
-    // Packages the system can't do without, which are never offered for
-    // removal.
+    // Packages the system can't do without, by name, which are never
+    // offered for removal; the administrator's helper also keeps Plasma's
+    // own groups and whatever another package needs (split-rock-admin kept).
     static bool keptBySystem(const QString &package);
 
     // What the search printed, read into apps, best first, at most eight.
@@ -92,8 +98,12 @@ public:
     void setFlathubScript(const QString &script) { m_flathubScript = script; }
     void setOpenScript(const QString &script) { m_openScript = script; }
     void setFlathubRemoveScript(const QString &script) { m_flathubRemoveScript = script; }
+    void setOwnerScript(const QString &script) { m_ownerScript = script; }
 
 private:
+    // Waits for the yes to remove app, once the administrator's helper has
+    // said, read only, that the system doesn't run on it.
+    void askToRemove(const App &app);
     void finish(bool ok, const QString &output);
     void finishRemoving(bool ok, const QString &output);
 
@@ -108,6 +118,7 @@ private:
     QString m_flathubScript;
     QString m_openScript;
     QString m_flathubRemoveScript;
+    QString m_ownerScript;
 };
 
 } // namespace splitrock

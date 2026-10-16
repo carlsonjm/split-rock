@@ -78,6 +78,10 @@ public:
     // Opens one; query is passed on only to the card that takes it, Install
     // an app. False for an action not listed.
     bool openAction(const QString &id, const QString &query);
+    // Opens Install an app straight to removing the app with that desktop
+    // file id, as Search's Uninstall does: the card finds the package that
+    // owns it and waits for a yes. False for anything not shaped like one.
+    bool removeApp(const QString &desktopId);
 
     QString folder() const { return m_folder; }
     static QString defaultFolder();

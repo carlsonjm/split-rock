@@ -303,8 +303,14 @@ private Q_SLOTS:
         // Only Install an app takes what was typed.
         QVERIFY(d.core->openAction(QStringLiteral("install"), QStringLiteral(" install pdf editor ")));
         QVERIFY(!d.core->openAction(QStringLiteral("format-the-disk"), QString()));
-        QCOMPARE(d.opened, (QStringList{QStringLiteral("health"), QStringLiteral("install: install pdf editor")}));
+        // Search's Uninstall names the app by its desktop file id alone.
+        QVERIFY(d.core->removeApp(QStringLiteral("org.videolan.vlc.desktop")));
+        QVERIFY(!d.core->removeApp(QStringLiteral("../vlc.desktop")));
+        QVERIFY(!d.core->removeApp(QStringLiteral("vlc; rm -rf ~")));
+        QCOMPARE(d.opened, (QStringList{QStringLiteral("health"), QStringLiteral("install: install pdf editor"),
+                                        QStringLiteral("uninstall: org.videolan.vlc.desktop")}));
         QVERIFY(d.logbook().contains(QStringLiteral("Search  You opened Health check.")));
+        QVERIFY(d.logbook().contains(QStringLiteral("Search  You asked to remove org.videolan.vlc.")));
     }
 
     void updatesAreJudgedByDaysBehind()
