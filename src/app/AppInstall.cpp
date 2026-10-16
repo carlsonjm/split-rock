@@ -86,7 +86,6 @@ QVariantMap AppInstall::App::toMap() const
 AppInstall::AppInstall(QObject *parent)
     : Chore(parent)
     , m_searchScript(SearchScript)
-    , m_shelfScript(transactionScript())
     , m_flathubScript(FlathubScript)
     , m_openScript(OpenScript)
     , m_flathubRemoveScript(FlathubRemoveScript)
@@ -390,13 +389,8 @@ void AppInstall::install(const QString &key)
         finish(exitCode == 0, output);
     };
     if (shelf) {
-        run(asAdmin(m_shelfScript, {QStringLiteral("%1: Install %2").arg(productName(), m_picked.package),
-                                    QStringLiteral("1"), logPath(QStringLiteral("split-rock-install.log")),
-                                    QStringLiteral("pacman"), QStringLiteral("-S"), QStringLiteral("--needed"),
-                                    QStringLiteral("--noconfirm"), QStringLiteral("--noprogressbar"),
-                                    QStringLiteral("--color"), QStringLiteral("never"), QStringLiteral("--"),
-                                    m_picked.package}),
-            -1, finished, eachLine);
+        run(asAdmin(QStringLiteral("install"), {productName(), QStringLiteral("1"), m_picked.package}), -1, finished,
+            eachLine);
     } else {
         run(asPerson(m_flathubScript, {m_picked.remote, m_picked.package}), 60 * 60000, finished, eachLine);
     }
@@ -481,14 +475,10 @@ void AppInstall::confirmRemove()
         finishRemoving(exitCode == 0, output);
     };
     if (shelf) {
-        // -s takes what it alone needed with it; -n its settings files under
+        // What it alone needed goes with it, and its settings files under
         // /etc. Anything another app needs stops it, and nothing is removed.
-        run(asAdmin(m_shelfScript, {QStringLiteral("%1: Remove %2").arg(productName(), m_picked.package),
-                                    QStringLiteral("1"), logPath(QStringLiteral("split-rock-install.log")),
-                                    QStringLiteral("pacman"), QStringLiteral("-Rns"), QStringLiteral("--noconfirm"),
-                                    QStringLiteral("--noprogressbar"), QStringLiteral("--color"), QStringLiteral("never"),
-                                    QStringLiteral("--"), m_picked.package}),
-            -1, finished, eachLine);
+        run(asAdmin(QStringLiteral("remove"), {productName(), QStringLiteral("1"), m_picked.package}), -1, finished,
+            eachLine);
     } else {
         run(asPerson(m_flathubRemoveScript, {m_picked.package}), 30 * 60000, finished, eachLine);
     }

@@ -1,8 +1,10 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 #include "app/Chore.h"
 
+#include "app/Admin.h"
 #include "app/Product.h"
 
+#include <QDebug>
 #include <QMap>
 #include <QProcess>
 #include <QRegularExpression>
@@ -17,39 +19,11 @@ namespace {
 
 const QString Shell = QStringLiteral("/bin/sh");
 
-const QString TransactionScript = QStringLiteral(R"SH(export LANG=C LC_ALL=C
-trap '' HUP PIPE
-desc=$1
-snap=$2
-log=$3
-shift 3
-pre=
-if [ "$snap" = 1 ] && command -v snapper >/dev/null 2>&1 && [ -f /etc/snapper/configs/root ]; then
-    pre=$(snapper -c root create --type pre --cleanup-algorithm number --print-number --description "$desc") || pre=
-fi
-[ -n "$pre" ] && echo "split-rock-pre=$pre"
-: > "$log"
-command -v stdbuf >/dev/null 2>&1 && set -- stdbuf -oL "$@"
-if systemd-inhibit --list >/dev/null 2>&1; then
-    systemd-inhibit --what=sleep:shutdown:idle:handle-lid-switch --who="$desc" --why="$desc" "$@" >"$log" 2>&1 &
-else
-    "$@" >"$log" 2>&1 &
-fi
-pid=$!
-tail -n +1 --pid="$pid" -f "$log" 2>/dev/null
-wait "$pid"
-status=$?
-if [ -n "$pre" ]; then
-    post=$(snapper -c root create --type post --pre-number "$pre" --cleanup-algorithm number --print-number --description "$desc") \
-        && echo "split-rock-post=$post"
-fi
-exit $status
-)SH");
-
 } // namespace
 
 Chore::Chore(QObject *parent)
     : QObject(parent)
+    , m_admin{adminHelper()}
 {
 }
 
@@ -58,11 +32,6 @@ Chore::~Chore()
     // What runs as the administrator keeps going without Split Rock: it
     // writes to its own log, and its process is out of Split Rock's reach.
     stopRunning();
-}
-
-const QString &Chore::transactionScript()
-{
-    return TransactionScript;
 }
 
 bool Chore::busy() const
@@ -147,9 +116,13 @@ QStringList Chore::asPerson(const QString &script, const QStringList &arguments)
     return QStringList{Shell, QStringLiteral("-c"), script, productName()} + arguments;
 }
 
-QStringList Chore::asAdmin(const QString &script, const QStringList &arguments) const
+QStringList Chore::asAdmin(const QString &job, const QStringList &arguments) const
 {
-    return m_elevate + asPerson(script, arguments);
+    QString why;
+    const QStringList program = adminJob(m_elevate, m_admin, job, arguments, m_logs, &why);
+    if (program.isEmpty())
+        qWarning().noquote() << QStringLiteral("%1: won't ask for the administrator: %2").arg(productName(), why);
+    return program;
 }
 
 bool Chore::writeDown(const QString &id, const QString &title, const QString &undo, QString *error)
@@ -260,6 +233,13 @@ QMap<QString, QStringList> Chore::sections(const QString &output)
 void Chore::run(const QStringList &program, int timeLimit, std::function<void(int, const QString &)> done,
                 std::function<void(const QString &)> eachLine)
 {
+    // Nothing to start, as when the administrator's program can't be
+    // trusted: told as a program that couldn't start would be, once the
+    // caller has set the card's stage.
+    if (program.isEmpty()) {
+        QTimer::singleShot(0, this, [done] { done(-2, QStringLiteral("Nothing could be started.")); });
+        return;
+    }
     auto *process = new QProcess(this);
     m_process = process;
     process->setProcessChannelMode(QProcess::MergedChannels);

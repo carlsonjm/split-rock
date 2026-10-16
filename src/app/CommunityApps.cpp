@@ -85,69 +85,6 @@ else
 fi
 )SH");
 
-// Run as the administrator: $1 the description, $2 whether to take restore
-// points, $3 the log, $4 the recipe's folder, $5 the commit looked at, $6 the
-// person, whom the recipe is built as (empty when it already runs as them);
-// then the helpers from the system's shelf, "--", and the installed
-// packages to replace. The recipe is built as the person, exactly at the
-// commit looked at, and only what it built is installed.
-const QString BuildScript = QStringLiteral(R"SH(export LANG=C LC_ALL=C
-trap '' HUP PIPE
-desc=$1 snap=$2 log=$3 dir=$4 head=$5 person=$6
-shift 6
-helpers=
-while [ $# -gt 0 ] && [ "$1" != "--" ]; do helpers="$helpers $1"; shift; done
-[ "$1" = "--" ] && shift
-names="$*"
-if [ -n "$person" ] && [ "$(id -u)" = 0 ]; then
-    home=$(getent passwd "$person" | cut -d: -f6)
-    [ -n "$home" ] || { echo "No such person: $person"; exit 2; }
-    case $dir in "$home"/*) ;; *) echo "The recipe isn't in the person's own folder."; exit 2 ;; esac
-    as() { runuser -u "$person" -- env HOME="$home" LANG=C LC_ALL=C "$@"; }
-else
-    as() { "$@"; }
-fi
-: > "$log"
-(
-    pre=
-    if [ "$snap" = 1 ] && command -v snapper >/dev/null 2>&1 && [ -f /etc/snapper/configs/root ]; then
-        pre=$(snapper -c root create --type pre --cleanup-algorithm number --print-number --description "$desc") || pre=
-    fi
-    [ -n "$pre" ] && echo "split-rock-pre=$pre"
-    status=0
-    if [ -n "$helpers" ]; then
-        echo "@@ step helpers"
-        pacman -S --asdeps --needed --noconfirm --noprogressbar --color never $helpers || status=1
-    fi
-    if [ $status = 0 ]; then
-        echo "@@ step build"
-        cd "$dir" && as git -C "$dir" checkout -q --detach "$head" && [ "$(as git -C "$dir" rev-parse HEAD)" = "$head" ] \
-            && as makepkg -f --noconfirm --nocolor --noprogressbar || status=1
-    fi
-    if [ $status = 0 ]; then
-        echo "@@ step install"
-        files=
-        for f in $(cd "$dir" && as makepkg --packagelist); do
-            [ -f "$f" ] || continue
-            n=$(pacman -Qqp "$f" 2>/dev/null)
-            for want in $names; do [ "$n" = "$want" ] && files="$files $f"; done
-        done
-        if [ -n "$files" ]; then
-            pacman -U --noconfirm --noprogressbar --color never $files || status=1
-        else
-            echo "Nothing was built for $names."
-            status=1
-        fi
-    fi
-    if [ -n "$pre" ]; then
-        snapper -c root create --type post --pre-number "$pre" --cleanup-algorithm number --description "$desc"
-    fi
-    exit $status
-) >"$log" 2>&1 &
-pid=$!
-tail -n +1 --pid="$pid" -f "$log" 2>/dev/null
-wait "$pid"
-)SH");
 
 const QRegularExpression &packageName()
 {
@@ -311,7 +248,6 @@ CommunityApps::CommunityApps(QObject *parent)
     , m_recipes(QStandardPaths::writableLocation(QStandardPaths::GenericCacheLocation) + QStringLiteral("/split-rock/aur"))
     , m_lookScript(LookScript)
     , m_reviewScript(ReviewScript)
-    , m_buildScript(BuildScript)
 {
 }
 
@@ -567,23 +503,16 @@ void CommunityApps::start()
     setStage(QStringLiteral("updating"));
     Q_EMIT changed();
 
-    // Without the password prompt, as in tests, it already runs as the person.
-    QString person;
-    if (!m_elevate.isEmpty()) {
-        person = qEnvironmentVariable("USER");
-        if (person.isEmpty())
-            person = QDir::home().dirName();
-    }
-    QStringList arguments{QStringLiteral("%1: Community %2").arg(productName(), app.name), QStringLiteral("1"),
-                          logPath(QStringLiteral("split-rock-community.log")), QDir(m_recipes).filePath(app.base),
-                          m_review.head, person};
+    // The recipe is built as the person the password prompt was for, exactly
+    // at the commit looked at, and only what it built is installed.
+    QStringList arguments{productName(), QStringLiteral("1"), QDir(m_recipes).filePath(app.base), m_review.head};
     arguments << m_review.helpers << QStringLiteral("--") << app.name;
     static const QMap<QString, QString> doing{{QStringLiteral("helpers"), QStringLiteral("Installing what it needs")},
                                               {QStringLiteral("build"), QStringLiteral("Building it from its recipe")},
                                               {QStringLiteral("install"), QStringLiteral("Installing it")}};
     // Never stopped by a timer: building can take a long while, and pacman
     // may be installing.
-    run(asAdmin(m_buildScript, arguments), -1,
+    run(asAdmin(QStringLiteral("community"), arguments), -1,
         [this, app](int exitCode, const QString &output) {
             if (exitCode != 0) {
                 if (output.contains(QLatin1String("unknown public key")) || output.contains(QLatin1String("One or more PGP signatures could not be verified")))

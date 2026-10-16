@@ -31,6 +31,8 @@
 #include <QTemporaryDir>
 #include <QTest>
 
+#include "AdminStandIn.h"
+
 #include <algorithm>
 #include <functional>
 
@@ -841,9 +843,9 @@ private Q_SLOTS:
         update->setElevate({});
         update->setLookScript(QStringLiteral("cat '" FIXTURES_DIR "/update/look.txt'"));
         // Slowed so the card can be seen partway.
-        update->setUpdateScript(QStringLiteral("echo split-rock-pre=41; head -n 22 '" FIXTURES_DIR "/update/update.out'; "
+        update->setAdmin(adminStandIn(QStringLiteral("echo split-rock-pre=41; head -n 22 '" FIXTURES_DIR "/update/update.out'; "
                                                "sleep 1.2; tail -n +23 '" FIXTURES_DIR "/update/update.out'; "
-                                               "echo split-rock-post=42"));
+                                               "echo split-rock-post=42")));
         update->setAppsScript(QStringLiteral("echo Updating apps"));
         update->setAfterScript(QStringLiteral("printf '@@ kernel\\nrestart\\n@@ settings\\n/etc/pacman.conf.pacnew\\n@@ failed\\n@@ end\\n'"));
         QQmlApplicationEngine engine;
@@ -986,13 +988,13 @@ private Q_SLOTS:
         SpaceCleanup *space = c.spaceCleanup();
         space->setElevate({});
         space->setLookScript(printing(QStringLiteral("space-look.txt")));
-        space->setAdminScript(QStringLiteral("echo '@@ step pkgcache'; sleep 0.3; echo '@@ step journal'"));
+        space->setAdmin(adminStandIn(QStringLiteral("echo '@@ step pkgcache'; sleep 0.3; echo '@@ step journal'")));
         space->setPersonScript(QStringLiteral("echo '@@ step cache'"));
         space->setFreeScript(QStringLiteral("echo 52500000"));
         AppInstall *install = c.appInstall();
         install->setElevate({});
         install->setSearchScript(printing(QStringLiteral("install-search.txt")));
-        install->setShelfScript(QStringLiteral("echo 'Packages (1) pdfarranger-1.11-1'; echo 'installing pdfarranger...'"));
+        install->setAdmin(adminStandIn(QStringLiteral("echo 'Packages (1) pdfarranger-1.11-1'; echo 'installing pdfarranger...'")));
         install->setOpenScript(QStringLiteral("true"));
         RestorePoints *restore = c.restorePoints();
         restore->setLookScript(printing(QStringLiteral("restore-look.txt")));
@@ -1002,7 +1004,7 @@ private Q_SLOTS:
         community->setElevate({});
         community->setLookScript(printing(QStringLiteral("community-look.txt")));
         community->setReviewScript(printing(QStringLiteral("community-review.txt")));
-        community->setBuildScript(QStringLiteral("echo '@@ step build'; echo '==> Making package: visual-studio-code-bin'"));
+        community->setAdmin(adminStandIn(QStringLiteral("echo '@@ step build'; echo '==> Making package: visual-studio-code-bin'")));
         // The pretend assistant answers only what its script expects, so how
         // each card went isn't told to it here.
         for (Chore *chore : std::initializer_list<Chore *>{space, install, restore, health, community})

@@ -152,7 +152,6 @@ QVariantMap SystemUpdate::Result::toMap() const
 SystemUpdate::SystemUpdate(QObject *parent)
     : Chore(parent)
     , m_lookScript(LookScript)
-    , m_updateScript(transactionScript())
     , m_appsScript(AppsScript)
     , m_afterScript(AfterScript)
 {
@@ -411,12 +410,8 @@ void SystemUpdate::start()
         afterSystem(0, QString());
         return;
     }
-    const QStringList program = asAdmin(m_updateScript, {QStringLiteral("%1: Update").arg(productName()),
-                                                         m_snapshots && !m_plan.snapPac ? QStringLiteral("1") : QStringLiteral("0"),
-                                                         logPath(QStringLiteral("split-rock-update.log")),
-                                                         QStringLiteral("pacman"), QStringLiteral("-Syu"),
-                                                         QStringLiteral("--noconfirm"), QStringLiteral("--noprogressbar"),
-                                                         QStringLiteral("--color"), QStringLiteral("never")});
+    const QStringList program = asAdmin(QStringLiteral("update"),
+                                        {productName(), m_snapshots && !m_plan.snapPac ? QStringLiteral("1") : QStringLiteral("0")});
     qInfo().noquote() << QStringLiteral("%1: updating the system").arg(productName());
     // Never stopped by a timer: an update cut off halfway can leave the
     // computer unable to start.

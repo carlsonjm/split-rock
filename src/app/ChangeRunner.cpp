@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 #include "app/ChangeRunner.h"
 
+#include "app/Admin.h"
 #include "app/Product.h"
 
 #include <QDebug>
@@ -110,6 +111,7 @@ ChangeRunner::Record ChangeRunner::Record::fromJson(const QJsonObject &object)
 ChangeRunner::ChangeRunner(const QString &store, QObject *parent)
     : QObject(parent)
     , m_store(store)
+    , m_admin{adminHelper()}
     , m_bwrap(bubblewrap())
 {
 }
@@ -437,12 +439,14 @@ bool ChangeRunner::undo(const QString &id, QString *error)
     };
 
     // A system change made before cards stopped running as the
-    // administrator: its snapshots are put back by the one fixed job that
-    // does it, with only their two numbers.
+    // administrator: its snapshots are put back by the administrator's own
+    // job for it, given only their two numbers.
     if (r.pre > 0 && r.post > r.pre) {
-        QStringList program = m_elevate;
-        program << QStringLiteral("snapper") << QStringLiteral("-c") << QStringLiteral("root")
-                << QStringLiteral("undochange") << QStringLiteral("%1..%2").arg(r.pre).arg(r.post);
+        QString why;
+        const QStringList program = adminJob(m_elevate, m_admin, QStringLiteral("restore-undo"),
+                                             {QString::number(r.pre), QString::number(r.post)}, {}, &why);
+        if (program.isEmpty())
+            return fail(QStringLiteral("That change can't be undone here: %1.").arg(why));
         run(program, m_timeLimit * 3, [finish](int exitCode, const QString &output) { finish(exitCode == 0, output); });
         return true;
     }

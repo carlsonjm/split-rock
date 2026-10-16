@@ -51,42 +51,6 @@ ls /usr/share/libalpm/hooks 2>/dev/null | grep -q snap-pac && echo snap-pac
 echo "@@ end"
 )SH");
 
-// Run as the administrator. $1 is whether to take restore points around
-// removing parts nothing uses; then the jobs, then "--" and the parts the
-// person saw, of which only those still unused are removed.
-const QString AdminScript = QStringLiteral(R"SH(export LANG=C LC_ALL=C
-snap=$1
-shift
-jobs=
-while [ $# -gt 0 ] && [ "$1" != "--" ]; do jobs="$jobs $1"; shift; done
-[ "$1" = "--" ] && shift
-for job in $jobs; do
-    case $job in
-        pkgcache) echo "@@ step pkgcache"; paccache -rk1; paccache -ruk0 ;;
-        journal) echo "@@ step journal"; journalctl --vacuum-size=200M ;;
-        crashes) echo "@@ step crashes"; find /var/lib/systemd/coredump -type f -delete ;;
-    esac
-done
-[ $# -gt 0 ] || exit 0
-echo "@@ step orphans"
-unused=$(pacman -Qdtq 2>/dev/null)
-keep=
-for name in "$@"; do
-    printf '%s\n' "$unused" | grep -qx -- "$name" && keep="$keep $name"
-done
-[ -n "$keep" ] || exit 0
-pre=
-if [ "$snap" = 1 ] && command -v snapper >/dev/null 2>&1 && [ -f /etc/snapper/configs/root ]; then
-    pre=$(snapper -c root create --type pre --cleanup-algorithm number --print-number --description "$0: Free up space") || pre=
-fi
-[ -n "$pre" ] && echo "split-rock-pre=$pre"
-pacman -Rns --noconfirm --noprogressbar --color never $keep
-status=$?
-[ -n "$pre" ] && snapper -c root create --type post --pre-number "$pre" --cleanup-algorithm number --description "$0: Free up space"
-echo "split-rock-removed=$keep"
-exit $status
-)SH");
-
 // Run as the person: the jobs it names.
 const QString PersonScript = QStringLiteral(R"SH(export LANG=C LC_ALL=C
 for job in "$@"; do
@@ -150,7 +114,6 @@ QString doing(const QString &id)
 SpaceCleanup::SpaceCleanup(QObject *parent)
     : Chore(parent)
     , m_lookScript(LookScript)
-    , m_adminScript(AdminScript)
     , m_personScript(PersonScript)
     , m_freeScript(FreeScript)
 {
@@ -416,10 +379,10 @@ void SpaceCleanup::start()
         return;
     }
     setNow(QStringLiteral("Waiting for your password"));
-    QStringList arguments{m_look.snapPac ? QStringLiteral("0") : QStringLiteral("1")};
+    QStringList arguments{productName(), m_look.snapPac ? QStringLiteral("0") : QStringLiteral("1")};
     arguments << adminJobs << QStringLiteral("--") << orphans;
     // Never stopped by a timer: it may be removing packages.
-    run(asAdmin(m_adminScript, arguments), -1,
+    run(asAdmin(QStringLiteral("free-space"), arguments), -1,
         [this, person](int exitCode, const QString &output) {
             if (exitCode != 0) {
                 m_why = whyFailed(output, exitCode, QStringLiteral("Freeing up space"));

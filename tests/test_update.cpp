@@ -9,6 +9,8 @@
 #include <QFile>
 #include <QSignalSpy>
 #include <QTest>
+
+#include "AdminStandIn.h"
 #include <QTimeZone>
 
 using namespace splitrock;
@@ -130,7 +132,7 @@ private Q_SLOTS:
         SystemUpdate update;
         update.setElevate({});
         update.setLookScript(QStringLiteral("cat '" FIXTURES_DIR "/update/look.txt'"));
-        update.setUpdateScript(QStringLiteral("cat '" FIXTURES_DIR "/update/update.out'; echo split-rock-pre=41; echo split-rock-post=42"));
+        update.setAdmin(adminStandIn(QStringLiteral("cat '" FIXTURES_DIR "/update/update.out'; echo split-rock-pre=41; echo split-rock-post=42")));
         update.setAppsScript(QStringLiteral("echo Updating apps"));
         update.setAfterScript(QStringLiteral("printf '@@ kernel\\nrestart\\n@@ settings\\n/etc/pacman.conf.pacnew\\n@@ failed\\n@@ end\\n'"));
 
@@ -165,7 +167,7 @@ private Q_SLOTS:
         SystemUpdate update;
         update.setElevate({});
         update.setLookScript(QStringLiteral("cat '" FIXTURES_DIR "/update/look.txt'"));
-        update.setUpdateScript(QStringLiteral("echo 'error: failed to init transaction (unable to lock database)'; exit 1"));
+        update.setAdmin(adminStandIn(QStringLiteral("echo 'error: failed to init transaction (unable to lock database)'; exit 1")));
         update.check();
         QTRY_COMPARE(update.stage(), QStringLiteral("ready"));
         update.start();
@@ -209,7 +211,7 @@ private Q_SLOTS:
         SystemUpdate update;
         update.setElevate({});
         update.setLookScript(QStringLiteral("cat <<'LOOK'\n") + look + QStringLiteral("\nLOOK"));
-        update.setUpdateScript(QStringLiteral("exit 99"));
+        update.setAdmin(adminStandIn(QStringLiteral("exit 99")));
         update.check();
         QTRY_COMPARE(update.stage(), QStringLiteral("ready"));
         update.start();

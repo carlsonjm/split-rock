@@ -119,7 +119,6 @@ public:
     // computer's: each is a /bin/sh script; the update's runs through the
     // elevate program.
     void setLookScript(const QString &script) { m_lookScript = script; }
-    void setUpdateScript(const QString &script) { m_updateScript = script; }
     void setAppsScript(const QString &script) { m_appsScript = script; }
     void setAfterScript(const QString &script) { m_afterScript = script; }
     void setSnapshots(bool on) { m_snapshots = on; }
@@ -140,7 +139,6 @@ private:
     QString m_output;
 
     QString m_lookScript;
-    QString m_updateScript;
     QString m_appsScript;
     QString m_afterScript;
     bool m_snapshots = true;

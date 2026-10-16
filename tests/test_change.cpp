@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
+#include "app/Admin.h"
 #include "app/Appearance.h"
 #include "app/Change.h"
 #include "app/ChangeCard.h"
@@ -481,8 +482,9 @@ private Q_SLOTS:
         keep(QStringLiteral("b"), -1, -1, false, QStringLiteral("sudo touch '%1'").arg(mark));
         keep(QStringLiteral("c"), 7, 8, true, QStringLiteral("touch '%1'").arg(mark));
         ChangeRunner runner(store);
-        // The elevating program here only says what it was given.
-        runner.setElevate({QStringLiteral("echo")});
+        // The administrator's job here only says what it was given.
+        runner.setElevate({});
+        runner.setAdmin({QStringLiteral("echo")});
         QVERIFY(!runner.record(QStringLiteral("a"))->canUndo());
         QVERIFY(!runner.record(QStringLiteral("b"))->canUndo());
         QString why;
@@ -492,8 +494,40 @@ private Q_SLOTS:
         QVERIFY(runner.undo(QStringLiteral("c")));
         QTRY_COMPARE(undone.size(), 1);
         const auto record = undone.first().first().value<ChangeRunner::Record>();
-        QVERIFY(record.output.contains(QStringLiteral("undochange 7..8")));
+        QVERIFY2(record.output.endsWith(QStringLiteral("\nrestore-undo 7 8")), qPrintable(record.output));
+
+        // Handed to the system's prompt, the job's program has to be one only
+        // the administrator can change.
+        runner.setElevate({QStringLiteral("pkexec")});
+        runner.setAdmin({dir.filePath(QStringLiteral("split-rock-admin"))});
+        write(dir.filePath(QStringLiteral("split-rock-admin")), "#!/bin/sh\n");
+        keep(QStringLiteral("d"), 7, 8, true, {});
+        QVERIFY(!runner.undo(QStringLiteral("d"), &why));
+        QVERIFY2(why.contains(QStringLiteral("can't be undone here")), qPrintable(why));
         QVERIFY(!QFileInfo::exists(mark));
+    }
+
+    // Only a program nothing but the administrator can change is handed to
+    // the system's password prompt.
+    void onlyTheAdministratorsOwnProgramIsTrusted()
+    {
+        QVERIFY(adminTrusted(QStringLiteral("/bin/sh")));
+        QVERIFY(!adminTrusted(QStringLiteral("sh")));
+        QVERIFY(!adminTrusted(QStringLiteral("/nowhere/split-rock-admin")));
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        const QString own = dir.filePath(QStringLiteral("split-rock-admin"));
+        write(own, "#!/bin/sh\n");
+        QFile::setPermissions(own, QFileDevice::ReadOwner | QFileDevice::WriteOwner | QFileDevice::ExeOwner);
+        QString why;
+        QVERIFY(!adminTrusted(own, &why));
+        QVERIFY(!why.isEmpty());
+        QVERIFY(adminJob({QStringLiteral("pkexec")}, {own}, QStringLiteral("update"), {}).isEmpty());
+        QCOMPARE(adminJob({}, {own}, QStringLiteral("update"), {QStringLiteral("Split Rock")}, QStringLiteral("/logs")),
+                 (QStringList{QStringLiteral("env"), QStringLiteral("SPLIT_ROCK_ADMIN_LOGS=/logs"), own,
+                              QStringLiteral("update"), QStringLiteral("Split Rock")}));
+        QCOMPARE(adminJob({QStringLiteral("pkexec")}, {QStringLiteral("/bin/sh")}, QStringLiteral("update"), {}),
+                 (QStringList{QStringLiteral("pkexec"), QStringLiteral("/bin/sh"), QStringLiteral("update")}));
     }
 
     // The change runs where set-user-ID programs such as sudo and pkexec

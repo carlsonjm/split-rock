@@ -1,0 +1,269 @@
+#!/bin/sh
+# SPDX-License-Identifier: GPL-2.0-or-later
+#
+# The only program Split Rock runs as the administrator, through the system's
+# own password prompt (pkexec), one job at a time. It holds every job Split
+# Rock's Helpers need, written here and installed where only the administrator
+# can change it, and takes nothing but the job's name and its checked
+# arguments: no command, script or path to run comes from Split Rock, an
+# assistant or a card (docs/DECISIONS.md, The administrator runs only Split
+# Rock's own named jobs).
+#
+#   update NAME SNAP                        the whole system, with pacman
+#   install NAME SNAP PACKAGE               one package from the system's shelf
+#   remove NAME SNAP PACKAGE                one package, with what only it needed
+#   free-space NAME SNAP [JOB...] -- [PACKAGE...]
+#                                           pkgcache, journal, crashes; then the
+#                                           parts nothing uses, of those named
+#   restore-list                            the restore points, read only
+#   restore-undo PRE POST                   put back what changed between two
+#   community NAME SNAP RECIPE HEAD [HELPER...] -- PACKAGE...
+#                                           build a reviewed recipe at its commit
+#                                           as the person, install what it built
+#
+# NAME is the name the person knows Split Rock by, which restore points carry;
+# SNAP is 1 to take a restore point before and after, 0 not to.
+
+set -u
+export LANG=C LC_ALL=C
+
+refuse() {
+    echo "split-rock-admin: refused: $*" >&2
+    exit 2
+}
+
+# Run by the system's prompt, which names the person it asked in PKEXEC_UID
+# and passes on nothing else of theirs, it is the administrator, with a safe
+# PATH of its own. Run otherwise, as by a test, it keeps the rights and the
+# stand-ins it was started with, and may log elsewhere.
+if [ -n "${PKEXEC_UID+set}" ]; then
+    PATH=/usr/local/sbin:/usr/local/bin:/usr/bin:/usr/sbin:/bin:/sbin
+    export PATH
+    logs=/var/log
+else
+    logs=${SPLIT_ROCK_ADMIN_LOGS:-/var/log}
+fi
+
+is_snap() {
+    case ${1-} in 0|1) return 0 ;; esac
+    return 1
+}
+
+# A package's name as pacman allows it: lower case letters, digits and
+# @ . _ + -, never starting with - or .
+is_package() {
+    case ${1-} in
+        ''|-*|.*|*[!a-z0-9@._+-]*) return 1 ;;
+    esac
+    [ ${#1} -le 128 ]
+}
+
+is_number() {
+    case ${1-} in
+        ''|*[!0-9]*) return 1 ;;
+    esac
+    [ ${#1} -le 9 ]
+}
+
+is_name() {
+    case ${1-} in
+        'Split Rock'|Genie) return 0 ;;
+    esac
+    return 1
+}
+
+# A restore point before, the command after the first three arguments with
+# its output in the log named third, which is followed here, and a restore
+# point after; each number printed as split-rock-pre= and split-rock-post=.
+# The computer is kept awake, and the lid's switch held, until it finishes,
+# and it carries on to the end even if Split Rock stops partway.
+transaction() {
+    desc=$1 snap=$2 log=$3
+    shift 3
+    trap '' HUP PIPE
+    pre=
+    if [ "$snap" = 1 ] && command -v snapper >/dev/null 2>&1 && [ -f /etc/snapper/configs/root ]; then
+        pre=$(snapper -c root create --type pre --cleanup-algorithm number --print-number --description "$desc") || pre=
+    fi
+    [ -n "$pre" ] && echo "split-rock-pre=$pre"
+    : > "$log"
+    command -v stdbuf >/dev/null 2>&1 && set -- stdbuf -oL "$@"
+    if systemd-inhibit --list >/dev/null 2>&1; then
+        systemd-inhibit --what=sleep:shutdown:idle:handle-lid-switch --who="$desc" --why="$desc" "$@" >"$log" 2>&1 &
+    else
+        "$@" >"$log" 2>&1 &
+    fi
+    pid=$!
+    tail -n +1 --pid="$pid" -f "$log" 2>/dev/null
+    wait "$pid"
+    status=$?
+    if [ -n "$pre" ]; then
+        post=$(snapper -c root create --type post --pre-number "$pre" --cleanup-algorithm number --print-number --description "$desc") \
+            && echo "split-rock-post=$post"
+    fi
+    return $status
+}
+
+job=${1-}
+[ $# -gt 0 ] && shift
+
+case $job in
+update)
+    [ $# -eq 2 ] && is_name "$1" && is_snap "$2" || refuse "update takes a name and 0 or 1"
+    transaction "$1: Update" "$2" "$logs/split-rock-update.log" pacman -Syu --noconfirm --noprogressbar --color never
+    ;;
+
+install|remove)
+    [ $# -eq 3 ] && is_name "$1" && is_snap "$2" && is_package "$3" || refuse "$job takes a name, 0 or 1, and a package"
+    if [ "$job" = install ]; then
+        transaction "$1: Install $3" "$2" "$logs/split-rock-install.log" pacman -S --needed --noconfirm --noprogressbar --color never -- "$3"
+    else
+        # -s takes what it alone needed with it; -n its settings files under
+        # /etc. Anything another app needs stops it, and nothing is removed.
+        transaction "$1: Remove $3" "$2" "$logs/split-rock-install.log" pacman -Rns --noconfirm --noprogressbar --color never -- "$3"
+    fi
+    ;;
+
+free-space)
+    [ $# -ge 2 ] && is_name "$1" && is_snap "$2" || refuse "free-space takes a name and 0 or 1"
+    name=$1 snap=$2
+    shift 2
+    jobs=
+    while [ $# -gt 0 ] && [ "$1" != "--" ]; do
+        case $1 in
+            pkgcache|journal|crashes) jobs="$jobs $1" ;;
+            *) refuse "free-space has no job $1" ;;
+        esac
+        shift
+    done
+    [ "${1-}" = "--" ] && shift
+    for package in "$@"; do
+        is_package "$package" || refuse "free-space takes package names after --"
+    done
+    for one in $jobs; do
+        case $one in
+            pkgcache) echo "@@ step pkgcache"; paccache -rk1; paccache -ruk0 ;;
+            journal) echo "@@ step journal"; journalctl --vacuum-size=200M ;;
+            crashes) echo "@@ step crashes"; find /var/lib/systemd/coredump -type f -delete ;;
+        esac
+    done
+    [ $# -gt 0 ] || exit 0
+    # Of the parts the person saw, only those still unused are removed.
+    echo "@@ step orphans"
+    unused=$(pacman -Qdtq 2>/dev/null)
+    keep=
+    for package in "$@"; do
+        printf '%s\n' "$unused" | grep -qx -- "$package" && keep="$keep $package"
+    done
+    [ -n "$keep" ] || exit 0
+    pre=
+    if [ "$snap" = 1 ] && command -v snapper >/dev/null 2>&1 && [ -f /etc/snapper/configs/root ]; then
+        pre=$(snapper -c root create --type pre --cleanup-algorithm number --print-number --description "$name: Free up space") || pre=
+    fi
+    [ -n "$pre" ] && echo "split-rock-pre=$pre"
+    # shellcheck disable=SC2086 # each name checked above, one word each
+    pacman -Rns --noconfirm --noprogressbar --color never -- $keep
+    status=$?
+    [ -n "$pre" ] && snapper -c root create --type post --pre-number "$pre" --cleanup-algorithm number --description "$name: Free up space"
+    echo "split-rock-removed=$keep"
+    exit $status
+    ;;
+
+restore-list)
+    [ $# -eq 0 ] || refuse "restore-list takes nothing"
+    echo "@@ snapper"
+    echo yes
+    echo "@@ list"
+    snapper -c root --jsonout list 2>&1
+    echo "@@ end"
+    ;;
+
+restore-undo)
+    [ $# -eq 2 ] && is_number "$1" && is_number "$2" && [ "$1" -gt 0 ] && [ "$2" -gt "$1" ] \
+        || refuse "restore-undo takes two restore point numbers, the earlier first"
+    exec snapper -c root undochange "$1..$2"
+    ;;
+
+community)
+    [ $# -ge 6 ] && is_name "$1" && is_snap "$2" || refuse "community takes a name, 0 or 1, a recipe and a commit"
+    name=$1 snap=$2 dir=$3 head=$4
+    shift 4
+    case $head in *[!0-9a-f]*) refuse "community takes a commit's full hash" ;; esac
+    [ ${#head} -eq 40 ] || refuse "community takes a commit's full hash"
+    helpers=
+    while [ $# -gt 0 ] && [ "$1" != "--" ]; do
+        is_package "$1" || refuse "community takes package names"
+        helpers="$helpers $1"
+        shift
+    done
+    [ "${1-}" = "--" ] && shift
+    [ $# -gt 0 ] || refuse "community takes the packages to install after --"
+    for package in "$@"; do
+        is_package "$package" || refuse "community takes package names after --"
+    done
+    names="$*"
+    case $dir in *'/../'*|*'/..'|*[!A-Za-z0-9@._+/-]*) refuse "community takes a plain recipe folder" ;; esac
+    # Through the system's prompt the recipe is built as the person the
+    # prompt asked, in their own folder.
+    if [ -n "${PKEXEC_UID+set}" ]; then
+        is_number "$PKEXEC_UID" || refuse "community needs the system's prompt"
+        person=$(getent passwd "$PKEXEC_UID" | cut -d: -f1)
+        home=$(getent passwd "$PKEXEC_UID" | cut -d: -f6)
+        [ -n "$person" ] && [ -n "$home" ] || refuse "no such person"
+        case $dir in "$home"/*) ;; *) refuse "the recipe isn't in the person's own folder" ;; esac
+        [ "$(stat -c %u "$dir" 2>/dev/null)" = "$PKEXEC_UID" ] || refuse "the recipe isn't the person's own"
+        as() { runuser -u "$person" -- env HOME="$home" LANG=C LC_ALL=C "$@"; }
+    else
+        as() { "$@"; }
+    fi
+    desc="$name: Community $1"
+    log="$logs/split-rock-community.log"
+    trap '' HUP PIPE
+    : > "$log"
+    (
+        pre=
+        if [ "$snap" = 1 ] && command -v snapper >/dev/null 2>&1 && [ -f /etc/snapper/configs/root ]; then
+            pre=$(snapper -c root create --type pre --cleanup-algorithm number --print-number --description "$desc") || pre=
+        fi
+        [ -n "$pre" ] && echo "split-rock-pre=$pre"
+        status=0
+        if [ -n "$helpers" ]; then
+            echo "@@ step helpers"
+            # shellcheck disable=SC2086 # each name checked above, one word each
+            pacman -S --asdeps --needed --noconfirm --noprogressbar --color never -- $helpers || status=1
+        fi
+        if [ $status = 0 ]; then
+            echo "@@ step build"
+            cd "$dir" && as git -C "$dir" checkout -q --detach "$head" && [ "$(as git -C "$dir" rev-parse HEAD)" = "$head" ] \
+                && as makepkg -f --noconfirm --nocolor --noprogressbar || status=1
+        fi
+        if [ $status = 0 ]; then
+            echo "@@ step install"
+            files=
+            for f in $(cd "$dir" && as makepkg --packagelist); do
+                [ -f "$f" ] || continue
+                n=$(pacman -Qqp "$f" 2>/dev/null)
+                for want in $names; do [ "$n" = "$want" ] && files="$files $f"; done
+            done
+            if [ -n "$files" ]; then
+                # shellcheck disable=SC2086 # the packages makepkg listed
+                pacman -U --noconfirm --noprogressbar --color never $files || status=1
+            else
+                echo "Nothing was built for $names."
+                status=1
+            fi
+        fi
+        if [ -n "$pre" ]; then
+            snapper -c root create --type post --pre-number "$pre" --cleanup-algorithm number --description "$desc"
+        fi
+        exit $status
+    ) >"$log" 2>&1 &
+    pid=$!
+    tail -n +1 --pid="$pid" -f "$log" 2>/dev/null
+    wait "$pid"
+    ;;
+
+*)
+    refuse "there is no job ${job:-(none)}"
+    ;;
+esac

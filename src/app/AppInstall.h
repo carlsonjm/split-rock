@@ -89,7 +89,6 @@ public:
     static QList<App> readSearch(const QString &output, const QString &query);
 
     void setSearchScript(const QString &script) { m_searchScript = script; }
-    void setShelfScript(const QString &script) { m_shelfScript = script; }
     void setFlathubScript(const QString &script) { m_flathubScript = script; }
     void setOpenScript(const QString &script) { m_openScript = script; }
     void setFlathubRemoveScript(const QString &script) { m_flathubRemoveScript = script; }
@@ -106,7 +105,6 @@ private:
     bool m_removing = false;
 
     QString m_searchScript;
-    QString m_shelfScript;
     QString m_flathubScript;
     QString m_openScript;
     QString m_flathubRemoveScript;

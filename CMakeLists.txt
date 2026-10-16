@@ -20,6 +20,7 @@ add_library(splitrock_core STATIC
     src/acp/Protocol.cpp
     src/acp/Connection.cpp
     src/acp/Client.cpp
+    src/app/Admin.cpp
     src/app/Appearance.cpp
     src/app/Assistants.cpp
     src/app/AnswerText.cpp
@@ -48,7 +49,10 @@ target_link_libraries(splitrock_core PUBLIC Qt6::Core Qt6::Network)
 target_compile_options(splitrock_core PRIVATE -Wall -Wextra)
 target_compile_definitions(splitrock_core PUBLIC PROJECT_VERSION="${PROJECT_VERSION}"
     # Where Shuffle's own build of llama.cpp puts llama-server.
-    SPLIT_ROCK_ENGINE_DIR="${CMAKE_INSTALL_FULL_LIBDIR}/split-rock/engine")
+    SPLIT_ROCK_ENGINE_DIR="${CMAKE_INSTALL_FULL_LIBDIR}/split-rock/engine"
+    # The only program Split Rock runs as the administrator.
+    SPLIT_ROCK_ADMIN_HELPER="${CMAKE_INSTALL_FULL_LIBDIR}/split-rock/split-rock-admin")
+install(PROGRAMS src/admin/split-rock-admin DESTINATION ${CMAKE_INSTALL_LIBDIR}/split-rock)
 
 # Where the card stands, and Kadunce's companion guest protocol.
 add_library(splitrock_desktop STATIC

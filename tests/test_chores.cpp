@@ -20,6 +20,8 @@
 #include <QTemporaryDir>
 #include <QTest>
 
+#include "AdminStandIn.h"
+
 #include <algorithm>
 #include <QTimeZone>
 
@@ -168,11 +170,16 @@ private Q_SLOTS:
         QVERIFY(QProcess::execute(QStringLiteral("touch"), {QStringLiteral("-a"), QStringLiteral("-d"), QStringLiteral("40 days ago"),
                                                            cache + QStringLiteral("/someapp/old.bin")}) == 0);
 
+        // The administrator's real job, with what it runs stood in for.
+        StandIns standIns;
+        QVERIFY(standIns.add(QStringLiteral("paccache"), QStringLiteral("echo \"paccache $*\"\n")));
+        QVERIFY(standIns.add(QStringLiteral("snapper"), QStringLiteral("exit 1\n")));
+        QVERIFY(standIns.add(QStringLiteral("pacman"), QStringLiteral(
+            "case $1 in -Qdtq) echo python-pip ;; *) echo \"pacman $*\" ;; esac\n")));
         SpaceCleanup space;
         space.setElevate({});
+        space.setAdmin(adminInSource());
         space.setLookScript(printing(QStringLiteral("space-look.txt")));
-        space.setAdminScript(QStringLiteral("for a in \"$@\"; do echo \"arg $a\"; done; echo '@@ step pkgcache'; "
-                                            "echo split-rock-pre=7; echo 'split-rock-removed= python-pip'"));
         space.setFreeScript(QStringLiteral("echo 49048576"));
         QStringList written;
         space.setWriteDown([&written](const QString &id, const QString &title, const QString &undo, QString *) {
@@ -200,14 +207,82 @@ private Q_SLOTS:
         QCOMPARE(space.freed(), QStringLiteral("1.0 GB"));
         QVERIFY(written.value(1).startsWith(QStringLiteral("Freed up space: ")));
         QVERIFY(written.value(2).contains(QStringLiteral("python-pip")));
-        // The jobs, then the parts the person saw.
-        QVERIFY(space.log().contains(QStringLiteral("arg 1\narg pkgcache\narg --\narg python-pip\narg qt5-tools")));
+        // The jobs, then of the parts the person saw only those still unused.
+        QVERIFY(space.log().contains(QStringLiteral("paccache -rk1")));
+        QVERIFY2(space.log().contains(QStringLiteral("pacman -Rns --noconfirm --noprogressbar --color never -- python-pip\n")),
+                 qPrintable(space.log()));
         // Unused for a month goes; the rest, and community build files kept
         // until chosen, stay.
         QVERIFY(!QFile::exists(cache + QStringLiteral("/someapp/old.bin")));
         QVERIFY(QFile::exists(cache + QStringLiteral("/someapp/new.bin")));
         QVERIFY(!QFile::exists(cache + QStringLiteral("/paru/clone")));
         QDir(cache).removeRecursively();
+    }
+
+    // The administrator's jobs take only their checked arguments: anything
+    // else is refused before a thing runs.
+    void theAdministratorTakesOnlyItsNamedJobs()
+    {
+        StandIns standIns;
+        const QString ran = standIns.path() + QStringLiteral("/ran");
+        for (const char *tool : {"pacman", "snapper", "paccache", "journalctl", "find", "makepkg", "git"})
+            QVERIFY(standIns.add(QString::fromLatin1(tool), QStringLiteral("echo \"$0 $*\" >> '%1'\n").arg(ran)));
+        QTemporaryDir logs;
+        const auto job = [&logs](const QStringList &arguments) {
+            QProcess p;
+            QProcessEnvironment env = QProcessEnvironment::systemEnvironment();
+            env.insert(QStringLiteral("SPLIT_ROCK_ADMIN_LOGS"), logs.path());
+            p.setProcessEnvironment(env);
+            p.start(adminInSource().first(), arguments);
+            p.closeWriteChannel();
+            if (!p.waitForFinished(20000))
+                return -1;
+            return p.exitCode();
+        };
+        const QString name = QStringLiteral("Split Rock");
+        const QString head = QStringLiteral("0123456789abcdef0123456789abcdef01234567");
+        const QList<QStringList> refused{
+            {},
+            {QStringLiteral("sh"), QStringLiteral("-c"), QStringLiteral("id")},
+            {QStringLiteral("update")},
+            {QStringLiteral("update"), name, QStringLiteral("2")},
+            {QStringLiteral("update"), QStringLiteral("Anyone"), QStringLiteral("1")},
+            {QStringLiteral("update"), name, QStringLiteral("1"), QStringLiteral("--overwrite=*")},
+            {QStringLiteral("install"), name, QStringLiteral("1"), QStringLiteral("--config=/tmp/x")},
+            {QStringLiteral("install"), name, QStringLiteral("1"), QStringLiteral("vlc;id")},
+            {QStringLiteral("install"), name, QStringLiteral("1"), QStringLiteral("vlc id")},
+            {QStringLiteral("install"), name, QStringLiteral("1"), QStringLiteral("vlc\nid")},
+            {QStringLiteral("install"), name, QStringLiteral("1"), QStringLiteral("VLC")},
+            {QStringLiteral("install"), name, QStringLiteral("1"), QStringLiteral("$(id)")},
+            {QStringLiteral("install"), name, QStringLiteral("1"), QStringLiteral("vlc"), QStringLiteral("gimp")},
+            {QStringLiteral("remove"), name, QStringLiteral("1"), QStringLiteral(".hidden")},
+            {QStringLiteral("free-space"), name, QStringLiteral("1"), QStringLiteral("everything")},
+            {QStringLiteral("free-space"), name, QStringLiteral("1"), QStringLiteral("--"), QStringLiteral("-dd")},
+            {QStringLiteral("restore-list"), QStringLiteral("now")},
+            {QStringLiteral("restore-undo"), QStringLiteral("8"), QStringLiteral("7")},
+            {QStringLiteral("restore-undo"), QStringLiteral("0"), QStringLiteral("7")},
+            {QStringLiteral("restore-undo"), QStringLiteral("1"), QStringLiteral("2..9")},
+            {QStringLiteral("community"), name, QStringLiteral("1"), logs.path(), QStringLiteral("abc"), QStringLiteral("--"),
+             QStringLiteral("demo")},
+            {QStringLiteral("community"), name, QStringLiteral("1"), logs.path() + QStringLiteral("/../x"), head,
+             QStringLiteral("--"), QStringLiteral("demo")},
+            {QStringLiteral("community"), name, QStringLiteral("1"), logs.path(), head, QStringLiteral("--")},
+            {QStringLiteral("community"), name, QStringLiteral("1"), logs.path(), head, QStringLiteral("x;y"),
+             QStringLiteral("--"), QStringLiteral("demo")},
+        };
+        for (const QStringList &arguments : refused)
+            QVERIFY2(job(arguments) == 2, qPrintable(arguments.join(QLatin1Char('|'))));
+        QVERIFY2(!QFile::exists(ran), qPrintable(QStringLiteral("something ran")));
+
+        // The ones it was made for do run.
+        QCOMPARE(job({QStringLiteral("install"), name, QStringLiteral("0"), QStringLiteral("lib32-gcc-libs")}), 0);
+        QCOMPARE(job({QStringLiteral("restore-undo"), QStringLiteral("7"), QStringLiteral("8")}), 0);
+        QFile file(ran);
+        QVERIFY(file.open(QIODevice::ReadOnly));
+        const QString said = QString::fromUtf8(file.readAll());
+        QVERIFY2(said.contains(QStringLiteral("pacman -S --needed --noconfirm --noprogressbar --color never -- lib32-gcc-libs")),
+                 qPrintable(said));
+        QVERIFY(said.contains(QStringLiteral("snapper -c root undochange 7..8")));
     }
 
     void installFindsAppsBestFirst()
@@ -236,6 +311,7 @@ private Q_SLOTS:
         QTemporaryDir logs;
         AppInstall install;
         install.setElevate({});
+        install.setAdmin(adminInSource());
         install.setLogFolder(logs.path());
         install.setSearchScript(printing(QStringLiteral("install-search.txt")));
         QString title;
@@ -286,6 +362,7 @@ private Q_SLOTS:
         QTemporaryDir logs;
         AppInstall install;
         install.setElevate({});
+        install.setAdmin(adminInSource());
         install.setLogFolder(logs.path());
         install.setSearchScript(printing(QStringLiteral("remove-search.txt")));
         QString title;
@@ -530,6 +607,7 @@ private Q_SLOTS:
 
         CommunityApps community;
         community.setElevate({});
+        community.setAdmin(adminInSource());
         community.setLogFolder(logs.path());
         community.setRecipes(recipes);
         community.setLookScript(QStringLiteral(

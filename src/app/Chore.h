@@ -17,7 +17,9 @@ namespace splitrock {
 // Each looks first, as the person, and changes nothing until the person taps
 // the card's button. What it does then is fixed in Split Rock, never written by
 // an assistant; what needs the administrator goes through the system's own
-// password prompt, once for the whole job. This is the part they share: the
+// password prompt, once for the whole job, as one of the named jobs of
+// split-rock-admin, the only program Split Rock runs as the administrator
+// (app/Admin.h). This is the part they share: the
 // stage the card shows, the programs it runs, and the line it reports progress
 // on.
 class Chore : public QObject
@@ -62,7 +64,11 @@ public:
     // Tests run with no password prompt: what needs the administrator runs as
     // the test.
     void setElevate(const QStringList &program) { m_elevate = program; }
-    // Where what runs as the administrator writes its log; /var/log otherwise.
+    // The program that holds the administrator's jobs; tests give the one in
+    // the source, or a stand-in.
+    void setAdmin(const QStringList &program) { m_admin = program; }
+    // Where the administrator's jobs write their logs, without the password
+    // prompt; /var/log otherwise.
     void setLogFolder(const QString &folder) { m_logs = folder; }
 
     // A line of pacman's output: what the card says it is doing now, the
@@ -82,15 +88,6 @@ public:
     // blank ones left out.
     static QMap<QString, QStringList> sections(const QString &output);
 
-    // Run as the administrator: a restore point before when $2 is 1, the
-    // command given after the first three arguments, a restore point after,
-    // each number printed as split-rock-pre= and split-rock-post=. The
-    // computer is kept awake, and the lid's switch held, until it finishes.
-    // The command writes to the log named in $3, which Split Rock follows,
-    // so it carries on to the end even if Split Rock stops partway. $1 is the
-    // description the restore points and the hold carry.
-    static const QString &transactionScript();
-
 Q_SIGNALS:
     void changed();
     void progressChanged();
@@ -103,21 +100,21 @@ protected:
     void appendLog(const QString &line);
     // Runs a program; timeLimit in milliseconds, or none when 0 or less.
     // exitCode is -1 when it crashed or was stopped, -2 when it couldn't
-    // start.
+    // start, as when the program is empty.
     void run(const QStringList &program, int timeLimit, std::function<void(int exitCode, const QString &output)> done,
              std::function<void(const QString &line)> eachLine = {});
     // A script run as the person, with its arguments.
     QStringList asPerson(const QString &script, const QStringList &arguments = {}) const;
-    // A script run as the administrator, through the system's prompt.
-    QStringList asAdmin(const QString &script, const QStringList &arguments = {}) const;
-    // The log of that name, in the log folder.
-    QString logPath(const QString &name) const { return m_logs + QLatin1Char('/') + name; }
+    // One of split-rock-admin's named jobs, run as the administrator through
+    // the system's prompt; empty when the helper can't be trusted.
+    QStringList asAdmin(const QString &job, const QStringList &arguments = {}) const;
     bool writeDown(const QString &id, const QString &title, const QString &undo, QString *error);
     void report(const QString &id, bool ok, const QString &shown, const QString &report);
     void stopRunning();
 
     QStringList m_elevate{QStringLiteral("pkexec")};
-    QString m_logs{QStringLiteral("/var/log")};
+    QStringList m_admin;
+    QString m_logs;
 
 private:
     QString m_stage;

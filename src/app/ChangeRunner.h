@@ -90,6 +90,8 @@ public:
     // The program that asks the system's password prompt, for putting back
     // an old system change's snapshots; tests replace it.
     void setElevate(const QStringList &program) { m_elevate = program; }
+    // The program that holds the administrator's jobs (app/Admin.h).
+    void setAdmin(const QStringList &program) { m_admin = program; }
     // How long a change may run before it is stopped.
     void setTimeLimit(int milliseconds) { m_timeLimit = milliseconds; }
 
@@ -125,6 +127,7 @@ private:
 
     QString m_store;
     QStringList m_elevate{QStringLiteral("pkexec")};
+    QStringList m_admin;
     QString m_bwrap;
     QProcess *m_proxy = nullptr;
     QString m_proxySocket;

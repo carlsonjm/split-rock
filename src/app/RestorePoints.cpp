@@ -38,14 +38,6 @@ command -v btrfs-assistant >/dev/null 2>&1 && echo btrfs-assistant
 echo "@@ end"
 )SH");
 
-// Run as the administrator, only to read the list.
-const QString ListScript = QStringLiteral(R"SH(echo "@@ snapper"
-echo yes
-echo "@@ list"
-snapper -c root --jsonout list 2>&1
-echo "@@ end"
-)SH");
-
 QString when(const QDateTime &date)
 {
     if (!date.isValid())
@@ -76,7 +68,6 @@ QVariantMap RestorePoints::Point::toMap() const
 RestorePoints::RestorePoints(QObject *parent)
     : Chore(parent)
     , m_lookScript(LookScript)
-    , m_listScript(ListScript)
 {
 }
 
@@ -302,7 +293,7 @@ void RestorePoints::checkAsAdmin()
     if (stage() != QLatin1String("denied"))
         return;
     setStage(QStringLiteral("looking"));
-    run(asAdmin(m_listScript), 60000, [this](int, const QString &output) {
+    run(asAdmin(QStringLiteral("restore-list")), 60000, [this](int, const QString &output) {
         const Look listed = readLook(output);
         m_look.denied = listed.denied;
         m_look.points = listed.points;
