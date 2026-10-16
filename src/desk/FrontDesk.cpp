@@ -37,12 +37,11 @@ QJsonObject cardShape()
                      {QStringLiteral("what"), text},
                      {QStringLiteral("why"), text},
                      {QStringLiteral("command"), text},
-                     {QStringLiteral("admin"), QJsonObject{{QStringLiteral("type"), QStringLiteral("boolean")}}},
                      {QStringLiteral("undo"), text},
                      {QStringLiteral("check"), text}}},
         {QStringLiteral("required"),
          QJsonArray{QStringLiteral("title"), QStringLiteral("what"), QStringLiteral("why"), QStringLiteral("command"),
-                    QStringLiteral("admin"), QStringLiteral("undo"), QStringLiteral("check")}},
+                    QStringLiteral("undo"), QStringLiteral("check")}},
     };
 }
 
@@ -207,7 +206,8 @@ QString checkCard(const QJsonObject &card, const QString &skillText, const QStri
         return QStringLiteral("no command");
     static const QRegularExpression joined(QStringLiteral("[;&|`$<>(){}\\n\\\\]"));
     static const QRegularExpression rights(QStringLiteral("\\b(sudo|pkexec|doas|su)\\b"));
-    if (joined.match(command).hasMatch() || rights.match(command).hasMatch())
+    // A card never runs a command as the administrator (docs/DECISIONS.md).
+    if (joined.match(command).hasMatch() || rights.match(command).hasMatch() || card.value(QStringLiteral("admin")).toBool())
         return QStringLiteral("joins commands or asks for administrator rights");
     const QStringList words = QProcess::splitCommand(command);
     if (words.isEmpty())

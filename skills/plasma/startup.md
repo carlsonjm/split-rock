@@ -46,7 +46,7 @@ person only. It changes nothing else, and the app stays installed.
 One of the person's own background services from the list above:
 `systemctl --user disable --now <service>`.
 
-Neither needs administrator rights, so leave "admin" false. Say on the card
+Neither needs administrator rights. Say on the card
 that the app still opens normally when the person opens it, and that it takes
 effect at the next sign-in. Parts of the desktop itself, such as sound, the
 password prompt and the on-screen keyboard, are left out of the list above on

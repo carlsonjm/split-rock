@@ -99,7 +99,6 @@ public:
 
     void setLookScript(const QString &script) { m_lookScript = script; }
     void setReviewScript(const QString &script) { m_reviewScript = script; }
-    void setBuildScript(const QString &script) { m_buildScript = script; }
     // Where recipes are fetched to; the person's cache otherwise.
     void setRecipes(const QString &folder) { m_recipes = folder; }
 
@@ -114,7 +113,6 @@ private:
 
     QString m_lookScript;
     QString m_reviewScript;
-    QString m_buildScript;
 };
 
 } // namespace splitrock

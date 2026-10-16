@@ -107,7 +107,6 @@ public:
     static bool isOwn(const QString &description);
 
     void setLookScript(const QString &script) { m_lookScript = script; }
-    void setListScript(const QString &script) { m_listScript = script; }
 
 private:
     void settle();
@@ -115,7 +114,6 @@ private:
     Look m_look;
     Point m_chosen;
     QString m_lookScript;
-    QString m_listScript;
 };
 
 } // namespace splitrock

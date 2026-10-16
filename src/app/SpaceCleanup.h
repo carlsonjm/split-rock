@@ -80,7 +80,6 @@ public:
     static qint64 readSize(const QString &text);
 
     void setLookScript(const QString &script) { m_lookScript = script; }
-    void setAdminScript(const QString &script) { m_adminScript = script; }
     void setPersonScript(const QString &script) { m_personScript = script; }
     void setFreeScript(const QString &script) { m_freeScript = script; }
 
@@ -99,7 +98,6 @@ private:
     int m_pre = -1;
 
     QString m_lookScript;
-    QString m_adminScript;
     QString m_personScript;
     QString m_freeScript;
 };

@@ -132,12 +132,11 @@ Conversation::Conversation(QList<Assistant> assistants, QObject *parent)
                              "succeeds does not prove the change took effect, so don't say it worked: ask the person.")
             : QStringLiteral("Your check, run after the change, read back from the running desktop:\n%1\n"
                              "Say it worked only if this shows the change took effect.").arg(record.checked.right(2000));
-        m_report = QStringLiteral("The person tapped Do it, and %1 ran your proposed change \"%2\" as %3. Exit code %4. "
+        m_report = QStringLiteral("The person tapped Do it, and %1 ran your proposed change \"%2\" as the person. Exit code %3. "
                                   "Output:\n%5\n\n%6\n\nTell the person in plain words how it went. You cannot see their "
                                   "screen or running programs, so when the change is something only they can see, ask them "
                                   "whether it worked. Don't propose the same change again unless it failed and you know why.")
-                       .arg(productName(), record.proposal.title,
-                            record.proposal.admin ? QStringLiteral("the administrator") : QStringLiteral("the person"))
+                       .arg(productName(), record.proposal.title)
                        .arg(record.exitCode)
                        .arg(output.isEmpty() ? QStringLiteral("(none)") : output, checked);
         m_reportMeta = {{QStringLiteral("kind"), QStringLiteral("change")}, {QStringLiteral("ok"), ok},
@@ -325,8 +324,9 @@ QString Conversation::framing()
         "You run in a sandbox and cannot change this computer yourself; you may look. To change a setting, a "
         "file or the system, propose it: run split-rock-change with one JSON argument, {\"title\": a short "
         "instruction such as \"Set the fan profile to Quiet\", \"what\": what will change, in plain words, "
-        "\"why\": why, in plain words, \"command\": the shell command that makes the change, \"admin\": true "
-        "when it needs administrator rights (never put sudo or pkexec in the command), \"undo\": a command that "
+        "\"why\": why, in plain words, \"command\": the shell command that makes the change, which runs as the "
+        "person and never as the administrator (never put sudo, pkexec or any other way to the administrator in it), "
+        "\"undo\": a command that "
         "puts it back, when there is one, applied live the same way, \"check\": a command that reads the live state "
         "back after the change, such as a qdbus6 call to the program the setting belongs to, \"files\": the files "
         "in the home folder the command changes}. Your sandbox cannot reach the running desktop, so %1 runs the "
@@ -341,7 +341,8 @@ QString Conversation::framing()
         "(go back to a restore point), health (a health check), community (update apps from the AUR) or changes (what "
         "changed on this computer lately, each with its way back: for \"undo that\", \"something changed\" or \"why did "
         "this stop working?\")} instead of "
-        "a command for those. "
+        "a command for those. A change only the administrator can make, other than those cards, is one %1 can't "
+        "make: say so in plain words and offer no card. "
         "Propose one change at a time, with a short, specific command that finishes on its own; to open a window, "
         "start it with kstart so the command returns at once. Before proposing, "
         "check the names on this computer rather than from memory, because Plasma 5 and 6 differ: for example "
@@ -1405,15 +1406,35 @@ void Conversation::propose(const ChangeProposal &proposed)
             sendReport();
         return;
     }
+    // No card runs a command as the administrator: the proposal is not shown,
+    // and the assistant is told what can be made instead (docs/DECISIONS.md,
+    // No card runs a command as the administrator).
+    const QString elevation = proposed.elevation();
+    if (!elevation.isEmpty()) {
+        qInfo().noquote() << QStringLiteral("%1: refused a proposal that reaches for the administrator (%2)")
+                                 .arg(productName(), elevation);
+        m_report = QStringLiteral("Your proposed change \"%1\" needs the administrator (%2), so it was not shown to the "
+                                  "person. %3 never runs an assistant's command as the administrator. Changes to the "
+                                  "system are made only by %3's own cards: update, space, install, restore and "
+                                  "community. Propose one of those with \"card\" when it fits; otherwise tell the person "
+                                  "in one or two plain sentences that this is a change %3 can't make for them.")
+                       .arg(proposed.title,
+                            elevation == QLatin1String("admin") ? QStringLiteral("\"admin\": true") : elevation,
+                            productName());
+        m_reportShown = QStringLiteral("Not shown: it needed the administrator");
+        m_reportMeta = {{QStringLiteral("kind"), QStringLiteral("refused")}, {QStringLiteral("ok"), false}};
+        if (m_client && m_phase == QLatin1String("ready"))
+            sendReport();
+        return;
+    }
     const Appearance now = Appearance::current();
     // A theme named loosely is the one installed theme it fits, so the card
     // shows the name that will be applied.
     ChangeProposal settled = proposed;
-    if (!proposed.admin)
-        settled.command = now.resolve(proposed.command);
+    settled.command = now.resolve(proposed.command);
     // A theme that fits no installed one, or several, can't be applied; the
     // assistant is asked again with the names that are, and no card is shown.
-    const QString unknown = proposed.admin ? QString() : now.unknownName(proposed.command);
+    const QString unknown = now.unknownName(proposed.command);
     if (!unknown.isEmpty()) {
         qInfo().noquote() << QStringLiteral("%1: refused a proposal naming \"%2\", which is not installed")
                                  .arg(productName(), unknown);
@@ -1445,9 +1466,7 @@ void Conversation::doIt()
     const auto writeDown = [this, &unrecorded](const ChangeRunner::Record &record) {
         if (!m_notebook)
             return true;
-        const QString undo = record.proposal.admin && ChangeRunner::systemSnapshots()
-            ? QStringLiteral("Put back the system files it changed, from the snapshot taken before")
-            : record.undoWay();
+        const QString undo = record.undoWay();
         const bool written = m_notebook->recordChange(record.id, record.proposal.title, record.proposal.why, undo,
                                                       QStringLiteral("Making"), &unrecorded);
         Q_EMIT notebookChanged();
@@ -1455,15 +1474,15 @@ void Conversation::doIt()
     };
     if (m_runner->make(*m_proposal, writeDown).isEmpty()) {
         Q_EMIT changesChanged();
-        if (!unrecorded.isEmpty())
-            setNotice(QStringLiteral("Nothing was changed: it couldn't be written in the notebook first. %1").arg(unrecorded));
+        setNotice(unrecorded.isEmpty()
+                      ? QStringLiteral("Nothing was changed: %1 can't make this change safely on this computer.").arg(productName())
+                      : QStringLiteral("Nothing was changed: it couldn't be written in the notebook first. %1").arg(unrecorded));
         return;
     }
     m_card.insert(QStringLiteral("making"), true);
     Q_EMIT cardChanged();
     Q_EMIT changesChanged();
-    setNotice(m_proposal->admin ? QStringLiteral("Making the change. The system asks for your password.")
-                                : QStringLiteral("Making the change."));
+    setNotice(QStringLiteral("Making the change."));
 }
 
 bool Conversation::undoChange(const QString &id)

@@ -32,7 +32,7 @@ On a computer with asusctl, its profile sets the fans: `asusctl profile -P
 <name>`, with a name from its list, such as Quiet, Balanced or Performance.
 Otherwise `powerprofilesctl set <name>`, with power-saver, balanced or
 performance. Neither needs administrator rights for the person at the
-computer, so leave "admin" false.
+computer.
 
 Quieter fans mean a little less speed; say so on the card.
 

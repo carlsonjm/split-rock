@@ -501,18 +501,15 @@ record and has to stay short enough to read.
 
 Inside its fence the assistant finds one program, `split-rock-change`, which
 takes the proposal as one JSON argument (`title`, `what`, `why`, `command`,
-`undo`, `check`, `admin`, `files`) and hands it to Split Rock; the stand-in changes
+`undo`, `check`, `files`) and hands it to Split Rock; the stand-in changes
 nothing. An assistant that instead asks leave to run the stand-in is refused,
 and its proposal goes on the card all the same. When the person taps Do it,
-Split Rock runs the command itself, outside the fence: as the person, or, with
-`admin`, through the system's own password prompt (`pkexec`). A `sudo` the
-assistant writes becomes that prompt. Before a system change Split Rock takes a
-snapper pre and post pair where the disk has one set up, and Undo puts back the
-system files between them; the person's own files named in `files` are copied
-aside first. Each change is kept with its outcome in Split Rock's own storage
-and written under Changes in `This computer.md`, and the assistant is told how
-it went. A change still running after two minutes (six for a system change, for
-the password prompt) is stopped and recorded as not done. The assistant is told
+Split Rock runs the command itself, outside the fence, as the person and never
+as the administrator (see "No card runs a command as the administrator"); the
+person's own files named in `files` are copied aside first. Each change is kept
+with its outcome in Split Rock's own storage and written under Changes in
+`This computer.md`, and the assistant is told how it went. A change still
+running after two minutes is stopped and recorded as not done. The assistant is told
 that its sandbox cannot see the person's windows or running programs, so it asks
 the person whether something they can only see worked. Its sandbox cannot reach
 the running desktop either, so Split Rock runs the proposal's `check` as the
@@ -536,6 +533,62 @@ shown to the person; the assistant is asked again with the installed names.
 Rejected: letting the assistant run changes itself after asking, which puts the
 fence's safety in the assistant's hands; and a helper that holds administrator
 rights of its own, which Split Rock never holds.
+
+## No card runs a command as the administrator
+
+A proposal the assistant writes runs as the person, or not at all. One that
+asks for the administrator (`admin`), or names a program that changes who a
+command runs as (`sudo`, `pkexec`, `su`, `doas`, `run0`, `systemd-run`,
+`machinectl`) anywhere in its command, undo or check, is never shown on a card,
+and the assistant is told that system changes are made only by Split Rock's own
+Helpers: Update, Free up space, Install an app, Restore points and Community
+apps. What it does is fixed in Split Rock and shown in Split Rock's words. The
+change, its undo and its check run in bubblewrap with the whole computer as the
+person sees it, but with no_new_privs set, so a set-user-ID program such as
+`sudo` or `pkexec` gains nothing however the command spells it, and with the
+system bus hidden, or, where `xdg-dbus-proxy` is installed, replaced by a
+filtered one that reaches only the fan and power-profile services a person may
+set. Without bubblewrap nothing is made. A system change recorded before this
+rule can still be undone, only from its snapshot pair, by `snapper undochange`
+with the two numbers; its own undo command is never run.
+
+Why: the card's heading and reasons are the assistant's own words, and the
+person cannot judge a shell command, so a card that could reach the
+administrator let a web page or a file the assistant read ask for root behind
+a friendly title, with a password prompt that named only `/bin/sh`. Keeping
+the word list as well as the guard tells the assistant why, so it stops
+proposing what would fail.
+
+Rejected: showing the command and letting the person decide, since the person
+can't read it; a word list alone, which a command can spell around; and hiding
+the whole system bus, which would stop the fan and power-profile settings a
+person makes without a password.
+
+## The administrator runs only Split Rock's own named jobs
+
+What needs the administrator goes through the system's password prompt
+(`pkexec`) to one program, `split-rock-admin`, installed beside Split Rock's
+other programs where only the administrator can change it. It holds every job
+the Helpers need, by name: `update`, `install` and `remove` one package,
+`free-space`, `restore-list`, `restore-undo` and `community`. It takes only
+the job's name and arguments it checks itself: a package name as pacman
+allows it, 0 or 1 for restore points, two restore point numbers, a commit's
+full hash, a recipe folder the person owns; anything else is refused before a
+thing runs. Run by the prompt it keeps nothing of the caller's environment,
+uses a PATH of its own and builds a community recipe as the person the prompt
+asked. Split Rock hands it to the prompt only when it, and every folder above
+it, belongs to the administrator and no one else can write to it. The prompt
+then names `split-rock-admin` and the job, not `/bin/sh`.
+
+Why: before, each Helper passed its own script to `pkexec /bin/sh`, so the
+prompt approved a shell and whatever text Split Rock gave it. With the jobs in
+one checked, installed program, nothing running as the person can change what
+the administrator runs, and the prompt says what it is for.
+
+Rejected: a service that holds administrator rights between jobs, which Split
+Rock never holds; a polkit action of its own for each job, which would give
+each prompt its own words but needs a file under `/usr/share/polkit-1`, which
+Shuffle's install key doesn't place yet; and a job that takes a command.
 
 ## The assistant opens settings skills from a shelf
 

@@ -86,14 +86,6 @@ std::optional<ChangeProposal> ChangeProposal::fromJson(const QByteArray &json, Q
         if (!path.isEmpty())
             change.files.append(path);
     }
-    // Administrator rights come only through Split Rock's own prompt.
-    static const QRegularExpression elevated(QStringLiteral("^(sudo|pkexec|doas|run0)\\s+"));
-    if (elevated.match(change.command).hasMatch()) {
-        change.command.remove(elevated);
-        change.admin = true;
-    }
-    if (elevated.match(change.undo).hasMatch())
-        change.undo.remove(elevated);
     if (change.title.isEmpty())
         return fail(QStringLiteral("The proposal has no title."));
     if (change.command.isEmpty() && change.card.isEmpty())
@@ -192,6 +184,22 @@ QString wholeSystemUpdateIn(const QString &line, int depth)
 QString ChangeProposal::wholeSystemUpdate() const
 {
     return wholeSystemUpdateIn(command, 0);
+}
+
+QString ChangeProposal::elevation() const
+{
+    if (admin)
+        return QStringLiteral("admin");
+    // A program that runs what follows it as someone else, at the start of a
+    // word: after a separator, a quote, an expansion or a path.
+    static const QRegularExpression elevating(
+        QStringLiteral(R"((?:^|[\s;&|(){}`'"$=/])(sudo|sudoedit|pkexec|su|doas|run0|systemd-run|machinectl|pkttyagent)(?=$|[\s;&|(){}`'"]))"));
+    for (const QString *line : {&command, &undo, &check}) {
+        const QRegularExpressionMatch m = elevating.match(*line);
+        if (m.hasMatch())
+            return m.captured(1);
+    }
+    return {};
 }
 
 QJsonObject ChangeProposal::toJson() const
