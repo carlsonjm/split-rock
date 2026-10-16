@@ -4,6 +4,8 @@
 #include "app/Product.h"
 
 #include <QDateTime>
+#include <QLocale>
+#include <QMap>
 #include <QDebug>
 #include <QRegularExpression>
 #include <QVariantMap>
@@ -16,34 +18,48 @@ namespace splitrock {
 namespace {
 
 // Run as the person: each section starts with a line "@@ name". Nothing here
-// changes anything; paccache's dry runs only count.
+// changes anything; paccache's dry runs only count. The parts nothing uses
+// come from split-rock-admin's own list (its unused job), the same one it
+// removes from, so what building software needs is never among them.
 const QString LookScript = QStringLiteral(R"SH(export LANG=C LC_ALL=C
 echo "@@ disk"
 df -Pk / 2>/dev/null | awk 'NR==2 {print $2, $4}'
 echo "@@ pkgcache"
 if command -v paccache >/dev/null 2>&1; then
-    paccache -dk1 2>/dev/null | tail -n 1
-    paccache -duk0 2>/dev/null | tail -n 1
+    # Each copy it would clear, as "file BYTES NAME", then its total.
+    for keep in -dvk1 -dvuk0; do
+        paccache "$keep" 2>/dev/null | while IFS= read -r line; do
+            f=$(printf '%s\n' "$line" | grep -oE '[^ /]+\.pkg\.tar(\.[a-z0-9]+)?' | head -n 1)
+            if [ -n "$f" ]; then
+                echo "file $(stat -c %s "/var/cache/pacman/pkg/$f" 2>/dev/null || echo -1) $f"
+            else
+                printf '%s\n' "$line"
+            fi
+        done
+    done
 fi
-echo "@@ orphans"
-pacman -Qdtq 2>/dev/null
-echo "@@ orphansize"
-o=$(pacman -Qdtq 2>/dev/null)
-[ -n "$o" ] && pacman -Qi $o 2>/dev/null | sed -n 's/^Installed Size *: *//p'
 echo "@@ journal"
 journalctl --disk-usage 2>/dev/null
+echo "@@ journalfiles"
+find /var/log/journal -type f -name '*@*.journal*' -printf '%T@ %s %f\n' 2>/dev/null | sort -n
 echo "@@ crashes"
-find /var/lib/systemd/coredump -type f -printf '%s\n' 2>/dev/null
+find /var/lib/systemd/coredump -type f -printf '%s %T@ %f\n' 2>/dev/null
 echo "@@ cache"
 find "$HOME/.cache" -type f -atime +30 ! -path "$HOME/.cache/split-rock/*" ! -path "$HOME/.cache/paru/*" \
-    ! -path "$HOME/.cache/yay/*" -printf '%s\n' 2>/dev/null
+    ! -path "$HOME/.cache/yay/*" -printf '%s %P\n' 2>/dev/null
 echo "@@ builds"
 for d in "$HOME/.cache/paru/clone" "$HOME/.cache/yay" "$HOME/.cache/split-rock/aur"; do
-    [ -d "$d" ] && du -sk "$d" 2>/dev/null | cut -f1
+    [ -d "$d" ] && printf '%s %s\n' "$(du -sk "$d" 2>/dev/null | cut -f1)" "${d#"$HOME"/}"
 done
 echo "@@ trash"
 [ -d "$HOME/.local/share/Trash/files" ] && du -sk "$HOME/.local/share/Trash" 2>/dev/null | cut -f1 \
     && ls -A "$HOME/.local/share/Trash/files" | wc -l
+echo "@@ trashfiles"
+for f in "$HOME/.local/share/Trash/files"/* "$HOME/.local/share/Trash/files"/.[!.]* \
+    "$HOME/.local/share/Trash/files"/..?*; do
+    [ -e "$f" ] || [ -L "$f" ] || continue
+    printf '%s\t%s\n' "$(du -sk -- "$f" 2>/dev/null | cut -f1)" "${f##*/}"
+done
 echo "@@ apps"
 command -v flatpak >/dev/null 2>&1 && printf 'n\n' | flatpak uninstall --unused 2>/dev/null
 echo "@@ snapshots"
@@ -82,7 +98,7 @@ qint64 sumBytes(const QStringList &lines, int *count = nullptr)
     int n = 0;
     for (const QString &line : lines) {
         bool ok = false;
-        const qint64 b = line.toLongLong(&ok);
+        const qint64 b = line.section(QLatin1Char(' '), 0, 0).toLongLong(&ok);
         if (ok) {
             bytes += b;
             ++n;
@@ -91,6 +107,59 @@ qint64 sumBytes(const QStringList &lines, int *count = nullptr)
     if (count)
         *count = n;
     return bytes;
+}
+
+// The most a row's list shows; the rest are counted.
+constexpr int Longest = 300;
+
+QStringList capped(QStringList list)
+{
+    if (list.size() > Longest) {
+        const qsizetype more = list.size() - Longest;
+        list = list.mid(0, Longest);
+        list.append(QStringLiteral("and %1 more").arg(more));
+    }
+    return list;
+}
+
+// "Oct 15" from seconds since 1970, as find's %T@ prints them.
+QString day(const QString &seconds)
+{
+    const QDateTime when = QDateTime::fromSecsSinceEpoch(static_cast<qint64>(seconds.toDouble()));
+    return when.isValid() && seconds.toDouble() > 0 ? QLocale(QLocale::English).toString(when.date(), QStringLiteral("MMM d"))
+                                                    : QString();
+}
+
+// "firefox 131.0-1" from "firefox-131.0-1-x86_64.pkg.tar.zst".
+QString packageFile(const QString &file)
+{
+    const QStringList parts = file.section(QStringLiteral(".pkg.tar"), 0, 0).split(QLatin1Char('-'));
+    if (parts.size() < 4)
+        return file;
+    return QStringLiteral("%1 %2-%3").arg(parts.mid(0, parts.size() - 3).join(QLatin1Char('-')),
+                                          parts.at(parts.size() - 3), parts.at(parts.size() - 2));
+}
+
+// "kwin_wayland" from "core.kwin_wayland.1000.<boot>.<pid>.<time>.zst",
+// with systemd's \x2d escapes read back.
+QString crashedApp(const QString &file)
+{
+    QString app = file.section(QLatin1Char('.'), 1, 1);
+    static const QRegularExpression escaped(QStringLiteral(R"(\\x([0-9a-fA-F]{2}))"));
+    QRegularExpressionMatch m;
+    while ((m = escaped.match(app)).hasMatch())
+        app.replace(m.capturedStart(), m.capturedLength(), QChar(m.captured(1).toInt(nullptr, 16)));
+    return app.isEmpty() ? file : app;
+}
+
+QString line(const QString &name, qint64 kb, const QString &when = {})
+{
+    QStringList parts{name};
+    if (kb >= 0)
+        parts.append(Chore::size(kb));
+    if (!when.isEmpty())
+        parts.append(when);
+    return parts.join(QStringLiteral(" · "));
 }
 
 // What each job's step line says the card is doing.
@@ -159,26 +228,39 @@ SpaceCleanup::Look SpaceCleanup::readLook(const QString &output)
         Item item{QStringLiteral("pkgcache"), QStringLiteral("Old versions of installed apps"),
                   QStringLiteral("Copies kept from earlier updates. The one before each app's newest stays."),
                   0, 0, true, true, {}, QStringLiteral("teal")};
-        for (const QString &line : found.value(QStringLiteral("pkgcache"))) {
-            const QRegularExpressionMatch m = dry.match(line);
+        QStringList seen;
+        for (const QString &text : found.value(QStringLiteral("pkgcache"))) {
+            if (text.startsWith(QLatin1String("file "))) {
+                const QString file = text.section(QLatin1Char(' '), 2);
+                if (file.isEmpty() || seen.contains(file))
+                    continue;
+                seen.append(file);
+                const qint64 bytes = text.section(QLatin1Char(' '), 1, 1).toLongLong();
+                item.list.append(line(packageFile(file), bytes < 0 ? -1 : bytes / 1024));
+                continue;
+            }
+            const QRegularExpressionMatch m = dry.match(text);
             if (!m.hasMatch())
                 continue;
             item.count += m.captured(1).toInt();
             item.kb += std::max<qint64>(0, readSize(m.captured(2)));
         }
+        item.list.sort(Qt::CaseInsensitive);
+        item.list = capped(item.list);
         if (item.count > 0)
             look.items.append(item);
     }
 
     {
         Item item{QStringLiteral("orphans"), QStringLiteral("Parts nothing uses"),
-                  QStringLiteral("Installed for an app since removed. Check the list first: something you use "
-                                 "directly can show here. A restore point is taken first."),
+                  QStringLiteral("Installed for an app since removed. Only the ones listed are removed, each by name. "
+                                 "Tools and files for building software always stay."),
                   0, 0, true, false, found.value(QStringLiteral("orphans")), QStringLiteral("violet")};
         static const QRegularExpression name(QStringLiteral("^[a-z0-9@._+-]+$"));
         item.list.erase(std::remove_if(item.list.begin(), item.list.end(),
                                        [](const QString &n) { return !name.match(n).hasMatch(); }),
                         item.list.end());
+        item.list.removeDuplicates();
         item.count = item.list.size();
         for (const QString &line : found.value(QStringLiteral("orphansize")))
             item.kb += std::max<qint64>(0, readSize(line));
@@ -191,49 +273,105 @@ SpaceCleanup::Look SpaceCleanup::readLook(const QString &output)
         const qint64 kb = readSize(found.value(QStringLiteral("journal")).join(QLatin1Char(' ')));
         const qint64 kept = 200 * 1024;
         if (kb > kept + 50 * 1024) {
+            // Trimming takes the oldest finished log files until what is left
+            // fits: those, as they are named for what they hold.
+            QStringList list;
+            qint64 left = kb;
+            for (const QString &text : found.value(QStringLiteral("journalfiles"))) {
+                if (left <= kept)
+                    break;
+                const QStringList f = text.split(QLatin1Char(' '), Qt::SkipEmptyParts);
+                if (f.size() < 3)
+                    continue;
+                const qint64 fileKb = f.at(1).toLongLong() / 1024;
+                const QString file = f.at(2);
+                const QString whose = file.startsWith(QLatin1String("user-")) ? QStringLiteral("Your apps' log")
+                                                                               : QStringLiteral("System log");
+                list.append(line(whose, fileKb, day(f.at(0))));
+                left -= fileKb;
+            }
             look.items.append({QStringLiteral("journal"), QStringLiteral("System logs"),
                                QStringLiteral("Records of what the computer did. The most recent stay."),
-                               kb - kept, 0, true, true, {}, QStringLiteral("amber")});
+                               kb - kept, 0, true, true, capped(list), QStringLiteral("amber")});
         }
     }
 
     {
         int count = 0;
         const qint64 bytes = sumBytes(found.value(QStringLiteral("crashes")), &count);
+        QStringList list;
+        for (const QString &text : found.value(QStringLiteral("crashes"))) {
+            const QStringList f = text.split(QLatin1Char(' '), Qt::SkipEmptyParts);
+            if (f.size() >= 3)
+                list.append(line(crashedApp(f.at(2)), f.at(0).toLongLong() / 1024, day(f.at(1))));
+        }
         if (count > 0)
             look.items.append({QStringLiteral("crashes"), QStringLiteral("Crash reports"),
                                QStringLiteral("Saved when an app crashed. Only needed to report that crash."),
-                               bytes / 1024, count, true, true, {}, QStringLiteral("coral")});
+                               bytes / 1024, count, true, true, capped(list), QStringLiteral("coral")});
     }
 
     {
         int count = 0;
         const qint64 bytes = sumBytes(found.value(QStringLiteral("cache")), &count);
+        // By the folder each app keeps them in, biggest first.
+        QMap<QString, qint64> folders;
+        for (const QString &text : found.value(QStringLiteral("cache"))) {
+            const QString path = text.section(QLatin1Char(' '), 1);
+            if (!path.isEmpty())
+                folders[path.section(QLatin1Char('/'), 0, 0)] += text.section(QLatin1Char(' '), 0, 0).toLongLong();
+        }
+        QList<std::pair<QString, qint64>> sorted(folders.keyValueBegin(), folders.keyValueEnd());
+        std::stable_sort(sorted.begin(), sorted.end(), [](const auto &a, const auto &b) { return a.second > b.second; });
+        QStringList list;
+        for (const auto &[folder, b] : sorted)
+            list.append(line(folder, b / 1024));
         if (bytes > 10 * 1024 * 1024)
             look.items.append({QStringLiteral("cache"), QStringLiteral("Old cache files"),
                                QStringLiteral("Apps' spare copies, unused for a month. Apps make them again when needed."),
-                               bytes / 1024, count, false, true, {}, QStringLiteral("blue")});
+                               bytes / 1024, count, false, true, capped(list), QStringLiteral("blue")});
     }
 
     {
         qint64 kb = 0;
-        for (const QString &line : found.value(QStringLiteral("builds")))
-            kb += line.toLongLong();
+        QStringList list;
+        for (const QString &text : found.value(QStringLiteral("builds"))) {
+            const qint64 folderKb = text.section(QLatin1Char(' '), 0, 0).toLongLong();
+            kb += folderKb;
+            const QString folder = text.section(QLatin1Char(' '), 1);
+            if (!folder.isEmpty())
+                list.append(line(QStringLiteral("~/") + folder, folderKb));
+        }
         if (kb > 10 * 1024)
             look.items.append({QStringLiteral("builds"), QStringLiteral("Community apps' build files"),
                                QStringLiteral("Left from building community apps. Fetched again for the next update."),
-                               kb, 0, false, true, {}, QStringLiteral("orange")});
+                               kb, 0, false, true, list, QStringLiteral("orange")});
     }
 
     {
         const QStringList trash = found.value(QStringLiteral("trash"));
         const qint64 kb = trash.value(0).toLongLong();
         const int count = trash.value(1).toInt();
+        // "KB<tab>name", the size empty when it couldn't be read.
+        QList<std::pair<QString, qint64>> things;
+        for (const QString &text : found.value(QStringLiteral("trashfiles"))) {
+            const qsizetype tab = text.indexOf(QLatin1Char('\t'));
+            const QString name = tab >= 0 ? text.mid(tab + 1).section(QLatin1Char('/'), -1) : text;
+            if (name.isEmpty())
+                continue;
+            bool ok = false;
+            const qint64 thingKb = tab > 0 ? text.left(tab).toLongLong(&ok) : -1;
+            things.append({name, ok ? thingKb : -1});
+        }
+        std::stable_sort(things.begin(), things.end(), [](const auto &a, const auto &b) { return a.second > b.second; });
+        QStringList list;
+        for (const auto &[name, thingKb] : things)
+            list.append(line(name, thingKb));
         if (count > 0)
             look.items.append({QStringLiteral("trash"), QStringLiteral("Trash"),
                                count == 1 ? QStringLiteral("1 thing you deleted. Emptied for good.")
                                           : QStringLiteral("%1 things you deleted. Emptied for good.").arg(count),
-                               kb, count, false, false, {}, QStringLiteral("pink")});
+                               kb, count, false, false, capped(list), QStringLiteral("pink")});
     }
 
     // flatpak's own list, answered no: " 1.   org.kde.Platform   6.7   system   r".
@@ -305,12 +443,21 @@ void SpaceCleanup::check()
     clearProgress();
     setStage(QStringLiteral("looking"));
     run(asPerson(m_lookScript), 120000, [this](int, const QString &output) {
-        m_look = readLook(output);
-        qInfo().noquote() << QStringLiteral("%1: %2 kinds of leftovers, %3").arg(productName()).arg(m_look.items.size())
-                                 .arg(size(chosenKb()));
-        setStage(m_look.items.isEmpty() ? QStringLiteral("nothing") : QStringLiteral("ready"));
-        Q_EMIT changed();
+        // Then the parts nothing uses, as the administrator's job counts
+        // them; none are offered when it can't run.
+        run(asPersonJob(QStringLiteral("unused")), 120000, [this, output](int code, const QString &unused) {
+            looked(code == 0 ? output + QLatin1Char('\n') + unused : output);
+        });
     });
+}
+
+void SpaceCleanup::looked(const QString &output)
+{
+    m_look = readLook(output);
+    qInfo().noquote() << QStringLiteral("%1: %2 kinds of leftovers, %3").arg(productName()).arg(m_look.items.size())
+                             .arg(size(chosenKb()));
+    setStage(m_look.items.isEmpty() ? QStringLiteral("nothing") : QStringLiteral("ready"));
+    Q_EMIT changed();
 }
 
 void SpaceCleanup::choose(const QString &id, bool chosen)

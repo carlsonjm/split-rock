@@ -93,7 +93,11 @@ int main(int argc, char **argv)
     QGuiApplication::setApplicationName(QStringLiteral("split-rock"));
     // Genie inside Shuffle, Split Rock on any other Plasma desktop.
     splitrock::setInsideShuffle(splitrock::shuffleInstalled());
-    QGuiApplication::setApplicationDisplayName(splitrock::productTitle());
+    // On its own every window's title ends with Split Rock. Inside Shuffle a
+    // Helper's window is titled by the Helper alone, so the title bar centres
+    // "Free up space" rather than "Free up space — Shuffle".
+    if (!splitrock::insideShuffle())
+        QGuiApplication::setApplicationDisplayName(splitrock::productTitle());
     QGuiApplication::setApplicationVersion(QStringLiteral(PROJECT_VERSION));
     // Every window's application id, and the desktop file's.
     QGuiApplication::setDesktopFileName(QLatin1String(splitrock::AppId));
@@ -216,6 +220,16 @@ int main(int argc, char **argv)
     QObject::connect(&noticing, &QTimer::timeout, &conversation, notice);
     noticing.start();
 
+    // Started for a Helper alone, Split Rock ends once that Helper's window
+    // has closed, unless something has asked for more of it since: its own
+    // windows, or Search starting it in the background. The session bus starts
+    // it again when it is next wanted.
+    bool helperOnly = parser.isSet(cardOption);
+    const auto endIfDone = [&] {
+        if (helperOnly && !conversation.choreBusy() && !card->isVisible() && !shell.fullOpen())
+            QCoreApplication::quit();
+    };
+
     // An upkeep card on its own, made the first time one is asked for.
     QQuickWindow *actionWindow = nullptr;
     const auto openAction = [&](const QString &name, const QString &query) {
@@ -228,6 +242,15 @@ int main(int argc, char **argv)
                 qWarning().noquote() << component.errorString();
                 return;
             }
+            QObject::connect(actionWindow, &QWindow::visibleChanged, &app, [&](bool visible) {
+                // A moment's grace: one Helper handing over to another closes
+                // the window and opens it again.
+                if (!visible)
+                    QTimer::singleShot(std::chrono::seconds(2), &app, [&] {
+                        if (actionWindow && !actionWindow->isVisible())
+                            endIfDone();
+                    });
+            });
         }
         actionWindow->show();
         actionWindow->raise();
@@ -238,12 +261,15 @@ int main(int argc, char **argv)
         QCommandLineParser request;
         request.addOptions({askOption, backgroundOption, cardOption, queryOption, assistantsOption, stateOption, notebookOption, pretendOption, guideOption});
         request.parse(arguments);
-        if (request.isSet(backgroundOption))
+        if (request.isSet(backgroundOption)) {
+            helperOnly = false;
             return;
+        }
         if (request.isSet(cardOption)) {
             openAction(request.value(cardOption), request.value(queryOption));
             return;
         }
+        helperOnly = false;
         // The assistant the person chose last time starts with the window.
         conversation.resumeChosen();
         if (request.isSet(askOption))

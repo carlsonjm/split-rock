@@ -1,0 +1,7 @@
+@@ orphans
+python-pip
+qt5-tools
+@@ orphansize
+12.40 MiB
+88.00 MiB
+@@ end

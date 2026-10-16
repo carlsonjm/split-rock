@@ -19,7 +19,7 @@ QString productName()
 
 QString productTitle()
 {
-    return s_insideShuffle ? QStringLiteral("Shuffle Genie") : QStringLiteral("Split Rock");
+    return s_insideShuffle ? QStringLiteral("Shuffle") : QStringLiteral("Split Rock");
 }
 
 void setInsideShuffle(bool inside)
