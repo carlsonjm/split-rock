@@ -5,8 +5,11 @@
 #include "app/ChangeRunner.h"
 #include "app/NeverWritten.h"
 
+#include <QDateTime>
 #include <QDir>
 #include <QFile>
+#include <QFileInfo>
+#include <QJsonDocument>
 #include <QProcess>
 #include <QRegularExpression>
 #include <QSignalSpy>
@@ -61,16 +64,39 @@ private Q_SLOTS:
         QVERIFY(!change->admin);
     }
 
-    // The assistant never brings its own way to the administrator: sudo and
-    // the like become Split Rock's own prompt.
-    void sudoBecomesTheSystemsPrompt()
+    // A card never runs a command as the administrator, so a proposal that
+    // asks for it, or brings its own way there, is caught wherever it does.
+    void aWayToTheAdministratorIsCaught()
     {
-        const auto change = ChangeProposal::fromJson(
-            R"({"title":"Quiet fans","command":"sudo asusctl profile -P Quiet","undo":"pkexec asusctl profile -P Balanced"})");
-        QVERIFY(change);
-        QVERIFY(change->admin);
-        QCOMPARE(change->command, QStringLiteral("asusctl profile -P Quiet"));
-        QCOMPARE(change->undo, QStringLiteral("asusctl profile -P Balanced"));
+        const auto asked = ChangeProposal::fromJson(R"({"title":"Quiet fans","command":"asusctl profile -P Quiet","admin":true})");
+        QVERIFY(asked);
+        QCOMPARE(asked->elevation(), QStringLiteral("admin"));
+        const auto sudo = ChangeProposal::fromJson(
+            R"({"title":"Quiet fans","command":"sudo asusctl profile -P Quiet","undo":"asusctl profile -P Balanced"})");
+        QVERIFY(sudo);
+        QCOMPARE(sudo->elevation(), QStringLiteral("sudo"));
+        QCOMPARE(sudo->command, QStringLiteral("sudo asusctl profile -P Quiet"));
+
+        const auto elevation = [](const QString &command, const QString &undo = {}, const QString &check = {}) {
+            ChangeProposal change;
+            change.title = QStringLiteral("Change");
+            change.command = command;
+            change.undo = undo;
+            change.check = check;
+            return change.elevation();
+        };
+        QCOMPARE(elevation(QStringLiteral("echo hi && pkexec /bin/sh -c 'id'")), QStringLiteral("pkexec"));
+        QCOMPARE(elevation(QStringLiteral("/usr/bin/sudo -n true")), QStringLiteral("sudo"));
+        QCOMPARE(elevation(QStringLiteral("x=$(run0 id)")), QStringLiteral("run0"));
+        QCOMPARE(elevation(QStringLiteral("systemd-run --system --wait sh")), QStringLiteral("systemd-run"));
+        QCOMPARE(elevation(QStringLiteral("bash -c \"su -c id\"")), QStringLiteral("su"));
+        QCOMPARE(elevation(QStringLiteral("true"), QStringLiteral("doas true")), QStringLiteral("doas"));
+        QCOMPARE(elevation(QStringLiteral("true"), {}, QStringLiteral("machinectl shell root@")), QStringLiteral("machinectl"));
+        for (const char *plain : {"kwriteconfig6 --file kwinrc --group NightColor --key Active true",
+                                  "asusctl profile -P Quiet", "echo sudoku > ~/note", "plasma-apply-colorscheme Sunset",
+                                  "systemctl --user restart pipewire", "pseudo-thing --sudo-less"}) {
+            QVERIFY2(elevation(QString::fromLatin1(plain)).isEmpty(), plain);
+        }
     }
 
     void aWholeSystemUpdateIsCaught()
@@ -128,11 +154,12 @@ private Q_SLOTS:
         change.why = QStringLiteral("They are loud");
         change.command = QStringLiteral("asusctl profile -P Quiet");
         change.undo = QStringLiteral("asusctl profile -P Balanced");
-        change.admin = true;
         const QVariantMap card = ChangeCard::forProposal(change, QStringLiteral("Pretend")).toMap();
         QCOMPARE(card.value(QStringLiteral("heading")).toString(), QStringLiteral("Quiet fans"));
         QCOMPARE(card.value(QStringLiteral("available")).toBool(), true);
         QVERIFY(card.value(QStringLiteral("unavailable")).toString().isEmpty());
+        QCOMPARE(card.value(QStringLiteral("password")).toString(), QStringLiteral("Not needed."));
+        QVERIFY(card.value(QStringLiteral("details")).toString().contains(QStringLiteral("Runs as: you")));
     }
 
     // A change to the person's own file: copied aside, changed, put back.
@@ -402,28 +429,99 @@ private Q_SLOTS:
         QVERIFY(!runner.busy());
     }
 
-    // A system change goes through the elevating program; here none, and no
-    // snapshots, so it runs as the test.
-    void aSystemChangeGoesThroughTheElevatingProgram()
+    // Whatever brings it, a proposal that reaches for the administrator is
+    // never made, and nothing runs.
+    void aCardNeverRunsAsTheAdministrator()
     {
         QTemporaryDir dir;
         QVERIFY(dir.isValid());
         const QString mark = dir.filePath(QStringLiteral("system"));
         ChangeRunner runner(dir.filePath(QStringLiteral("changes")));
         runner.setElevate({QStringLiteral("env"), QStringLiteral("SPLIT_ROCK_ELEVATED=1")});
-        runner.setSnapshots(false);
         QSignalSpy made(&runner, &ChangeRunner::made);
         ChangeProposal change;
         change.title = QStringLiteral("System");
         change.command = QStringLiteral("echo \"$SPLIT_ROCK_ELEVATED\" > '%1'").arg(mark);
         change.admin = true;
-        runner.make(change);
+        QVERIFY(runner.make(change).isEmpty());
+        change.admin = false;
+        change.command = QStringLiteral("echo on > '%1'; sudo -n true").arg(mark);
+        QVERIFY(runner.make(change).isEmpty());
+        QTest::qWait(200);
+        QCOMPARE(made.size(), 0);
+        QVERIFY(!QFileInfo::exists(mark));
+        QVERIFY(runner.records().isEmpty());
+    }
+
+    // A system change recorded before cards stopped running as the
+    // administrator is put back only from its snapshots, never by running its
+    // own undo; the record is the person's file, so an undo written into it
+    // later is held to what a card may run.
+    void anOldSystemChangeIsPutBackOnlyFromItsSnapshots()
+    {
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        const QString store = dir.filePath(QStringLiteral("changes"));
+        const QString mark = dir.filePath(QStringLiteral("elevated"));
+        const auto keep = [&store](const QString &id, int pre, int post, bool admin, const QString &undo) {
+            ChangeRunner::Record r;
+            r.id = id;
+            r.made = QDateTime::currentDateTime();
+            r.proposal.title = QStringLiteral("Old");
+            r.proposal.command = QStringLiteral("true");
+            r.proposal.undo = undo;
+            r.proposal.admin = admin;
+            r.status = QStringLiteral("done");
+            r.pre = pre;
+            r.post = post;
+            QDir().mkpath(store + QLatin1Char('/') + id);
+            write(store + QLatin1Char('/') + id + QStringLiteral("/change.json"), QJsonDocument(r.toJson()).toJson());
+        };
+        keep(QStringLiteral("a"), -1, -1, true, QStringLiteral("touch '%1'").arg(mark));
+        keep(QStringLiteral("b"), -1, -1, false, QStringLiteral("sudo touch '%1'").arg(mark));
+        keep(QStringLiteral("c"), 7, 8, true, QStringLiteral("touch '%1'").arg(mark));
+        ChangeRunner runner(store);
+        // The elevating program here only says what it was given.
+        runner.setElevate({QStringLiteral("echo")});
+        QVERIFY(!runner.record(QStringLiteral("a"))->canUndo());
+        QVERIFY(!runner.record(QStringLiteral("b"))->canUndo());
+        QString why;
+        QVERIFY(!runner.undo(QStringLiteral("a"), &why));
+        QVERIFY(!runner.undo(QStringLiteral("b"), &why));
+        QSignalSpy undone(&runner, &ChangeRunner::undone);
+        QVERIFY(runner.undo(QStringLiteral("c")));
+        QTRY_COMPARE(undone.size(), 1);
+        const auto record = undone.first().first().value<ChangeRunner::Record>();
+        QVERIFY(record.output.contains(QStringLiteral("undochange 7..8")));
+        QVERIFY(!QFileInfo::exists(mark));
+    }
+
+    // The change runs where set-user-ID programs such as sudo and pkexec
+    // gain nothing, and the system bus is hidden or filtered.
+    void theChangeRunsWhereRightsCantBeGained()
+    {
+        const QStringList hidden = ChangeRunner::guard(QStringLiteral("/usr/bin/bwrap"), {});
+        QVERIFY(!hidden.contains(QStringLiteral("/run/dbus/system_bus_socket")));
+        const QStringList filtered = ChangeRunner::guard(QStringLiteral("/usr/bin/bwrap"), QStringLiteral("/run/user/1/proxy"));
+        QVERIFY(filtered.join(QLatin1Char(' ')).contains(QStringLiteral("--bind /run/user/1/proxy /run/dbus/system_bus_socket")));
+        QVERIFY(!ChangeRunner::systemServices().contains(QStringLiteral("org.freedesktop.systemd1")));
+        QVERIFY(ChangeRunner::guard({}, {}).isEmpty());
+        if (ChangeRunner::bubblewrap().isEmpty())
+            QSKIP("bubblewrap is not installed");
+
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        const QString mark = dir.filePath(QStringLiteral("status"));
+        ChangeRunner runner(dir.filePath(QStringLiteral("changes")));
+        QSignalSpy made(&runner, &ChangeRunner::made);
+        ChangeProposal change;
+        change.title = QStringLiteral("Look");
+        change.command = QStringLiteral("grep NoNewPrivs /proc/self/status > '%1'").arg(mark);
+        QVERIFY(!runner.make(change).isEmpty());
         QTRY_COMPARE(made.size(), 1);
-        const auto record = made.first().first().value<ChangeRunner::Record>();
-        QCOMPARE(record.status, QStringLiteral("done"));
-        QCOMPARE(read(mark), QByteArray("1\n"));
-        QCOMPARE(record.pre, -1);
-        QVERIFY(!record.canUndo());
+        if (made.first().first().value<ChangeRunner::Record>().output.contains(QLatin1String("bwrap:")))
+            QSKIP("bubblewrap can't make its namespace here");
+        QCOMPARE(read(mark).simplified(), QByteArray("NoNewPrivs: 1"));
     }
 
     // The person said yes on the card, and no one is there to answer pacman's
@@ -466,16 +564,16 @@ private Q_SLOTS:
               "#!/bin/sh\ncase \" $* \" in *' --noconfirm '*) echo removed; exit 0;; esac\n"
               "printf ':: Do you want to remove these packages? [Y/n] '\nread answer || exit 1\n");
         QFile::setPermissions(bin + QStringLiteral("/pacman"), QFileDevice::ReadOwner | QFileDevice::WriteOwner | QFileDevice::ExeOwner);
+        const QByteArray path = qgetenv("PATH");
+        qputenv("PATH", bin.toUtf8() + ':' + path);
         ChangeRunner runner(dir.filePath(QStringLiteral("changes")));
-        runner.setElevate({QStringLiteral("env"), QStringLiteral("PATH=%1:%2").arg(bin, qEnvironmentVariable("PATH"))});
-        runner.setSnapshots(false);
         QSignalSpy made(&runner, &ChangeRunner::made);
         ChangeProposal change;
         change.title = QStringLiteral("Uninstall MaiN Keyboard");
         change.command = QStringLiteral("pacman -Rns main-keyboard-git");
-        change.admin = true;
         runner.make(change);
         QTRY_COMPARE(made.size(), 1);
+        qputenv("PATH", path);
         const auto record = made.first().first().value<ChangeRunner::Record>();
         QCOMPARE(record.status, QStringLiteral("done"));
         QVERIFY(record.output.contains(QStringLiteral("removed")));

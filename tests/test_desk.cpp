@@ -183,7 +183,9 @@ private Q_SLOTS:
         QTest::newRow("startup app not there") << "startup" << "sh " PROJECT_DIR "/skills/plasma/startup-app.sh off zoom" << false;
         QTest::newRow("startup helper elsewhere") << "startup" << "sh /tmp/startup-app.sh off discord" << false;
         QTest::newRow("own service off") << "startup" << "systemctl --user disable --now syncthing.service" << true;
-        QTest::newRow("failed service again") << "services" << "systemctl restart bluetooth.service" << true;
+        // A system service can't be started again from a card: that needs the
+        // administrator.
+        QTest::newRow("failed system service again") << "services" << "systemctl restart bluetooth.service" << false;
         QTest::newRow("a service that didn't fail") << "services" << "systemctl restart sddm.service" << false;
         QTest::newRow("stopping is not starting") << "services" << "systemctl stop bluetooth.service" << false;
     }
@@ -401,8 +403,8 @@ private Q_SLOTS:
         QCOMPARE(tools.proposals.last().value(QStringLiteral("check")).toString(),
                  QStringLiteral("sh " PROJECT_DIR "/skills/plasma/startup-app.sh state discord"));
 
-        // Starting a failed service again has nothing to put back, and its
-        // check is the one for the same kind of service.
+        // A failed system service is not started again from a card, which
+        // never runs as the administrator.
         const QString bluetooth = QStringLiteral("Bluetooth isn't working, can you start it again?");
         model.routes.insert(bluetooth, sorted(QStringLiteral("change"), QStringLiteral("services")));
         model.cards.insert(bluetooth, {{QStringLiteral("title"), QStringLiteral("Start Bluetooth again")},
@@ -413,11 +415,8 @@ private Q_SLOTS:
                                        {QStringLiteral("undo"), QStringLiteral("systemctl stop bluetooth.service")},
                                        {QStringLiteral("check"), QString()}});
         run = ask(desk, bluetooth);
-        QVERIFY2(!run.handOff, qPrintable(run.routes.join(QLatin1Char(','))));
-        QCOMPARE(tools.proposals.size(), 2);
-        QVERIFY(!tools.proposals.last().contains(QStringLiteral("undo")));
-        QCOMPARE(tools.proposals.last().value(QStringLiteral("check")).toString(),
-                 QStringLiteral("systemctl is-active bluetooth.service"));
+        QVERIFY(run.handOff);
+        QCOMPARE(tools.proposals.size(), 1);
     }
 
     // "Undo that", "it worked yesterday": the What changed card, whether the

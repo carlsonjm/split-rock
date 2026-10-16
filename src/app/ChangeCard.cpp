@@ -105,12 +105,9 @@ ChangeCard ChangeCard::forProposal(const ChangeProposal &change, const QString &
     card.whatChanges = change.what;
     card.why = change.why.isEmpty() ? QStringLiteral("%1 proposed it.").arg(assistantName) : change.why;
     card.undo = ChangeRunner::undoPromise(change);
-    card.password = change.admin
-        ? QStringLiteral("Needed. The system asks for it; %1 never sees it.").arg(productName())
-        : QStringLiteral("Not needed.");
+    card.password = QStringLiteral("Not needed.");
     QStringList details{QStringLiteral("Proposed by: %1").arg(assistantName),
-                        QStringLiteral("Runs as: %1").arg(change.admin ? QStringLiteral("administrator")
-                                                                       : QStringLiteral("you")),
+                        QStringLiteral("Runs as: you"),
                         QStringLiteral("Command: %1").arg(change.command)};
     if (!change.undo.isEmpty())
         details.append(QStringLiteral("Undo command: %1").arg(change.undo));

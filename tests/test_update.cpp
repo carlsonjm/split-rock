@@ -188,12 +188,19 @@ private Q_SLOTS:
         QCOMPARE(c.systemUpdate()->stage(), QStringLiteral("looking"));
         QTRY_COMPARE(c.systemUpdate()->stage(), QStringLiteral("ready"));
 
-        // A single package is still an ordinary change.
+        // A single package needs the administrator too, which no card runs
+        // as: it is not shown.
         c.systemUpdate()->close();
         change.command = QStringLiteral("pacman -S --needed firefox");
         c.propose(change);
-        QVERIFY(c.cardOpen());
+        QVERIFY(!c.cardOpen());
         QCOMPARE(c.systemUpdate()->stage(), QString());
+
+        // One that runs as the person is still an ordinary change.
+        change.admin = false;
+        change.command = QStringLiteral("flatpak install --user flathub org.gimp.GIMP");
+        c.propose(change);
+        QVERIFY(c.cardOpen());
     }
 
     void aBlockedUpdateDoesNotStart()

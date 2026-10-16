@@ -17,8 +17,8 @@ struct ChangeProposal {
     QString title;
     QString what;
     QString why;
-    // Run with /bin/sh -c, as the person, or as the administrator when admin
-    // is set.
+    // Run with /bin/sh -c, as the person, and never as the administrator
+    // (docs/DECISIONS.md, No card runs a command as the administrator).
     QString command;
     // Run the same way to put the change back. Empty when the assistant knows
     // none.
@@ -26,6 +26,9 @@ struct ChangeProposal {
     // Run as the person after the change, to read the live state back for the
     // assistant, which can't reach the desktop from its sandbox.
     QString check;
+    // The assistant said the command needs the administrator. Such a
+    // proposal is refused, never made; a record from before the refusal may
+    // still carry it.
     bool admin = false;
     // The person's own files the command changes: copied aside first, and put
     // back by Undo.
@@ -51,6 +54,11 @@ struct ChangeProposal {
     // half updated; empty when it does neither. Neither is made from a card
     // (docs/DECISIONS.md, A whole-system update is not made from a card).
     QString wholeSystemUpdate() const;
+    // What in the proposal reaches for the administrator: "admin" when the
+    // assistant asked for it, or the first program in the command, undo or
+    // check that changes who a command runs as, such as sudo or pkexec. Empty
+    // when nothing does.
+    QString elevation() const;
 };
 
 // Splits a command line into words as a POSIX shell does for plain words and

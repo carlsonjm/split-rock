@@ -35,10 +35,11 @@ Only for a service listed above as failed. Say first, in plain words, what the
 service does and what its last words mean; a service that fails at once again
 will not be fixed by starting it, so then explain and offer no card.
 
-To start one of the person's own again: `systemctl --user restart <service>`,
-"admin" false.
+To start one of the person's own again: `systemctl --user restart <service>`.
 
-To start a system service again: `systemctl restart <service>`, "admin" true.
+A system service can't be started again from a card: a card never runs a
+command as the administrator. Say what the service does, and that restarting
+the computer starts it again; offer no card.
 
 ## Undo
 

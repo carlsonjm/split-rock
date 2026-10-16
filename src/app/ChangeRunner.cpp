@@ -4,6 +4,7 @@
 #include "app/Product.h"
 
 #include <QDebug>
+#include <QElapsedTimer>
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
@@ -13,6 +14,7 @@
 #include <QRandomGenerator>
 #include <QRegularExpression>
 #include <QStandardPaths>
+#include <QThread>
 #include <QTimer>
 
 #include <algorithm>
@@ -23,37 +25,12 @@ namespace {
 
 const QString Shell = QStringLiteral("/bin/sh");
 
-// Run as the administrator: a snapshot before, the change, a snapshot after,
-// each snapshot number printed for Split Rock to keep. $1 is the description,
-// $2 the change's command.
-const QString SystemChange = QStringLiteral(R"(snapshots=$3
-pre=
-if [ "$snapshots" = 1 ] && command -v snapper >/dev/null 2>&1 && [ -f /etc/snapper/configs/root ]; then
-    pre=$(snapper -c root create --type pre --cleanup-algorithm number --print-number --description "$1") || pre=
-fi
-[ -n "$pre" ] && echo "split-rock-pre=$pre"
-/bin/sh -c "$2"
-status=$?
-if [ -n "$pre" ]; then
-    post=$(snapper -c root create --type post --pre-number "$pre" --cleanup-algorithm number --print-number --description "$1") \
-        && echo "split-rock-post=$post"
-fi
-exit $status
-)");
-
 // The T keeps the digits in short runs, so the notebook's check for card
 // numbers never mistakes an ID for one.
 QString newId()
 {
     return QDateTime::currentDateTime().toString(QStringLiteral("yyyyMMdd'T'HHmmss"))
         + QStringLiteral("-%1").arg(QRandomGenerator::global()->bounded(0x10000), 4, 16, QLatin1Char('0'));
-}
-
-int marked(const QString &output, const QString &name)
-{
-    const QRegularExpression line(QStringLiteral("^%1=(\\d+)$").arg(name), QRegularExpression::MultilineOption);
-    const QRegularExpressionMatch match = line.match(output);
-    return match.hasMatch() ? match.captured(1).toInt() : -1;
 }
 
 QString expandHome(const QString &path)
@@ -69,8 +46,13 @@ QString expandHome(const QString &path)
 
 QString ChangeRunner::Record::undoWay() const
 {
-    if (pre >= 0 && post >= 0)
+    if (pre > 0 && post > pre)
         return QStringLiteral("Put back the system files it changed, from the snapshot taken before");
+    // A system change from before cards stopped running as the administrator
+    // has no way back other than its snapshots: its own undo would need the
+    // administrator too.
+    if (!proposal.elevation().isEmpty())
+        return {};
     // The assistant's way back applies the old setting to the running
     // desktop, which putting a file back does not; the copies are kept for
     // when it fails.
@@ -128,7 +110,13 @@ ChangeRunner::Record ChangeRunner::Record::fromJson(const QJsonObject &object)
 ChangeRunner::ChangeRunner(const QString &store, QObject *parent)
     : QObject(parent)
     , m_store(store)
+    , m_bwrap(bubblewrap())
 {
+}
+
+ChangeRunner::~ChangeRunner()
+{
+    stopSystemBus();
 }
 
 QString ChangeRunner::defaultStore()
@@ -137,18 +125,12 @@ QString ChangeRunner::defaultStore()
         .filePath(QStringLiteral("split-rock/changes"));
 }
 
-bool ChangeRunner::systemSnapshots()
-{
-    return !QStandardPaths::findExecutable(QStringLiteral("snapper")).isEmpty()
-        && QFileInfo::exists(QStringLiteral("/etc/snapper/configs/root"));
-}
-
 QString ChangeRunner::reloadFor(const ChangeProposal &change)
 {
     // KWin reads kwinrc only when told to, so a setting written there, Night
     // Light among them, changes nothing until it is.
     const QString touched = change.command + QLatin1Char(' ') + change.undo + QLatin1Char(' ') + change.files.join(QLatin1Char(' '));
-    if (!change.admin && touched.contains(QLatin1String("kwinrc")))
+    if (change.elevation().isEmpty() && touched.contains(QLatin1String("kwinrc")))
         return QStringLiteral("qdbus6 org.kde.KWin /KWin reconfigure || qdbus org.kde.KWin /KWin reconfigure");
     return {};
 }
@@ -156,7 +138,7 @@ QString ChangeRunner::reloadFor(const ChangeProposal &change)
 ChangeProposal ChangeRunner::withKnownUndo(const ChangeProposal &change, const Appearance &now)
 {
     ChangeProposal known = change;
-    if (change.admin || !Appearance::touchedBy(change.command))
+    if (!change.elevation().isEmpty() || !Appearance::touchedBy(change.command))
         return known;
     const QString restore = now.restoreCommand();
     if (!restore.isEmpty())
@@ -168,16 +150,99 @@ ChangeProposal ChangeRunner::withKnownUndo(const ChangeProposal &change, const A
 
 QString ChangeRunner::undoPromise(const ChangeProposal &change)
 {
-    if (change.admin && systemSnapshots())
-        return QStringLiteral("%1 takes a system snapshot first. Undo, in the notebook, puts back every system file "
-                              "this changes.").arg(productName());
-    if (!change.admin && Appearance::touchedBy(change.command) && !change.undo.isEmpty())
+    if (Appearance::touchedBy(change.command) && !change.undo.isEmpty())
         return QStringLiteral("Undo, in the notebook, puts back the whole look you have now.");
     if (!change.undo.isEmpty())
         return QStringLiteral("Undo, in the notebook, runs the way back the assistant gave.");
-    if (!change.admin && !change.files.isEmpty())
+    if (!change.files.isEmpty())
         return QStringLiteral("%1 copies your files aside first. Undo, in the notebook, puts them back.").arg(productName());
     return QStringLiteral("This can't be undone automatically. It is written in the notebook.");
+}
+
+QString ChangeRunner::bubblewrap()
+{
+    return QStandardPaths::findExecutable(QStringLiteral("bwrap"), {QStringLiteral("/usr/bin"), QStringLiteral("/bin")});
+}
+
+QStringList ChangeRunner::guard(const QString &bwrap, const QString &systemBus)
+{
+    // bubblewrap sets no_new_privs, so sudo, pkexec, su and every other
+    // set-user-ID program run without their rights. The system bus, where
+    // run0, systemd-run and the other ways to the administrator are asked
+    // for, is hidden, or replaced by a filtered one that reaches only the
+    // services a person's own setting needs. The rest of the computer is the
+    // person's own, as it is outside.
+    if (bwrap.isEmpty())
+        return {};
+    QStringList program{bwrap, QStringLiteral("--die-with-parent"), QStringLiteral("--dev-bind"), QStringLiteral("/"),
+                        QStringLiteral("/")};
+    if (QFileInfo::exists(QStringLiteral("/run/dbus")))
+        program << QStringLiteral("--tmpfs") << QStringLiteral("/run/dbus");
+    if (!systemBus.isEmpty())
+        program << QStringLiteral("--bind") << systemBus << QStringLiteral("/run/dbus/system_bus_socket");
+    program << QStringLiteral("--");
+    return program;
+}
+
+QStringList ChangeRunner::systemServices()
+{
+    // The fans and power profiles, which the person may set without the
+    // administrator.
+    return {QStringLiteral("net.hadess.PowerProfiles"), QStringLiteral("org.freedesktop.UPower.PowerProfiles"),
+            QStringLiteral("org.freedesktop.UPower"), QStringLiteral("xyz.ljones.Asusd"),
+            QStringLiteral("org.asuslinux.Daemon")};
+}
+
+QString ChangeRunner::startSystemBus()
+{
+    if (m_proxy)
+        return m_proxySocket;
+    const QString socket = QStringLiteral("/run/dbus/system_bus_socket");
+    if (!QFileInfo::exists(socket))
+        return {};
+    const QString proxy = QStandardPaths::findExecutable(QStringLiteral("xdg-dbus-proxy"),
+                                                         {QStringLiteral("/usr/bin"), QStringLiteral("/bin")});
+    const QString runtime = QStandardPaths::writableLocation(QStandardPaths::RuntimeLocation);
+    if (proxy.isEmpty() || runtime.isEmpty())
+        return {};
+    m_proxySocket = QDir(runtime).filePath(QStringLiteral("split-rock-system-bus-%1")
+                                               .arg(QRandomGenerator::global()->generate64(), 16, 16, QLatin1Char('0')));
+    QStringList arguments{QStringLiteral("unix:path=") + socket, m_proxySocket, QStringLiteral("--filter")};
+    for (const QString &name : systemServices())
+        arguments << QStringLiteral("--talk=") + name;
+    m_proxy = new QProcess(this);
+    m_proxy->setProcessChannelMode(QProcess::ForwardedErrorChannel);
+    m_proxy->start(proxy, arguments);
+    // The proxy is ready once its socket is there.
+    QElapsedTimer waited;
+    waited.start();
+    while (m_proxy->waitForStarted(0) && !QFileInfo::exists(m_proxySocket) && waited.elapsed() < 3000)
+        QThread::msleep(20);
+    if (!QFileInfo::exists(m_proxySocket)) {
+        stopSystemBus();
+        return {};
+    }
+    return m_proxySocket;
+}
+
+void ChangeRunner::stopSystemBus()
+{
+    if (m_proxy) {
+        m_proxy->kill();
+        m_proxy->waitForFinished(1000);
+        delete m_proxy;
+        m_proxy = nullptr;
+    }
+    if (!m_proxySocket.isEmpty())
+        QFile::remove(m_proxySocket);
+    m_proxySocket.clear();
+}
+
+QStringList ChangeRunner::guarded(const QString &command)
+{
+    if (m_bwrap.isEmpty())
+        return {};
+    return guard(m_bwrap, startSystemBus()) + QStringList{Shell, QStringLiteral("-c"), command};
 }
 
 QString ChangeRunner::unattended(const QString &command)
@@ -257,6 +322,20 @@ QString ChangeRunner::make(const ChangeProposal &change, const std::function<boo
 {
     if (busy())
         return {};
+    // A card never runs a command as the administrator, whatever brought the
+    // proposal here (docs/DECISIONS.md, No card runs a command as the
+    // administrator).
+    const QString elevation = change.elevation();
+    if (!elevation.isEmpty()) {
+        qWarning().noquote() << QStringLiteral("%1: refused to make \"%2\": it reaches for the administrator (%3)")
+                                    .arg(productName(), change.title, elevation);
+        return {};
+    }
+    if (m_bwrap.isEmpty()) {
+        qWarning().noquote() << QStringLiteral("%1: refused to make \"%2\": bubblewrap, which keeps a change from "
+                                               "reaching the administrator, is missing").arg(productName(), change.title);
+        return {};
+    }
     Record record;
     record.id = newId();
     record.made = QDateTime::currentDateTime();
@@ -266,17 +345,15 @@ QString ChangeRunner::make(const ChangeProposal &change, const std::function<boo
     QDir().mkpath(folder.path());
 
     // The person's own files, copied aside before anything changes them.
-    if (!change.admin) {
-        int n = 0;
-        for (const QString &named : change.files) {
-            const QString original = QFileInfo(expandHome(named)).absoluteFilePath();
-            const QString copy = folder.filePath(QStringLiteral("%1-%2").arg(n++).arg(QFileInfo(original).fileName()));
-            if (QFileInfo(original).isFile()) {
-                if (QFile::copy(original, copy))
-                    record.copies.append({original, copy, false});
-            } else if (!QFileInfo::exists(original)) {
-                record.copies.append({original, {}, true});
-            }
+    int n = 0;
+    for (const QString &named : change.files) {
+        const QString original = QFileInfo(expandHome(named)).absoluteFilePath();
+        const QString copy = folder.filePath(QStringLiteral("%1-%2").arg(n++).arg(QFileInfo(original).fileName()));
+        if (QFileInfo(original).isFile()) {
+            if (QFile::copy(original, copy))
+                record.copies.append({original, copy, false});
+        } else if (!QFileInfo::exists(original)) {
+            record.copies.append({original, {}, true});
         }
     }
     save(record);
@@ -287,24 +364,12 @@ QString ChangeRunner::make(const ChangeProposal &change, const std::function<boo
         return {};
     }
 
-    QStringList program;
-    if (change.admin) {
-        program = m_elevate;
-        program << Shell << QStringLiteral("-c") << SystemChange << productName()
-                << QStringLiteral("%1: %2").arg(productName(), change.title) << unattended(change.command)
-                << (m_snapshots ? QStringLiteral("1") : QStringLiteral("0"));
-    } else {
-        program = {Shell, QStringLiteral("-c"), unattended(change.command)};
-    }
-    qInfo().noquote() << QStringLiteral("%1: making change %2 \"%3\" as %4: %5")
-                             .arg(productName(), record.id, change.title,
-                                  change.admin ? QStringLiteral("administrator") : QStringLiteral("the person"),
-                                  unattended(change.command));
-    run(program, change.admin ? m_timeLimit * 3 : m_timeLimit, [this, record](int exitCode, const QString &output) mutable {
+    const QStringList program = guarded(unattended(change.command));
+    qInfo().noquote() << QStringLiteral("%1: making change %2 \"%3\" as the person: %4")
+                             .arg(productName(), record.id, change.title, unattended(change.command));
+    run(program, m_timeLimit, [this, record](int exitCode, const QString &output) mutable {
         record.exitCode = exitCode;
         record.output = output;
-        record.pre = marked(output, QStringLiteral("split-rock-pre"));
-        record.post = marked(output, QStringLiteral("split-rock-post"));
         record.status = exitCode == 0 ? QStringLiteral("done") : QStringLiteral("failed");
         save(record);
         qInfo().noquote() << QStringLiteral("%1: change %2 %3, exit code %4: %5")
@@ -318,6 +383,7 @@ QString ChangeRunner::make(const ChangeProposal &change, const std::function<boo
             save(record);
             if (!checked.isEmpty())
                 qInfo().noquote() << QStringLiteral("%1: change %2 read back: %3").arg(productName(), record.id, checked.right(500));
+            stopSystemBus();
             Q_EMIT made(record);
         });
     });
@@ -352,6 +418,7 @@ bool ChangeRunner::undo(const QString &id, QString *error)
                 done.output += QStringLiteral("\n--- undo ---\n") + output;
             save(done);
             qInfo().noquote() << QStringLiteral("%1: change %2 %3").arg(productName(), done.id, done.status);
+            stopSystemBus();
             Q_EMIT undone(done);
         });
     };
@@ -369,7 +436,10 @@ bool ChangeRunner::undo(const QString &id, QString *error)
         return ok;
     };
 
-    if (r.pre >= 0 && r.post >= 0) {
+    // A system change made before cards stopped running as the
+    // administrator: its snapshots are put back by the one fixed job that
+    // does it, with only their two numbers.
+    if (r.pre > 0 && r.post > r.pre) {
         QStringList program = m_elevate;
         program << QStringLiteral("snapper") << QStringLiteral("-c") << QStringLiteral("root")
                 << QStringLiteral("undochange") << QStringLiteral("%1..%2").arg(r.pre).arg(r.post);
@@ -380,9 +450,12 @@ bool ChangeRunner::undo(const QString &id, QString *error)
         finish(putBackCopies(), QString());
         return true;
     }
-    QStringList program = r.proposal.admin ? m_elevate : QStringList{};
-    program << Shell << QStringLiteral("-c") << unattended(r.proposal.undo);
-    run(program, r.proposal.admin ? m_timeLimit * 3 : m_timeLimit,
+    // The record is the person's own file, so its way back is held to what a
+    // card may run, as the change was.
+    if (!r.proposal.elevation().isEmpty() || m_bwrap.isEmpty())
+        return fail(QStringLiteral("That change can't be undone automatically."));
+    const QStringList program = guarded(unattended(r.proposal.undo));
+    run(program, m_timeLimit,
         [finish, putBackCopies, hasCopies = !r.copies.isEmpty()](int exitCode, const QString &output) {
             // The way back failed: the copies, where there are any, still
             // put the files back.
@@ -435,7 +508,13 @@ void ChangeRunner::afterChange(const ChangeProposal &change, bool withCheck, std
             done(QString());
             return;
         }
-        run({Shell, QStringLiteral("-c"), check}, 20000, [done](int, const QString &output) {
+        ChangeProposal checking;
+        checking.check = check;
+        if (m_bwrap.isEmpty() || !checking.elevation().isEmpty()) {
+            done(QString());
+            return;
+        }
+        run(guarded(check), 20000, [done](int, const QString &output) {
             done(output.isEmpty() ? QStringLiteral("(nothing)") : output);
         });
     };

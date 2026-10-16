@@ -16,13 +16,13 @@ namespace splitrock {
 
 // Makes a change the person approved on the Do it card, and puts it back.
 //
-// Split Rock runs the change itself, outside the assistant's fence: as the
-// person, or, for a change to the system, through the system's own password
-// prompt, one action at a time (docs/DECISIONS.md, Administrator rights only
-// through the system's prompt). Before a system change it takes a snapshot pair
-// where the disk has snapper set up, so Undo can put back exactly the system
-// files the change touched. The person's own files the change names are copied
-// aside first. Each change is kept, with how to undo it, in a folder of its own.
+// Split Rock runs the change itself, outside the assistant's fence, as the
+// person and never as the administrator (docs/DECISIONS.md, No card runs a
+// command as the administrator): a proposal that reaches for the administrator
+// is refused, and the change runs where sudo, pkexec and the system bus can't
+// lift it. Changes to the system are made by Split Rock's own Helpers instead.
+// The person's own files the change names are copied aside first. Each change
+// is kept, with how to undo it, in a folder of its own.
 class ChangeRunner : public QObject
 {
     Q_OBJECT
@@ -45,7 +45,8 @@ public:
         QString output;
         // What the proposal's check read back after the change.
         QString checked;
-        // The snapshot pair taken around a system change, or -1.
+        // The snapshot pair taken around a system change, from before cards
+        // stopped making them, or -1.
         int pre = -1;
         int post = -1;
         QList<Copy> copies;
@@ -60,10 +61,9 @@ public:
 
     // store: the folder each change is kept in, one folder a change.
     explicit ChangeRunner(const QString &store = defaultStore(), QObject *parent = nullptr);
+    ~ChangeRunner() override;
 
     static QString defaultStore();
-    // Whether this computer takes system snapshots Split Rock can use.
-    static bool systemSnapshots();
     // What tells the running desktop to read again the settings a change
     // writes, run after the change and after Undo; empty when none is known.
     static QString reloadFor(const ChangeProposal &change);
@@ -79,12 +79,18 @@ public:
     // removals and upgrades get --noconfirm, Flatpak's -y --noninteractive.
     static QString unattended(const QString &command);
 
-    // The program that asks the system's password prompt and runs the rest as
-    // the administrator; tests replace it.
+    // What a change, its undo and its check run inside: bubblewrap at bwrap,
+    // with no way to gain rights, and the system bus hidden, or replaced by
+    // systemBus, a filtered one. Empty when bwrap is, and then nothing is made.
+    static QStringList guard(const QString &bwrap, const QString &systemBus);
+    static QString bubblewrap();
+    // The system services the filtered system bus reaches.
+    static QStringList systemServices();
+
+    // The program that asks the system's password prompt, for putting back
+    // an old system change's snapshots; tests replace it.
     void setElevate(const QStringList &program) { m_elevate = program; }
-    void setSnapshots(bool on) { m_snapshots = on; }
-    // How long a change may run before it is stopped; a system change gets
-    // longer, for the password prompt.
+    // How long a change may run before it is stopped.
     void setTimeLimit(int milliseconds) { m_timeLimit = milliseconds; }
 
     bool busy() const { return m_process != nullptr || m_finishing; }
@@ -106,6 +112,12 @@ Q_SIGNALS:
 
 private:
     void save(const Record &record) const;
+    // The command run inside the guard, or empty when it can't be.
+    QStringList guarded(const QString &command);
+    // The filtered system bus's socket, started for a change and stopped once
+    // it and its check are done; empty when there is no system bus to filter.
+    QString startSystemBus();
+    void stopSystemBus();
     void run(const QStringList &program, int timeLimit, std::function<void(int exitCode, const QString &output)> done);
     // Runs the desktop's reload, then the check, as the person, and hands
     // on the check's output.
@@ -113,7 +125,9 @@ private:
 
     QString m_store;
     QStringList m_elevate{QStringLiteral("pkexec")};
-    bool m_snapshots = true;
+    QString m_bwrap;
+    QProcess *m_proxy = nullptr;
+    QString m_proxySocket;
     int m_timeLimit = 120000;
     QProcess *m_process = nullptr;
     // The change's own command is done, and the desktop's reload or the check
