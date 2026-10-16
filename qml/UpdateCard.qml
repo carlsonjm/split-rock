@@ -12,6 +12,8 @@ CardFrame {
     readonly property var plan: card.job.plan
     readonly property var result: card.job.result
     readonly property bool blocked: (plan.blockers || []).length > 0
+    // The list is on the card while the person decides.
+    readonly property bool reading: card.stage === "ready" || card.stage === "confirming"
     hue: card.stage === "failed" ? "coral" : card.stage === "done" ? "green" : "blue"
 
     // The heading: what the card is, and where it has got to.
@@ -19,10 +21,12 @@ CardFrame {
         headingObjectName: "updateHeading"
         tone: card.tone
         icon: card.stage === "done" ? Icons.check : card.stage === "failed" ? Icons.alert : Icons.refresh
-        spinning: card.stage === "looking" || card.stage === "updating"
+        spinning: card.stage === "looking" || card.stage === "rechecking" || card.stage === "updating"
         heading: {
             switch (card.stage) {
             case "looking": return "Looking for updates"
+            case "rechecking": return "Checking the list once more"
+            case "confirming": return "Shuffle may need its own update first"
             case "nothing": return "Everything is up to date"
             case "updating": return "Updating this computer"
             case "done": return "This computer is up to date"
@@ -36,6 +40,8 @@ CardFrame {
         sub: {
             switch (card.stage) {
             case "looking": return "Checking what's new, the news from Arch, and that it's a good moment."
+            case "rechecking": return "Making sure nothing new arrived since you read it."
+            case "confirming": return "Read the note below. Updating anyway is your call."
             case "nothing": return card.plan.community > 0
                                    ? "Your community apps have " + card.plan.community + " updates; open Community apps to look at each one."
                                    : "Nothing needs doing."
@@ -48,7 +54,8 @@ CardFrame {
                 parts.push(card.plan.system + " for the system")
             if (card.plan.apps > 0)
                 parts.push(card.plan.apps + (card.plan.apps === 1 ? " app" : " apps"))
-            return parts.join(" and ")
+            const sub = parts.join(" and ")
+            return card.plan.download ? sub + " · " + card.plan.download + " to download" : sub
         }
     }
 
@@ -72,50 +79,157 @@ CardFrame {
         }
     }
 
-    // Ready: what the person will notice, then what to read first.
-    Flow {
-        visible: card.stage === "ready" && (card.plan.highlights || []).length > 0
+    // Ready: the list changed under the person, then the big pieces of the
+    // desktop the update moves, then what to read first.
+    CardNote {
+        objectName: "updateChanged"
+        visible: card.reading && card.plan.changed === true
         width: card.innerWidth
-        spacing: 8
+        tone: theme.warn
+        text: "The list changed since you looked. Read it again before updating."
+    }
+
+    Column {
+        objectName: "updatePieces"
+        visible: card.reading && (card.plan.pieces || []).length > 0
+        width: card.innerWidth
+        spacing: 6
+        Text {
+            text: "Big pieces in this update"
+            color: theme.quiet
+            font.pixelSize: 13
+            font.weight: Font.Bold
+        }
         Repeater {
-            model: card.plan.highlights || []
+            model: card.reading ? card.plan.pieces || [] : []
             Rectangle {
-                height: 34
-                width: chipText.implicitWidth + 28
-                radius: 17
-                color: theme.soft(card.tone)
+                width: card.innerWidth
+                height: 48
+                radius: 12
+                color: modelData.step ? theme.soft(theme.warn, 0.16) : theme.inset
+                border.width: 1
+                border.color: theme.hairline
                 Text {
-                    id: chipText
-                    anchors.centerIn: parent
-                    text: modelData
+                    x: 14
+                    anchors.verticalCenter: parent.verticalCenter
+                    width: parent.width - x - pieceVersion.implicitWidth - 28
+                    elide: Text.ElideRight
+                    text: modelData.piece
                     color: theme.text
-                    font.pixelSize: 14
+                    font.pixelSize: 15
                     font.weight: Font.DemiBold
+                }
+                Text {
+                    id: pieceVersion
+                    anchors.right: parent.right
+                    anchors.rightMargin: 14
+                    anchors.verticalCenter: parent.verticalCenter
+                    text: (modelData.from ? modelData.from + " → " : "New ") + modelData.to
+                          + (modelData.step ? " · new version" : "")
+                    color: modelData.step ? theme.warn : theme.quiet
+                    font.pixelSize: 14
+                    font.weight: modelData.step ? Font.Bold : Font.Normal
                 }
             }
         }
     }
 
     Column {
-        visible: card.stage === "ready"
+        visible: card.reading
                  && (card.plan.blockers || []).length + (card.plan.warnings || []).length + (card.plan.news || []).length > 0
         width: card.innerWidth
         spacing: 10
         Repeater {
-            model: card.stage === "ready" ? card.plan.blockers : []
+            model: card.reading ? card.plan.blockers : []
             CardNote { text: modelData; tone: theme.bad }
         }
         Repeater {
-            model: card.stage === "ready" ? card.plan.warnings : []
-            CardNote { text: modelData }
+            model: card.reading ? card.plan.warnings : []
+            CardNote { text: modelData; tone: card.stage === "confirming" ? theme.bad : theme.warn }
         }
         Repeater {
-            model: card.stage === "ready" ? card.plan.news : []
+            model: card.reading ? card.plan.news : []
             CardNote {
                 text: modelData.date + ": " + modelData.title
                 tone: theme.accent
                 link: modelData.link
                 onLinkOpened: url => card.job.openLink(url)
+            }
+        }
+    }
+
+    // Everything the update installs, in a box of its own so a long list
+    // scrolls and the buttons stay in reach.
+    Column {
+        visible: card.reading && ((card.plan.list || []).length + (card.plan.appIds || []).length) > 0
+        width: card.innerWidth
+        spacing: 6
+        Text {
+            text: "Everything this installs"
+            color: theme.quiet
+            font.pixelSize: 13
+            font.weight: Font.Bold
+        }
+        Rectangle {
+            objectName: "updateList"
+            width: card.innerWidth
+            height: Math.min(listColumn.implicitHeight, 300) + 16
+            radius: 10
+            color: theme.sheet
+            border.width: 1
+            border.color: theme.line
+            Flickable {
+                id: listScroller
+                x: 14; y: 8
+                width: parent.width - 28
+                height: parent.height - 16
+                contentWidth: width
+                contentHeight: listColumn.implicitHeight
+                clip: true
+                boundsBehavior: Flickable.StopAtBounds
+                interactive: contentHeight > height
+                WheelScroll { flickable: listScroller }
+                Column {
+                    id: listColumn
+                    width: listScroller.width
+                    Repeater {
+                        model: card.reading ? (card.plan.list || []).concat((card.plan.appIds || []).map(id => ({ name: id, app: true }))) : []
+                        Item {
+                            width: listColumn.width
+                            height: 28
+                            Text {
+                                id: packageName
+                                anchors.verticalCenter: parent.verticalCenter
+                                width: Math.min(implicitWidth, parent.width * 0.5)
+                                elide: Text.ElideRight
+                                text: modelData.name
+                                color: theme.text
+                                font.family: theme.mono
+                                font.pixelSize: 13
+                            }
+                            Text {
+                                anchors.left: packageName.right
+                                anchors.leftMargin: 10
+                                anchors.right: packageSize.left
+                                anchors.rightMargin: 10
+                                anchors.verticalCenter: parent.verticalCenter
+                                elide: Text.ElideRight
+                                text: modelData.app ? "app" : (modelData.from ? modelData.from + " → " : "new · ") + modelData.to
+                                color: modelData.step ? theme.warn : theme.quiet
+                                font.family: theme.mono
+                                font.pixelSize: 13
+                            }
+                            Text {
+                                id: packageSize
+                                anchors.right: parent.right
+                                anchors.verticalCenter: parent.verticalCenter
+                                text: modelData.size || ""
+                                color: theme.quiet
+                                font.pixelSize: 13
+                            }
+                        }
+                    }
+                }
             }
         }
     }
@@ -189,15 +303,14 @@ CardFrame {
 
     Fold {
         width: card.innerWidth
-        title: card.stage === "updating" || card.stage === "done" || card.stage === "failed" ? "Show what it did" : "Show every package"
-        body: card.stage === "ready" ? (card.plan.packages || "")
-            : card.stage === "updating" || card.stage === "done" || card.stage === "failed" ? card.job.log : ""
+        title: "Show what it did"
+        body: card.stage === "updating" || card.stage === "done" || card.stage === "failed" ? card.job.log : ""
     }
 
     Flow {
         width: card.innerWidth
         spacing: 10
-        visible: card.stage !== "looking" && card.stage !== "updating"
+        visible: card.stage !== "looking" && card.stage !== "rechecking" && card.stage !== "updating"
         Pill {
             objectName: "updateButton"
             visible: card.stage === "ready"
@@ -211,6 +324,19 @@ CardFrame {
             iconPath: Icons.refresh
             text: "Update"
             onClicked: card.job.start()
+        }
+        Pill {
+            objectName: "updateAnyway"
+            visible: card.stage === "confirming"
+            implicitHeight: 52
+            padding: 30
+            fontSize: 16
+            filled: true
+            tone: theme.bad
+            toneInk: theme.hueInk
+            iconPath: Icons.refresh
+            text: "Update anyway"
+            onClicked: card.job.confirm()
         }
         Pill {
             objectName: "restartButton"
@@ -238,7 +364,7 @@ CardFrame {
             implicitHeight: 52
             padding: 22
             fontSize: 15
-            text: card.stage === "ready" ? "Not now" : card.stage === "done" && card.result.restart ? "Later" : "Close"
+            text: card.reading ? "Not now" : card.stage === "done" && card.result.restart ? "Later" : "Close"
             onClicked: card.job.close()
         }
     }

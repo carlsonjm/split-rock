@@ -635,6 +635,16 @@ installs, Update is unavailable and the card says why. Arch's notices, a Plasma
 release Shuffle may not have caught up with, and a computer without restore
 points are said before Update, not after.
 
+Before Update, the card lists everything the update installs: each package with
+its version now and after, what it costs to download, and the packages it
+brings new; the Flatpak apps it updates follow. The big pieces of the desktop,
+the kernel, KDE Plasma, KWin, Qt and the graphics drivers among them, sit at
+the top, marked when they move a version step and not only a fix. Where Shuffle
+is installed, as a package or from its own folder, and Plasma or KWin moves a
+step, Update asks once more before anything changes. Tapping Update looks
+again first: the update installs what is newest when it runs, so a list that
+changed in between goes back to the person, said so, and nothing is installed.
+
 Update runs through the system's own password prompt with a snapper pair around
 it, unless pacman's own snap-pac hook takes one. It keeps the computer awake,
 is never stopped by a timer, and writes to its own log, which Split Rock follows

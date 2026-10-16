@@ -5,6 +5,14 @@ linux-cachyos 6.17.1-1 -> 6.17.2-1
 mesa 1:25.2.3-1 -> 1:25.2.4-1
 plasma-workspace 6.7.5-1 -> 6.8.0-1
 python 3.13.7-1 -> 3.13.8-1
+@@ download
+firefox 144.0-1 70254592
+kwin 6.8.0-1 9437184
+linux-cachyos 6.17.2-1 157286400
+mesa 1:25.2.4-1 31457280
+plasma-login-manager 6.8.0-1 2097152
+plasma-workspace 6.8.0-1 12582912
+python 3.13.8-1 0
 @@ community
 z13ctl-plus 0.4-1 -> 0.5-1
 spotify 1.2-1 -> 1.3-1 [ignored]
