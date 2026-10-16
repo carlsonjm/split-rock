@@ -75,6 +75,11 @@ public:
     Q_INVOKABLE void back();
     // Opens the card to say which app to remove.
     Q_INVOKABLE void askRemove();
+    // Opens the card straight to removing the app with that desktop file id,
+    // such as org.videolan.vlc.desktop, as Search asks: the package or
+    // Flatpak that owns it is found, and the card waits for a yes. One the
+    // system can't run without, or one nothing owns, is said and left.
+    void removeApp(const QString &desktopId);
 
     // Words that ask to remove an app rather than find one, and the words
     // that are left once those are taken out: "uninstall MaiN Keyboard" is
@@ -92,6 +97,7 @@ public:
     void setFlathubScript(const QString &script) { m_flathubScript = script; }
     void setOpenScript(const QString &script) { m_openScript = script; }
     void setFlathubRemoveScript(const QString &script) { m_flathubRemoveScript = script; }
+    void setOwnerScript(const QString &script) { m_ownerScript = script; }
 
 private:
     void finish(bool ok, const QString &output);
@@ -108,6 +114,7 @@ private:
     QString m_flathubScript;
     QString m_openScript;
     QString m_flathubRemoveScript;
+    QString m_ownerScript;
 };
 
 } // namespace splitrock

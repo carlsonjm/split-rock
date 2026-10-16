@@ -44,6 +44,34 @@ const QString FlathubScript = QStringLiteral(R"SH(export LANG=C LC_ALL=C
 flatpak install -y --noninteractive "$1" "$2" 2>&1
 )SH");
 
+// Run as the person: what owns the app with the desktop file id $1, as
+// "shelf<TAB>package<TAB>name" or "flathub<TAB>id<TAB>name", or nothing. The
+// first copy of the file on the desktop's own search path is the one the app
+// menu shows; one of the person's own that no package owns, such as a menu
+// entry they edited, is passed over for the one beneath it.
+const QString OwnerScript = QStringLiteral(R"SH(export LANG=C LC_ALL=C
+IFS=:
+for dir in "${XDG_DATA_HOME:-$HOME/.local/share}" ${XDG_DATA_DIRS:-/usr/local/share:/usr/share}; do
+    file=$dir/applications/$1
+    [ -f "$file" ] || continue
+    name=$(sed -n 's/^Name=//p' "$file" | head -n 1)
+    case $file in
+    */flatpak/exports/share/applications/*)
+        app=${1%.desktop}
+        flatpak info "$app" >/dev/null 2>&1 && printf 'flathub	%s	%s
+' "$app" "$name"
+        exit 0
+        ;;
+    esac
+    package=$(pacman -Qqo "$(readlink -f "$file")" 2>/dev/null | head -n 1)
+    if [ -n "$package" ]; then
+        printf 'shelf	%s	%s
+' "$package" "$name"
+        exit 0
+    fi
+done
+)SH");
+
 // Run as the person: opens an installed app by its package or its Flatpak
 // id, $1 shelf or flathub and $2 the name.
 const QString OpenScript = QStringLiteral(R"SH(if [ "$1" = flathub ]; then
@@ -89,6 +117,7 @@ AppInstall::AppInstall(QObject *parent)
     , m_flathubScript(FlathubScript)
     , m_openScript(OpenScript)
     , m_flathubRemoveScript(FlathubRemoveScript)
+    , m_ownerScript(OwnerScript)
 {
 }
 
@@ -304,6 +333,57 @@ void AppInstall::askRemove()
     ask();
     m_removing = true;
     Q_EMIT changed();
+}
+
+void AppInstall::removeApp(const QString &desktopId)
+{
+    if (busy())
+        return;
+    static const QRegularExpression shape(QStringLiteral("^[A-Za-z0-9_][A-Za-z0-9._+-]{0,200}\\.desktop$"));
+    if (!shape.match(desktopId).hasMatch()) {
+        askRemove();
+        return;
+    }
+    m_removing = true;
+    m_query = desktopId.chopped(8);
+    m_results.clear();
+    m_picked = App();
+    m_why.clear();
+    clearProgress();
+    setStage(QStringLiteral("searching"));
+    Q_EMIT changed();
+    run(asPerson(m_ownerScript, {desktopId}), 60000, [this](int, const QString &output) {
+        const QStringList columns = output.trimmed().split(QLatin1Char('\n')).value(0).split(QLatin1Char('\t'));
+        App app;
+        if (columns.size() >= 2) {
+            app.source = columns.at(0);
+            app.package = columns.at(1).trimmed();
+            app.name = columns.value(2).trimmed();
+        }
+        const bool shelf = app.source == QLatin1String("shelf") && packageName().match(app.package).hasMatch();
+        const bool flathub = app.source == QLatin1String("flathub") && flatpakId().match(app.package).hasMatch();
+        if (app.name.isEmpty())
+            app.name = shelf || flathub ? app.package : m_query;
+        if (!shelf && !flathub) {
+            m_picked.name = app.name;
+            m_why = QStringLiteral("No package on this computer owns %1, so nothing was removed.").arg(app.name);
+            setStage(QStringLiteral("failed"));
+        } else if (shelf && keptBySystem(app.package)) {
+            m_picked.name = app.name;
+            m_why = QStringLiteral("%1 is part of what the system runs on, so it stays.").arg(app.name);
+            setStage(QStringLiteral("failed"));
+        } else {
+            app.key = app.source + QLatin1Char(':') + app.package;
+            app.installed = true;
+            app.summary = QStringLiteral("Installed on this computer");
+            m_query = app.name;
+            m_results = {app};
+            m_picked = app;
+            setStage(QStringLiteral("confirm"));
+        }
+        qInfo().noquote() << QStringLiteral("%1: removing %2 asks for %3").arg(productName(), m_query, app.key);
+        Q_EMIT changed();
+    });
 }
 
 void AppInstall::ask()

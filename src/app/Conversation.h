@@ -242,8 +242,9 @@ public:
     QString chore() const;
     bool choreBusy() const;
     // Opens an upkeep card by its name, closing the one open; never while
-    // one is busy. query is what to look for, on the install card. False
-    // when it didn't open.
+    // one is busy. query is what to look for, on the install card;
+    // "uninstall" opens the install card to remove the app whose desktop
+    // file id query is. False when it didn't open.
     Q_INVOKABLE bool openChore(const QString &name, const QString &query = QString());
     // A change the assistant proposed, shown on the Do it card.
     void propose(const ChangeProposal &proposed);

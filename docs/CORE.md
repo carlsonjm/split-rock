@@ -120,6 +120,7 @@ drive gives it nothing to say.
 | `Act(s topic, s action) → b` | The person answered a fact: `open` opens its card, `not-now` and `dismiss` quiet it. False for any other topic or action |
 | `Actions() → aa{sv}` | The upkeep cards Search can open by their words: `id`, `title`, `sub`, `icon` and `keywords` (`as`) each |
 | `OpenAction(s id, s query) → b` | Opens that card on its own. `query` goes only to Install an app, which searches for it, or removes an app when it starts with "uninstall" or "remove". False for an id not listed |
+| `RemoveApp(s desktopId) → b` | Opens Install an app straight to removing the app with that desktop file id, such as `org.videolan.vlc.desktop`: it finds the package or Flatpak that owns it and waits for the person's yes. False for anything not shaped like a desktop file id |
 | `FactChanged(a{sv})` | A fact changed: its words, its level or whether it wants the island |
 
 Each fact is a dictionary of strings to variants:
