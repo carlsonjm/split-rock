@@ -150,6 +150,26 @@ private Q_SLOTS:
         QCOMPARE(item(QStringLiteral("trash")).count, 3);
         QCOMPARE(item(QStringLiteral("apps")).list,
                  (QStringList{QStringLiteral("org.kde.Platform"), QStringLiteral("org.freedesktop.Platform")}));
+        // Every row says exactly what is in it.
+        QCOMPARE(item(QStringLiteral("pkgcache")).list,
+                 (QStringList{QStringLiteral("firefox 131.0-1 · 70 MB"),
+                              QStringLiteral("lib32-gcc-libs 14.2.1+r134+gab884fffe3fc-1")}));
+        // The oldest finished logs go until the most recent 200 MB is left.
+        QCOMPARE(item(QStringLiteral("journal")).list.size(), 2);
+        QVERIFY2(item(QStringLiteral("journal")).list.first().startsWith(QStringLiteral("System log · 700 MB · ")),
+                 qPrintable(item(QStringLiteral("journal")).list.join(QLatin1Char('|'))));
+        QVERIFY(item(QStringLiteral("journal")).list.at(1).startsWith(QStringLiteral("Your apps' log · 600 MB · ")));
+        QCOMPARE(item(QStringLiteral("crashes")).list.size(), 2);
+        QVERIFY(item(QStringLiteral("crashes")).list.first().startsWith(QStringLiteral("kwin_wayland · 100 MB · ")));
+        QVERIFY(item(QStringLiteral("crashes")).list.at(1).startsWith(QStringLiteral("plasma-browser · 50 MB · ")));
+        QCOMPARE(item(QStringLiteral("cache")).list,
+                 (QStringList{QStringLiteral("mozilla · 572 MB"), QStringLiteral("spotify · 128 MB")}));
+        QCOMPARE(item(QStringLiteral("builds")).list, QStringList{QStringLiteral("~/.cache/paru/clone · 512 MB")});
+        QCOMPARE(item(QStringLiteral("trash")).list,
+                 (QStringList{QStringLiteral("Holiday photos · 195 MB"), QStringLiteral("notes.txt · 4 MB"),
+                              QStringLiteral("old draft.odt · 800 KB")}));
+        for (const SpaceCleanup::Item &each : look.items)
+            QVERIFY2(!each.list.isEmpty(), qPrintable(each.id));
         QVERIFY(item(QStringLiteral("pkgcache")).admin);
         QVERIFY(!item(QStringLiteral("cache")).admin);
 
@@ -159,6 +179,30 @@ private Q_SLOTS:
         const SpaceCleanup::Look odd = SpaceCleanup::readLook(look2);
         const auto orphans = std::find_if(odd.items.cbegin(), odd.items.cend(), [](const auto &i) { return i.id == QLatin1String("orphans"); });
         QCOMPARE(orphans->list, QStringList{QStringLiteral("python-pip")});
+    }
+
+    // The real look, in the test's own home: the trash lists what is in it.
+    void theTrashSaysWhatItHolds()
+    {
+        const QString trash = QDir::homePath() + QStringLiteral("/.local/share/Trash");
+        QDir(trash).removeRecursively();
+        QVERIFY(write(trash + QStringLiteral("/files/Holiday photos/beach.jpg"), QString(5000, QLatin1Char('x'))));
+        QVERIFY(write(trash + QStringLiteral("/files/notes.txt"), QStringLiteral("notes")));
+        QVERIFY(write(trash + QStringLiteral("/files/.hidden"), QStringLiteral("h")));
+        QVERIFY(write(trash + QStringLiteral("/info/notes.txt.trashinfo"), QStringLiteral("[Trash Info]\n")));
+        SpaceCleanup space;
+        space.setElevate({});
+        space.setAdmin({QStringLiteral("false")});
+        space.check();
+        QTRY_VERIFY_WITH_TIMEOUT(space.stage() == QLatin1String("ready") || space.stage() == QLatin1String("nothing"), 60000);
+        const QList<SpaceCleanup::Item> items = space.items();
+        const auto it = std::find_if(items.cbegin(), items.cend(), [](const auto &i) { return i.id == QLatin1String("trash"); });
+        QVERIFY(it != items.cend());
+        QCOMPARE(it->count, 3);
+        QCOMPARE(it->list.size(), 3);
+        QVERIFY2(it->list.first().startsWith(QStringLiteral("Holiday photos · ")), qPrintable(it->list.join(QLatin1Char('|'))));
+        QVERIFY(it->list.at(1).startsWith(QStringLiteral("notes.txt · ")));
+        QDir(trash).removeRecursively();
     }
 
     void spaceClearsWhatIsChosen()

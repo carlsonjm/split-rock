@@ -124,7 +124,7 @@ private Q_SLOTS:
         QCOMPARE(productTitle(), QStringLiteral("Split Rock"));
         setInsideShuffle(true);
         QCOMPARE(productName(), QStringLiteral("Genie"));
-        QCOMPARE(productTitle(), QStringLiteral("Shuffle Genie"));
+        QCOMPARE(productTitle(), QStringLiteral("Shuffle"));
         QVERIFY(keyReasonNamesGenie());
         setInsideShuffle(false);
         // The test home has no Shuffle in it.

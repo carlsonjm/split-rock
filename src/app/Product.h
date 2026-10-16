@@ -11,8 +11,8 @@ inline constexpr char AppId[] = "io.github.carlsonjm.SplitRock";
 // What the person sees the assistant called. Inside Shuffle it is Genie; on any
 // other Plasma desktop it is Split Rock (docs/DECISIONS.md).
 QString productName();
-// The name for a window's title bar and the desktop's lists: Shuffle Genie
-// inside Shuffle, Split Rock elsewhere.
+// The name for a window's title bar and the desktop's lists: Shuffle inside
+// Shuffle, whose Helpers these windows are, Split Rock elsewhere.
 QString productTitle();
 void setInsideShuffle(bool inside);
 bool insideShuffle();

@@ -1,20 +1,33 @@
 @@ disk
 500000000 48000000
 @@ pkgcache
+==> Candidate packages:
+file 73400320 firefox-131.0-1-x86_64.pkg.tar.zst
+file -1 lib32-gcc-libs-14.2.1+r134+gab884fffe3fc-1-x86_64.pkg.tar.zst
+
 ==> finished dry run: 41 candidates (disk space saved: 3.2 GiB)
 ==> finished dry run: 6 candidates (disk space saved: 412.5 MiB)
 @@ journal
 Archived and active journals take up 1.4G in the file system.
+@@ journalfiles
+1759300000.5 734003200 system@00062d6bc1a2f5e3-6f2c8e1a2b3c4d5e.journal~
+1759900000.5 629145600 user-1000@a1b2c3d4e5f60718-0000000000000001-00062d6bc1a2f5e3.journal
+1760500000.5 104857600 system@00062d6bc1a2f5e4-6f2c8e1a2b3c4d5f.journal
 @@ crashes
-104857600
-52428800
+104857600 1760550000.2 core.kwin_wayland.1000.2b7c1d.1234.1760550000000000.zst
+52428800 1760400000.2 core.plasma\x2dbrowser.1000.2b7c1d.99.1760400000000000.zst
 @@ cache
-734003200
+600000000 mozilla/firefox/cache2/entries/AB12
+134003200 spotify/Data/a.file
 @@ builds
-524288
+524288 .cache/paru/clone
 @@ trash
 204800
 3
+@@ trashfiles
+200000	.local/share/Trash/files/Holiday photos
+4000	.local/share/Trash/files/notes.txt
+800	.local/share/Trash/files/old draft.odt
 @@ apps
 Similar installed refs found for 'org.kde.Platform':
         ID                          Branch      Op

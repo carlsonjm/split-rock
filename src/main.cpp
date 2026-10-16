@@ -93,7 +93,11 @@ int main(int argc, char **argv)
     QGuiApplication::setApplicationName(QStringLiteral("split-rock"));
     // Genie inside Shuffle, Split Rock on any other Plasma desktop.
     splitrock::setInsideShuffle(splitrock::shuffleInstalled());
-    QGuiApplication::setApplicationDisplayName(splitrock::productTitle());
+    // On its own every window's title ends with Split Rock. Inside Shuffle a
+    // Helper's window is titled by the Helper alone, so the title bar centres
+    // "Free up space" rather than "Free up space — Shuffle".
+    if (!splitrock::insideShuffle())
+        QGuiApplication::setApplicationDisplayName(splitrock::productTitle());
     QGuiApplication::setApplicationVersion(QStringLiteral(PROJECT_VERSION));
     // Every window's application id, and the desktop file's.
     QGuiApplication::setDesktopFileName(QLatin1String(splitrock::AppId));

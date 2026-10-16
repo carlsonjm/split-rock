@@ -346,6 +346,11 @@ assistants are already called Genie.
 
 Rejected: the earlier working name.
 
+Since 2026-10-16 a Helper's window inside Shuffle is titled by the Helper
+alone ("Free up space"), centred in its title bar, and Split Rock's own window
+says Shuffle: Genie's chat is retired, and these windows are Shuffle's Helpers.
+The rest of Genie's name goes with the chat.
+
 ## The person is leaving decades of Windows
 
 Split Rock is for someone who has used Windows for decades and has just moved to
@@ -936,8 +941,10 @@ unasked.
 
 ## A package is removed only by name, after the person saw it
 
-Free up space lists every package it would remove, by name, on the card
-before its button, and removes those and nothing with them (`pacman -Rn`, not
+Every row of Free up space opens into exactly what it holds: each old copy
+with its version, the log files trimming takes, each crash report by app and
+day, cache folders, community build folders and each thing in the trash. It
+lists every package it would remove, by name, on the card before its button, and removes those and nothing with them (`pacman -Rn`, not
 `-Rns`). Removing an app from the app card takes only that app the same way;
 what came with it stays, for Free up space to list. The parts nothing uses
 are `split-rock-admin`'s own list (its read-only `unused` job), the same one
