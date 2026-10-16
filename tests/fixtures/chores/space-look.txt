@@ -3,12 +3,6 @@
 @@ pkgcache
 ==> finished dry run: 41 candidates (disk space saved: 3.2 GiB)
 ==> finished dry run: 6 candidates (disk space saved: 412.5 MiB)
-@@ orphans
-python-pip
-qt5-tools
-@@ orphansize
-12.40 MiB
-88.00 MiB
 @@ journal
 Archived and active journals take up 1.4G in the file system.
 @@ crashes

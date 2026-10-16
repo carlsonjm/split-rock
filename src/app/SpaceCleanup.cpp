@@ -16,7 +16,9 @@ namespace splitrock {
 namespace {
 
 // Run as the person: each section starts with a line "@@ name". Nothing here
-// changes anything; paccache's dry runs only count.
+// changes anything; paccache's dry runs only count. The parts nothing uses
+// come from split-rock-admin's own list (its unused job), the same one it
+// removes from, so what building software needs is never among them.
 const QString LookScript = QStringLiteral(R"SH(export LANG=C LC_ALL=C
 echo "@@ disk"
 df -Pk / 2>/dev/null | awk 'NR==2 {print $2, $4}'
@@ -25,11 +27,6 @@ if command -v paccache >/dev/null 2>&1; then
     paccache -dk1 2>/dev/null | tail -n 1
     paccache -duk0 2>/dev/null | tail -n 1
 fi
-echo "@@ orphans"
-pacman -Qdtq 2>/dev/null
-echo "@@ orphansize"
-o=$(pacman -Qdtq 2>/dev/null)
-[ -n "$o" ] && pacman -Qi $o 2>/dev/null | sed -n 's/^Installed Size *: *//p'
 echo "@@ journal"
 journalctl --disk-usage 2>/dev/null
 echo "@@ crashes"
@@ -172,13 +169,14 @@ SpaceCleanup::Look SpaceCleanup::readLook(const QString &output)
 
     {
         Item item{QStringLiteral("orphans"), QStringLiteral("Parts nothing uses"),
-                  QStringLiteral("Installed for an app since removed. Check the list first: something you use "
-                                 "directly can show here. A restore point is taken first."),
+                  QStringLiteral("Installed for an app since removed. Only the ones listed are removed, each by name. "
+                                 "Tools and files for building software always stay."),
                   0, 0, true, false, found.value(QStringLiteral("orphans")), QStringLiteral("violet")};
         static const QRegularExpression name(QStringLiteral("^[a-z0-9@._+-]+$"));
         item.list.erase(std::remove_if(item.list.begin(), item.list.end(),
                                        [](const QString &n) { return !name.match(n).hasMatch(); }),
                         item.list.end());
+        item.list.removeDuplicates();
         item.count = item.list.size();
         for (const QString &line : found.value(QStringLiteral("orphansize")))
             item.kb += std::max<qint64>(0, readSize(line));
@@ -305,12 +303,21 @@ void SpaceCleanup::check()
     clearProgress();
     setStage(QStringLiteral("looking"));
     run(asPerson(m_lookScript), 120000, [this](int, const QString &output) {
-        m_look = readLook(output);
-        qInfo().noquote() << QStringLiteral("%1: %2 kinds of leftovers, %3").arg(productName()).arg(m_look.items.size())
-                                 .arg(size(chosenKb()));
-        setStage(m_look.items.isEmpty() ? QStringLiteral("nothing") : QStringLiteral("ready"));
-        Q_EMIT changed();
+        // Then the parts nothing uses, as the administrator's job counts
+        // them; none are offered when it can't run.
+        run(asPersonJob(QStringLiteral("unused")), 120000, [this, output](int code, const QString &unused) {
+            looked(code == 0 ? output + QLatin1Char('\n') + unused : output);
+        });
     });
+}
+
+void SpaceCleanup::looked(const QString &output)
+{
+    m_look = readLook(output);
+    qInfo().noquote() << QStringLiteral("%1: %2 kinds of leftovers, %3").arg(productName()).arg(m_look.items.size())
+                             .arg(size(chosenKb()));
+    setStage(m_look.items.isEmpty() ? QStringLiteral("nothing") : QStringLiteral("ready"));
+    Q_EMIT changed();
 }
 
 void SpaceCleanup::choose(const QString &id, bool chosen)

@@ -105,6 +105,9 @@ protected:
              std::function<void(const QString &line)> eachLine = {});
     // A script run as the person, with its arguments.
     QStringList asPerson(const QString &script, const QStringList &arguments = {}) const;
+    // One of split-rock-admin's read-only jobs, run as the person: no
+    // password, and it can change nothing.
+    QStringList asPersonJob(const QString &job) const { return m_admin + QStringList{job}; }
     // One of split-rock-admin's named jobs, run as the administrator through
     // the system's prompt; empty when the helper can't be trusted.
     QStringList asAdmin(const QString &job, const QStringList &arguments = {}) const;

@@ -475,8 +475,9 @@ void AppInstall::confirmRemove()
         finishRemoving(exitCode == 0, output);
     };
     if (shelf) {
-        // What it alone needed goes with it, and its settings files under
-        // /etc. Anything another app needs stops it, and nothing is removed.
+        // Only the app and its settings files under /etc; what came with it
+        // stays, for Free up space to list. Anything another app needs stops
+        // it, and nothing is removed.
         run(asAdmin(QStringLiteral("remove"), {productName(), QStringLiteral("1"), m_picked.package}), -1, finished,
             eachLine);
     } else {

@@ -128,7 +128,8 @@ private Q_SLOTS:
 
     void spaceListsLeftoversBiggestFirst()
     {
-        const SpaceCleanup::Look look = SpaceCleanup::readLook(fixture(QStringLiteral("space-look.txt")));
+        const SpaceCleanup::Look look = SpaceCleanup::readLook(fixture(QStringLiteral("space-look.txt"))
+                                                               + fixture(QStringLiteral("space-unused.txt")));
         QCOMPARE(look.freeKb, qint64(48000000));
         QStringList ids;
         for (const SpaceCleanup::Item &item : look.items)
@@ -153,7 +154,7 @@ private Q_SLOTS:
         QVERIFY(!item(QStringLiteral("cache")).admin);
 
         // A name that isn't a package's is never offered.
-        QString look2 = fixture(QStringLiteral("space-look.txt"));
+        QString look2 = fixture(QStringLiteral("space-look.txt")) + fixture(QStringLiteral("space-unused.txt"));
         look2.replace(QStringLiteral("qt5-tools"), QStringLiteral("qt5-tools; rm -rf /"));
         const SpaceCleanup::Look odd = SpaceCleanup::readLook(look2);
         const auto orphans = std::find_if(odd.items.cbegin(), odd.items.cend(), [](const auto &i) { return i.id == QLatin1String("orphans"); });
@@ -209,7 +210,7 @@ private Q_SLOTS:
         QVERIFY(written.value(2).contains(QStringLiteral("python-pip")));
         // The jobs, then of the parts the person saw only those still unused.
         QVERIFY(space.log().contains(QStringLiteral("paccache -rk1")));
-        QVERIFY2(space.log().contains(QStringLiteral("pacman -Rns --noconfirm --noprogressbar --color never -- python-pip\n")),
+        QVERIFY2(space.log().contains(QStringLiteral("pacman -Rn --noconfirm --noprogressbar --color never -- python-pip\n")),
                  qPrintable(space.log()));
         // Unused for a month goes; the rest, and community build files kept
         // until chosen, stay.
@@ -258,6 +259,7 @@ private Q_SLOTS:
             {QStringLiteral("remove"), name, QStringLiteral("1"), QStringLiteral(".hidden")},
             {QStringLiteral("free-space"), name, QStringLiteral("1"), QStringLiteral("everything")},
             {QStringLiteral("free-space"), name, QStringLiteral("1"), QStringLiteral("--"), QStringLiteral("-dd")},
+            {QStringLiteral("unused"), QStringLiteral("cmake")},
             {QStringLiteral("restore-list"), QStringLiteral("now")},
             {QStringLiteral("restore-undo"), QStringLiteral("8"), QStringLiteral("7")},
             {QStringLiteral("restore-undo"), QStringLiteral("0"), QStringLiteral("7")},
@@ -283,6 +285,52 @@ private Q_SLOTS:
         QVERIFY2(said.contains(QStringLiteral("pacman -S --needed --noconfirm --noprogressbar --color never -- lib32-gcc-libs")),
                  qPrintable(said));
         QVERIFY(said.contains(QStringLiteral("snapper -c root undochange 7..8")));
+    }
+
+    // What building software needs is never a part nothing uses: not listed,
+    // and not removed even when named; and what is removed goes by name,
+    // with nothing else alongside.
+    void buildToolsAreNeverUnused()
+    {
+        StandIns standIns;
+        const QString ran = standIns.path() + QStringLiteral("/ran");
+        QVERIFY(standIns.add(QStringLiteral("snapper"), QStringLiteral("exit 1\n")));
+        QVERIFY(standIns.add(QStringLiteral("pacman"), QStringLiteral(
+            "case $1 in\n"
+            "-Qdtq) printf '%s\\n' cmake extra-cmake-modules vulkan-headers wayland-protocols opencv qt5-tools electron ;;\n"
+            "-Qlq) case $3 in\n"
+            "    opencv) echo /usr/include/opencv4/opencv2/core.hpp ;;\n"
+            "    qt5-tools) echo /usr/lib/cmake/Qt5Help/Qt5HelpConfig.cmake ;;\n"
+            "    electron) echo /usr/lib/electron/electron ;;\n"
+            "    esac ;;\n"
+            "-Qi) shift; for p in \"$@\"; do echo 'Installed Size  : 300.00 MiB'; done ;;\n"
+            "*) echo \"pacman $*\" >> '%1' ;;\n"
+            "esac\n").arg(ran)));
+        const auto job = [](const QStringList &arguments, QString *output) {
+            QProcess p;
+            p.setProcessChannelMode(QProcess::MergedChannels);
+            p.start(adminInSource().first(), arguments);
+            p.closeWriteChannel();
+            if (!p.waitForFinished(20000))
+                return -1;
+            *output = QString::fromUtf8(p.readAll());
+            return p.exitCode();
+        };
+        QString output;
+        QCOMPARE(job({QStringLiteral("unused")}, &output), 0);
+        const SpaceCleanup::Look look = SpaceCleanup::readLook(output);
+        QCOMPARE(look.items.size(), 1);
+        QCOMPARE(look.items.first().list, QStringList{QStringLiteral("electron")});
+        QCOMPARE(look.items.first().kb, qint64(300 * 1024));
+
+        QCOMPARE(job({QStringLiteral("free-space"), QStringLiteral("Split Rock"), QStringLiteral("1"), QStringLiteral("--"),
+                      QStringLiteral("cmake"), QStringLiteral("opencv"), QStringLiteral("electron"), QStringLiteral("vulkan-headers")},
+                     &output),
+                 0);
+        QFile file(ran);
+        QVERIFY(file.open(QIODevice::ReadOnly));
+        QCOMPARE(QString::fromUtf8(file.readAll()), QStringLiteral("pacman -Rn --noconfirm --noprogressbar --color never -- electron\n"));
+        QVERIFY2(output.contains(QStringLiteral("split-rock-removed= electron")), qPrintable(output));
     }
 
     void installFindsAppsBestFirst()
@@ -390,7 +438,7 @@ private Q_SLOTS:
         QCOMPARE(install.stage(), QStringLiteral("removing"));
         QTRY_COMPARE(install.stage(), QStringLiteral("removed"));
         QCOMPARE(title, QStringLiteral("Removed main-keyboard-git"));
-        QVERIFY(install.log().contains(QStringLiteral("pacman -Rns --noconfirm --noprogressbar --color never -- main-keyboard-git")));
+        QVERIFY(install.log().contains(QStringLiteral("pacman -Rn --noconfirm --noprogressbar --color never -- main-keyboard-git")));
     }
 
     void restorePointsSayWhatCameNext()

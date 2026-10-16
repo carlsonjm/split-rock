@@ -133,6 +133,61 @@ CardFrame {
         }
     }
 
+    // Parts nothing uses, once ticked: every package that will be removed,
+    // by name, before the button is tapped. Nothing else goes with them.
+    Column {
+        id: removal
+        readonly property var orphans: card.items.find(i => i.id === "orphans" && i.chosen)
+        readonly property var names: orphans ? orphans.list.split("\n").filter(n => n !== "") : []
+        visible: card.stage === "ready" && removal.names.length > 0
+        width: card.innerWidth
+        spacing: 6
+        Text {
+            text: removal.names.length === 1 ? "This package will be removed" : "These " + removal.names.length + " packages will be removed"
+            color: theme.quiet
+            font.pixelSize: 13
+            font.weight: Font.Bold
+        }
+        Rectangle {
+            objectName: "spaceRemoveList"
+            width: card.innerWidth
+            height: Math.min(removeColumn.implicitHeight, 220) + 16
+            radius: 10
+            color: theme.sheet
+            border.width: 1
+            border.color: theme.line
+            Flickable {
+                id: removeScroller
+                x: 14; y: 8
+                width: parent.width - 28
+                height: parent.height - 16
+                contentWidth: width
+                contentHeight: removeColumn.implicitHeight
+                clip: true
+                boundsBehavior: Flickable.StopAtBounds
+                interactive: contentHeight > height
+                WheelScroll { flickable: removeScroller }
+                Column {
+                    id: removeColumn
+                    width: removeScroller.width
+                    Repeater {
+                        model: removal.names
+                        Text {
+                            width: removeColumn.width
+                            height: 26
+                            verticalAlignment: Text.AlignVCenter
+                            elide: Text.ElideRight
+                            text: modelData
+                            color: theme.text
+                            font.family: theme.mono
+                            font.pixelSize: 13
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     Flow {
         visible: card.stage === "ready"
         width: card.innerWidth

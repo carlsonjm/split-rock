@@ -16,8 +16,9 @@ namespace splitrock {
 // cache files unused for a month, community apps' build files, app parts
 // nothing uses, and the trash. Each is cleared by a command fixed here. What
 // needs the administrator goes in one password prompt; parts nothing uses are
-// removed between two restore points, and are off until the person picks
-// them, as is the trash.
+// listed by name on the card, removed one by one and nothing with them,
+// between two restore points, and are off until the person picks them, as is
+// the trash. Tools and files for building software are never among them.
 //
 // Its stages: looking, ready, nothing, clearing, done or failed.
 class SpaceCleanup : public Chore
@@ -84,6 +85,7 @@ public:
     void setFreeScript(const QString &script) { m_freeScript = script; }
 
 private:
+    void looked(const QString &output);
     void runPerson(const QString &adminOutput);
     void finish(bool ok, const QString &output);
     void eachLine(const QString &line);

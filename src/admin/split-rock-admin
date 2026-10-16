@@ -15,6 +15,8 @@
 #   free-space NAME SNAP [JOB...] -- [PACKAGE...]
 #                                           pkgcache, journal, crashes; then the
 #                                           parts nothing uses, of those named
+#   unused                                  the parts nothing uses that may go,
+#                                           read only, and needs no password
 #   restore-list                            the restore points, read only
 #   restore-undo PRE POST                   put back what changed between two
 #   community NAME SNAP RECIPE HEAD [HELPER...] -- PACKAGE...
@@ -72,6 +74,29 @@ is_name() {
     return 1
 }
 
+# What building software needs: compilers and build tools, and every package
+# that ships headers, CMake or pkg-config files, Qt's build files or protocol
+# descriptions. Nothing installed may need them, yet a build in the person's
+# own folders does (a checkout under ~/Projects builds with CMake against
+# exactly these), so they are never offered as unused nor removed as such.
+is_build_input() {
+    case $1 in
+        *-headers|*-protocols|*-devel|cmake|extra-cmake-modules|ninja|meson|make|gcc|clang|llvm|pkgconf|autoconf|automake|libtool|git|rhash|qt6-tools|qt6-shadertools)
+            return 0 ;;
+    esac
+    pacman -Qlq -- "$1" 2>/dev/null | grep -qE '^/usr/(include/|lib/cmake/|lib/pkgconfig/|share/pkgconfig/|share/cmake|share/ECM/|share/aclocal/|share/wayland-protocols/|share/plasma-wayland-protocols/|lib/qt6/mkspecs/|lib/qt/mkspecs/|bin/(cc|c\+\+|ld|make|ninja|meson|cmake|pkg-config|qmake6?)$)'
+}
+
+# The packages nothing installed needs, less what building software needs,
+# one name a line.
+unused() {
+    for package in $(pacman -Qdtq 2>/dev/null); do
+        is_package "$package" || continue
+        is_build_input "$package" && continue
+        echo "$package"
+    done
+}
+
 # A restore point before, the command after the first three arguments with
 # its output in the log named third, which is followed here, and a restore
 # point after; each number printed as split-rock-pre= and split-rock-post=.
@@ -118,9 +143,10 @@ install|remove)
     if [ "$job" = install ]; then
         transaction "$1: Install $3" "$2" "$logs/split-rock-install.log" pacman -S --needed --noconfirm --noprogressbar --color never -- "$3"
     else
-        # -s takes what it alone needed with it; -n its settings files under
-        # /etc. Anything another app needs stops it, and nothing is removed.
-        transaction "$1: Remove $3" "$2" "$logs/split-rock-install.log" pacman -Rns --noconfirm --noprogressbar --color never -- "$3"
+        # The one package the person picked, and its settings files under
+        # /etc (-n); never what came with it, which the person didn't see.
+        # Anything another app needs stops it, and nothing is removed.
+        transaction "$1: Remove $3" "$2" "$logs/split-rock-install.log" pacman -Rn --noconfirm --noprogressbar --color never -- "$3"
     fi
     ;;
 
@@ -148,12 +174,14 @@ free-space)
         esac
     done
     [ $# -gt 0 ] || exit 0
-    # Of the parts the person saw, only those still unused are removed.
+    # Of the parts the person saw listed, only those still unused, and never
+    # what building software needs, are removed: each by name, and nothing
+    # with them, so no part the person didn't see goes.
     echo "@@ step orphans"
-    unused=$(pacman -Qdtq 2>/dev/null)
+    still=$(unused)
     keep=
     for package in "$@"; do
-        printf '%s\n' "$unused" | grep -qx -- "$package" && keep="$keep $package"
+        printf '%s\n' "$still" | grep -qx -- "$package" && keep="$keep $package"
     done
     [ -n "$keep" ] || exit 0
     pre=
@@ -162,11 +190,23 @@ free-space)
     fi
     [ -n "$pre" ] && echo "split-rock-pre=$pre"
     # shellcheck disable=SC2086 # each name checked above, one word each
-    pacman -Rns --noconfirm --noprogressbar --color never -- $keep
+    pacman -Rn --noconfirm --noprogressbar --color never -- $keep
     status=$?
     [ -n "$pre" ] && snapper -c root create --type post --pre-number "$pre" --cleanup-algorithm number --description "$name: Free up space"
     echo "split-rock-removed=$keep"
     exit $status
+    ;;
+
+unused)
+    [ $# -eq 0 ] || refuse "unused takes nothing"
+    list=$(unused)
+    echo "@@ orphans"
+    [ -n "$list" ] && printf '%s\n' "$list"
+    echo "@@ orphansize"
+    # shellcheck disable=SC2086 # package names, one word each
+    [ -n "$list" ] && pacman -Qi $list 2>/dev/null | sed -n 's/^Installed Size *: *//p'
+    echo "@@ end"
+    exit 0
     ;;
 
 restore-list)

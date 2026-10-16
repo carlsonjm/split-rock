@@ -58,7 +58,7 @@ CardFrame {
                 return card.results.length === 0 ? "Try other words, such as what you want to do with it."
                                                  : "This system's own shelf comes first: it's checked by the system's keys and updated with it."
             case "confirm": return card.picked.source === "shelf"
-                                   ? "A restore point is taken first, and anything it alone needed goes with it. If another app needs it, nothing is removed."
+                                   ? "A restore point is taken first, and only this app is removed. If another app needs it, nothing is removed."
                                    : "It's removed from Flathub's apps on this computer. Its own settings stay."
             case "installing": return card.picked.source === "shelf" ? "From this system's shelf, with a restore point first."
                                                                     : "From Flathub."
