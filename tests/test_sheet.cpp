@@ -1072,7 +1072,7 @@ private Q_SLOTS:
         QVERIFY(install->removing());
         shows(QStringLiteral("installCard"), QStringLiteral("46-remove-results"));
         install->remove(QStringLiteral("shelf:main-keyboard-git"));
-        QCOMPARE(install->stage(), QStringLiteral("confirm"));
+        QTRY_COMPARE(install->stage(), QStringLiteral("confirm"));
         shows(QStringLiteral("installCard"), QStringLiteral("47-remove-confirm"));
         install->confirmRemove();
         QTRY_COMPARE(install->stage(), QStringLiteral("removed"));

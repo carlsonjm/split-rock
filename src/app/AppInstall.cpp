@@ -319,10 +319,12 @@ bool AppInstall::keptBySystem(const QString &package)
         QStringLiteral("plasma-workspace"), QStringLiteral("plasma-meta"), QStringLiteral("plasma"),
         QStringLiteral("kwin"), QStringLiteral("sddm"), QStringLiteral("plasma-login-manager"), QStringLiteral("pipewire"),
         QStringLiteral("wireplumber"), QStringLiteral("flatpak"), QStringLiteral("kadunce"), QStringLiteral("tettegouche"),
-        QStringLiteral("temperance"), QStringLiteral("gooseberry")};
+        QStringLiteral("temperance"), QStringLiteral("gooseberry"), QStringLiteral("konsole"), QStringLiteral("dolphin"),
+        QStringLiteral("systemsettings"), QStringLiteral("kinfocenter"), QStringLiteral("plasma-systemmonitor")};
     static const QRegularExpression family(QStringLiteral(
         "^(linux|linux-.*|systemd.*|limine.*|cachyos-.*|split-rock.*|shuffle.*|pipewire-.*|xorg-server.*|"
-        "xdg-desktop-portal.*|qt6-.*|kf6.*|nvidia.*|.*-firmware|base-.*)$"));
+        "xdg-desktop-portal.*|qt6-.*|kf6.*|nvidia.*|.*-firmware|base-.*|plasma.*|kwin.*|breeze.*|kde-.*|kscreen.*|"
+        "libplasma.*|polkit-.*|sddm-.*)$"));
     return kept.contains(package) || family.match(package).hasMatch();
 }
 
@@ -378,10 +380,35 @@ void AppInstall::removeApp(const QString &desktopId)
             app.summary = QStringLiteral("Installed on this computer");
             m_query = app.name;
             m_results = {app};
-            m_picked = app;
+            qInfo().noquote() << QStringLiteral("%1: removing %2 asks for %3").arg(productName(), m_query, app.key);
+            askToRemove(app);
+            return;
+        }
+        Q_EMIT changed();
+    });
+}
+
+void AppInstall::askToRemove(const App &app)
+{
+    m_picked = app;
+    if (app.source != QLatin1String("shelf")) {
+        setStage(QStringLiteral("confirm"));
+        Q_EMIT changed();
+        return;
+    }
+    setStage(QStringLiteral("searching"));
+    Q_EMIT changed();
+    run(asPersonJob(QStringLiteral("kept"), {app.package}), 30000, [this](int exitCode, const QString &output) {
+        if (exitCode != 0) {
+            m_why = QStringLiteral("Nothing was removed: it couldn't be checked whether the system runs on %1.").arg(m_picked.name);
+            setStage(QStringLiteral("failed"));
+        } else if (output.contains(QLatin1String("@@ kept ")) || keptBySystem(m_picked.package)) {
+            m_why = QStringLiteral("%1 is part of what the system runs on, so it stays.").arg(m_picked.name);
+            m_results.removeIf([this](const App &a) { return a.key == m_picked.key; });
+            setStage(QStringLiteral("failed"));
+        } else {
             setStage(QStringLiteral("confirm"));
         }
-        qInfo().noquote() << QStringLiteral("%1: removing %2 asks for %3").arg(productName(), m_query, app.key);
         Q_EMIT changed();
     });
 }
@@ -507,9 +534,7 @@ void AppInstall::remove(const QString &key)
     const auto found = std::find_if(m_results.cbegin(), m_results.cend(), [&key](const App &a) { return a.key == key; });
     if (found == m_results.cend() || !found->installed || keptBySystem(found->package))
         return;
-    m_picked = *found;
-    setStage(QStringLiteral("confirm"));
-    Q_EMIT changed();
+    askToRemove(*found);
 }
 
 void AppInstall::back()

@@ -86,8 +86,9 @@ public:
     // MaiN Keyboard.
     static bool asksToRemove(const QString &words);
     static QString withoutRemoveWords(const QString &words);
-    // Packages the system can't do without, which are never offered for
-    // removal.
+    // Packages the system can't do without, by name, which are never
+    // offered for removal; the administrator's helper also keeps Plasma's
+    // own groups and whatever another package needs (split-rock-admin kept).
     static bool keptBySystem(const QString &package);
 
     // What the search printed, read into apps, best first, at most eight.
@@ -100,6 +101,9 @@ public:
     void setOwnerScript(const QString &script) { m_ownerScript = script; }
 
 private:
+    // Waits for the yes to remove app, once the administrator's helper has
+    // said, read only, that the system doesn't run on it.
+    void askToRemove(const App &app);
     void finish(bool ok, const QString &output);
     void finishRemoving(bool ok, const QString &output);
 

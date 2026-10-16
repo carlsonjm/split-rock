@@ -302,6 +302,11 @@ private Q_SLOTS:
             {QStringLiteral("install"), name, QStringLiteral("1"), QStringLiteral("$(id)")},
             {QStringLiteral("install"), name, QStringLiteral("1"), QStringLiteral("vlc"), QStringLiteral("gimp")},
             {QStringLiteral("remove"), name, QStringLiteral("1"), QStringLiteral(".hidden")},
+            // What the system runs on is never removed, asked for directly.
+            {QStringLiteral("remove"), name, QStringLiteral("1"), QStringLiteral("konsole")},
+            {QStringLiteral("remove"), name, QStringLiteral("1"), QStringLiteral("plasma-workspace")},
+            {QStringLiteral("kept")},
+            {QStringLiteral("kept"), QStringLiteral("vlc;id")},
             {QStringLiteral("free-space"), name, QStringLiteral("1"), QStringLiteral("everything")},
             {QStringLiteral("free-space"), name, QStringLiteral("1"), QStringLiteral("--"), QStringLiteral("-dd")},
             {QStringLiteral("unused"), QStringLiteral("cmake")},
@@ -474,11 +479,12 @@ private Q_SLOTS:
         }
         // Nothing is removed before the yes.
         install.remove(QStringLiteral("shelf:main-keyboard-git"));
-        QCOMPARE(install.stage(), QStringLiteral("confirm"));
+        QTRY_COMPARE(install.stage(), QStringLiteral("confirm"));
         QVERIFY(title.isEmpty());
         install.back();
         QCOMPARE(install.stage(), QStringLiteral("results"));
         install.remove(QStringLiteral("shelf:main-keyboard-git"));
+        QTRY_COMPARE(install.stage(), QStringLiteral("confirm"));
         install.confirmRemove();
         QCOMPARE(install.stage(), QStringLiteral("removing"));
         QTRY_COMPARE(install.stage(), QStringLiteral("removed"));
@@ -496,6 +502,12 @@ private Q_SLOTS:
                       QStringLiteral("[Desktop Entry]\nName=VLC media player\nName[de]=VLC\nExec=vlc\n")));
         QVERIFY(write(system + QStringLiteral("/applications/org.kde.plasmashell.desktop"),
                       QStringLiteral("[Desktop Entry]\nName=Plasma\n")));
+        QVERIFY(write(system + QStringLiteral("/applications/org.kde.konsole.desktop"),
+                      QStringLiteral("[Desktop Entry]\nName=Konsole\n")));
+        QVERIFY(write(system + QStringLiteral("/applications/org.kde.ksystemlog.desktop"),
+                      QStringLiteral("[Desktop Entry]\nName=KSystemLog\n")));
+        QVERIFY(write(system + QStringLiteral("/applications/org.example.viewer.desktop"),
+                      QStringLiteral("[Desktop Entry]\nName=Viewer\n")));
         // An entry the person edited, which no package owns.
         QVERIFY(write(mine + QStringLiteral("/applications/vlc.desktop"),
                       QStringLiteral("[Desktop Entry]\nName=My VLC\n")));
@@ -512,7 +524,13 @@ private Q_SLOTS:
             "case \"$*\" in\n"
             "*-Qqo*/system/applications/vlc.desktop) echo vlc ;;\n"
             "*-Qqo*/system/applications/org.kde.plasmashell.desktop) echo plasma-workspace ;;\n"
+            "*-Qqo*/system/applications/org.kde.konsole.desktop) echo konsole ;;\n"
+            "*-Qqo*/system/applications/org.kde.ksystemlog.desktop) echo ksystemlog ;;\n"
+            "*-Qqo*/system/applications/org.example.viewer.desktop) echo viewer ;;\n"
             "*-Qqo*) exit 1 ;;\n"
+            "*-Qi*ksystemlog*) printf 'Name            : ksystemlog\\nGroups          : kde-applications kde-system\\nRequired By     : None\\n' ;;\n"
+            "*-Qi*viewer*) printf 'Name            : viewer\\nGroups          : None\\nRequired By     : some-suite\\n' ;;\n"
+            "*-Qi*) printf 'Groups          : None\\nRequired By     : None\\n' ;;\n"
             "*) echo \"pacman $*\" ;;\n"
             "esac\n")));
         QTemporaryDir logs;
@@ -536,6 +554,13 @@ private Q_SLOTS:
         install.removeApp(QStringLiteral("org.kde.plasmashell.desktop"));
         QTRY_COMPARE(install.stage(), QStringLiteral("failed"));
         QVERIFY(install.why().contains(QStringLiteral("Plasma is part of what the system runs on")));
+        // Konsole, Plasma's own apps by their group, and what another
+        // package needs, all stay, before any password is asked.
+        for (const char *entry : {"org.kde.konsole.desktop", "org.kde.ksystemlog.desktop", "org.example.viewer.desktop"}) {
+            install.removeApp(QString::fromLatin1(entry));
+            QTRY_COMPARE(install.stage(), QStringLiteral("failed"));
+            QVERIFY2(install.why().contains(QStringLiteral("is part of what the system runs on")), entry);
+        }
         install.removeApp(QStringLiteral("nowhere.desktop"));
         QTRY_COMPARE(install.stage(), QStringLiteral("failed"));
         QVERIFY(install.why().startsWith(QStringLiteral("No package on this computer owns")));
