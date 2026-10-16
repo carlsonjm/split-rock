@@ -13,16 +13,20 @@ namespace splitrock {
 // which the ordinary Do it card never runs (docs/DECISIONS.md, The Update card
 // updates the computer).
 //
-// It looks first, as the person: what is waiting, the news Arch posted since
-// the last update, the power, the free space, and whether restore points are
-// taken. Then, when the person taps Update, it runs the update through the
+// It looks first, as the person: what is waiting, each package with its old
+// and new version and what it costs to download, the big desktop pieces among
+// them, the news Arch posted since the last update, the power, the free space,
+// and whether restore points are taken. Then, when the person taps Update, it
+// looks once more, and only when the list is still the one the person read
+// does it run the update through the
 // system's own password prompt with a restore point before and after, keeps
 // the computer awake, and is never stopped by a timer. It reads pacman's
 // output as it goes for the progress the card shows. Afterwards it updates the
 // person's Flatpak apps, and looks again for what needs the person: a restart,
 // settings files left beside their own, and services that failed.
 //
-// Its stages: looking, ready, nothing, updating, done or failed.
+// Its stages: looking, ready, nothing, confirming, rechecking, updating, done
+// or failed.
 class SystemUpdate : public Chore
 {
     Q_OBJECT
@@ -33,6 +37,24 @@ class SystemUpdate : public Chore
     Q_PROPERTY(int waiting READ waiting NOTIFY waitingChanged)
 
 public:
+    // One package the update installs.
+    struct Package {
+        QString name;
+        // The version installed now; empty for a package the update brings
+        // new, such as a new dependency.
+        QString from;
+        QString to;
+        // What it costs to download, in bytes; 0 when already downloaded, -1
+        // when not known.
+        qint64 size = -1;
+        // A big piece of the desktop, such as the kernel, KDE Plasma or
+        // KWin, in a person's words; empty for the rest.
+        QString piece;
+        // Its version moves a step, such as Plasma 6.7 to 6.8, not only a
+        // fix.
+        bool step = false;
+    };
+
     struct News {
         QString title;
         QString link;
@@ -51,6 +73,21 @@ public:
         int apps = 0;
         QStringList highlights;
         QStringList packages;
+        // Every package the update installs, big desktop pieces first, then
+        // by name.
+        QList<Package> list;
+        // The Flatpak apps it updates.
+        QStringList appIds;
+        // What the system's packages cost to download, in bytes; -1 when not
+        // known.
+        qint64 download = -1;
+        // Shuffle is installed, and KDE Plasma or KWin moves a step: the
+        // person confirms once more, as Shuffle may not start until it has
+        // its own update.
+        bool desktopRisk = false;
+        // The list changed between the look the person read and the look
+        // just before updating.
+        bool changed = false;
         bool restartLikely = false;
         bool snapshots = false;
         // The restore points come from pacman's own snap-pac hook, so Split
@@ -65,6 +102,9 @@ public:
         QString plasmaTo;
 
         bool nothing() const { return system == 0 && apps == 0; }
+        // Which packages at which versions, to tell whether two looks found
+        // the same update.
+        QStringList fingerprint() const;
         QVariantMap toMap() const;
     };
 
@@ -97,8 +137,12 @@ public:
     // Looks at what is waiting without opening the card, for Genie's tiles.
     // Only reads, as the card's own look does.
     void peek();
-    // Updates, after the person tapped Update on a ready card.
+    // Updates, after the person tapped Update on a ready card: asks once more
+    // first when the update moves the desktop a step under Shuffle, then
+    // looks again and updates only when the list is the one the person read.
     Q_INVOKABLE void start();
+    // The person read the desktop warning and updates anyway.
+    Q_INVOKABLE void confirm();
 
     // What the look printed, read into the card's plan. now is the time the
     // news is measured against when the last update's date is unknown.
@@ -129,6 +173,8 @@ Q_SIGNALS:
     void waitingChanged();
 
 private:
+    void recheck();
+    void update();
     void afterSystem(int exitCode, const QString &output);
     void finish(const QString &output);
     void setWaiting(const Plan &plan);

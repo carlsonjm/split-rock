@@ -9,9 +9,12 @@
 #include <QFile>
 #include <QSignalSpy>
 #include <QTest>
+#include <QTemporaryDir>
+#include <QTimeZone>
 
 #include "AdminStandIn.h"
-#include <QTimeZone>
+
+#include <algorithm>
 
 using namespace splitrock;
 
@@ -53,6 +56,65 @@ private Q_SLOTS:
         QVERIFY(plan.warnings.join(QLatin1Char(' ')).contains(QStringLiteral("battery is at 72%")));
         // Shuffle is installed, and Plasma moves to 6.8.
         QVERIFY(plan.warnings.join(QLatin1Char(' ')).contains(QStringLiteral("Shuffle has its update for Plasma 6.8")));
+        QVERIFY(plan.desktopRisk);
+    }
+
+    void theLookListsEveryPackageBigPiecesFirst()
+    {
+        const SystemUpdate::Plan plan = SystemUpdate::readLook(fixture(QStringLiteral("look.txt")), Now);
+        QStringList names;
+        for (const SystemUpdate::Package &p : plan.list)
+            names.append(p.name);
+        // The kernel, Plasma, KWin and the graphics drivers, then the rest by
+        // name, with the new dependency pacman would bring.
+        QCOMPARE(names, (QStringList{QStringLiteral("linux-cachyos"), QStringLiteral("plasma-workspace"), QStringLiteral("kwin"),
+                                     QStringLiteral("mesa"), QStringLiteral("firefox"), QStringLiteral("plasma-login-manager"),
+                                     QStringLiteral("python")}));
+        QCOMPARE(plan.list.at(1).piece, QStringLiteral("KDE Plasma"));
+        QVERIFY(plan.list.at(1).step);
+        // A fix, not a step.
+        QVERIFY(!plan.list.at(0).step);
+        QVERIFY(plan.list.at(4).piece.isEmpty());
+        QVERIFY(plan.list.at(5).from.isEmpty());
+        QCOMPARE(plan.list.at(0).size, qint64(157286400));
+        QCOMPARE(plan.download, qint64(70254592 + 9437184 + 157286400 + 31457280 + 2097152 + 12582912));
+        QCOMPARE(plan.appIds, (QStringList{QStringLiteral("org.gimp.GIMP"), QStringLiteral("org.videolan.VLC")}));
+
+        // As the card reads it: versions without the epoch, sizes in words.
+        const QVariantList rows = plan.toMap().value(QStringLiteral("list")).toList();
+        const QVariantMap mesa = rows.at(3).toMap();
+        QCOMPARE(mesa.value(QStringLiteral("from")).toString(), QStringLiteral("25.2.3"));
+        QCOMPARE(mesa.value(QStringLiteral("to")).toString(), QStringLiteral("25.2.4"));
+        QCOMPARE(mesa.value(QStringLiteral("size")).toString(), QStringLiteral("30 MB"));
+        QCOMPARE(plan.toMap().value(QStringLiteral("pieces")).toList().size(), 4);
+        QCOMPARE(plan.toMap().value(QStringLiteral("download")).toString(), QStringLiteral("270 MB"));
+
+        // Headers and firmware are not the kernel.
+        QString look = fixture(QStringLiteral("look.txt"));
+        look.replace(QStringLiteral("python 3.13.7-1"), QStringLiteral("linux-cachyos-headers 6.17.1-1 -> 6.17.2-1\npython 3.13.7-1"));
+        const SystemUpdate::Plan headers = SystemUpdate::readLook(look, Now);
+        const auto it = std::find_if(headers.list.cbegin(), headers.list.cend(),
+                                     [](const SystemUpdate::Package &p) { return p.name == QLatin1String("linux-cachyos-headers"); });
+        QVERIFY(it != headers.list.cend());
+        QVERIFY(it->piece.isEmpty());
+    }
+
+    void shuffleFromItsOwnFolderIsSeenToo()
+    {
+        QString look = fixture(QStringLiteral("look.txt"));
+        look.replace(QStringLiteral("shuffle-plasma 1.0.0-1"), QStringLiteral("shuffle ~/.local/share"));
+        QVERIFY(SystemUpdate::readLook(look, Now).desktopRisk);
+        // Without Shuffle, Plasma 6.8 is only on the list.
+        look.replace(QStringLiteral("shuffle ~/.local/share\n"), QString());
+        const SystemUpdate::Plan plan = SystemUpdate::readLook(look, Now);
+        QVERIFY(!plan.desktopRisk);
+        QVERIFY(!plan.warnings.join(QLatin1Char(' ')).contains(QStringLiteral("Shuffle")));
+        // KWin moving a step alone asks too.
+        look = fixture(QStringLiteral("look.txt"));
+        look.replace(QStringLiteral("plasma-workspace 6.7.5-1 -> 6.8.0-1\n"), QString());
+        const SystemUpdate::Plan kwin = SystemUpdate::readLook(look, Now);
+        QVERIFY(kwin.desktopRisk);
+        QVERIFY(kwin.warnings.join(QLatin1Char(' ')).contains(QStringLiteral("KWin 6.8")));
     }
 
     void anUpdateWaitsForPowerSpaceAndTheLock()
@@ -143,10 +205,14 @@ private Q_SLOTS:
 
         QSignalSpy finished(&update, &SystemUpdate::finished);
         update.start();
-        QCOMPARE(update.stage(), QStringLiteral("updating"));
+        // Plasma moves a step under Shuffle: asked once more first.
+        QCOMPARE(update.stage(), QStringLiteral("confirming"));
+        update.confirm();
+        // Then the list is looked at again before anything changes.
+        QCOMPARE(update.stage(), QStringLiteral("rechecking"));
         // Never closed while it runs.
         update.close();
-        QCOMPARE(update.stage(), QStringLiteral("updating"));
+        QCOMPARE(update.stage(), QStringLiteral("rechecking"));
         QTRY_COMPARE(finished.size(), 1);
         QCOMPARE(update.stage(), QStringLiteral("done"));
         const SystemUpdate::Result result = update.result();
@@ -171,9 +237,51 @@ private Q_SLOTS:
         update.check();
         QTRY_COMPARE(update.stage(), QStringLiteral("ready"));
         update.start();
+        update.confirm();
         QTRY_COMPARE(update.stage(), QStringLiteral("failed"));
         QVERIFY(!update.result().ok);
         QVERIFY(update.result().why.contains(QStringLiteral("Something else was installing")));
+    }
+
+    void anUpdateThatChangedSinceItWasReadIsShownAgain()
+    {
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        const QString look = fixture(QStringLiteral("look.txt"));
+        QFile first(dir.filePath(QStringLiteral("first.txt")));
+        QVERIFY(first.open(QIODevice::WriteOnly));
+        first.write(look.toUtf8());
+        first.close();
+        QFile second(dir.filePath(QStringLiteral("second.txt")));
+        QVERIFY(second.open(QIODevice::WriteOnly));
+        second.write(QString(look).replace(QStringLiteral("python 3.13.7-1 -> 3.13.8-1"),
+                                           QStringLiteral("python 3.13.7-1 -> 3.13.8-1\nqt6-base 6.9.3-1 -> 6.10.0-1")).toUtf8());
+        second.close();
+        QFile updated(dir.filePath(QStringLiteral("updated")));
+
+        SystemUpdate update;
+        update.setElevate({});
+        update.setLookScript(QStringLiteral("cd '%1' && if [ -e seen ]; then cat second.txt; else touch seen; cat first.txt; fi").arg(dir.path()));
+        update.setAdmin(adminStandIn(QStringLiteral("touch '%1'").arg(updated.fileName())));
+        update.setAppsScript(QStringLiteral("true"));
+        update.setAfterScript(QStringLiteral("echo '@@ end'"));
+        update.check();
+        QTRY_COMPARE(update.stage(), QStringLiteral("ready"));
+        QCOMPARE(update.plan().system, 6);
+        update.start();
+        update.confirm();
+        // Qt arrived in between: back to the list, nothing installed.
+        QTRY_COMPARE(update.stage(), QStringLiteral("ready"));
+        QVERIFY(update.plan().changed);
+        QCOMPARE(update.plan().system, 7);
+        QVERIFY(!updated.exists());
+        QVERIFY(update.planMap().value(QStringLiteral("changed")).toBool());
+
+        // Read again, and the same list: it updates.
+        update.start();
+        update.confirm();
+        QTRY_COMPARE(update.stage(), QStringLiteral("done"));
+        QVERIFY(updated.exists());
     }
 
     void anUpdateProposedForTheCardOpensTheUpdateCard()

@@ -18,8 +18,18 @@ namespace {
 // Run as the person: each section starts with a line "@@ name" that readLook
 // reads it by. Nothing here changes anything; checkupdates fetches the package
 // lists into a folder of its own, never the system's.
+// The download section asks pacman what the update would fetch, from the
+// lists checkupdates fetched, without root and without fetching anything.
 const QString LookScript = QStringLiteral(R"SH(echo "@@ system"
-if command -v checkupdates >/dev/null 2>&1; then checkupdates 2>/dev/null; else echo "@@ nochecker"; fi
+export CHECKUPDATES_DB="${XDG_CACHE_HOME:-$HOME/.cache}/split-rock/checkup-db"
+if command -v checkupdates >/dev/null 2>&1; then
+    checkupdates 2>/dev/null
+    echo "@@ download"
+    [ -d "$CHECKUPDATES_DB/sync" ] && pacman -Sup --dbpath "$CHECKUPDATES_DB" --logfile /dev/null --noconfirm \
+        --print-format '%n %v %s' 2>/dev/null
+else
+    echo "@@ nochecker"
+fi
 echo "@@ community"
 if command -v paru >/dev/null 2>&1; then paru -Qua 2>/dev/null; elif command -v yay >/dev/null 2>&1; then yay -Qua 2>/dev/null; fi
 echo "@@ apps"
@@ -41,6 +51,9 @@ echo "@@ busy"
 [ -e /var/lib/pacman/db.lck ] && echo locked
 echo "@@ shuffle"
 pacman -Q shuffle-plasma 2>/dev/null
+for d in "${XDG_DATA_HOME:-$HOME/.local/share}" /usr/share; do
+    [ -e "$d/plasma/plasmoids/co.goodinput.shuffle.bottomsurface" ] && echo "shuffle $d"
+done
 echo "@@ lastupdate"
 grep -a "starting full system upgrade" /var/log/pacman.log 2>/dev/null | tail -n 1
 echo "@@ news"
@@ -65,32 +78,65 @@ systemctl --failed --no-legend --plain 2>/dev/null | awk '{print $1}'
 echo "@@ end"
 )SH");
 
-// Packages a person notices, in their words, and whether they take effect
-// only after a restart. Tried in order; the first that fits names it.
+// Packages a person notices, in their words, whether they take effect only
+// after a restart, and, for the big pieces of the desktop, what the list at
+// the top of the card calls them and where. Tried in order; the first that
+// fits names it.
 struct Known {
     QRegularExpression name;
     QString words;
     bool restart;
+    QString piece = QString();
+    int pieceOrder = 0;
 };
 
 const QList<Known> &known()
 {
+    // The kernel, not its headers, documentation or the firmware files.
     static const QList<Known> list{
-        {QRegularExpression(QStringLiteral("^linux(-[a-z0-9]+)*$")), QStringLiteral("A new Linux kernel"), true},
-        {QRegularExpression(QStringLiteral("^plasma-workspace$")), QStringLiteral("KDE Plasma"), true},
-        {QRegularExpression(QStringLiteral("^(nvidia|nvidia-open|nvidia-dkms|nvidia-utils)$")), QStringLiteral("NVIDIA graphics drivers"), true},
-        {QRegularExpression(QStringLiteral("^mesa$")), QStringLiteral("Graphics drivers"), true},
-        {QRegularExpression(QStringLiteral("^linux-firmware$")), QStringLiteral("Device firmware files"), true},
-        {QRegularExpression(QStringLiteral("^systemd$")), QStringLiteral("System services"), true},
-        {QRegularExpression(QStringLiteral("^glibc$")), QStringLiteral("The core system library"), true},
+        {QRegularExpression(QStringLiteral("^linux(?!-firmware|-api-headers)(-[a-z0-9]+)*(?<!-headers)(?<!-docs)$")),
+         QStringLiteral("A new Linux kernel"), true, QStringLiteral("Linux kernel"), 1},
+        {QRegularExpression(QStringLiteral("^plasma-workspace$")), QStringLiteral("KDE Plasma"), true, QStringLiteral("KDE Plasma"), 2},
+        {QRegularExpression(QStringLiteral("^(nvidia|nvidia-open|nvidia-dkms|nvidia-utils)$")), QStringLiteral("NVIDIA graphics drivers"), true,
+         QStringLiteral("NVIDIA graphics drivers"), 5},
+        {QRegularExpression(QStringLiteral("^mesa$")), QStringLiteral("Graphics drivers"), true, QStringLiteral("Graphics drivers"), 5},
+        {QRegularExpression(QStringLiteral("^linux-firmware$")), QStringLiteral("Device firmware files"), true, QStringLiteral("Device firmware"), 8},
+        {QRegularExpression(QStringLiteral("^systemd$")), QStringLiteral("System services"), true, QStringLiteral("System services"), 6},
+        {QRegularExpression(QStringLiteral("^glibc$")), QStringLiteral("The core system library"), true, QStringLiteral("The core system library"), 7},
         {QRegularExpression(QStringLiteral("^firefox$")), QStringLiteral("Firefox"), false},
         {QRegularExpression(QStringLiteral("^chromium$")), QStringLiteral("Chromium"), false},
         {QRegularExpression(QStringLiteral("^thunderbird$")), QStringLiteral("Thunderbird"), false},
         {QRegularExpression(QStringLiteral("^libreoffice-(fresh|still)$")), QStringLiteral("LibreOffice"), false},
         {QRegularExpression(QStringLiteral("^steam$")), QStringLiteral("Steam"), false},
-        {QRegularExpression(QStringLiteral("^shuffle-plasma$")), QStringLiteral("Shuffle"), true},
+        {QRegularExpression(QStringLiteral("^shuffle-plasma$")), QStringLiteral("Shuffle"), true, QStringLiteral("Shuffle"), 9},
+        {QRegularExpression(QStringLiteral("^kwin$")), QStringLiteral("KWin"), true, QStringLiteral("KWin, which draws the windows"), 3},
+        {QRegularExpression(QStringLiteral("^qt6-base$")), QStringLiteral("Qt"), true, QStringLiteral("Qt, which apps are drawn with"), 4},
     };
     return list;
+}
+
+// The first Known that fits name, or -1.
+qsizetype knownIndex(const QString &name)
+{
+    for (qsizetype i = 0; i < known().size(); ++i) {
+        if (known().at(i).name.match(name).hasMatch())
+            return i;
+    }
+    return -1;
+}
+
+// A version as a person reads it: "1:25.2.4-1" to "25.2.4". The package's
+// own release number stays when only it changed, so the two never read the
+// same.
+std::pair<QString, QString> readable(const QString &from, const QString &to)
+{
+    const auto plain = [](QString v) {
+        v = v.section(QLatin1Char(':'), -1);
+        return v.section(QLatin1Char('-'), 0, 0);
+    };
+    if (!from.isEmpty() && plain(from) == plain(to))
+        return {from.section(QLatin1Char(':'), -1), to.section(QLatin1Char(':'), -1)};
+    return {from.isEmpty() ? QString() : plain(from), plain(to)};
 }
 
 // "6.7.5-1" to "6.7".
@@ -122,9 +168,40 @@ QVariantList newsList(const QList<SystemUpdate::News> &news)
 
 } // namespace
 
+QStringList SystemUpdate::Plan::fingerprint() const
+{
+    QStringList found;
+    for (const Package &p : list)
+        found.append(p.name + QLatin1Char(' ') + p.to);
+    for (const QString &app : appIds)
+        found.append(QStringLiteral("app ") + app);
+    found.sort();
+    return found;
+}
+
 QVariantMap SystemUpdate::Plan::toMap() const
 {
+    QVariantList pieces;
+    QVariantList rows;
+    for (const Package &p : list) {
+        const auto [from, to] = readable(p.from, p.to);
+        const QVariantMap row{{QStringLiteral("name"), p.name},
+                              {QStringLiteral("from"), from},
+                              {QStringLiteral("to"), to},
+                              {QStringLiteral("size"), p.size > 0 ? Chore::size(std::max<qint64>(1, p.size / 1024)) : QString()},
+                              {QStringLiteral("piece"), p.piece},
+                              {QStringLiteral("step"), p.step}};
+        if (!p.piece.isEmpty())
+            pieces.append(row);
+        rows.append(row);
+    }
     return {{QStringLiteral("system"), system},
+            {QStringLiteral("list"), rows},
+            {QStringLiteral("pieces"), pieces},
+            {QStringLiteral("appIds"), appIds},
+            {QStringLiteral("download"), download > 0 ? Chore::size(std::max<qint64>(1, download / 1024)) : QString()},
+            {QStringLiteral("desktopRisk"), desktopRisk},
+            {QStringLiteral("changed"), changed},
             {QStringLiteral("community"), community},
             {QStringLiteral("apps"), apps},
             {QStringLiteral("highlights"), highlights},
@@ -159,7 +236,8 @@ SystemUpdate::SystemUpdate(QObject *parent)
 
 bool SystemUpdate::busy() const
 {
-    return stage() == QLatin1String("looking") || stage() == QLatin1String("updating");
+    return stage() == QLatin1String("looking") || stage() == QLatin1String("rechecking")
+        || stage() == QLatin1String("updating");
 }
 
 QList<SystemUpdate::News> SystemUpdate::readNews(const QString &rss)
@@ -224,6 +302,14 @@ SystemUpdate::Plan SystemUpdate::readLook(const QString &output, const QDateTime
             ++plan.system;
             const QString name = m.captured(1);
             plan.packages.append(QStringLiteral("%1  %2 → %3").arg(name, m.captured(2), m.captured(3)));
+            Package package;
+            package.name = name;
+            package.from = m.captured(2);
+            package.to = m.captured(3);
+            package.step = minorOf(package.from) != minorOf(package.to);
+            if (const qsizetype i = knownIndex(name); i >= 0)
+                package.piece = known().at(i).piece;
+            plan.list.append(package);
             for (qsizetype i = 0; i < known().size(); ++i) {
                 const Known &k = known().at(i);
                 if (!k.name.match(name).hasMatch())
@@ -243,6 +329,46 @@ SystemUpdate::Plan SystemUpdate::readLook(const QString &output, const QDateTime
             }
         }
     }
+    // What each costs to download, and the packages the update brings new,
+    // such as a new dependency, which checkupdates doesn't list.
+    static const QRegularExpression fetched(QStringLiteral(R"(^(\S+)\s+(\S+)\s+(\d+)$)"));
+    if (sections.contains(QStringLiteral("download")) && plan.system > 0) {
+        qint64 total = 0;
+        bool any = false;
+        for (const QString &line : sections.value(QStringLiteral("download"))) {
+            const QRegularExpressionMatch m = fetched.match(line);
+            if (!m.hasMatch())
+                continue;
+            any = true;
+            const qint64 size = m.captured(3).toLongLong();
+            total += size;
+            auto it = std::find_if(plan.list.begin(), plan.list.end(), [&m](const Package &p) { return p.name == m.captured(1); });
+            if (it != plan.list.end()) {
+                it->size = size;
+                continue;
+            }
+            Package package;
+            package.name = m.captured(1);
+            package.to = m.captured(2);
+            package.size = size;
+            if (const qsizetype i = knownIndex(package.name); i >= 0)
+                package.piece = known().at(i).piece;
+            plan.list.append(package);
+        }
+        if (any)
+            plan.download = total;
+    }
+    // The big pieces first, then by name.
+    const auto order = [](const Package &p) {
+        const qsizetype i = knownIndex(p.name);
+        return i >= 0 && !p.piece.isEmpty() ? known().at(i).pieceOrder : 100;
+    };
+    std::stable_sort(plan.list.begin(), plan.list.end(), [&order](const Package &a, const Package &b) {
+        const int oa = order(a);
+        const int ob = order(b);
+        return oa != ob ? oa < ob : a.name < b.name;
+    });
+
     std::stable_sort(noticed.begin(), noticed.end(), [](const auto &a, const auto &b) { return a.first < b.first; });
     for (const auto &n : std::as_const(noticed)) {
         if (plan.highlights.size() < 4)
@@ -252,7 +378,8 @@ SystemUpdate::Plan SystemUpdate::readLook(const QString &output, const QDateTime
         if (update.match(line).hasMatch() && !line.contains(QLatin1String("[ignored]")))
             ++plan.community;
     }
-    plan.apps = sections.value(QStringLiteral("apps")).size();
+    plan.appIds = sections.value(QStringLiteral("apps"));
+    plan.apps = plan.appIds.size();
 
     // Whether the update can start, and what to read first.
     const QStringList snapshots = sections.value(QStringLiteral("snapshots"));
@@ -297,11 +424,23 @@ SystemUpdate::Plan SystemUpdate::readLook(const QString &output, const QDateTime
         plan.warnings.append(QStringLiteral("This computer doesn't take restore points, so this update can't be "
                                             "gone back from."));
 
-    if (!plan.plasmaTo.isEmpty() && plan.plasmaTo != plan.plasmaFrom
-        && !sections.value(QStringLiteral("shuffle")).isEmpty())
+    // Shuffle is installed as a package, or from its own folder: either way
+    // its panels and Cards are built for the Plasma and KWin there now.
+    const bool shuffle = !sections.value(QStringLiteral("shuffle")).isEmpty();
+    const auto kwin = std::find_if(plan.list.cbegin(), plan.list.cend(), [](const Package &p) {
+        return p.name == QLatin1String("kwin") && !p.from.isEmpty();
+    });
+    if (shuffle && !plan.plasmaTo.isEmpty() && plan.plasmaTo != plan.plasmaFrom) {
+        plan.desktopRisk = true;
         plan.warnings.append(QStringLiteral("This brings KDE Plasma %1. Check Shuffle has its update for Plasma %1 "
                                             "first, or parts of Shuffle may not start after the restart.")
                                  .arg(plan.plasmaTo));
+    } else if (shuffle && kwin != plan.list.cend() && kwin->step) {
+        plan.desktopRisk = true;
+        plan.warnings.append(QStringLiteral("This brings KWin %1, which draws the windows. Check Shuffle has its "
+                                            "update for it first, or Shuffle's Cards may not start after the restart.")
+                                 .arg(minorOf(kwin->to.section(QLatin1Char(':'), -1))));
+    }
 
     // News Arch posted since the last update, or in the last two weeks when
     // the last update isn't known.
@@ -384,6 +523,43 @@ void SystemUpdate::start()
 {
     if (stage() != QLatin1String("ready") || !m_plan.blockers.isEmpty())
         return;
+    if (m_plan.desktopRisk) {
+        setStage(QStringLiteral("confirming"));
+        return;
+    }
+    recheck();
+}
+
+void SystemUpdate::confirm()
+{
+    if (stage() == QLatin1String("confirming"))
+        recheck();
+}
+
+void SystemUpdate::recheck()
+{
+    // The update installs what is newest when it runs, so the list the person
+    // read is checked again first: something new can arrive in between.
+    setStage(QStringLiteral("rechecking"));
+    const QStringList read = m_plan.fingerprint();
+    run(asPerson(m_lookScript), 90000, [this, read](int, const QString &output) {
+        Plan now = readLook(output);
+        if (now.fingerprint() == read && now.blockers.isEmpty()) {
+            update();
+            return;
+        }
+        now.changed = now.fingerprint() != read;
+        qInfo().noquote() << QStringLiteral("%1: the update changed since it was read, %2 system updates now")
+                                 .arg(productName()).arg(now.system);
+        m_plan = now;
+        setStage(m_plan.nothing() ? QStringLiteral("nothing") : QStringLiteral("ready"));
+        setWaiting(m_plan);
+        Q_EMIT changed();
+    });
+}
+
+void SystemUpdate::update()
+{
     // Written down, with how to go back, before anything changes.
     m_id = QStringLiteral("update-%1").arg(QDateTime::currentDateTime().toString(QStringLiteral("yyyyMMdd-HHmmss")));
     const bool restorePoints = m_plan.snapshots || m_plan.snapPac;

@@ -874,8 +874,19 @@ private Q_SLOTS:
         QQuickItem *button = find(full, QStringLiteral("updateButton"));
         QVERIFY(button && button->isVisible() && button->isEnabled());
 
+        // Every package is on the card before anything installs.
+        QVERIFY(find(full, QStringLiteral("updateList"))->isVisible());
+
         QMetaObject::invokeMethod(button, "clicked");
-        QCOMPARE(update->stage(), QStringLiteral("updating"));
+        // Plasma moves a step under Shuffle: the card asks once more.
+        QCOMPARE(update->stage(), QStringLiteral("confirming"));
+        settle();
+        QVERIFY(overflowing(full).isEmpty());
+        shoot(full, QStringLiteral("21b-update-confirming"));
+        QQuickItem *anyway = find(full, QStringLiteral("updateAnyway"));
+        QVERIFY(anyway && anyway->isVisible());
+        QMetaObject::invokeMethod(anyway, "clicked");
+        QTRY_COMPARE(update->stage(), QStringLiteral("updating"));
         QTRY_VERIFY(update->done() >= 2);
         settle();
         QVERIFY(find(full, QStringLiteral("updateProgress"))->isVisible());
