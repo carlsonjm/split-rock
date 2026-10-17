@@ -50,36 +50,35 @@ Split Rock comes in two layers.
   that runs on the computer itself after a one-time download, so nothing Pat
   asks leaves it. It answers, answers from the troubleshooting guide where an
   entry fits, and makes everyday changes through the Do it card and the upkeep
-  cards. The guide holds known problems, in the words a person would use, each
-  with its fix; it is written ahead of time, ships with Split Rock and is
-  updated with each release, and a desktop that installs Split Rock's extras
-  adds entries of its own. Where the model can't run, the guide and a tour of
+  cards. The guide holds known problems in the words a person would use, each
+  with its fix. It is written ahead of time, ships with Split Rock and is
+  updated with each release. A desktop that installs Split Rock's extras adds
+  entries of its own. Where the model can't run, the guide and a tour of
   the desktop work on their own, with no account and no network.
 - **Unlocked by Pat's own assistant account.** Pat signs in to Codex with the
   ChatGPT plan they already pay for, and Split Rock becomes a butler on the
   desktop: it answers anything, troubleshoots what the guide does not cover,
-  and makes bigger changes through the Do it card. The use is billed to Pat's
-  own account, at Pat's choice. Split Rock sells no account and pays for no
-  use.
+  and makes bigger changes through the Do it card. Pat's own account pays for
+  the use, at Pat's choice; Split Rock sells no account and pays for nothing.
 
 How the guide's entries are kept, and how a desktop adds its own, is in
 `DECISIONS.md`.
 
 ## Keeping this computer working
 
-Keeping an unusual device working is one of Split Rock's main jobs, not a side
-case. People leave Windows on the hardware they own, and some of it is unusual:
-a tablet such as the ASUS ROG Flow Z13, with its own power firmware and kernel
-quirks, breaks in ways a plain laptop never does, and Windows used to hide that
-behind the maker's own software.
+Keeping an unusual device working is one of Split Rock's main jobs. People leave
+Windows on the hardware they own, and some of it is unusual: a tablet such as
+the ASUS ROG Flow Z13, with its own power firmware and kernel quirks, breaks in
+ways a plain laptop never does, and Windows used to hide that behind the maker's
+own software.
 
-So Split Rock learns the computer it is on. It is local: it starts fresh on
-every computer, reads what the hardware reports at setup, and keeps what it
-learns about the device in the notebook's `Device/` folder, which grows with
-use. With an account, the assistant troubleshoots what the guide does not cover
-and finds the maker's documentation for that hardware; every fix lands in `This
-computer.md` and the device's folder, so the next time starts from what worked.
-Nothing learned on one computer reaches another.
+So Split Rock learns the computer it is on. It starts fresh on every computer,
+reads what the hardware reports at setup, and keeps what it learns about the
+device in the notebook's `Device/` folder, which grows with use. With an
+account, the assistant troubleshoots what the guide does not cover and finds the
+maker's documentation for that hardware; every fix lands in `This computer.md`
+and the device's folder, so the next time starts from what worked. Nothing
+learned on one computer reaches another.
 
 ## The first five minutes
 
@@ -118,12 +117,11 @@ signs up for something has failed Pat.
 
 ## The Do it card
 
-The card is the product. Changes Split Rock knows have a tested Undo; any
-other change is made only after a snapshot or a copy of what it touches, or
-with the card saying plainly that it can't be undone. Each card says what will
-change in one sentence, why
-Split Rock suggests it, whether and how it can be undone, and whether it needs
-Pat's password.
+The card is the product. Changes Split Rock knows have a tested Undo. Split
+Rock makes any other change only after a snapshot or a copy of what it
+touches, or with the card saying plainly that it can't be undone. Each card
+says in one sentence what will change, why Split Rock suggests it, whether and
+how it can be undone, and whether it needs Pat's password.
 
 Buttons: **Do it**, **Show me how instead**, **Not now**. A "Show details" fold
 holds the exact command or setting.
@@ -133,7 +131,7 @@ holds the exact command or setting.
 | Need | Approach | Notes |
 | --- | --- | --- |
 | An assistant account | Pat signs in with an account they already pay for, through that assistant's own sign-in | Or skips it and keeps Split Rock on this computer |
-| The assistant program | Split Rock on this computer, or Codex, each speaking the Agent Client Protocol | Each agent owns its sign-in and billing |
+| The assistant program | Split Rock on this computer, or Codex, each speaking the Agent Client Protocol | Each agent handles its own sign-in and billing |
 | A model on the computer | Qwen3 4B, an open model, downloaded once and run by llama.cpp | About 2.5 GB, the same for every computer (`ASSISTANTS.md`) |
 | What the assistant needs to run | Installed silently with Split Rock | Codex runs on Node.js; Pat never sees that |
 | Known problems and their fixes | The troubleshooting guide, shipped with Split Rock and updated with each release | A desktop adds its own entries |
@@ -182,16 +180,15 @@ Conversations are not saved. How memory works is in `MEMORY.md`.
 - **The box has to stand on its own.** Without an account, Pat has Split Rock
   on this computer, a small model that can be wrong, so the guide it answers
   from and the cards it opens are checked ahead of time. A thin guide, or one
-  that falls behind a release, leaves Pat with little; it is written and checked
-  with every release for that reason.
+  that falls behind a release, leaves Pat with little, so the guide is written
+  and checked with every release.
   Whether to unlock the rest, and what it costs, is Pat's choice, not a risk.
 - **The Agent Client Protocol is young.** Agents and their sign-in methods will
   change under Split Rock.
 - **Unusual hardware breaks in new ways.** A kernel or firmware update can
   change how a device such as the Z13 behaves overnight. Snapshots before
   updates are the safety net, and the device's folder has to keep up.
-- **Rolling-release systems break things.** Snapshots before updates are the
-  safety net, and an update Split Rock runs is one Pat can undo.
+- **Rolling-release systems break things.** The same snapshots let Pat undo
+  any update Split Rock runs.
 - **Trust.** One bad change, or one confident wrong answer about a scam, loses
-  Pat for good. Asking first, undo and "I don't know" are the product, not
-  polish.
+  Pat for good. Asking first, undo and "I don't know" are the product itself.

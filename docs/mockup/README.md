@@ -4,8 +4,8 @@ The approved visual direction (`../DECISIONS.md`), drawn inside Shuffle, where
 the assistant is Genie and its mark is the lamp in `../../assets/mark.svg`. Five
 screens, each a 1280×800 tablet frame, kept as design source: open a
 file to read its exact layout, sizes, colours and copy. They were drawn as live
-artboards and need the canvas that drew them to render; they are not part of the
-program.
+artboards and render only in the canvas that drew them. The program doesn't use
+them.
 
 | Screen | What it shows | Where it applies |
 | --- | --- | --- |
@@ -25,5 +25,5 @@ on-screen keys covered it. The assistant's window is now one card the size of
 Shuffle's Search, centred over the work, with the name, the question and Expand
 in its header; the answer, its steps and its buttons below are as
 `JustType.dc.html` draws them. In Spread the card holds the centre, and Expand
-grows it, then hands over to a full window with the view of `Workspace.dc.html`. What the card is, and why, is in
-`../DECISIONS.md`.
+grows it, then hands over to a full window with the view of
+`Workspace.dc.html`. What the card is, and why, is in `../DECISIONS.md`.
