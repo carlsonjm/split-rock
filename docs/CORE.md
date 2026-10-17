@@ -77,14 +77,20 @@ of the last update, the days count from when Core first saw updates waiting.
 ## Notice
 
 One setting moves every topic's marks together: `[General] Notice` in
-`split-rock-corerc`, which Shuffle Settings shows as Reminders (Less, Balanced,
-More). Core picks up a change as soon as the file is saved.
+`split-rock-corerc`, a number from 0 (Less) to 100 (More), 50 by default, which
+Shuffle Settings shows as the Pings slider on its Helpers page. Core picks up a
+change as soon as the file is saved. The words an earlier Settings wrote still
+read: `quiet` is 0 and `eager` is 100; anything else is 50.
+
+The marks at the ends and the middle are below; between them each moves in a
+straight line, rounded to a whole point or day (25 is 80%, 93% and 14 days, 33
+days).
 
 | Notice | Storage: ticker, island | Updates: ticker, island |
 | --- | --- | --- |
-| `quiet` | 85%, 95% | 21 days, 45 days |
-| `balanced` (the default) | 75%, 90% | 7 days, 21 days |
-| `eager` | 70%, 85% | 3 days, 10 days |
+| 0, Less | 85%, 95% | 21 days, 45 days |
+| 50, the default | 75%, 90% | 7 days, 21 days |
+| 100, More | 70%, 85% | 3 days, 10 days |
 
 ## How often Core speaks
 

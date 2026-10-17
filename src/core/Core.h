@@ -60,9 +60,10 @@ public:
     // Whether the Updates topic is switched on, so the program knows to look.
     bool watchesUpdates() const;
 
-    // How readily Core speaks, the person's Notice setting: "quiet",
-    // "balanced" or "eager". The limits each topic holds to follow it.
-    QString notice() const;
+    // How readily Core speaks, the person's Notice setting, from 0 (Less) to
+    // 100 (More), 50 by default; the words "quiet" and "eager" read as 0 and
+    // 100. The limits each topic holds follow it.
+    int notice() const;
     StorageLimits storageLimits() const;
     UpdatesLimits updatesLimits() const;
 
