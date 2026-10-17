@@ -10,7 +10,7 @@ Paths are from the repository root.
 | `TRADEMARKS.md` | What the licence does not cover: the names and marks |
 | `docs/CONCEPT.md` | Who Split Rock is for, what it does, its rules, and what it relies on |
 | `docs/MEMORY.md` | The notebook: its kinds of memory, and what is never written down |
-| `assets/mark.svg` | Split Rock's mark, the genie lamp: the one file its icon is drawn from |
+| `assets/mark.svg` | Split Rock's mark, a lighthouse: the one file its icon is drawn from |
 | `docs/mockup/` | The approved mock-up: five screens as design source, and which milestone each applies to |
 | `docs/DECISIONS.md` | Every settled ruling and what it rejected |
 | `docs/ROADMAP.md` | What is planned, in order, and what is not |

@@ -1,66 +1,137 @@
-# Split Rock
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="assets/readme/banner-dark.png">
+    <img src="assets/readme/banner-light.png" alt="Split Rock: Helpers that look after a KDE Plasma computer" width="100%">
+  </picture>
+</p>
 
-Helpers that look after a KDE Plasma computer, built for people leaving decades
-of Windows.
+<p align="center">
+  <img src="https://img.shields.io/badge/KDE_Plasma-6-1d99f3?style=flat" alt="KDE Plasma 6">
+  <img src="https://img.shields.io/badge/Arch_Linux-based-1793d1?style=flat" alt="Arch Linux based">
+  <img src="https://img.shields.io/badge/input-touch_%2B_mouse-555555?style=flat" alt="Touch and mouse">
+  <img src="https://img.shields.io/badge/license-GPL--2.0--or--later-blue?style=flat" alt="GPL-2.0-or-later">
+</p>
 
-Each Helper does one job, in plain words, and changes nothing until you tap its
-button. Core watches the computer quietly in the background and opens the
-Helper that fits when something needs a look.
+<p align="center">
+  <a href="#install">Install</a> · <a href="#controls">Controls</a> · <a href="docs/README.md">Docs</a> · <a href="https://shuffleplasma.com">Part of Shuffle</a>
+</p>
+
+<p align="center">
+Helpers that look after a KDE Plasma computer, built for people leaving decades of Windows. Each Helper does one job, in plain words, and changes nothing until you tap its button. Core watches the computer quietly in the background and points you to the Helper that fits when something needs a look.
+</p>
 
 **Status:** early. On its own there is no package yet, only a developer install
-(below). The concept is in [docs/CONCEPT.md](docs/CONCEPT.md) and the plan in
-[docs/ROADMAP.md](docs/ROADMAP.md).
+(below).
 
-## What it does
+## What you get
 
-- **Update.** Checks for updates and runs them with a restore point first.
-- **Free up space.** Shows exactly what it would remove, by name, before it
-  removes anything.
-- **Install or remove an app.** Finds the app for what you need, or removes the
-  one you name.
-- **Health check.** Looks the computer over and says what is fine and what
-  needs a look.
-- **What changed.** The last two weeks, with a way to undo a change or go back
-  to before.
-- **Restore points** and **community apps**, reviewed before they are built.
-- **Core.** A background program with no window that notices when space runs
-  low or updates have waited too long, and says so without nagging
-  ([docs/CORE.md](docs/CORE.md)).
+<table>
+<tr>
+<td width="33%" valign="top"><b>Update</b><br>Lists every update before it starts, then runs it with a restore point first.</td>
+<td width="33%" valign="top"><b>Free up space</b><br>Shows exactly what it would remove, by name, before it removes anything.</td>
+<td width="33%" valign="top"><b>Install or remove an app</b><br>Finds the app for what you need, or removes the one you name.</td>
+</tr>
+<tr>
+<td width="33%" valign="top"><b>Health check</b><br>Looks the computer over and says what is fine and what needs a look.</td>
+<td width="33%" valign="top"><b>What changed</b><br>The last two weeks, with a way to undo a change or go back to before. Restore points and community apps have Helpers too.</td>
+<td width="33%" valign="top"><b>Core</b><br>A background program with no window. It notices when space runs low or updates have waited too long, and says so without nagging.</td>
+</tr>
+</table>
 
-Each Helper writes what it is about to change in your notebook, an ordinary
-folder of notes, with how to undo it, before it changes anything.
+Each Helper opens in a window of its own, and the window closes with it.
+Before it changes anything, it writes what it is about to change in your
+notebook, an ordinary folder of notes, with how to undo it. How Core decides
+when to speak is in [docs/CORE.md](docs/CORE.md).
 
-## What it never does
+<details>
+<summary>What it never does</summary>
 
 - Show you a terminal.
 - Change anything without asking first.
 - Hold your password. Anything that needs one uses the system's own prompt.
 - Ask for money or card details.
 
-## With Shuffle
+</details>
 
-Split Rock works on any KDE Plasma desktop. Inside Shuffle its Helpers open
-from Search and from Core's notices.
+## Controls
 
-## Development
+| Task | Touch | Keyboard |
+| --- | --- | --- |
+| Open a Helper | Tap it in Search | None yet |
+| Act on a Helper | Tap its button | None yet |
+| Undo a past change | Tap Undo beside a change on What changed | None yet |
+| Scroll | Drag the Helper | None yet |
+| Close | Tap Close or Not now, or close the window | The window's own |
+
+Every input, with what you see happen, is in [docs/INPUT.md](docs/INPUT.md).
+
+## Install
+
+```sh
+./install.sh
+```
+
+This builds Split Rock, runs every check, and installs it for every account on
+this computer: the Helpers' program, Core, the guide and the tour. It is a
+developer install for the maintainer's own computer, not a package, and
+nobody else should be handed it.
+
+<details>
+<summary>What it needs</summary>
+
+CMake, a C++20 compiler, Qt 6.4 or later and Python 3 to build. The Helpers
+manage an Arch-based system: updates and apps go through pacman and Flatpak,
+and restore points through snapper where the disk supports them.
+
+</details>
+
+<details>
+<summary>Updating and uninstalling</summary>
+
+Running `./install.sh` again removes what the earlier install placed first,
+and replaces a Core that is already running. It asks for the administrator
+password once, to write under `/usr`; where Shuffle's install key is set up,
+it needs no password.
+
+`./uninstall.sh` removes exactly what was installed, and leaves the notebook
+where it is.
+
+</details>
+
+<details>
+<summary>With Shuffle</summary>
+
+Split Rock works on a KDE Plasma desktop with or without Shuffle. Inside
+Shuffle its Helpers open from Search and from Core's notices.
+
+</details>
+
+## For developers
+
+<details>
+<summary>Working on Split Rock</summary>
 
 Read [AGENTS.md](AGENTS.md) before working in this repository. The documentation
 index is [docs/README.md](docs/README.md). Run `./verify.sh` before proposing a
-change; it needs CMake, a C++20 compiler, Qt 6.4 or later and Python 3.
+change: it checks the public text and the guide, builds Split Rock and runs
+every test.
 
 `./run.sh space` builds Split Rock and opens Free up space from this checkout;
-any other Helper's name works the same way.
+any other Helper's name works the same way: `update`, `install`, `health`,
+`changes`, `restore` or `community`.
 
-## Installing on your own computer
+</details>
 
-`./install.sh` builds Split Rock, runs every check, and installs it for every
-account on this computer: the Helpers' program, Core, the guide and the tour.
-What an earlier install placed is removed first. It asks for the administrator
-password once, to write under `/usr`. `./uninstall.sh` removes exactly that,
-and leaves the notebook where it is.
+## Part of Shuffle
 
-This is a developer install for the maintainer's own computer. It is not the
-package Milestone 3 brings, and nobody else should be handed it.
+Split Rock is one of the open-source pieces of Shuffle, a touch-first desktop
+for KDE Plasma. The others are
+[Kadunce](https://github.com/carlsonjm/kadunce),
+[Tettegouche](https://github.com/carlsonjm/tettegouche),
+[Temperance](https://github.com/carlsonjm/temperance) and
+[Gooseberry](https://github.com/carlsonjm/gooseberry), with
+[Split Rock](https://github.com/carlsonjm/split-rock) here. Get the whole thing
+at [shuffleplasma.com](https://shuffleplasma.com).
 
 ## License
 
@@ -68,3 +139,5 @@ Split Rock is licensed under GPL-2.0-or-later. See [LICENSE](LICENSE).
 
 The project names and marks are not covered by that licence. See
 [TRADEMARKS.md](TRADEMARKS.md).
+
+<p align="center"><picture><source media="(prefers-color-scheme: dark)" srcset="assets/readme/good-input-white.png"><img src="assets/readme/good-input-ink.png" alt="Good Input" width="140"></picture></p>
