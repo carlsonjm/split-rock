@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.22)
 
-project(split_rock VERSION 0.0.1 LANGUAGES CXX)
+project(split_rock VERSION 1.1.0 LANGUAGES CXX)
 
 # Split Rock needs only Qt.
 find_package(Qt6 6.4 REQUIRED COMPONENTS Core DBus Gui Quick Test)
