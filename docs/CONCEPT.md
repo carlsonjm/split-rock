@@ -4,8 +4,9 @@
 > about the conversation, the assistants and the notebook's part in them is
 > the record of what was built; the Helpers and Core are what remain.
 
-What Split Rock is for, who it is for, and the rules it keeps. The plan is in
-`ROADMAP.md`; settled rulings and what they rejected are in `DECISIONS.md`.
+What Split Rock is for, who it is for, and the rules it keeps. What it does not
+do yet is in `LIMITATIONS.md`; settled rulings and what they rejected are in
+`DECISIONS.md`.
 
 ## The person
 
@@ -170,7 +171,7 @@ Inside it:
   after Pat says yes.
 - `Notes/`: every answer Pat kept, filed by topic without Pat filing anything.
   Where Gooseberry is installed, kept answers are to become Gooseberry notes
-  instead (`ROADMAP.md`, Later).
+  instead.
 - `ASSISTANT.md`: the rules the assistant follows in this notebook, written at
   setup.
 

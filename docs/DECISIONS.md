@@ -187,7 +187,7 @@ the memory the assistant needs to call on later become Gooseberry notes, added
 and read only through Gooseberry's notes tool. Split Rock keeps its own `Notes/`
 until then, and always keeps `This computer.md` and `About me.md`. The fence is
 unchanged: the assistant still writes files only in the notebook. This is
-not built yet (`ROADMAP.md`, Later).
+not built yet.
 
 Rejected: kept notes only in the notebook, which splits the person's notes in
 two and keeps them off Gooseberry's board and planner; and reading Gooseberry's

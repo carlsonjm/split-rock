@@ -4,7 +4,7 @@ For every task, read only this startup set, in order:
 
 1. `AGENTS.md`
 2. `docs/CONCEPT.md`
-3. `docs/ROADMAP.md`
+3. `docs/LIMITATIONS.md`
 4. The suite record, kept privately in the Shuffle repository and read from its
    checkout beside this one: `../shuffle/docs/suite/CURRENT_STATE.md`,
    `../shuffle/docs/suite/ROADMAP-CC.md` and `../shuffle/docs/suite/SWARM.md`.
@@ -45,8 +45,9 @@ These hold here, because this program acts on a person's computer.
 
 ## Writing here
 
-- `docs/ROADMAP.md` is the plan for this repository; suite order lives in the
-  suite's maintained roadmap.
+- The plan for this repository is kept privately; suite order lives in the
+  suite's maintained roadmap. What Split Rock does not do yet, and will not do,
+  is in `docs/LIMITATIONS.md`.
 - A ruling goes in `docs/DECISIONS.md` as its rule, why it holds, and what was
   rejected.
 - Public text stays fit to publish: no attribution by initial, and no paths into

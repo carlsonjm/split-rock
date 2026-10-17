@@ -13,7 +13,7 @@ Paths are from the repository root.
 | `assets/mark.svg` | Split Rock's mark, a lighthouse: the one file its icon is drawn from |
 | `docs/mockup/` | The approved mock-up: five screens as design source, and which milestone each applies to |
 | `docs/DECISIONS.md` | Every settled ruling and what it rejected |
-| `docs/ROADMAP.md` | What is planned, in order, and what is not |
+| `docs/LIMITATIONS.md` | What Split Rock does not do yet, and what it will not do |
 | `docs/INPUT.md` | Every input a Helper answers, opening with its controls map |
 | `docs/CORE.md` | Core, the front desk: what it watches, when it speaks, the files it keeps, and its bus interface |
 | `docs/DESKTOP.md` | The entry, and how a Helper opens in a window of its own |
