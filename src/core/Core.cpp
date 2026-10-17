@@ -56,41 +56,50 @@ bool Core::enabled(const QString &topic) const
         && settings.value(topic.left(1).toUpper() + topic.mid(1) + QStringLiteral("/Enabled"), true).toBool();
 }
 
-QString Core::notice() const
+int Core::notice() const
 {
-    const QString notice = QSettings(m_settings, QSettings::IniFormat)
-                               .value(QStringLiteral("General/Notice"), QStringLiteral("balanced"))
-                               .toString();
-    if (notice == QLatin1String("quiet") || notice == QLatin1String("eager"))
-        return notice;
-    return QStringLiteral("balanced");
+    const QVariant stored = QSettings(m_settings, QSettings::IniFormat)
+                                .value(QStringLiteral("General/Notice"), 50);
+    const QString word = stored.toString().trimmed();
+    if (word == QLatin1String("quiet"))
+        return 0;
+    if (word == QLatin1String("eager"))
+        return 100;
+    bool number = false;
+    const double level = word.toDouble(&number);
+    if (!number)
+        return 50;
+    return qBound(0, qRound(level), 100);
 }
+
+namespace {
+
+// A mark along the Notice slider: the value at 0 (Less), 50 (the default) and
+// 100 (More), and straight lines between.
+int along(int level, int less, int balanced, int more)
+{
+    if (level <= 50)
+        return qRound(less + (balanced - less) * level / 50.0);
+    return qRound(balanced + (more - balanced) * (level - 50) / 50.0);
+}
+
+} // namespace
 
 StorageLimits Core::storageLimits() const
 {
     StorageLimits limits;
-    const QString n = notice();
-    if (n == QLatin1String("quiet")) {
-        limits.ticker = 85;
-        limits.island = 95;
-    } else if (n == QLatin1String("eager")) {
-        limits.ticker = 70;
-        limits.island = 85;
-    }
+    const int n = notice();
+    limits.ticker = along(n, 85, 75, 70);
+    limits.island = along(n, 95, 90, 85);
     return limits;
 }
 
 UpdatesLimits Core::updatesLimits() const
 {
     UpdatesLimits limits;
-    const QString n = notice();
-    if (n == QLatin1String("quiet")) {
-        limits.ticker = 21;
-        limits.island = 45;
-    } else if (n == QLatin1String("eager")) {
-        limits.ticker = 3;
-        limits.island = 10;
-    }
+    const int n = notice();
+    limits.ticker = along(n, 21, 7, 3);
+    limits.island = along(n, 45, 21, 10);
     return limits;
 }
 
