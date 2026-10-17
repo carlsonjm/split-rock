@@ -7,7 +7,7 @@ import "Icons.js" as Icons
 CardFrame {
     id: card
     objectName: "healthCard"
-    readonly property var job: conversation.health
+    readonly property var job: helpers.health
     readonly property string stage: card.job.stage
     readonly property var items: card.job.items
     readonly property int bad: card.items.filter(i => i.state === "bad").length
@@ -16,17 +16,12 @@ CardFrame {
     hue: card.stage === "done" && card.bad > 0 ? "coral" : card.stage === "done" && card.warn > 0 ? "amber" : "green"
 
     function act(item) {
-        if (item.action === "ask") {
-            if (conversation.phase !== "ready")
-                return
-            card.job.close()
-            conversation.ask(item.question)
-        } else if (item.action === "restart") {
+        if (item.action === "restart") {
             card.job.restart()
         } else if (item.action === "downloads") {
             card.job.openDownloads()
         } else if (item.action !== "") {
-            conversation.openChore(item.action)
+            helpers.openChore(item.action)
         }
     }
 
@@ -104,7 +99,8 @@ CardFrame {
             model: card.stage === "done" ? card.items : []
             CardRow {
                 objectName: "health-" + modelData.id
-                readonly property bool canAct: modelData.action !== "" && (modelData.action !== "ask" || conversation.phase === "ready")
+                // Asking about a finding was the old chat's.
+                readonly property bool canAct: modelData.action !== "" && modelData.action !== "ask"
                 standing: modelData.state
                 tone: modelData.state === "bad" ? theme.bad : modelData.state === "warn" ? theme.warn : theme.good
                 title: modelData.title

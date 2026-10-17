@@ -33,6 +33,10 @@ public:
         QString copy;
         // The original did not exist, so Undo removes it.
         bool absent = false;
+        // The original just after the change: its SHA-256, "-" when there
+        // was none, or empty in a record from before this was kept. Undo
+        // leaves a file that has changed since alone.
+        QString after;
     };
 
     struct Record {
@@ -71,8 +75,6 @@ public:
     // to the desktop's look is undone by putting the look of now back as a
     // whole, live, whatever way back the assistant gave.
     static ChangeProposal withKnownUndo(const ChangeProposal &change, const Appearance &now);
-    // How the card says a proposal would be undone.
-    static QString undoPromise(const ChangeProposal &change);
     // The command with the yes already given to package tools that would
     // stop to ask it: the person said yes on the card, and no one is there to
     // answer a question in the middle of the change. pacman's installs,
@@ -113,7 +115,13 @@ Q_SIGNALS:
     void undone(const splitrock::ChangeRunner::Record &record);
 
 private:
-    void save(const Record &record) const;
+    // Written whole or not at all; false when it couldn't be.
+    bool save(const Record &record) const;
+    // Puts the person's files back from the copies made before the change.
+    // A file is first kept aside in the change's folder, so Undo never
+    // loses one, and one changed since the change is left as it is. False,
+    // with why, when any file wasn't put back.
+    bool putBackCopies(const Record &record, QString *why) const;
     // The command run inside the guard, or empty when it can't be.
     QStringList guarded(const QString &command);
     // The filtered system bus's socket, started for a change and stopped once

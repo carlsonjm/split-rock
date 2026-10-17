@@ -1,17 +1,10 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 //
-// Genie's card and full window, shown off screen and driven against the
-// pretend assistant, and against a stand-in Kadunce on a bus of the test's own.
-#include "app/Conversation.h"
-#include "FakeKadunce.h"
-#include "PretendFixture.h"
-#include "PretendModel.h"
-#include "app/LocalModel.h"
-#include "app/Notebook.h"
+// The Helpers' window, shown off screen with every program a Helper would run
+// replaced by the test's own.
+#include "app/ChangeRunner.h"
+#include "app/Helpers.h"
 #include "app/QmlContext.h"
-#include "app/SystemUpdate.h"
-#include "desktop/Shell.h"
-#include "guide/GuideLibrary.h"
 
 #include <QDir>
 #include <QFile>
@@ -19,15 +12,9 @@
 #include <QPalette>
 #include <QQmlApplicationEngine>
 #include <QQmlComponent>
-
-#include <memory>
 #include <QQmlContext>
 #include <QQuickItem>
 #include <QQuickWindow>
-#include <QScreen>
-#include <QSettings>
-#include <QSignalSpy>
-#include <QStandardPaths>
 #include <QTemporaryDir>
 #include <QTest>
 
@@ -35,6 +22,7 @@
 
 #include <algorithm>
 #include <functional>
+#include <memory>
 
 using namespace splitrock;
 
@@ -71,31 +59,16 @@ class TestSheet : public QObject
         window->grabWindow().save(dir + QLatin1Char('/') + name + QStringLiteral(".png"));
     }
 
-    // The card loaded and opened. With no bus, it stands alone over a work
-    // area the size of the mock-up's, a 1280 by 800 screen less Shuffle's
-    // bottom band. With a bus, the shell asks it where to stand.
-    static QQuickWindow *open(QQmlApplicationEngine &engine, Conversation &c,
-                              const QDBusConnection &bus = QDBusConnection(QStringLiteral("no bus")))
+    // The Helpers' window, made as Split Rock makes it, not yet shown.
+    static QQuickWindow *open(QQmlApplicationEngine &engine, Helpers &helpers)
     {
-        auto *shell = new Shell(&engine, bus, &engine);
-        engine.rootContext()->setContextProperty(QStringLiteral("conversation"), &c);
-        engine.rootContext()->setContextProperty(QStringLiteral("shell"), shell);
+        engine.rootContext()->setContextProperty(QStringLiteral("helpers"), &helpers);
         exposeProduct(engine.rootContext());
-        engine.load(QUrl(QStringLiteral("qrc:/qml/Main.qml")));
-        auto *window = qobject_cast<QQuickWindow *>(engine.rootObjects().value(0));
+        QQmlComponent component(&engine, QUrl(QStringLiteral("qrc:/qml/ActionWindow.qml")));
+        auto *window = qobject_cast<QQuickWindow *>(component.create(engine.rootContext()));
         if (!window)
-            return nullptr;
-        if (!bus.isConnected()) {
-            window->setGeometry(0, 0, 1280, 736);
-            window->show();
-        }
-        shell->open(window);
-        return QTest::qWaitForWindowExposed(window) ? window : nullptr;
-    }
-
-    static Shell *shellOf(QQmlApplicationEngine &engine)
-    {
-        return qobject_cast<Shell *>(engine.rootContext()->contextProperty(QStringLiteral("shell")).value<QObject *>());
+            qWarning().noquote() << component.errorString();
+        return window;
     }
 
     // Every piece of text drawn in the window that runs past either side of
@@ -142,704 +115,11 @@ private Q_SLOTS:
         QTest::failOnWarning(QRegularExpression(QStringLiteral("qrc:/")));
     }
 
-    void signInScreen()
-    {
-        PretendFixture f;
-        QVERIFY(f.isValid());
-        Conversation c({f.assistant(QStringLiteral("needs-sign-in.json"))});
-        QQmlApplicationEngine engine;
-        QQuickWindow *window = open(engine, c);
-        QVERIFY(window);
-        shoot(window, QStringLiteral("1-choose"));
-        c.chooseAssistant(QStringLiteral("pretend"));
-        QTRY_COMPARE(c.phase(), QStringLiteral("signIn"));
-        QTRY_VERIFY(find(window, QStringLiteral("signIn-pretend-browser")));
-        QVERIFY(!find(window, QStringLiteral("signIn-pretend-env")));
-        shoot(window, QStringLiteral("2-sign-in"));
-    }
-
-    void theGuideAnswersInTheSheet()
-    {
-        PretendFixture f;
-        QVERIFY(f.isValid());
-        Conversation c({f.assistant(QStringLiteral("signed-in.json"))});
-        GuideLibrary guide;
-        guide.load({QStringLiteral(PROJECT_DIR)});
-        c.setGuide(guide, {{QStringLiteral("plasma")}, {}});
-        QQmlApplicationEngine engine;
-        QQuickWindow *window = open(engine, c);
-        QVERIFY(window);
-        QTRY_VERIFY(find(window, QStringLiteral("assistant-guide")));
-        shoot(window, QStringLiteral("6-guide-first"));
-        c.chooseAssistant(QStringLiteral("guide"));
-        QTRY_VERIFY(find(window, QStringLiteral("field")));
-        shoot(window, QStringLiteral("7-guide-ready"));
-        c.ask(QStringLiteral("it won't take my password"));
-        QTRY_VERIFY(find(window, QStringLiteral("headline")));
-        shoot(window, QStringLiteral("8-guide-answer"));
-        c.ask(QStringLiteral("Show me around"));
-        QTRY_COMPARE(c.headline(), QStringLiteral("Moving between virtual desktops"));
-        shoot(window, QStringLiteral("9-guide-tour"));
-        // The guide's answers stay in the window, for the full view.
-        QCOMPARE(c.turns().size(), 1);
-        QMetaObject::invokeMethod(window, "expand");
-        Shell *shell = shellOf(engine);
-        QTRY_VERIFY(shell->full() && shell->full()->isVisible());
-        QVERIFY(find(shell->full(), QStringLiteral("fullView")));
-        shell->full()->setGeometry(0, 0, 1280, 768);
-        shoot(shell->full(), QStringLiteral("11-guide-full-view"));
-    }
-
-    void refusedChangeShowsDoItUnavailable()
-    {
-        PretendFixture f;
-        QVERIFY(f.isValid());
-        Conversation c({f.assistant(QStringLiteral("signed-in.json"))});
-        QQmlApplicationEngine engine;
-        QQuickWindow *window = open(engine, c);
-        QVERIFY(window);
-
-        QVERIFY(find(window, QStringLiteral("assistant-pretend")));
-        c.chooseAssistant(QStringLiteral("pretend"));
-        QTRY_COMPARE(c.phase(), QStringLiteral("ready"));
-        QTRY_VERIFY(find(window, QStringLiteral("field")));
-        QVERIFY(find(window, QStringLiteral("field"))->hasActiveFocus());
-
-        // Typed as the person would, a key at a time.
-        for (const QChar ch : QStringLiteral("Make the writing bigger"))
-            QTest::keyClick(window, ch.toLatin1());
-        QTest::keyClick(window, Qt::Key_Return);
-        QTRY_COMPARE(c.phase(), QStringLiteral("ready"));
-        QTRY_VERIFY(find(window, QStringLiteral("doItCard")));
-        shoot(window, QStringLiteral("4-do-it-card"));
-        QQuickItem *doIt = find(window, QStringLiteral("doItButton"));
-        QVERIFY(doIt);
-        QVERIFY(doIt->isVisible());
-        QVERIFY(!doIt->isEnabled());
-        QVERIFY(find(window, QStringLiteral("showMeHowButton"))->isEnabled());
-
-        // Not now goes back to the answer, which keeps the way back to the card.
-        c.notNow();
-        QTRY_VERIFY(find(window, QStringLiteral("doItPill")));
-        QTRY_VERIFY(find(window, QStringLiteral("doItPill"))->isVisible());
-        QVERIFY(!find(window, QStringLiteral("doItCard")));
-        shoot(window, QStringLiteral("5-after-not-now"));
-
-        c.newQuestion();
-        QTRY_COMPARE(c.phase(), QStringLiteral("ready"));
-        c.ask(QStringLiteral("How do I connect to Wi-Fi?"));
-        QTRY_COMPARE(c.phase(), QStringLiteral("ready"));
-        QTRY_VERIFY(find(window, QStringLiteral("headline")));
-        shoot(window, QStringLiteral("3-answer"));
-        QVERIFY(find(window, QStringLiteral("keepPill")));
-        QVERIFY(!find(window, QStringLiteral("keepPill"))->isEnabled());
-    }
-
-    // Under an answer: Keep this, That fixed it and "Remember that?"; in the
-    // full window, the kept answers, each with Forget.
-    void rememberKeepAndForget()
-    {
-        QTemporaryDir folder;
-        Notebook notebook(folder.filePath(QStringLiteral("Notebook")));
-        QVERIFY(notebook.prepare(DeviceFacts::read(QStringLiteral(FIXTURES_DIR "/computer"))));
-        PretendFixture f;
-        QVERIFY(f.isValid());
-        Conversation c({f.assistant(QStringLiteral("notebook.json"))});
-        c.setNotebook(&notebook);
-        QQmlApplicationEngine engine;
-        QQuickWindow *window = open(engine, c);
-        QVERIFY(window);
-        c.chooseAssistant(QStringLiteral("pretend"));
-        QTRY_COMPARE(c.phase(), QStringLiteral("ready"));
-        c.ask(QStringLiteral("Can you go one step at a time?"));
-        QTRY_VERIFY(find(window, QStringLiteral("rememberLine")) && find(window, QStringLiteral("rememberLine"))->isVisible());
-        QVERIFY(find(window, QStringLiteral("fixedPill"))->isVisible());
-        shoot(window, QStringLiteral("12-remember"));
-        QQuickItem *remember = find(window, QStringLiteral("rememberPill"));
-        QTest::mouseClick(window, Qt::LeftButton, {}, remember->mapToScene(QPointF(remember->width() / 2, remember->height() / 2)).toPoint());
-        QTRY_VERIFY(c.aboutMe().contains(QStringLiteral("one step at a time")));
-        QTRY_VERIFY(!find(window, QStringLiteral("rememberLine")) || !find(window, QStringLiteral("rememberLine"))->isVisible());
-        QVERIFY(c.keep());
-
-        QMetaObject::invokeMethod(window, "expand");
-        Shell *shell = shellOf(engine);
-        QTRY_VERIFY(shell->full() && shell->full()->isVisible());
-        QQuickWindow *full = shell->full();
-        full->setGeometry(0, 0, 1280, 768);
-        QQuickItem *view = find(full, QStringLiteral("fullView"));
-        // Kept answers are read in the notes app; This Device lists none.
-        QVERIFY(!find(full, QStringLiteral("keptList")));
-        QVERIFY(c.forget(c.keptNotes().first().toMap().value(QStringLiteral("path")).toString()));
-        QTRY_COMPARE(c.keptNotes().size(), 0);
-        view->setProperty("aboutOpen", true);
-        shoot(full, QStringLiteral("14-about-me"));
-    }
-
-    // The full window at any width a person or Bento gives it: nothing
-    // drawn runs past its sides, from a wide screen down to a narrow column.
-    void theFullViewFitsAnyWidth()
-    {
-        QTemporaryDir folder;
-        Notebook notebook(folder.filePath(QStringLiteral("Notebook")));
-        QVERIFY(notebook.prepare(DeviceFacts::read(QStringLiteral(FIXTURES_DIR "/computer"))));
-        PretendFixture f;
-        QVERIFY(f.isValid());
-        // A fix the device's page holds, and a problem still open.
-        QFile fix(folder.filePath(QStringLiteral("Notebook/Device/touchscreen-off.md")));
-        QVERIFY(fix.open(QIODevice::WriteOnly));
-        fix.write("---\nid: touchscreen-off\ntitle: The touchscreen is dead with the keyboard cover on\nchecked: 2026-10-04\nformat: 1\n---\n\n"
-                  "## What you see\n\nNo touch.\n\n## Why\n\nThe posture service turns it off on purpose in laptop posture.\n\n"
-                  "## What to do\n\n1. Open the tablet kit's settings and set disable_touchscreen_in_desktop to false.\n2. Touch the screen to check.\n");
-        fix.close();
-        QFile page(folder.filePath(QStringLiteral("Notebook/Device/DEVICE.md")));
-        QVERIFY(page.open(QIODevice::ReadOnly));
-        QString text = QString::fromUtf8(page.readAll());
-        page.close();
-        text.replace(QStringLiteral("## Still open\n\nNothing yet."),
-                     QStringLiteral("## Still open\n\n- Sign-in froze twice as the power tool applied its preset at start."));
-        QVERIFY(page.open(QIODevice::WriteOnly | QIODevice::Truncate));
-        page.write(text.toUtf8());
-        page.close();
-        Conversation c({f.assistant(QStringLiteral("signed-in.json"))});
-        c.setNotebook(&notebook);
-        QQmlApplicationEngine engine;
-        QQuickWindow *window = open(engine, c);
-        QVERIFY(window);
-        c.chooseAssistant(QStringLiteral("pretend"));
-        QTRY_COMPARE(c.phase(), QStringLiteral("ready"));
-        c.ask(QStringLiteral("How do I connect to Wi-Fi?"));
-        QTRY_COMPARE(c.phase(), QStringLiteral("ready"));
-        c.ask(QStringLiteral("My drive won't mount and it says something about NTFS being read-only"));
-        QTRY_COMPARE(c.phase(), QStringLiteral("ready"));
-        QMetaObject::invokeMethod(window, "expand");
-        Shell *shell = shellOf(engine);
-        QTRY_VERIFY(shell->full() && shell->full()->isVisible());
-        QQuickWindow *full = shell->full();
-        QQuickItem *view = find(full, QStringLiteral("fullView"));
-        // Wide enough for This Device beside the conversation.
-        full->setGeometry(0, 0, 1280, 760);
-        QTRY_COMPARE(full->width(), 1280);
-        // The device's fix opens to show what to do.
-        QTRY_VERIFY(find(full, QStringLiteral("deviceFix-0")));
-        QVERIFY(find(full, QStringLiteral("deviceOpen-0")));
-        find(full, QStringLiteral("deviceFix-0"))->setProperty("open", true);
-        // The problem still open, opened to write its fix.
-        QQuickItem *openProblem = find(full, QStringLiteral("deviceOpen-0"));
-        openProblem->setProperty("open", true);
-        QTRY_VERIFY(find(full, QStringLiteral("tellFix"))->isVisible());
-        // Told to the assistant: the field holds the sentence to finish.
-        QMetaObject::invokeMethod(find(full, QStringLiteral("tellFix")), "clicked");
-        QCOMPARE(find(full, QStringLiteral("wideField"))->property("text").toString(),
-                 QStringLiteral("Solved: Sign-in froze twice as the power tool applied its preset at start. What fixed it: "));
-        find(full, QStringLiteral("wideField"))->setProperty("text", QString());
-        openProblem->setProperty("writing", true);
-        // Bento, or the person, sizes it; it is no longer maximized.
-        full->showNormal();
-        for (const int width : {1280, 900, 700, 560, 420, 360}) {
-            full->setGeometry(0, 0, width, 760);
-            QTRY_COMPARE(full->width(), width);
-            // The notebook's slide, where the width opens or folds it.
-            QTest::qWait(300);
-            // The notebook as the width opens it, then as the person turns it.
-            for (const bool turned : {false, true}) {
-                if (turned) {
-                    QMetaObject::invokeMethod(view, "toggleNotebook");
-                    QTest::qWait(300);
-                }
-                const bool open = view->property("notebookShown").toBool();
-                QCOMPARE(find(full, QStringLiteral("notebook"))->isVisible(), open);
-                QCOMPARE(find(full, QStringLiteral("notebookButton"))->isVisible(), !open);
-                // Every closet folded, then every one open.
-                for (const bool closets : {false, true}) {
-                    for (const char *closet : {"systemOpen", "aboutOpen", "troubleOpen", "changesOpen"})
-                        view->setProperty(closet, closets);
-                    QTest::qWait(50);
-                    const QStringList past = overflowing(full);
-                    QVERIFY2(past.isEmpty(), qPrintable(QStringLiteral("at %1 wide, This Device %2, closets %3: %4").arg(width)
-                        .arg(open ? QStringLiteral("open") : QStringLiteral("folded"))
-                        .arg(closets ? QStringLiteral("open") : QStringLiteral("folded")).arg(past.join(QStringLiteral("; ")))));
-                }
-                shoot(full, QStringLiteral("15-full-%1-%2").arg(width).arg(open ? QStringLiteral("open") : QStringLiteral("folded")));
-            }
-            // Back to what the width chooses.
-            view->setProperty("notebookChosen", false);
-        }
-        // Folded away on a wide window, the conversation keeps a reading
-        // width, centred.
-        full->setGeometry(0, 0, 1280, 760);
-        view->setProperty("notebookChosen", true);
-        view->setProperty("notebookChoice", false);
-        QTest::qWait(300);
-        QVERIFY(find(full, QStringLiteral("notebookButton"))->isVisible());
-        shoot(full, QStringLiteral("15-full-1280-folded"));
-
-        // Solved, written by the person: a fix in its place.
-        view->setProperty("notebookChoice", true);
-        QTest::qWait(300);
-        QQuickItem *notebookPanel = find(full, QStringLiteral("notebook"));
-        notebookPanel->setProperty("contentY", std::max(0.0, notebookPanel->property("contentHeight").toReal() - notebookPanel->height()));
-        shoot(full, QStringLiteral("16-writing-a-fix"));
-        find(full, QStringLiteral("fixField"))->setProperty("text", QStringLiteral("Turn the power tool's preset off at start.\nSign in again."));
-        QMetaObject::invokeMethod(find(full, QStringLiteral("markSolved")), "clicked");
-        QTRY_VERIFY(c.deviceStillOpen().isEmpty());
-        QCOMPARE(c.deviceFixes().size(), 2);
-        QTRY_VERIFY(!find(full, QStringLiteral("deviceOpen-0")));
-        shoot(full, QStringLiteral("17-solved"));
-
-        // It came back: tapped open under Solved, then Came back.
-        QQuickItem *solved = nullptr;
-        for (int i = 0; i < 2 && !solved; ++i) {
-            QQuickItem *row = find(full, QStringLiteral("deviceFix-%1").arg(i));
-            if (row && row->property("title").toString().startsWith(QLatin1String("Sign-in froze")))
-                solved = row;
-        }
-        QVERIFY(solved);
-        solved->setProperty("open", true);
-        QQuickItem *cameBack = find(solved, QStringLiteral("cameBack"));
-        QTRY_VERIFY(cameBack->isVisible());
-        QMetaObject::invokeMethod(cameBack, "clicked");
-        QTRY_COMPARE(c.deviceStillOpen().size(), 1);
-        QCOMPARE(c.deviceFixes().size(), 1);
-        QTRY_VERIFY(find(full, QStringLiteral("deviceOpen-0")));
-        shoot(full, QStringLiteral("19-came-back"));
-    }
-
-    // While the assistant works, the question and Thinking are in view at
-    // the foot of a long conversation, and the box shows it working.
-    void thinkingStaysInView()
-    {
-        PretendFixture f;
-        QTemporaryDir folder;
-        Notebook notebook(folder.filePath(QStringLiteral("Notebook")));
-        QVERIFY(notebook.prepare(DeviceFacts::read(QStringLiteral(FIXTURES_DIR "/computer"))));
-        Conversation c({f.assistant(QStringLiteral("signed-in.json"))});
-        c.setNotebook(&notebook);
-        QQmlApplicationEngine engine;
-        QQuickWindow *window = open(engine, c);
-        QVERIFY(window);
-        c.chooseAssistant(QStringLiteral("pretend"));
-        QTRY_COMPARE(c.phase(), QStringLiteral("ready"));
-        for (int i = 0; i < 3; ++i) {
-            c.ask(QStringLiteral("How do I connect to Wi-Fi?"));
-            QTRY_COMPARE(c.phase(), QStringLiteral("ready"));
-        }
-        QMetaObject::invokeMethod(window, "expand");
-        Shell *shell = shellOf(engine);
-        QTRY_VERIFY(shell->full() && shell->full()->isVisible());
-        QQuickWindow *full = shell->full();
-        full->showNormal();
-        full->setGeometry(0, 0, 900, 600);
-        QTRY_COMPARE(full->height(), 600);
-        QTRY_COMPARE(full->contentItem()->height(), 600.0);
-        c.ask(QStringLiteral("hold on"));
-        QTRY_COMPARE(c.phase(), QStringLiteral("working"));
-        QTRY_VERIFY(find(full, QStringLiteral("thinking")));
-        QQuickItem *thinking = find(full, QStringLiteral("thinking"));
-        QTRY_VERIFY(thinking->isVisible());
-        QVERIFY(find(full, QStringLiteral("workingBar"))->isVisible());
-        // On screen: inside the conversation's visible part.
-        QQuickItem *history = thinking;
-        while (history && !history->inherits("QQuickFlickable"))
-            history = history->parentItem();
-        QVERIFY(history);
-        QTRY_VERIFY([&] {
-            const QPointF at = thinking->mapToItem(history, QPointF(0, 0));
-            return at.y() >= 0 && at.y() + thinking->height() <= history->height();
-        }());
-        QTest::qWait(400);
-        shoot(full, QStringLiteral("24-thinking"));
-        c.stop();
-        QTRY_VERIFY(c.phase() != QStringLiteral("working"));
-    }
-
-    // Every problem still open opens to its two ways of solving it, tapped
-    // as the person taps it, however many there are and however long.
-    void eachStillOpenProblemOpens()
-    {
-        QTemporaryDir folder;
-        Notebook notebook(folder.filePath(QStringLiteral("Notebook")));
-        QVERIFY(notebook.prepare(DeviceFacts::read(QStringLiteral(FIXTURES_DIR "/computer"))));
-        QFile page(folder.filePath(QStringLiteral("Notebook/Device/DEVICE.md")));
-        QVERIFY(page.open(QIODevice::ReadOnly));
-        QString text = QString::fromUtf8(page.readAll());
-        page.close();
-        text.replace(QStringLiteral("## Still open\n\nNothing yet."),
-                     QStringLiteral("## Still open\n\nOffer no fix for these until one is proven.\n\n"
-                                    "- Sign-in froze twice, and the splash or wallpaper hung, as the power tool\n"
-                                    "  applied its preset at start. The kernel log showed the power firmware (SMU)\n"
-                                    "  locking up; check for SMU errors there first.\n"
-                                    "- The Gaming preset hung the computer in use.\n"
-                                    "- The rotation sensor once stopped working and \"needed a reset\". The steps were\n"
-                                    "  not recorded.\n"
-                                    "- The memory card labelled RECOVERY stays hidden. No fix is known."));
-        QVERIFY(page.open(QIODevice::WriteOnly | QIODevice::Truncate));
-        page.write(text.toUtf8());
-        page.close();
-        PretendFixture f;
-        QVERIFY(f.isValid());
-        Conversation c({f.assistant(QStringLiteral("signed-in.json"))});
-        c.setNotebook(&notebook);
-        QCOMPARE(c.deviceStillOpen().size(), 4);
-        QQmlApplicationEngine engine;
-        QQuickWindow *window = open(engine, c);
-        QVERIFY(window);
-        c.chooseAssistant(QStringLiteral("pretend"));
-        QTRY_COMPARE(c.phase(), QStringLiteral("ready"));
-        QMetaObject::invokeMethod(window, "expand");
-        Shell *shell = shellOf(engine);
-        QTRY_VERIFY(shell->full() && shell->full()->isVisible());
-        QQuickWindow *full = shell->full();
-        full->showNormal();
-        full->setGeometry(0, 0, 1280, 760);
-        QQuickItem *panel = find(full, QStringLiteral("notebook"));
-        QTRY_VERIFY(panel->isVisible() && panel->x() < 1280 - panel->width() + 1);
-        QTest::qWait(300);
-        for (int i = 0; i < 4; ++i) {
-            QQuickItem *row = find(full, QStringLiteral("deviceOpen-%1").arg(i));
-            QVERIFY2(row, qPrintable(QStringLiteral("row %1").arg(i)));
-            QVERIFY(row->isVisible());
-            // Scrolled to, then tapped near its top, where its words are.
-            panel->setProperty("contentY", std::clamp(row->mapToItem(panel->childItems().first(), QPointF(0, 0)).y() - 40, 0.0,
-                std::max(0.0, panel->property("contentHeight").toReal() - panel->height())));
-            QTest::qWait(50);
-            const QPoint at = row->mapToScene(QPointF(row->width() / 3, 20)).toPoint();
-            QTest::mouseClick(full, Qt::LeftButton, {}, at);
-            QTRY_VERIFY2(row->property("open").toBool(), qPrintable(QStringLiteral("row %1 did not open").arg(i)));
-            QQuickItem *write = find(row, QStringLiteral("writeFix"));
-            QVERIFY(write);
-            QTRY_VERIFY(write->isVisible());
-            shoot(full, QStringLiteral("18-open-%1").arg(i));
-            QTest::mouseClick(full, Qt::LeftButton, {}, at);
-            QTRY_VERIFY(!row->property("open").toBool());
-            // And by a finger.
-            static QPointingDevice *finger = QTest::createTouchDevice();
-            QTest::touchEvent(full, finger).press(0, at);
-            QTest::touchEvent(full, finger).release(0, at);
-            QTRY_VERIFY2(row->property("open").toBool(), qPrintable(QStringLiteral("row %1 did not open by touch").arg(i)));
-            QTest::touchEvent(full, finger).press(0, at);
-            QTest::touchEvent(full, finger).release(0, at);
-            QTRY_VERIFY(!row->property("open").toBool());
-        }
-    }
-
-    // One card the size of Shuffle's Search, centred over the work.
-    void theCardTakesSearchsShape()
-    {
-        PretendFixture f;
-        QVERIFY(f.isValid());
-        Conversation c({f.assistant(QStringLiteral("signed-in.json"))});
-        QQmlApplicationEngine engine;
-        QQuickWindow *window = open(engine, c);
-        QVERIFY(window);
-        settle();
-        QQuickItem *card = find(window, QStringLiteral("card"));
-        QVERIFY(card);
-        QCOMPARE(card->width(), 819.0);  // 64% of 1280
-        QCOMPARE(card->height(), 471.0); // 64% of 736
-        QCOMPARE(card->x(), (1280 - 819) / 2.0);
-        QCOMPARE(card->y(), 133.0); // centred, rounded
-        QCOMPARE(card->property("radius").toReal(), 8.0);
-        QCOMPARE(find(window, QStringLiteral("header"))->height(), 44.0);
-        QQuickItem *expand = find(window, QStringLiteral("expandButton"));
-        QVERIFY(expand && expand->isVisible());
-        // 14 from the header's edge, as Search's header controls are.
-        QCOMPARE(expand->mapToItem(card, QPointF(expand->width(), 0)).x(), 819.0 - 22 - 14);
-
-        // With the keys up the card rises just clear of them, then shortens,
-        // never below 160.
-        window->setProperty("keysRect", QRectF(0, 436, 1280, 300));
-        settle();
-        QCOMPARE(card->y() + card->height(), 436.0 - 10);
-        QCOMPARE(card->height(), 416.0);
-        window->setProperty("keysRect", QRectF(0, 100, 1280, 636));
-        settle();
-        QCOMPARE(card->height(), 160.0);
-        window->setProperty("keysRect", QRectF());
-        settle();
-        QCOMPARE(card->height(), 471.0);
-    }
-
-    // Expand grows the card to the whole work area, less a 10 px gutter, then
-    // the full window takes over: the conversation, and what is being worked
-    // on.
-    void expandHandsOverToTheFullWindow()
-    {
-        PretendFixture f;
-        QVERIFY(f.isValid());
-        Conversation c({f.assistant(QStringLiteral("signed-in.json"))});
-        QQmlApplicationEngine engine;
-        QQuickWindow *window = open(engine, c);
-        QVERIFY(window);
-        Shell *shell = shellOf(engine);
-        QSignalSpy quit(shell, &Shell::quitRequested);
-        c.chooseAssistant(QStringLiteral("pretend"));
-        QTRY_COMPARE(c.phase(), QStringLiteral("ready"));
-        c.ask(QStringLiteral("How do I connect to Wi-Fi?"));
-        QTRY_COMPARE(c.phase(), QStringLiteral("ready"));
-        c.ask(QStringLiteral("Make the writing bigger"));
-        QTRY_COMPARE(c.phase(), QStringLiteral("ready"));
-        QTRY_VERIFY(find(window, QStringLiteral("doItCard")));
-
-        QMetaObject::invokeMethod(window, "expand");
-        QQuickItem *card = find(window, QStringLiteral("card"));
-        QTRY_COMPARE(card->width(), 1260.0);
-        QTRY_COMPARE(card->height(), 716.0);
-        QCOMPARE(card->x(), 10.0);
-        QCOMPARE(card->y(), 10.0);
-        QVERIFY(!find(window, QStringLiteral("expandButton"))->isVisible());
-
-        QTRY_VERIFY(shell->full() && shell->full()->isVisible());
-        QTRY_VERIFY(!window->isVisible());
-        QCOMPARE(quit.size(), 0);
-        QQuickWindow *full = shell->full();
-        QVERIFY(find(full, QStringLiteral("fullView")));
-        QVERIFY(find(full, QStringLiteral("wideField"))->isVisible());
-        // The changes, in their closet in This Device.
-        find(full, QStringLiteral("fullView"))->setProperty("changesOpen", true);
-        QTRY_VERIFY(find(full, QStringLiteral("changes")));
-        // The refused change's card is still the person's to decide on.
-        QVERIFY(find(full, QStringLiteral("doItCard")));
-        full->setGeometry(0, 0, 1280, 768);
-        shoot(full, QStringLiteral("10-full-view"));
-
-        // The full window names the assistant answering and offers another,
-        // as the card does; Back returns to the same assistant.
-        QQuickItem *pill = find(full, QStringLiteral("fullAssistantPill"));
-        QVERIFY(pill && pill->isVisible());
-        QCOMPARE(pill->property("text").toString(), c.assistantName() + QStringLiteral("  \u25BE"));
-        QMetaObject::invokeMethod(pill, "clicked");
-        QTRY_VERIFY(c.choosing());
-        QTRY_VERIFY(find(full, QStringLiteral("assistant-pretend")));
-        QVERIFY(!pill->isVisible());
-        c.hideAssistants();
-        QTRY_VERIFY(!c.choosing());
-        QVERIFY(pill->isVisible());
-        QCOMPARE(c.assistantId(), QStringLiteral("pretend"));
-
-        // Closing the full window ends the program.
-        full->close();
-        QTRY_COMPARE(quit.size(), 1);
-    }
-
-    // A way to sign in chosen in the card opens in the full window, so the
-    // browser it brings can come in front.
-    void signingInMovesToTheFullWindow()
-    {
-        PretendFixture f;
-        QVERIFY(f.isValid());
-        Conversation c({f.assistant(QStringLiteral("needs-sign-in.json"))});
-        QQmlApplicationEngine engine;
-        QQuickWindow *window = open(engine, c);
-        QVERIFY(window);
-        Shell *shell = shellOf(engine);
-        c.chooseAssistant(QStringLiteral("pretend"));
-        QTRY_VERIFY(find(window, QStringLiteral("signIn-pretend-browser")));
-        QQuickItem *button = find(window, QStringLiteral("signIn-pretend-browser"));
-        QTest::mouseClick(window, Qt::LeftButton, {}, button->mapToScene(QPointF(button->width() / 2, button->height() / 2)).toPoint());
-        QTRY_VERIFY(shell->full() && shell->full()->isVisible());
-        // Nothing starts until the full window has the conversation.
-        QTRY_VERIFY(!window->isVisible());
-        QTRY_VERIFY(c.phase() != QLatin1String("signIn"));
-    }
-
-    // In Spread the card holds the centre, where Kadunce draws it, and
-    // Kadunce answers on the card's own object.
-    void inSpreadTheCardHoldsTheCentre()
-    {
-        PrivateBus bus;
-        QVERIFY(bus.isValid());
-        FakeKadunce kadunce(bus.kadunce());
-        QScreen *screen = QGuiApplication::primaryScreen();
-        kadunce.output = screen->name();
-        const QRect area = screen->geometry();
-        kadunce.card = QRect(area.x() + 100, area.y() + 60, area.width() - 200, area.height() - 160);
-        kadunce.active = area.adjusted(10, 10, -10, -10);
-
-        PretendFixture f;
-        QVERIFY(f.isValid());
-        Conversation c({f.assistant(QStringLiteral("signed-in.json"))});
-        QQmlApplicationEngine engine;
-        QQuickWindow *window = open(engine, c, bus.program());
-        QVERIFY(window);
-        Shell *shell = shellOf(engine);
-        QTRY_COMPARE(shell->mode(), QStringLiteral("guest"));
-        QCOMPARE(kadunce.owner, bus.program().baseService());
-        QCOMPARE(kadunce.ownerPath, QStringLiteral("/SplitRock/Companion"));
-        QCOMPARE(kadunce.ownerInterface, QStringLiteral("io.github.carlsonjm.SplitRock.Companion"));
-        // Drawn at the reply's card rectangle, taking only its own touches.
-        QQuickItem *card = find(window, QStringLiteral("card"));
-        QTRY_COMPARE(card->position(), QPointF(100, 60));
-        QCOMPARE(card->size(), QSizeF(area.width() - 200, area.height() - 160));
-        QCOMPARE(window->mask(), QRegion(QRect(100, 60, area.width() - 200, area.height() - 160).adjusted(-16, -16, 16, 16)));
-
-        // Expand: Kadunce grows the centre, the card grows into it, and the
-        // full window is announced before it is shown.
-        QMetaObject::invokeMethod(window, "expand");
-        QTRY_VERIFY(kadunce.calls.contains(QStringLiteral("expand")));
-        QTRY_COMPARE(card->size(), QSizeF(area.width() - 20, area.height() - 20));
-        QTRY_VERIFY(kadunce.calls.contains(QStringLiteral("prepare")));
-        QCOMPARE(kadunce.launching, QStringList{QLatin1String(AppId)});
-        QTRY_VERIFY(shell->full() && shell->full()->isVisible());
-        // The card stays until Kadunce says the full window has arrived.
-        QTest::qWait(600);
-        QVERIFY(window->isVisible());
-        kadunce.callGuest(QStringLiteral("completeGuestLaunch"), {kadunce.token});
-        QTRY_VERIFY(!window->isVisible());
-        // Kadunce ends the lease itself once the full window has the centre.
-        QTest::qWait(200);
-        QVERIFY(!kadunce.calls.contains(QStringLiteral("end")));
-    }
-
-    // Kadunce sends dismissGuest when the centre goes to another guest or a
-    // tap lands beside the card: the card closes, and leaves the lease alone.
-    void dismissGuestClosesTheCard()
-    {
-        PrivateBus bus;
-        QVERIFY(bus.isValid());
-        FakeKadunce kadunce(bus.kadunce());
-        QScreen *screen = QGuiApplication::primaryScreen();
-        kadunce.output = screen->name();
-        kadunce.card = screen->geometry().adjusted(100, 60, -100, -100);
-        kadunce.active = screen->geometry().adjusted(10, 10, -10, -10);
-
-        PretendFixture f;
-        QVERIFY(f.isValid());
-        Conversation c({f.assistant(QStringLiteral("signed-in.json"))});
-        {
-            QQmlApplicationEngine engine;
-            QQuickWindow *window = open(engine, c, bus.program());
-            QVERIFY(window);
-            Shell *shell = shellOf(engine);
-            QSignalSpy quit(shell, &Shell::quitRequested);
-            QTRY_COMPARE(shell->mode(), QStringLiteral("guest"));
-            kadunce.callGuest(QStringLiteral("dismissGuest"));
-            QTRY_COMPARE(quit.size(), 1);
-            QVERIFY(!kadunce.calls.contains(QStringLiteral("end")));
-        }
-        // Closed from the card itself, the card gives the centre back.
-        kadunce.calls.clear();
-        {
-            QQmlApplicationEngine engine;
-            QQuickWindow *window = open(engine, c, bus.program());
-            QVERIFY(window);
-            Shell *shell = shellOf(engine);
-            QSignalSpy quit(shell, &Shell::quitRequested);
-            QTRY_COMPARE(shell->mode(), QStringLiteral("guest"));
-            QTest::keyClick(window, Qt::Key_Escape);
-            QTRY_COMPARE(quit.size(), 1);
-            QTRY_VERIFY(kadunce.calls.contains(QStringLiteral("end")));
-        }
-    }
-
-    // Over an Active card there is no guest: the card stands over the work,
-    // and stays up until Kadunce shows the full window as the selected card.
-    void overAnActiveCardTheCardWaitsForTheFullWindow()
-    {
-        PrivateBus bus;
-        QVERIFY(bus.isValid());
-        FakeKadunce kadunce(bus.kadunce());
-        kadunce.presentation = QStringLiteral("active");
-
-        PretendFixture f;
-        QVERIFY(f.isValid());
-        Conversation c({f.assistant(QStringLiteral("signed-in.json"))});
-        QQmlApplicationEngine engine;
-        QQuickWindow *window = open(engine, c, bus.program());
-        QVERIFY(window);
-        Shell *shell = shellOf(engine);
-        QTRY_COMPARE(shell->mode(), QStringLiteral("overActive"));
-        QVERIFY(!kadunce.calls.contains(QStringLiteral("begin")));
-        QCOMPARE(window->mask(), QRegion());
-
-        QMetaObject::invokeMethod(window, "expand");
-        QTRY_VERIFY(shell->full() && shell->full()->isVisible());
-        QTest::qWait(600);
-        QVERIFY(window->isVisible());
-        kadunce.selectedApp = QLatin1String(AppId);
-        kadunce.presentation = QStringLiteral("active");
-        kadunce.announceChange();
-        QTRY_VERIFY(!window->isVisible());
-        QVERIFY(shell->full()->isVisible());
-    }
-
-    // A Kadunce that refuses the centre leaves the card standing alone.
-    void aRefusedCentreLeavesTheCardAlone()
-    {
-        PrivateBus bus;
-        QVERIFY(bus.isValid());
-        FakeKadunce kadunce(bus.kadunce());
-        kadunce.accept = false;
-
-        PretendFixture f;
-        QVERIFY(f.isValid());
-        Conversation c({f.assistant(QStringLiteral("signed-in.json"))});
-        QQmlApplicationEngine engine;
-        QQuickWindow *window = open(engine, c, bus.program());
-        QVERIFY(window);
-        QTRY_VERIFY(kadunce.calls.contains(QStringLiteral("begin")));
-        QCOMPARE(shellOf(engine)->mode(), QStringLiteral("standalone"));
-        QCOMPARE(window->mask(), QRegion());
-    }
-
-    // Esc, or a tap on the work around the card, closes the window.
-    void escOrATapOutsideCloses()
-    {
-        PretendFixture f;
-        QVERIFY(f.isValid());
-        Conversation c({f.assistant(QStringLiteral("signed-in.json"))});
-        {
-            QQmlApplicationEngine engine;
-            QQuickWindow *window = open(engine, c);
-            QVERIFY(window);
-            QSignalSpy finished(window, SIGNAL(finished()));
-            // A tap on the card leaves it open.
-        QTest::mouseClick(window, Qt::LeftButton, {}, QPoint(640, 300));
-            QTest::qWait(300);
-            QCOMPARE(finished.size(), 0);
-            QTest::mouseClick(window, Qt::LeftButton, {}, QPoint(40, 40));
-            QTRY_COMPARE(finished.size(), 1);
-        }
-        {
-            QQmlApplicationEngine engine;
-            QQuickWindow *window = open(engine, c);
-            QVERIFY(window);
-            QSignalSpy finished(window, SIGNAL(finished()));
-            QTest::keyClick(window, Qt::Key_Escape);
-            QTRY_COMPARE(finished.size(), 1);
-        }
-    }
-
-    // On its own the card's window lies across the screen, above the rest,
-    // with the card centred in the room the panels leave.
-    void standsAloneAcrossTheScreen()
-    {
-        PretendFixture f;
-        QVERIFY(f.isValid());
-        Conversation c({f.assistant(QStringLiteral("signed-in.json"))});
-        QQmlApplicationEngine engine;
-        auto *shell = new Shell(&engine, QDBusConnection(QStringLiteral("no bus")), &engine);
-        engine.rootContext()->setContextProperty(QStringLiteral("conversation"), &c);
-        engine.rootContext()->setContextProperty(QStringLiteral("shell"), shell);
-        exposeProduct(engine.rootContext());
-        engine.load(QUrl(QStringLiteral("qrc:/qml/Main.qml")));
-        auto *window = qobject_cast<QQuickWindow *>(engine.rootObjects().value(0));
-        QVERIFY(window);
-        shell->open(window);
-        QVERIFY(QTest::qWaitForWindowExposed(window));
-        QCOMPARE(window->geometry(), window->screen()->geometry());
-        QCOMPARE(shell->workArea(), window->screen()->availableGeometry().translated(-window->screen()->geometry().topLeft()));
-        QVERIFY(window->flags() & Qt::FramelessWindowHint);
-        QVERIFY(window->flags() & Qt::WindowStaysOnTopHint);
-    }
-
-    // The Update card in the full window, at each step, run with scripts of
-    // the test's own.
     void theUpdateCardShowsEachStep()
     {
-        PretendFixture f;
-        QVERIFY(f.isValid());
-        Conversation c({f.assistant(QStringLiteral("signed-in.json"))});
-        SystemUpdate *update = c.systemUpdate();
+        QTemporaryDir store;
+        Helpers h(store.path());
+        SystemUpdate *update = h.systemUpdate();
         update->setElevate({});
         update->setLookScript(QStringLiteral("cat '" FIXTURES_DIR "/update/look.txt'"));
         // Slowed so the card can be seen partway.
@@ -849,24 +129,14 @@ private Q_SLOTS:
         update->setAppsScript(QStringLiteral("echo Updating apps"));
         update->setAfterScript(QStringLiteral("printf '@@ kernel\\nrestart\\n@@ settings\\n/etc/pacman.conf.pacnew\\n@@ failed\\n@@ end\\n'"));
         QQmlApplicationEngine engine;
-        QQuickWindow *window = open(engine, c);
+        std::unique_ptr<QQuickWindow> window(open(engine, h));
         QVERIFY(window);
-        c.chooseAssistant(QStringLiteral("pretend"));
-        QTRY_COMPARE(c.phase(), QStringLiteral("ready"));
-
-        // In the card first.
-        update->check();
+        QVERIFY(h.openChore(QStringLiteral("update")));
+        window->show();
+        window->setGeometry(0, 0, 560, 800);
+        QVERIFY(QTest::qWaitForWindowExposed(window.get()));
+        QQuickWindow *full = window.get();
         QTRY_COMPARE(update->stage(), QStringLiteral("ready"));
-        QTRY_VERIFY(find(window, QStringLiteral("updateCard")));
-        settle();
-        shoot(window, QStringLiteral("20-update-card"));
-
-        QMetaObject::invokeMethod(window, "expand");
-        Shell *shell = shellOf(engine);
-        QTRY_VERIFY(shell->full() && shell->full()->isVisible());
-        QQuickWindow *full = shell->full();
-        full->showNormal();
-        full->setGeometry(0, 0, 1280, 800);
         QTRY_VERIFY(find(full, QStringLiteral("updateCard")));
         settle();
         QVERIFY(overflowing(full).isEmpty());
@@ -898,15 +168,14 @@ private Q_SLOTS:
         QVERIFY(overflowing(full).isEmpty());
         shoot(full, QStringLiteral("23-update-done"));
         update->close();
-        QTRY_VERIFY(!find(full, QStringLiteral("updateCard")));
+        QTRY_VERIFY(!full->isVisible());
     }
-    // Core opens Free up space on its own: an ordinary window with the card
-    // in it, no conversation, and no assistant started.
-    void anUpkeepCardOpensOnItsOwn()
+    // Core opens Free up space on its own: an ordinary window with the
+    // Helper in it.
+    void aHelperOpensOnItsOwn()
     {
-        PretendFixture f;
-        QVERIFY(f.isValid());
-        Conversation c({f.assistant(QStringLiteral("signed-in.json"))});
+        QTemporaryDir store;
+        Helpers c(store.path());
         const QString chores = QStringLiteral(FIXTURES_DIR "/chores/");
         SpaceCleanup *space = c.spaceCleanup();
         space->setElevate({});
@@ -914,11 +183,8 @@ private Q_SLOTS:
         space->setReport({});
 
         QQmlApplicationEngine engine;
-        engine.rootContext()->setContextProperty(QStringLiteral("conversation"), &c);
-        exposeProduct(engine.rootContext());
-        QQmlComponent component(&engine, QUrl(QStringLiteral("qrc:/qml/ActionWindow.qml")));
-        std::unique_ptr<QQuickWindow> window(qobject_cast<QQuickWindow *>(component.create(engine.rootContext())));
-        QVERIFY2(window, qPrintable(component.errorString()));
+        std::unique_ptr<QQuickWindow> window(open(engine, c));
+        QVERIFY(window);
 
         QVERIFY(c.openChore(QStringLiteral("space")));
         window->show();
@@ -926,7 +192,6 @@ private Q_SLOTS:
         QCOMPARE(window->title(), QStringLiteral("Free up space"));
         QTRY_COMPARE(space->stage(), QStringLiteral("ready"));
         QTRY_VERIFY(find(window.get(), QStringLiteral("spaceCard")) && find(window.get(), QStringLiteral("spaceCard"))->isVisible());
-        QVERIFY(c.assistantId().isEmpty());
         settle();
         QVERIFY(overflowing(window.get()).isEmpty());
         shoot(window.get(), QStringLiteral("60-space-on-its-own"));
@@ -988,11 +253,10 @@ private Q_SLOTS:
         QVERIFY(find(window.get(), QStringLiteral("spaceCard")) && find(window.get(), QStringLiteral("spaceCard"))->isVisible());
     }
 
-    void theUpkeepCardsShowEachStep()
+    void theHelpersShowEachStep()
     {
-        PretendFixture f;
-        QVERIFY(f.isValid());
-        Conversation c({f.assistant(QStringLiteral("signed-in.json"))});
+        QTemporaryDir store;
+        Helpers c(store.path());
         const QString chores = QStringLiteral(FIXTURES_DIR "/chores/");
         const auto printing = [&chores](const QString &name) { return QStringLiteral("cat '") + chores + name + QLatin1Char('\''); };
         // Everything the cards would run is the test's own.
@@ -1016,34 +280,20 @@ private Q_SLOTS:
         community->setLookScript(printing(QStringLiteral("community-look.txt")));
         community->setReviewScript(printing(QStringLiteral("community-review.txt")));
         community->setAdmin(adminStandIn(QStringLiteral("echo '@@ step build'; echo '==> Making package: visual-studio-code-bin'")));
-        // The pretend assistant answers only what its script expects, so how
-        // each card went isn't told to it here.
-        for (Chore *chore : std::initializer_list<Chore *>{space, install, restore, health, community})
-            chore->setReport({});
-
         QQmlApplicationEngine engine;
-        QQuickWindow *window = open(engine, c);
+        std::unique_ptr<QQuickWindow> window(open(engine, c));
         QVERIFY(window);
-        c.chooseAssistant(QStringLiteral("pretend"));
-        QTRY_COMPARE(c.phase(), QStringLiteral("ready"));
-        QMetaObject::invokeMethod(window, "expand");
-        Shell *shell = shellOf(engine);
-        QTRY_VERIFY(shell->full() && shell->full()->isVisible());
-        QQuickWindow *full = shell->full();
-        full->showNormal();
-        full->setGeometry(0, 0, 1280, 800);
-
-        // Before anything is asked, the cards to start from.
-        QTRY_VERIFY(find(full, QStringLiteral("welcomeShelf")) && find(full, QStringLiteral("welcomeShelf"))->isVisible());
-        settle();
-        QVERIFY(overflowing(full).isEmpty());
-        shoot(full, QStringLiteral("30-welcome-shelf"));
+        QQuickWindow *full = window.get();
+        const auto opens = [&](const QString &name, const QString &query = QString()) {
+            if (!c.openChore(name, query))
+                return false;
+            full->show();
+            return QTest::qWaitForWindowExposed(full);
+        };
+        full->setGeometry(0, 0, 560, 800);
 
         const auto shows = [&](const QString &card, const QString &shot) {
-            QTRY_VERIFY2(find(full, card) && find(full, card)->isVisible(), qPrintable(shot + QLatin1Char(' ') + c.chore() + QLatin1Char(' ') + c.phase() + QLatin1Char(' ')
-                                   + (find(full, QStringLiteral("fullStep")) && find(full, QStringLiteral("fullStep"))->property("item").value<QObject *>()
-                                          ? find(full, QStringLiteral("fullStep"))->property("item").value<QObject *>()->objectName() : QStringLiteral("none"))
-                                   + QLatin1Char(' ') + c.problem()));
+            QTRY_VERIFY2(find(full, card) && find(full, card)->isVisible(), qPrintable(shot + QLatin1Char(' ') + c.chore()));
             settle();
             const QStringList past = overflowing(full);
             if (!past.isEmpty())
@@ -1052,14 +302,14 @@ private Q_SLOTS:
             shoot(full, shot);
         };
 
-        QVERIFY(c.openChore(QStringLiteral("space")));
+        QVERIFY(opens(QStringLiteral("space")));
         QTRY_COMPARE(space->stage(), QStringLiteral("ready"));
         shows(QStringLiteral("spaceCard"), QStringLiteral("31-space-ready"));
         QMetaObject::invokeMethod(find(full, QStringLiteral("spaceButton")), "clicked");
         QTRY_COMPARE(space->stage(), QStringLiteral("done"));
         shows(QStringLiteral("spaceCard"), QStringLiteral("32-space-done"));
 
-        QVERIFY(c.openChore(QStringLiteral("install"), QStringLiteral("pdf editor")));
+        QVERIFY(opens(QStringLiteral("install"), QStringLiteral("pdf editor")));
         QTRY_COMPARE(install->stage(), QStringLiteral("results"));
         shows(QStringLiteral("installCard"), QStringLiteral("33-install-results"));
         install->install(QStringLiteral("shelf:pdfarranger"));
@@ -1067,7 +317,7 @@ private Q_SLOTS:
         shows(QStringLiteral("installCard"), QStringLiteral("34-install-done"));
         // Removing one: the installed apps the words fit, then a yes.
         install->setSearchScript(printing(QStringLiteral("remove-search.txt")));
-        QVERIFY(c.openChore(QStringLiteral("install"), QStringLiteral("uninstall MaiN Keyboard")));
+        QVERIFY(opens(QStringLiteral("install"), QStringLiteral("uninstall MaiN Keyboard")));
         QTRY_COMPARE(install->stage(), QStringLiteral("results"));
         QVERIFY(install->removing());
         shows(QStringLiteral("installCard"), QStringLiteral("46-remove-results"));
@@ -1079,17 +329,17 @@ private Q_SLOTS:
         shows(QStringLiteral("installCard"), QStringLiteral("48-remove-done"));
         install->setSearchScript(printing(QStringLiteral("install-search.txt")));
 
-        QVERIFY(c.openChore(QStringLiteral("restore")));
+        QVERIFY(opens(QStringLiteral("restore")));
         QTRY_COMPARE(restore->stage(), QStringLiteral("ready"));
         shows(QStringLiteral("restoreCard"), QStringLiteral("35-restore-ready"));
         restore->choose(313);
         shows(QStringLiteral("restoreCard"), QStringLiteral("36-restore-chosen"));
 
-        QVERIFY(c.openChore(QStringLiteral("health")));
+        QVERIFY(opens(QStringLiteral("health")));
         QTRY_COMPARE(health->stage(), QStringLiteral("done"));
         shows(QStringLiteral("healthCard"), QStringLiteral("37-health"));
 
-        QVERIFY(c.openChore(QStringLiteral("community")));
+        QVERIFY(opens(QStringLiteral("community")));
         QTRY_COMPARE(community->stage(), QStringLiteral("ready"));
         shows(QStringLiteral("communityCard"), QStringLiteral("38-community-ready"));
         community->look(QStringLiteral("visual-studio-code-bin"));
@@ -1135,215 +385,31 @@ private Q_SLOTS:
             pointer.status = QStringLiteral("done");
             return QList<ChangeRunner::Record>{pointer};
         });
-        QVERIFY(c.openChore(QStringLiteral("changes")));
+        QVERIFY(opens(QStringLiteral("changes")));
         QTRY_COMPARE(recent->stage(), QStringLiteral("ready"));
         shows(QStringLiteral("changesCard"), QStringLiteral("42-changes-ready"));
         // The whole card at once, for the screens.
-        full->setGeometry(0, 0, 1280, 1500);
+        full->setGeometry(0, 0, 560, 1500);
         shows(QStringLiteral("changesCard"), QStringLiteral("45-changes-whole"));
-        full->setGeometry(0, 0, 1280, 800);
+        full->setGeometry(0, 0, 560, 800);
         recent->setRecords({});
-        QVERIFY(c.openChore(QStringLiteral("changes")));
+        QVERIFY(opens(QStringLiteral("changes")));
         QTRY_COMPARE(recent->stage(), QStringLiteral("ready"));
         shows(QStringLiteral("changesCard"), QStringLiteral("43-changes-nothing-to-undo"));
 
         // A narrow window, as a Bento column: nothing runs past its edge.
         full->setGeometry(0, 0, 420, 800);
-        QVERIFY(c.openChore(QStringLiteral("changes")));
+        QVERIFY(opens(QStringLiteral("changes")));
         QTRY_COMPARE(recent->stage(), QStringLiteral("ready"));
         shows(QStringLiteral("changesCard"), QStringLiteral("44-changes-narrow"));
-        QVERIFY(c.openChore(QStringLiteral("health")));
+        QVERIFY(opens(QStringLiteral("health")));
         QTRY_COMPARE(health->stage(), QStringLiteral("done"));
         shows(QStringLiteral("healthCard"), QStringLiteral("40-health-narrow"));
-        QVERIFY(c.openChore(QStringLiteral("space")));
+        QVERIFY(opens(QStringLiteral("space")));
         QTRY_COMPARE(space->stage(), QStringLiteral("ready"));
         shows(QStringLiteral("spaceCard"), QStringLiteral("41-space-narrow"));
         space->close();
-        QTRY_VERIFY(!find(full, QStringLiteral("spaceCard")));
-    }
-    // The tiles say what Genie noticed on this computer, updates waiting
-    // first, and a tap opens the card that helps.
-    void theTilesSayWhatGenieNoticed()
-    {
-        PretendFixture f;
-        QVERIFY(f.isValid());
-        Conversation c({f.assistant(QStringLiteral("signed-in.json"))});
-        SystemUpdate *update = c.systemUpdate();
-        update->setElevate({});
-        update->setLookScript(QStringLiteral("cat '" FIXTURES_DIR "/update/look.txt'"));
-        HealthCheck *health = c.healthCheck();
-        health->setLookScript(QStringLiteral("cat '" FIXTURES_DIR "/chores/health-look.txt'"));
-        QQmlApplicationEngine engine;
-        QQuickWindow *window = open(engine, c);
-        QVERIFY(window);
-        c.chooseAssistant(QStringLiteral("pretend"));
-        QTRY_COMPARE(c.phase(), QStringLiteral("ready"));
-
-        update->peek();
-        health->lookQuietly();
-        QTRY_VERIFY(update->waiting() > 0);
-        QTRY_VERIFY(!health->items().isEmpty());
-        // The quiet looks open no card.
-        QVERIFY(update->stage().isEmpty() && health->stage().isEmpty());
-        const QVariantList tiles = c.tiles();
-        QCOMPARE(tiles.size(), 3);
-        QCOMPARE(tiles.first().toMap().value(QStringLiteral("text")).toString(),
-                 QStringLiteral("%1 updates are waiting").arg(update->waiting()));
-        QCOMPARE(tiles.first().toMap().value(QStringLiteral("card")).toString(), QStringLiteral("update"));
-        for (const QVariant &tile : tiles)
-            QVERIFY(!tile.toMap().value(QStringLiteral("noticed")).toString().isEmpty());
-        QTRY_VERIFY(find(window, QStringLiteral("tile0")) && find(window, QStringLiteral("tile0"))->isVisible());
-        settle();
-        QVERIFY(overflowing(window).isEmpty());
-        shoot(window, QStringLiteral("54-tiles-noticed"));
-
-        QMetaObject::invokeMethod(find(window, QStringLiteral("tile0")), "clicked");
-        QTRY_COMPARE(update->stage(), QStringLiteral("ready"));
-        update->close();
-        // What the look found is kept for the next start; the other tests
-        // start from a computer that was never looked at.
-        QSettings(QStringLiteral("split-rock"), QStringLiteral("upkeep")).remove(QStringLiteral("health"));
-    }
-
-    // With nothing noticed, the tiles offer Genie's cards taking turns with
-    // quick apps this computer has, and a quick tile only opens its app.
-    void theQuickTilesOpenAnApp()
-    {
-        PretendFixture f;
-        QVERIFY(f.isValid());
-        const QString apps = QStandardPaths::writableLocation(QStandardPaths::ApplicationsLocation);
-        QVERIFY(QDir().mkpath(apps));
-        QFile desktop(apps + QStringLiteral("/org.kde.spectacle.desktop"));
-        QVERIFY(desktop.open(QIODevice::WriteOnly));
-        desktop.write("[Desktop Entry]\nType=Application\nName=Spectacle\nExec=true\n");
-        desktop.close();
-        QTemporaryDir dir;
-        QVERIFY(dir.isValid());
-        const QString opened = dir.filePath(QStringLiteral("opened"));
-
-        Conversation c({f.assistant(QStringLiteral("signed-in.json"))});
-        c.setLauncher({QStringLiteral("sh"), QStringLiteral("-c"), QStringLiteral("echo \"$1\" > '%1'").arg(opened),
-                       QStringLiteral("launcher")});
-        QQmlApplicationEngine engine;
-        QQuickWindow *window = open(engine, c);
-        QVERIFY(window);
-        c.chooseAssistant(QStringLiteral("pretend"));
-        QTRY_COMPARE(c.phase(), QStringLiteral("ready"));
-
-        QStringList words;
-        for (const QVariant &tile : c.tiles())
-            words << tile.toMap().value(QStringLiteral("text")).toString();
-        QCOMPARE(words, (QStringList{QStringLiteral("Give this computer a health check"), QStringLiteral("Install a new app"),
-                                     QStringLiteral("Take a screenshot")}));
-        QTRY_VERIFY(find(window, QStringLiteral("tile2")) && find(window, QStringLiteral("tile2"))->isVisible());
-        settle();
-        QVERIFY(overflowing(window).isEmpty());
-        shoot(window, QStringLiteral("55-tiles-quick"));
-
-        QMetaObject::invokeMethod(find(window, QStringLiteral("tile2")), "clicked");
-        QTRY_VERIFY(QFileInfo::exists(opened) && QFileInfo(opened).size() > 0);
-        QFile got(opened);
-        QVERIFY(got.open(QIODevice::ReadOnly));
-        QCOMPARE(got.readAll().trimmed(), QByteArray("org.kde.spectacle"));
-        // No card opens and nothing is asked.
-        QCOMPARE(c.phase(), QStringLiteral("ready"));
-        QVERIFY(desktop.remove());
-    }
-
-    // Genie on this computer: its one-time download, then an answer, then a
-    // change too big for it, handed to the assistant the person brought.
-    void genieOnThisComputer()
-    {
-        QTemporaryDir dir;
-        QVERIFY(dir.isValid());
-        // A server that takes the request and never answers, so the download
-        // can be seen partway.
-        QTcpServer silent;
-        QVERIFY(silent.listen(QHostAddress::LocalHost, 0));
-        const QJsonObject small{{QStringLiteral("id"), QStringLiteral("small")},
-                                {QStringLiteral("file"), QStringLiteral("small.gguf")},
-                                {QStringLiteral("bytes"), 2.5e9},
-                                {QStringLiteral("sha256"), QString(64, QLatin1Char('a'))},
-                                {QStringLiteral("credit"), QStringLiteral("Qwen3 4B by the Qwen team, an open model under the Apache 2.0 licence")},
-                                {QStringLiteral("needs"), QJsonObject{{QStringLiteral("memoryGiB"), 0}, {QStringLiteral("graphics"), false}}},
-                                {QStringLiteral("urls"), QJsonArray{QStringLiteral("http://127.0.0.1:%1/small.gguf").arg(silent.serverPort())}}};
-        const QString catalogue = dir.filePath(QStringLiteral("models.json"));
-        QFile file(catalogue);
-        QVERIFY(file.open(QIODevice::WriteOnly));
-        file.write(QJsonDocument(QJsonObject{{QStringLiteral("models"), QJsonArray{small}}}).toJson());
-        file.close();
-        const QString models = dir.filePath(QStringLiteral("models"));
-        LocalModel local(QStringLiteral("/bin/true"), catalogue, models);
-        local.surveyAs(8, false);
-
-        PretendModel pretendModel;
-        const QString question = QStringLiteral("How do I take a screenshot?");
-        pretendModel.answers.insert(question, QStringLiteral("Press Print Screen. Spectacle opens, and you can save the picture or copy it."));
-        const QString bigger = QStringLiteral("Set up my printer");
-        pretendModel.routes.insert(bigger, {{QStringLiteral("kind"), QStringLiteral("change")},
-                                            {QStringLiteral("target"), QStringLiteral("none")},
-                                            {QStringLiteral("worry"), QStringLiteral("none")},
-                                            {QStringLiteral("query"), QString()}});
-        Assistant desk = localAssistant(QStringLiteral(DESK_PROGRAM), QStringLiteral("/bin/true"), dir.filePath(QStringLiteral("state")));
-        desk.unavailable.clear();
-        desk.mayRunUnfenced = true;
-        desk.environment.insert(QStringLiteral("SPLIT_ROCK_DESK_SERVER"), pretendModel.url().toString());
-        PretendFixture f;
-        QVERIFY(f.isValid());
-        Assistant codex = f.assistant(QStringLiteral("hand-off.json"));
-        codex.name = QStringLiteral("Codex");
-        Conversation c({desk, codex});
-        c.setLocalModel(&local);
-
-        QQmlApplicationEngine engine;
-        QQuickWindow *window = open(engine, c);
-        QVERIFY(window);
-        c.chooseAssistant(QStringLiteral("local"));
-        QCOMPARE(c.phase(), QStringLiteral("download"));
-        QTRY_VERIFY(find(window, QStringLiteral("downloadPill")) && find(window, QStringLiteral("downloadPill"))->isVisible());
-        settle();
-        QVERIFY(overflowing(window).isEmpty());
-        shoot(window, QStringLiteral("50-genie-download"));
-
-        // Partway: what came before is carried on from.
-        QDir().mkpath(models);
-        QFile part(QDir(models).filePath(QStringLiteral("small.gguf.part")));
-        QVERIFY(part.open(QIODevice::WriteOnly));
-        QVERIFY(part.resize(qint64(1.05e9)));
-        part.close();
-        QMetaObject::invokeMethod(find(window, QStringLiteral("downloadPill")), "clicked");
-        QCOMPARE(local.state(), QStringLiteral("downloading"));
-        QTRY_VERIFY(find(window, QStringLiteral("downloadProgress")) && find(window, QStringLiteral("downloadProgress"))->isVisible());
-        settle();
-        QVERIFY(overflowing(window).isEmpty());
-        shoot(window, QStringLiteral("51-genie-downloading"));
-        local.cancel();
-
-        // Downloaded: Genie starts.
-        QFile whole(local.path());
-        QVERIFY(whole.open(QIODevice::WriteOnly));
-        whole.close();
-        local.surveyAs(8, false);
-        QTRY_VERIFY2_WITH_TIMEOUT(c.phase() == QLatin1String("ready"),
-                                  qPrintable(c.phase() + QLatin1Char(' ') + c.problem() + QLatin1Char(' ') + c.problemDetails()), 15000);
-
-        c.ask(question);
-        QTRY_COMPARE_WITH_TIMEOUT(c.phase(), QStringLiteral("ready"), 15000);
-        QTRY_VERIFY(find(window, QStringLiteral("headline")) && find(window, QStringLiteral("headline"))->isVisible());
-        settle();
-        QVERIFY(!find(window, QStringLiteral("handOffPill")) || !find(window, QStringLiteral("handOffPill"))->isVisible());
-        shoot(window, QStringLiteral("52-genie-answer"));
-
-        c.ask(bigger);
-        QTRY_COMPARE_WITH_TIMEOUT(c.handOffTo(), QStringLiteral("Codex"), 15000);
-        QTRY_VERIFY(find(window, QStringLiteral("handOffPill")) && find(window, QStringLiteral("handOffPill"))->isVisible());
-        settle();
-        QVERIFY(overflowing(window).isEmpty());
-        shoot(window, QStringLiteral("53-genie-hand-off"));
-
-        QMetaObject::invokeMethod(find(window, QStringLiteral("handOffPill")), "clicked");
-        QCOMPARE(c.assistantId(), QStringLiteral("pretend"));
-        QTRY_COMPARE_WITH_TIMEOUT(c.headline(), QStringLiteral("Let's add the printer."), 15000);
+        QTRY_VERIFY(!full->isVisible());
     }
 };
 

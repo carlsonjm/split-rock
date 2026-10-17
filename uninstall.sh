@@ -10,8 +10,8 @@ if [[ ! -f $manifest ]]; then
     exit 1
 fi
 
-# Only the program, its desktop entries, the guide and the adapters go; the
-# notebook and every assistant's sign-in stay in the person's own folders.
+# Only the program, its desktop entries and the guide go; the notebook stays in
+# the person's own folder.
 install_key=/usr/local/libexec/shuffle/install-step
 if [[ -x "${install_key}" ]] \
         && sudo -n -l "${install_key}" split-rock remove >/dev/null 2>&1; then
@@ -42,4 +42,4 @@ pkill -x -u "$(id -u)" split-rock-core >/dev/null 2>&1 || true
 systemctl --user daemon-reload >/dev/null 2>&1 || true
 kbuildsycoca6 >/dev/null 2>&1 || true
 
-echo "Split Rock removed. The notebook and your assistants' sign-ins stay where they were."
+echo "Split Rock removed. The notebook stays where it was."

@@ -7,7 +7,7 @@ import "Icons.js" as Icons
 CardFrame {
     id: card
     objectName: "updateCard"
-    readonly property var job: conversation.update
+    readonly property var job: helpers.update
     readonly property string stage: card.job.stage
     readonly property var plan: card.job.plan
     readonly property var result: card.job.result
@@ -286,13 +286,13 @@ CardFrame {
             text: {
                 const n = (card.result.settingsFiles || []).length
                 return (n === 1 ? "1 settings file has" : n + " settings files have")
-                    + " a new version beside yours. Yours were kept; ask " + productName + " to compare them."
+                    + " a new version beside yours. Yours were kept."
             }
         }
         CardNote {
             visible: card.stage === "done" && (card.result.failedServices || []).length > 0
             tone: theme.bad
-            text: "Not running since: " + (card.result.failedServices || []).join(", ") + ". Ask " + productName + " to look into it."
+            text: "Not running since: " + (card.result.failedServices || []).join(", ") + ". Health check shows what stopped."
         }
         CardNote {
             visible: card.result.restorePoint >= 0

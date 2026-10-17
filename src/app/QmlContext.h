@@ -8,7 +8,7 @@
 
 namespace splitrock {
 
-// What every screen reads besides the conversation: the name the person sees,
+// What every screen reads besides the Helpers: the name the person sees,
 // the mark drawn from its one file, and what the full view says of this
 // computer.
 inline void exposeProduct(QQmlContext *context)

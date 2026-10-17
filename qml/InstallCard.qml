@@ -9,7 +9,7 @@ import "Icons.js" as Icons
 CardFrame {
     id: card
     objectName: "installCard"
-    readonly property var job: conversation.install
+    readonly property var job: helpers.install
     readonly property string stage: card.job.stage
     readonly property var results: card.job.results
     readonly property var picked: card.job.picked

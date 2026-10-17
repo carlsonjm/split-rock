@@ -1,5 +1,9 @@
 # Roadmap
 
+> Genie's chat is gone (`DECISIONS.md`, Genie's chat is gone). What follows
+> about the conversation, the assistants and the notebook's part in them is
+> the record of what was built; the Helpers and Core are what remain.
+
 What is planned for Split Rock, in order, and what is not. Each milestone ends
 with what it has to prove before the next one starts. Decisions still open are
 at the end, each named with what it holds up.

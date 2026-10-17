@@ -9,14 +9,15 @@
 namespace splitrock {
 
 // How a second start of Split Rock hands its arguments to the one running and
-// ends: opening Split Rock again brings up the same conversation. Internal to
-// Split Rock; the conversation's own interface is ConversationService.
+// ends: a second Helper asked for opens in the same window. Internal to Split
+// Rock.
 class Entry : public QObject
 {
     Q_OBJECT
     Q_CLASSINFO("D-Bus Interface", "io.github.carlsonjm.SplitRock.Application")
 
 public:
+    static constexpr char Service[] = "io.github.carlsonjm.splitrock";
     static constexpr char Path[] = "/Application";
     static constexpr char Interface[] = "io.github.carlsonjm.SplitRock.Application";
 

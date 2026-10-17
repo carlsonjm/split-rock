@@ -26,7 +26,7 @@ QtObject {
     readonly property color hairline: tint(dark ? 0.11 : 0.09)
     // A step down inside a card, for its rows.
     readonly property color inset: dark ? tint(0.11) : Qt.tint(palette.window, Qt.rgba(1, 1, 1, 0.45))
-    // The conversation's colour: the mark's blue, deepened on a light sheet
+    // The mark's blue, deepened on a light sheet
     // so text on it stays readable. Primary actions, progress and focus take
     // it; what the person asked runs from it into accentTo.
     readonly property color accent: dark ? "#8BC4F8" : "#1E64C8"

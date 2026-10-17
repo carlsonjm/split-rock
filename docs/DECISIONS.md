@@ -968,3 +968,26 @@ under `~/Projects` builds against exactly these, so the next install failed.
 Rejected: reading what each checkout builds against, which needs its build
 run; and dropping parts nothing uses from the card, which is the one place
 the person can see them.
+
+## Genie's chat is gone
+
+Split Rock is the Helpers and Core. The conversation with an assistant, its
+card and full window, Search's Ask on the session bus, the model on this
+computer and its front desk, Codex's adapter, the fence they ran in and the
+settings skills they opened are removed. Each Helper opens on its own, from
+Core or Search, and writes what it changes in the notebook first. What changed
+still puts back a change made earlier from a card: Undo never loses a file. A
+file changed since the change is left as it is, with nothing put back; any file
+Undo replaces or removes is kept aside in the change's folder first; and a
+change is never made unless its record, with its way back, was written whole.
+
+Why: the product owner ruled that Genie is not a chat. Core makes faceless,
+temporary Helpers, and an assistant that could be asked anything was the part
+with the open findings: reading beyond the home folder (GN-2), an undo that
+could lose a file (GN-3) and tokens in the environment passing to the assistant
+(GN-4). With the conversation gone, GN-2 and GN-4 have nothing left to reach;
+GN-3 is fixed where Undo still runs.
+
+Rejected: keeping the conversation behind a switch, which keeps every finding
+open for a feature the product does not offer; and dropping Undo with it, which
+would leave the changes already made from cards without their way back.

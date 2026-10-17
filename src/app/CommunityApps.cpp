@@ -517,9 +517,9 @@ void CommunityApps::start()
             if (exitCode != 0) {
                 if (output.contains(QLatin1String("unknown public key")) || output.contains(QLatin1String("One or more PGP signatures could not be verified")))
                     m_why = QStringLiteral("Its maker signs the download, and this computer doesn't have their key yet. "
-                                           "Nothing was installed; %1 can help.").arg(productName());
+                                           "Nothing was installed.");
                 else if (output.contains(QLatin1String("==> ERROR:")))
-                    m_why = QStringLiteral("It didn't build. Nothing was installed; %1 can read what happened.").arg(productName());
+                    m_why = QStringLiteral("It didn't build. Nothing was installed.");
                 else
                     m_why = whyFailed(output, exitCode, QStringLiteral("Updating %1").arg(app.name));
             }

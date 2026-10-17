@@ -467,7 +467,7 @@ void AppInstall::install(const QString &key)
     const bool shelf = m_picked.source == QLatin1String("shelf");
     m_id = QStringLiteral("install-%1").arg(QDateTime::currentDateTime().toString(QStringLiteral("yyyyMMdd-HHmmss")));
     QString unrecorded;
-    const QString undo = shelf ? QStringLiteral("Remove the package %1, from Discover or by asking %2").arg(m_picked.package, productName())
+    const QString undo = shelf ? QStringLiteral("Remove the package %1, from Discover or with Remove an app").arg(m_picked.package)
                                : QStringLiteral("Remove %1 from Discover's Installed page").arg(m_picked.name);
     if (!writeDown(m_id, QStringLiteral("Installed %1").arg(m_picked.name), undo, &unrecorded)) {
         m_why = QStringLiteral("Nothing was changed: it couldn't be written in the notebook first. %1").arg(unrecorded);

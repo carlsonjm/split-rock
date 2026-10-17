@@ -7,7 +7,7 @@ import "Icons.js" as Icons
 CardFrame {
     id: card
     objectName: "changesCard"
-    readonly property var job: conversation.recent
+    readonly property var job: helpers.recent
     readonly property string stage: card.job.stage
     readonly property var items: card.job.items
     readonly property var latest: card.job.latest
@@ -23,19 +23,13 @@ CardFrame {
     function act(item) {
         switch (item.action) {
         case "undo":
-            conversation.undoChange(item.change)
+            helpers.undoChange(item.change)
             break
         case "restore":
-            conversation.openChore("restore")
+            helpers.openChore("restore")
             break
         case "restart":
             card.job.restart()
-            break
-        case "ask":
-            if (conversation.phase !== "ready")
-                return
-            card.job.close()
-            conversation.ask(item.question)
             break
         }
     }
@@ -65,9 +59,9 @@ CardFrame {
         tone: card.tone
         toneInk: theme.hueInk
         iconPath: Icons.undo
-        enabled: !conversation.changing
+        enabled: !helpers.changing
         text: "Undo it"
-        onClicked: conversation.undoChange(card.latest.change)
+        onClicked: helpers.undoChange(card.latest.change)
     }
 
     Column {
@@ -112,9 +106,10 @@ CardFrame {
                 }
                 CardRow {
                     objectName: "change-" + modelData.id
-                    readonly property bool canAct: modelData.action !== ""
-                                                    && (modelData.action !== "ask" || conversation.phase === "ready")
-                                                    && (modelData.action !== "undo" || !conversation.changing)
+                    // Asking about a change was the old chat's, so a change with
+                    // no other way back shows none.
+                    readonly property bool canAct: modelData.action !== "" && modelData.action !== "ask"
+                                                    && (modelData.action !== "undo" || !helpers.changing)
                     tone: modelData.kind === "service" || modelData.kind === "restart" ? theme.warn : card.tone
                     icon: card.iconFor(modelData.kind)
                     title: modelData.title
@@ -137,23 +132,6 @@ CardFrame {
         width: card.innerWidth
         spacing: 10
         visible: card.stage !== "looking"
-        Pill {
-            objectName: "changesAsk"
-            visible: card.stage === "ready" && conversation.phase === "ready"
-            implicitHeight: 52
-            padding: 22
-            fontSize: 15
-            filled: card.latest.title === undefined
-            tone: card.tone
-            toneInk: theme.hueInk
-            iconPath: Icons.search
-            text: "Ask what caused it"
-            onClicked: {
-                const question = card.job.question
-                card.job.close()
-                conversation.ask(question)
-            }
-        }
         Pill {
             implicitHeight: 52
             padding: 22

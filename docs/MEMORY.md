@@ -1,5 +1,9 @@
 # Memory
 
+> Genie's chat is gone (`DECISIONS.md`, Genie's chat is gone). What follows
+> about the conversation, the assistants and the notebook's part in them is
+> the record of what was built; the Helpers and Core are what remain.
+
 How Split Rock remembers. Think of a household binder kept by the computer: a
 scratch pad for today, a log of every repair, the computer's own manual, a page
 about the person, and a folder of things worth keeping. Conversations themselves are not saved; what is

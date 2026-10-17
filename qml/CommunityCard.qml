@@ -8,7 +8,7 @@ import "Icons.js" as Icons
 CardFrame {
     id: card
     objectName: "communityCard"
-    readonly property var job: conversation.community
+    readonly property var job: helpers.community
     readonly property string stage: card.job.stage
     readonly property var apps: card.job.apps
     readonly property var review: card.job.review
