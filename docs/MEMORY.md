@@ -6,8 +6,9 @@
 
 How Split Rock remembers. Think of a household binder kept by the computer: a
 scratch pad for today, a log of every repair, the computer's own manual, a page
-about the person, and a folder of things worth keeping. Conversations themselves are not saved; what is
-worth remembering is written into the binder, which is the notebook folder.
+about the person, and a folder of things worth keeping. Conversations
+themselves are not saved; what is worth remembering goes into the binder, which
+is the notebook folder.
 
 ## The five kinds of memory
 
@@ -29,8 +30,8 @@ restarts the computer. Closing the window does not end it, so an accidental tap
 loses nothing. It is never written to disk.
 
 Codex's provider may keep its own history under its own policy; setup says so
-once, in plain words. Split Rock on this computer sends nothing the person
-asks anywhere.
+once, in plain words. Split Rock on this computer keeps everything the person
+asks on the computer.
 
 ## The record of this computer
 
@@ -41,12 +42,12 @@ record and has to be right.
 - **Changes:** newest first. Each has the date, what changed in plain words,
   why, how to undo it, and whether it was undone.
 - **Fixed problems:** the problem in the person's words, what caused it, and
-  what fixed it. This is what makes the next problem faster. That fixed it,
-  under an answer, writes one: the question the conversation began with, and
+  what fixed it. This is what makes the next problem faster. Tapping That fixed
+  it under an answer writes one: the question the conversation began with, and
   the answer's lead.
 
-Changes older than a year are to move to `Earlier changes.md`, so the page
-stays short enough to read; that move is not built yet.
+Changes older than a year are meant to move to `Earlier changes.md`, to keep
+the page short enough to read. That move is not built yet.
 
 ## The device
 
@@ -56,16 +57,20 @@ firmware, into `Device/DEVICE.md`. Each problem met on this device, and its fix,
 becomes an entry beside it in the guide's format, and the guide offers those
 entries like its own. A problem met and not yet fixed is a line under "Still
 open" in `DEVICE.md`, until a fix is proven. Troubleshooting, in the This Device
-drawer beside the conversation, shows both, Open first and Solved after: each
-fix opens to its steps and Came back, which returns a problem whose fix stopped
-holding to Still open with what fixed it before, and sends its page to the trash
-so the guide no longer offers it; each problem still open opens to Tell Split
-Rock the fix, which starts the sentence in the field for the person to finish,
-or Write the fix, where the person's own words become the problem's page and its
-line leaves Still open, with no account needed. With an account, the assistant
-also adds the maker's documentation it finds for that hardware. Without one,
-`Device/` holds only what Split Rock can read on the computer. It starts fresh
-on every computer: nothing in it comes from, or goes to, anyone else's.
+drawer beside the conversation, shows both: Open first, then Solved.
+
+- Each fix opens to its steps and Came back. Came back returns a problem whose
+  fix stopped holding to Still open, with what fixed it before, and sends its
+  page to the trash so the guide no longer offers it.
+- Each problem still open opens to Tell Split Rock the fix, which starts the
+  sentence in the field for the person to finish, or Write the fix. Write the
+  fix turns the person's own words into the problem's page and takes its line
+  out of Still open, with no account needed.
+
+With an account, the assistant also adds the maker's documentation it finds for
+that hardware. Without one, `Device/` holds only what Split Rock can read on the
+computer. It starts fresh on every computer: nothing in it comes from, or goes
+to, anyone else's.
 
 ## About the person
 
@@ -81,9 +86,9 @@ small model would keep can't be trusted to be right.
 
 Keep this sits under every answer. A kept answer becomes a note with a plain
 title, the date and the question it answered, filed in a topic folder Split
-Rock chooses from the question's words, such as `Notes/Printing/`. Nobody has
-to file anything. Kept notes are plain files: the This Device drawer lists none
-of its own, and any notes app or the file manager opens them.
+Rock chooses from the question's words, such as `Notes/Printing/`. Kept notes
+are plain files. The This Device drawer doesn't list them; any notes app or the
+file manager opens them.
 
 Later, where Gooseberry is installed (Notes inside Shuffle), the note is to be
 added through Gooseberry's notes tool, under a place of its own. It is then on
@@ -92,8 +97,8 @@ Memory the assistant needs to call on later goes there too. When Gooseberry
 arrives after answers were already kept in `Notes/`, Split Rock asks once, on a
 card, whether to move them into Gooseberry, with a short introduction to it.
 Nothing moves until the person says yes. The record of this computer and the
-page about the person stay in the notebook either way, and Split Rock never
-needs Gooseberry.
+page about the person stay in the notebook either way, and Split Rock works
+without Gooseberry.
 
 ## Remembering in a conversation
 
@@ -101,7 +106,7 @@ When a conversation starts, the assistant gets `About me.md`, the top of
 `This computer.md`, `Device/DEVICE.md`, the titles of the device's own problems
 and fixes, and the list of kept note titles. It opens a note only when the
 question touches it, and says when it does: "Last time, the printer needed its
-driver reinstalled." Memory that is used is memory that is shown.
+driver reinstalled."
 
 ## Never written down
 

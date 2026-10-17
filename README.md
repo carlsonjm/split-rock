@@ -28,7 +28,7 @@ Helpers that look after a KDE Plasma computer, built for people leaving decades 
 <table>
 <tr>
 <td width="33%" valign="top"><b>Update</b><br>Lists every update before it starts, then runs it with a restore point first.</td>
-<td width="33%" valign="top"><b>Free up space</b><br>Shows exactly what it would remove, by name, before it removes anything.</td>
+<td width="33%" valign="top"><b>Free up space</b><br>Names everything it would remove before it removes any of it.</td>
 <td width="33%" valign="top"><b>Install or remove an app</b><br>Finds the app for what you need, or removes the one you name.</td>
 </tr>
 <tr>
@@ -73,8 +73,8 @@ Every input, with what you see happen, is in [docs/INPUT.md](docs/INPUT.md).
 
 This builds Split Rock, runs every check, and installs it for every account on
 this computer: the Helpers' program, Core, the guide and the tour. It is a
-developer install for the maintainer's own computer, not a package, and
-nobody else should be handed it.
+developer install for the maintainer's own computer, not a package to hand to
+anyone else.
 
 <details>
 <summary>What it needs</summary>
@@ -88,13 +88,13 @@ and restore points through snapper where the disk supports them.
 <details>
 <summary>Updating and uninstalling</summary>
 
-Running `./install.sh` again removes what the earlier install placed first,
-and replaces a Core that is already running. It asks for the administrator
+Running `./install.sh` again first removes what the earlier install placed,
+and replaces Core if it is running. It asks for the administrator
 password once, to write under `/usr`; where Shuffle's install key is set up,
 it needs no password.
 
-`./uninstall.sh` removes exactly what was installed, and leaves the notebook
-where it is.
+`./uninstall.sh` removes what the install placed and leaves the notebook in
+place.
 
 </details>
 

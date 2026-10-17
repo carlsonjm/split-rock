@@ -23,8 +23,8 @@ while, so that nobody can guess their way in. On many computers that is three
 wrong tries within fifteen minutes, and a wait of ten minutes. Nothing is broken
 and nothing is lost.
 
-After each wrong password the lock also pauses for a moment, and a try started
-during that pause is not heard at all.
+After each wrong password the lock also pauses for a moment, and it ignores
+any try you start during that pause.
 
 ## What to do
 

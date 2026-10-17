@@ -18,8 +18,8 @@ when a new window opens or you switch to another tab.
 
 When a program puts its cursor in a text box by itself, soon after you touched
 the screen, the desktop takes that as a wish to type and brings up the keys.
-Windows' touch keyboard waits for a tap on the box; this desktop does not
-always. It is how the desktop behaves, not a fault in your computer.
+Windows' touch keyboard waits for a tap on the box, and this desktop doesn't
+always. Nothing is wrong with your computer.
 
 ## What to do
 
