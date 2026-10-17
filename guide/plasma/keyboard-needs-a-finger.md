@@ -19,7 +19,7 @@ touchpad, and the on-screen keyboard stays away.
 The on-screen keyboard comes up only when you touch the screen, as Windows'
 touch keyboard does when you tap a box with your finger. A click with a mouse or
 touchpad tells the computer you have keys to type on, so it stays out of the
-way. This is how the desktop is meant to work, not a fault.
+way. Nothing is wrong: this is how the desktop is meant to work.
 
 ## What to do
 
