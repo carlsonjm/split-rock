@@ -1,7 +1,0 @@
-{
-  "agent": {"name": "pretend", "title": "Pretend assistant", "version": "1"},
-  "signedIn": true,
-  "authMethods": [{"id": "pretend-browser", "name": "Sign in in the browser"}],
-  "sessionError": {"code": -32000, "message": "Authentication required", "data": {"reason": "claude_subscription_not_supported"}},
-  "turns": []
-}

@@ -4,16 +4,16 @@ import QtQuick.Window
 
 // One upkeep card on its own, as Core opens it (docs/CORE.md): an ordinary
 // window, so a card workspace places it like any other, with the card inside
-// and no conversation. It closes itself when the card does, and the card
+// and no helpers. It closes itself when the card does, and the card
 // can't be closed while it is busy.
 Window {
     id: actionWindow
     objectName: "actionWindow"
     title: {
-        switch (conversation.chore) {
+        switch (helpers.chore) {
         case "update": return "Update"
         case "space": return "Free up space"
-        case "install": return conversation.install.removing ? "Remove an app" : "Install a new app"
+        case "install": return helpers.install.removing ? "Remove an app" : "Install a new app"
         case "restore": return "Restore points"
         case "health": return "Health check"
         case "community": return "Community apps"
@@ -31,14 +31,14 @@ Window {
     Theme { id: theme }
 
     readonly property var job: {
-        switch (conversation.chore) {
-        case "update": return conversation.update
-        case "space": return conversation.space
-        case "install": return conversation.install
-        case "restore": return conversation.restore
-        case "health": return conversation.health
-        case "community": return conversation.community
-        case "changes": return conversation.recent
+        switch (helpers.chore) {
+        case "update": return helpers.update
+        case "space": return helpers.space
+        case "install": return helpers.install
+        case "restore": return helpers.restore
+        case "health": return helpers.health
+        case "community": return helpers.community
+        case "changes": return helpers.recent
         }
         return null
     }
@@ -48,20 +48,20 @@ Window {
     // before the second opens, so the window waits a moment and stays open
     // for the card that follows.
     Connections {
-        target: conversation
+        target: helpers
         function onChoreChanged() {
-            if (conversation.chore === "")
+            if (helpers.chore === "")
                 Qt.callLater(actionWindow.closeIfEmpty)
         }
     }
 
     function closeIfEmpty() {
-        if (conversation.chore === "")
+        if (helpers.chore === "")
             actionWindow.visible = false
     }
 
     onClosing: close => {
-        if (conversation.choreBusy) {
+        if (helpers.choreBusy) {
             close.accepted = false
             return
         }
@@ -83,7 +83,7 @@ Window {
             x: 18; y: 18
             width: scroller.width - 36
             sourceComponent: {
-                switch (conversation.chore) {
+                switch (helpers.chore) {
                 case "update": return updateCard
                 case "space": return spaceCard
                 case "install": return installCard

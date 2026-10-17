@@ -3,7 +3,6 @@
 // The Update card's routine, read from what the computer's own programs print
 // and run with scripts of the test's own: nothing here looks at or changes
 // this computer.
-#include "app/Conversation.h"
 #include "app/SystemUpdate.h"
 
 #include <QFile>
@@ -282,35 +281,6 @@ private Q_SLOTS:
         update.confirm();
         QTRY_COMPARE(update.stage(), QStringLiteral("done"));
         QVERIFY(updated.exists());
-    }
-
-    void anUpdateProposedForTheCardOpensTheUpdateCard()
-    {
-        Conversation c({});
-        c.systemUpdate()->setLookScript(QStringLiteral("cat '" FIXTURES_DIR "/update/look.txt'"));
-        ChangeProposal change;
-        change.title = QStringLiteral("Update everything");
-        change.command = QStringLiteral("pacman -Syu --noconfirm");
-        change.admin = true;
-        c.propose(change);
-        // No Do it card: the Update card looks instead.
-        QVERIFY(!c.cardOpen());
-        QCOMPARE(c.systemUpdate()->stage(), QStringLiteral("looking"));
-        QTRY_COMPARE(c.systemUpdate()->stage(), QStringLiteral("ready"));
-
-        // A single package needs the administrator too, which no card runs
-        // as: it is not shown.
-        c.systemUpdate()->close();
-        change.command = QStringLiteral("pacman -S --needed firefox");
-        c.propose(change);
-        QVERIFY(!c.cardOpen());
-        QCOMPARE(c.systemUpdate()->stage(), QString());
-
-        // One that runs as the person is still an ordinary change.
-        change.admin = false;
-        change.command = QStringLiteral("flatpak install --user flathub org.gimp.GIMP");
-        c.propose(change);
-        QVERIFY(c.cardOpen());
     }
 
     void aBlockedUpdateDoesNotStart()

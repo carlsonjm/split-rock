@@ -190,18 +190,18 @@ QString Chore::whyFailed(const QString &output, int exitCode, const QString &wha
     if (text.contains(QLatin1String("signature from")) || text.contains(QLatin1String("invalid or corrupted package"))
         || text.contains(QLatin1String("unknown trust")))
         return QStringLiteral("Some packages couldn't be checked as genuine, so nothing was installed. This is usually "
-                              "the security keys being out of date; %1 can help.").arg(productName());
+                              "the security keys being out of date.");
     if (text.contains(QLatin1String("conflicting files")))
-        return QStringLiteral("Two packages wanted the same file, so nothing was installed. %1 can help find which.").arg(productName());
+        return QStringLiteral("Two packages wanted the same file, so nothing was installed.");
     if (text.contains(QLatin1String("breaks dependency")))
         return QStringLiteral("Other apps on this computer need it, so nothing was removed.");
     if (text.contains(QLatin1String("unable to satisfy dependency")) || text.contains(QLatin1String("could not satisfy dependencies"))
         || text.contains(QLatin1String("conflicting dependencies")))
         return QStringLiteral("Something installed on this computer is in the way, often an app from outside "
-                              "the official shelf. Nothing was installed; %1 can help find it.").arg(productName());
+                              "the official shelf. Nothing was installed.");
     if (text.contains(QLatin1String("stopped:")))
         return QStringLiteral("%1 was stopped.").arg(what);
-    return QStringLiteral("%1 didn't finish. %2 can read what happened and help.").arg(what, productName());
+    return QStringLiteral("%1 didn't finish. Nothing more was changed; the system's log has what happened.").arg(what);
 }
 
 QString Chore::size(qint64 kb)

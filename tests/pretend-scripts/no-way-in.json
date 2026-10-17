@@ -1,8 +1,0 @@
-{
-  "agent": {"name": "pretend", "title": "Pretend assistant", "version": "1"},
-  "signedIn": false,
-  "authMethods": [
-    {"id": "pretend-env", "name": "Use PRETEND_KEY", "type": "env_var", "vars": [{"name": "PRETEND_KEY"}]}
-  ],
-  "turns": []
-}

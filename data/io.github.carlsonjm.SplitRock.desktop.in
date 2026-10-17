@@ -1,16 +1,11 @@
 [Desktop Entry]
 Type=Application
 Name=Split Rock
-GenericName=Desktop assistant
-Comment=Ask about this computer, in plain words
-Exec=@SPLIT_ROCK_PROGRAM@
+GenericName=Helpers
+Comment=Look after this computer, one Helper at a time
+Exec=@SPLIT_ROCK_PROGRAM@ --card health
 Icon=io.github.carlsonjm.SplitRock
 Categories=Utility;System;
-Keywords=help;assistant;ask;troubleshoot;settings;windows;
+NoDisplay=true
 StartupNotify=true
 SingleMainWindow=true
-Actions=Ask;
-
-[Desktop Action Ask]
-Name=Ask
-Exec=@SPLIT_ROCK_PROGRAM@ --ask

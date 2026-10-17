@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 //
 // The notebook and what is never written down, in a folder of the test's own.
-#include "app/Fence.h"
 #include "app/NeverWritten.h"
 #include "app/Notebook.h"
 
@@ -280,112 +279,6 @@ private Q_SLOTS:
         QVERIFY(notebook.keep(QStringLiteral("Remember my card"), QStringLiteral("It is 4111 1111 1111 1111."), &error).isEmpty());
         QVERIFY(error.contains(QStringLiteral("never writes down")));
         QVERIFY(!QDir(home.filePath(QStringLiteral("Notebook/Notes"))).exists());
-    }
-
-    // The fence hides the home folder, then shows the notebook and the
-    // assistant's own folder to write, after everything that could cover
-    // them.
-    void theFenceIsBuiltInOrder()
-    {
-        QTemporaryDir home;
-        const QString notebook = home.filePath(QStringLiteral("Notebook"));
-        const QString own = home.filePath(QStringLiteral("state/codex"));
-        const acp::LaunchSpec launch = fenced({QStringLiteral("/usr/bin/node"), {QStringLiteral("adapter.js")}, {}, home.path()},
-                                              {{own, notebook}, {home.filePath(QStringLiteral("adapters"))}});
-        const QStringList args = launch.arguments;
-        QCOMPARE(args.mid(0, 3), (QStringList{QStringLiteral("--ro-bind"), QStringLiteral("/"), QStringLiteral("/")}));
-        const qsizetype hidden = args.indexOf(QDir::homePath(), args.indexOf(QStringLiteral("--tmpfs")));
-        QVERIFY(hidden > 0);
-        QCOMPARE(args.at(hidden - 1), QStringLiteral("--tmpfs"));
-        const qsizetype writes = args.indexOf(notebook);
-        QVERIFY(writes > hidden);
-        QCOMPARE(args.at(writes - 1), QStringLiteral("--bind"));
-        QCOMPARE(args.at(args.indexOf(own) - 1), QStringLiteral("--bind"));
-        QVERIFY(args.contains(QStringLiteral("--unshare-pid")));
-        QVERIFY(args.contains(QStringLiteral("--die-with-parent")));
-        QCOMPARE(args.mid(args.size() - 3),
-                 (QStringList{QStringLiteral("--"), QStringLiteral("/usr/bin/node"), QStringLiteral("adapter.js")}));
-        // Nothing the computer lacks is asked to be hidden.
-        if (!QFileInfo(QStringLiteral("/run/dbus")).isDir())
-            QVERIFY(!args.contains(QStringLiteral("/run/dbus")));
-    }
-
-    // The assistant's one way to propose a change: a stand-in inside the
-    // fence that hands the proposal to Split Rock and changes nothing.
-    void theFenceOffersTheChangeStandIn()
-    {
-        QTemporaryDir home;
-        const QString own = home.filePath(QStringLiteral("state/codex"));
-        const QString opens = home.filePath(QStringLiteral("state/codex/.split-rock/open-requests"));
-        const QString changes = home.filePath(QStringLiteral("state/codex/.split-rock/change-requests"));
-        QDir().mkpath(QFileInfo(opens).path());
-        FenceRoom room{{own}, {}, opens, changes};
-        const acp::LaunchSpec launch = fenced({QStringLiteral("/usr/bin/node"), {QStringLiteral("adapter.js")}, {}, home.path()}, room);
-        if (!launch.environment.contains(QStringLiteral("SPLIT_ROCK_CHANGE_REQUESTS")))
-            QSKIP("This computer has no bubblewrap to fence the assistant in.");
-        QCOMPARE(launch.environment.value(QStringLiteral("SPLIT_ROCK_CHANGE_REQUESTS")), changes);
-        const QString standIn = QDir(launch.environment.value(QStringLiteral("PATH")).section(QLatin1Char(':'), 0, 0))
-                                    .filePath(QStringLiteral("split-rock-change"));
-        QVERIFY(QFileInfo(standIn).isExecutable());
-
-        const QByteArray proposal = R"({"title":"Night light","command":"echo 'on'"})";
-        QProcess run;
-        run.setProcessEnvironment(launch.environment);
-        run.start(standIn, {QString::fromUtf8(proposal)});
-        QVERIFY(run.waitForFinished());
-        QCOMPARE(run.exitCode(), 0);
-        QVERIFY(run.readAllStandardOutput().contains("Do it card"));
-        run.start(standIn, {});
-        QVERIFY(run.waitForFinished());
-        QCOMPARE(run.exitCode(), 2);
-
-        QFile written(changes);
-        QVERIFY(written.open(QIODevice::ReadOnly));
-        const QList<QByteArray> lines = written.readAll().split('\n');
-        QCOMPARE(lines.size(), 2);
-        QCOMPARE(QByteArray::fromBase64(lines.first()), proposal);
-        QVERIFY(lines.last().isEmpty());
-    }
-
-    // The skill stand-in asks, waits for Split Rock's answer, and prints it.
-    void theFenceOffersTheSkillStandIn()
-    {
-        QTemporaryDir home;
-        const QString own = home.filePath(QStringLiteral("state/codex"));
-        const QString opens = home.filePath(QStringLiteral("state/codex/.split-rock/open-requests"));
-        const QString skills = home.filePath(QStringLiteral("state/codex/.split-rock/skill-requests"));
-        QDir().mkpath(QFileInfo(opens).path());
-        FenceRoom room{{own}, {}, opens, {}, skills};
-        const acp::LaunchSpec launch = fenced({QStringLiteral("/usr/bin/node"), {QStringLiteral("adapter.js")}, {}, home.path()}, room);
-        if (!launch.environment.contains(QStringLiteral("SPLIT_ROCK_SKILL_REQUESTS")))
-            QSKIP("This computer has no bubblewrap to fence the assistant in.");
-        const QString standIn = QDir(launch.environment.value(QStringLiteral("PATH")).section(QLatin1Char(':'), 0, 0))
-                                    .filePath(QStringLiteral("split-rock-skill"));
-        QVERIFY(QFileInfo(standIn).isExecutable());
-
-        QProcess run;
-        run.setProcessEnvironment(launch.environment);
-        run.start(standIn, {QStringLiteral("look")});
-        QVERIFY(run.waitForStarted());
-        QFile requests(skills);
-        QTRY_VERIFY(QFileInfo(skills).size() > 0);
-        QVERIFY(requests.open(QIODevice::ReadOnly));
-        const QList<QByteArray> asked = requests.readAll().trimmed().split(' ');
-        QCOMPARE(asked.size(), 2);
-        QCOMPARE(asked.last(), QByteArray("look"));
-        QFile answer(QFileInfo(skills).dir().filePath(QStringLiteral("skill-%1.out").arg(QString::fromLatin1(asked.first()))));
-        QVERIFY(answer.open(QIODevice::WriteOnly));
-        answer.write("# The desktop's look\n");
-        answer.close();
-        QVERIFY(run.waitForFinished());
-        QCOMPARE(run.exitCode(), 0);
-        QCOMPARE(run.readAllStandardOutput(), QByteArray("# The desktop's look\n"));
-        QVERIFY(!answer.exists());
-
-        // Anything but one plain name is refused before it is written.
-        run.start(standIn, {QStringLiteral("look; rm -rf x")});
-        QVERIFY(run.waitForFinished());
-        QCOMPARE(run.exitCode(), 2);
     }
 
     // Inside means inside, links and climbing out included.

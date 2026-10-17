@@ -2,7 +2,6 @@
 #include "app/Admin.h"
 #include "app/Appearance.h"
 #include "app/Change.h"
-#include "app/ChangeCard.h"
 #include "app/ChangeRunner.h"
 #include "app/NeverWritten.h"
 
@@ -148,21 +147,6 @@ private Q_SLOTS:
         QVERIFY(!why.isEmpty());
     }
 
-    void theCardShowsTheProposal()
-    {
-        ChangeProposal change;
-        change.title = QStringLiteral("Quiet fans");
-        change.why = QStringLiteral("They are loud");
-        change.command = QStringLiteral("asusctl profile -P Quiet");
-        change.undo = QStringLiteral("asusctl profile -P Balanced");
-        const QVariantMap card = ChangeCard::forProposal(change, QStringLiteral("Pretend")).toMap();
-        QCOMPARE(card.value(QStringLiteral("heading")).toString(), QStringLiteral("Quiet fans"));
-        QCOMPARE(card.value(QStringLiteral("available")).toBool(), true);
-        QVERIFY(card.value(QStringLiteral("unavailable")).toString().isEmpty());
-        QCOMPARE(card.value(QStringLiteral("password")).toString(), QStringLiteral("Not needed."));
-        QVERIFY(card.value(QStringLiteral("details")).toString().contains(QStringLiteral("Runs as: you")));
-    }
-
     // A change to the person's own file: copied aside, changed, put back.
     void aFileChangeIsPutBackFromItsCopy()
     {
@@ -208,6 +192,78 @@ private Q_SLOTS:
         QString why;
         QVERIFY(!runner.undo(id, &why));
         QVERIFY(!why.isEmpty());
+    }
+
+    // Undo never loses a file: one changed since the change is left as it
+    // is, and one it replaces or removes is kept aside first.
+    void undoNeverLosesAFile()
+    {
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        const QString file = dir.filePath(QStringLiteral("notes.conf"));
+        const QString fresh = dir.filePath(QStringLiteral("made.conf"));
+        write(file, "before\n");
+        const QString store = dir.filePath(QStringLiteral("changes"));
+        ChangeRunner runner(store);
+        QSignalSpy made(&runner, &ChangeRunner::made);
+        QSignalSpy undone(&runner, &ChangeRunner::undone);
+        ChangeProposal change;
+        change.title = QStringLiteral("Write the notes");
+        change.command = QStringLiteral("echo after > '%1' && echo new > '%2'").arg(file, fresh);
+        change.files = {file, fresh};
+        QString id = runner.make(change);
+        QTRY_COMPARE(made.size(), 1);
+        // What the change left is recorded with it.
+        const auto kept = runner.record(id);
+        QVERIFY(kept);
+        QCOMPARE(kept->copies.size(), 2);
+        QCOMPARE(kept->copies.at(0).after.size(), 64);
+        QCOMPARE(kept->copies.at(1).after.size(), 64);
+
+        // Written to since: Undo leaves it, and says so.
+        write(file, "after, and more written since\n");
+        QVERIFY(runner.undo(id));
+        QTRY_COMPARE(undone.size(), 1);
+        auto record = undone.last().first().value<ChangeRunner::Record>();
+        QCOMPARE(record.status, QStringLiteral("undoFailed"));
+        QVERIFY(record.output.contains(QStringLiteral("has changed since")));
+        QVERIFY(QFile::exists(fresh));
+        QCOMPARE(read(file), QByteArray("after, and more written since\n"));
+
+        // Untouched since: put back, with what was there kept aside.
+        write(file, "before\n");
+        QFile::remove(fresh);
+        id = runner.make(change);
+        QTRY_COMPARE(made.size(), 2);
+        QVERIFY(runner.undo(id));
+        QTRY_COMPARE(undone.size(), 2);
+        record = undone.last().first().value<ChangeRunner::Record>();
+        QCOMPARE(record.status, QStringLiteral("undone"));
+        QCOMPARE(read(file), QByteArray("before\n"));
+        QVERIFY(!QFile::exists(fresh));
+        const QDir folder(QDir(store).filePath(id));
+        const QStringList aside = folder.entryList({QStringLiteral("*.before-undo-*")}, QDir::Files, QDir::Name);
+        QCOMPARE(aside.size(), 2);
+        QCOMPARE(read(folder.filePath(aside.at(0))), QByteArray("after\n"));
+        QCOMPARE(read(folder.filePath(aside.at(1))), QByteArray("new\n"));
+    }
+
+    // A change that can't be written down first is never made.
+    void aChangeNotWrittenDownIsNotMade()
+    {
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        // The store is a file, so nothing can be written in it.
+        const QString store = dir.filePath(QStringLiteral("changes"));
+        write(store, "not a folder\n");
+        const QString file = dir.filePath(QStringLiteral("touched"));
+        ChangeRunner runner(store);
+        ChangeProposal change;
+        change.title = QStringLiteral("Touch a file");
+        change.command = QStringLiteral("touch '%1'").arg(file);
+        QVERIFY(runner.make(change).isEmpty());
+        QTest::qWait(300);
+        QVERIFY(!QFile::exists(file));
     }
 
     // No files named: Undo runs the way back the assistant gave.
@@ -364,7 +420,6 @@ private Q_SLOTS:
         QVERIFY(known.undo.contains(QStringLiteral("plasma-apply-colorscheme 'ShuffleDark'")));
         QVERIFY(known.undo.contains(QStringLiteral("plasma-apply-cursortheme 'Altas-Dark'")));
         QVERIFY(known.check.contains(QStringLiteral("kreadconfig6")));
-        QVERIFY(ChangeRunner::undoPromise(known).contains(QStringLiteral("whole look")));
         change.command = QStringLiteral("kwriteconfig6 --file kwinrc --group NightColor --key Active true");
         QCOMPARE(ChangeRunner::withKnownUndo(change, now).undo, change.undo);
     }

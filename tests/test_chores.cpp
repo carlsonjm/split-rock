@@ -6,7 +6,7 @@
 // computer. Files are made and removed only inside the test's own home.
 #include "app/AppInstall.h"
 #include "app/CommunityApps.h"
-#include "app/Conversation.h"
+#include "app/Helpers.h"
 #include "app/HealthCheck.h"
 #include "app/RecentChanges.h"
 #include "app/RestorePoints.h"
@@ -947,77 +947,23 @@ private Q_SLOTS:
             QVERIFY(i.id != QLatin1String("restart") && i.id != QLatin1String("packages") && i.id != QLatin1String("downloads"));
     }
 
-    // The startup skill's helper, in the test's own home: an app is hidden for
-    // this person only, and turned back on exactly as it was.
-    void aStartupAppTurnsOffAndBackOn()
+    void aHelperIsOpenedByName()
     {
-        QTemporaryDir home;
-        QTemporaryDir system;
-        QVERIFY(write(system.filePath(QStringLiteral("autostart/sys.desktop")),
-                      QStringLiteral("[Desktop Entry]\nName=Sys\nExec=sys\n")));
-        const QString mine = home.filePath(QStringLiteral(".config/autostart/mine.desktop"));
-        const QString original = QStringLiteral("[Desktop Entry]\nName=Mine\nExec=mine\n");
-        QVERIFY(write(mine, original));
-        const auto helper = [&](const QStringList &arguments, int *exitCode = nullptr) {
-            QProcess p;
-            QProcessEnvironment env = QProcessEnvironment::systemEnvironment();
-            env.insert(QStringLiteral("HOME"), home.path());
-            env.remove(QStringLiteral("XDG_CONFIG_HOME"));
-            env.insert(QStringLiteral("XDG_CONFIG_DIRS"), system.path());
-            p.setProcessEnvironment(env);
-            p.start(QStringLiteral("sh"), QStringList{QStringLiteral(PROJECT_DIR "/skills/plasma/startup-app.sh")} + arguments);
-            p.waitForFinished(10000);
-            if (exitCode)
-                *exitCode = p.exitCode();
-            return QString::fromUtf8(p.readAllStandardOutput()).trimmed();
-        };
-        const QString hid = home.filePath(QStringLiteral(".config/autostart/sys.desktop"));
-        QCOMPARE(helper({QStringLiteral("state"), QStringLiteral("sys")}), QStringLiteral("on"));
-        int code = -1;
-        helper({QStringLiteral("off"), QStringLiteral("sys")}, &code);
-        QCOMPARE(code, 0);
-        QVERIFY(QFile::exists(hid));
-        QCOMPARE(helper({QStringLiteral("state"), QStringLiteral("sys")}), QStringLiteral("off"));
-        helper({QStringLiteral("on"), QStringLiteral("sys")}, &code);
-        QCOMPARE(code, 0);
-        QVERIFY(!QFile::exists(hid));
-
-        helper({QStringLiteral("off"), QStringLiteral("mine")}, &code);
-        QCOMPARE(code, 0);
-        QCOMPARE(helper({QStringLiteral("state"), QStringLiteral("mine")}), QStringLiteral("off"));
-        helper({QStringLiteral("on"), QStringLiteral("mine")}, &code);
-        QFile file(mine);
-        QVERIFY(file.open(QIODevice::ReadOnly));
-        QCOMPARE(QString::fromUtf8(file.readAll()), original);
-
-        // Nothing outside the autostart folders is reached.
-        helper({QStringLiteral("off"), QStringLiteral("../../.bashrc")}, &code);
-        QCOMPARE(code, 2);
-        helper({QStringLiteral("off"), QStringLiteral("nothing")}, &code);
-        QCOMPARE(code, 1);
-    }
-
-    void aCardIsOpenedByName()
-    {
-        QString error;
-        std::optional<ChangeProposal> asked = ChangeProposal::fromJson(R"({"title": "Free up space", "card": "space"})", &error);
-        QVERIFY2(asked, qPrintable(error));
-        QCOMPARE(asked->card, QStringLiteral("space"));
-        QVERIFY(!ChangeProposal::fromJson(R"({"title": "x", "card": "dishes"})"));
-
-        Conversation c({});
-        c.spaceCleanup()->setLookScript(printing(QStringLiteral("space-look.txt")));
-        c.healthCheck()->setLookScript(printing(QStringLiteral("health-look.txt")));
-        c.propose(*asked);
-        QCOMPARE(c.chore(), QStringLiteral("space"));
-        QVERIFY(c.choreBusy());
+        QTemporaryDir store;
+        Helpers h(store.path());
+        h.spaceCleanup()->setLookScript(printing(QStringLiteral("space-look.txt")));
+        h.healthCheck()->setLookScript(printing(QStringLiteral("health-look.txt")));
+        QVERIFY(!h.openChore(QStringLiteral("dishes")));
+        QVERIFY(h.openChore(QStringLiteral("space")));
+        QCOMPARE(h.chore(), QStringLiteral("space"));
+        QVERIFY(h.choreBusy());
         // Never two at once.
-        QVERIFY(!c.openChore(QStringLiteral("health")));
-        QTRY_COMPARE(c.spaceCleanup()->stage(), QStringLiteral("ready"));
-        QVERIFY(c.openChore(QStringLiteral("health")));
-        QCOMPARE(c.chore(), QStringLiteral("health"));
-        QCOMPARE(c.spaceCleanup()->stage(), QString());
-        QTRY_COMPARE(c.healthCheck()->stage(), QStringLiteral("done"));
+        QVERIFY(!h.openChore(QStringLiteral("health")));
+        QTRY_COMPARE(h.spaceCleanup()->stage(), QStringLiteral("ready"));
+        QVERIFY(h.openChore(QStringLiteral("health")));
+        QCOMPARE(h.chore(), QStringLiteral("health"));
+        QCOMPARE(h.spaceCleanup()->stage(), QString());
+        QTRY_COMPARE(h.healthCheck()->stage(), QStringLiteral("done"));
     }
 };
 

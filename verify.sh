@@ -6,10 +6,9 @@ build_dir="${project_root}/build/verify"
 
 python3 "${project_root}/tests/verify-public.py"
 python3 "${project_root}/tests/verify-guide.py"
-python3 "${project_root}/tests/verify-skills.py"
 
-# Builds Milestone 0 and runs every test. The tests use the pretend assistant
-# only, with a home folder of their own inside the build.
+# Builds Split Rock and runs every test, each with a home folder of its own
+# inside the build.
 generator=()
 if command -v ninja >/dev/null 2>&1; then
     generator=(-G Ninja)

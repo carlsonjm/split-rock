@@ -110,8 +110,9 @@ drive gives it nothing to say.
 - **Service:** `io.github.carlsonjm.splitrock.Core`, owned by the one running
   Core. A call before Core has started starts it, from its bus service file.
 - **Object:** `/Core`. **Interface:** `io.github.carlsonjm.SplitRock.Core`.
-- **Version:** `ProtocolVersion()` returns `1`, and changes on the same terms
-  as the conversation's (`DESKTOP.md`).
+- **Version:** `ProtocolVersion()` returns `1`. A caller uses the interface only
+  when the number is one it knows. A method or a key added later, which a
+  version-1 caller can ignore, keeps the number; any other change raises it.
 
 | Method or signal | What it does |
 | --- | --- |

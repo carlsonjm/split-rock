@@ -8,7 +8,7 @@ import "Icons.js" as Icons
 CardFrame {
     id: card
     objectName: "restoreCard"
-    readonly property var job: conversation.restore
+    readonly property var job: helpers.restore
     readonly property string stage: card.job.stage
     readonly property var points: card.job.points
     readonly property var chosen: card.job.chosen
@@ -40,7 +40,7 @@ CardFrame {
             switch (card.stage) {
             case "looking": return "Each is how the system was just before a change."
             case "nothing": return card.job.configured ? "One is taken before each update and install."
-                                                       : "Ask " + productName + " about setting them up."
+                                                       : "This computer isn't set up to take them."
             case "denied": return "It only reads the list; nothing changes."
             case "chosen": return card.chosen.what + "." + (card.job.homeSeparate ? " Your own files stay as they are now." : "")
             case "booted": return "Nothing is kept yet. Restarting normally comes back to how it was."
@@ -118,14 +118,14 @@ CardFrame {
         visible: card.stage === "chosen" && card.job.steps.length === 0
         tone: theme.warn
         text: "This computer's startup menu doesn't list restore points, so there's no safe way back from here."
-              + (card.job.keepTool !== "" ? " " + card.keepName + " can put one back." : " Ask " + productName + " what to do.")
+              + (card.job.keepTool !== "" ? " " + card.keepName + " can put one back." : "")
     }
 
     CardNote {
         visible: card.stage === "booted"
         tone: card.tone
         text: card.job.keepTool !== "" ? "If everything is right, keep it with " + card.keepName + ", the computer's own tool for it."
-                                       : "This computer has no tool to keep it. Ask " + productName + " what to do."
+                                       : "This computer has no tool to keep it."
     }
 
     Flow {

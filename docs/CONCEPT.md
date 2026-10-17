@@ -1,5 +1,9 @@
 # Concept
 
+> Genie's chat is gone (`DECISIONS.md`, Genie's chat is gone). What follows
+> about the conversation, the assistants and the notebook's part in them is
+> the record of what was built; the Helpers and Core are what remain.
+
 What Split Rock is for, who it is for, and the rules it keeps. The plan is in
 `ROADMAP.md`; settled rulings and what they rejected are in `DECISIONS.md`.
 

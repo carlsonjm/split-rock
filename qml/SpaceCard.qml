@@ -8,7 +8,7 @@ import "Icons.js" as Icons
 CardFrame {
     id: card
     objectName: "spaceCard"
-    readonly property var job: conversation.space
+    readonly property var job: helpers.space
     readonly property string stage: card.job.stage
     readonly property var items: card.job.items
     readonly property bool anyChosen: card.items.some(i => i.chosen)

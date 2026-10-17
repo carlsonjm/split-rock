@@ -2,8 +2,7 @@ name: Arch current
 
 # Builds and checks Split Rock against Arch Linux's current KDE and Qt
 # packages, so a KDE update that breaks the build shows here before it reaches
-# a device. Every test uses the pretend assistant; no account or network is
-# needed.
+# a device. No account or network is needed.
 on:
   pull_request:
   push:
@@ -24,8 +23,8 @@ jobs:
   verify:
     name: Arch current
     runs-on: ubuntu-latest
-    # Privileged so bubblewrap can build the fence the assistant runs in, and
-    # the fence tests run instead of skipping.
+    # Privileged so bubblewrap can build the guard a change and its undo run
+    # in, and the change tests run.
     container:
       image: ghcr.io/archlinux/archlinux:latest
       options: --privileged
@@ -37,13 +36,13 @@ jobs:
         run: |
           pacman -Syu --noconfirm --needed \
             base-devel cmake ninja git python dbus bubblewrap noto-fonts \
-            qt6-base qt6-declarative layer-shell-qt kirigami
+            qt6-base qt6-declarative
 
       - uses: actions/checkout@v5
 
       - name: Record the KDE and Qt versions checked
         run: |
-          pacman -Q qt6-base qt6-declarative layer-shell-qt kirigami bubblewrap noto-fonts
+          pacman -Q qt6-base qt6-declarative bubblewrap noto-fonts
           fc-match sans-serif
 
       - name: Run ./verify.sh

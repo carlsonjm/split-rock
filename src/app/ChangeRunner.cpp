@@ -4,6 +4,7 @@
 #include "app/Admin.h"
 #include "app/Product.h"
 
+#include <QCryptographicHash>
 #include <QDebug>
 #include <QElapsedTimer>
 #include <QDir>
@@ -14,6 +15,7 @@
 #include <QProcess>
 #include <QRandomGenerator>
 #include <QRegularExpression>
+#include <QSaveFile>
 #include <QStandardPaths>
 #include <QThread>
 #include <QTimer>
@@ -32,6 +34,22 @@ QString newId()
 {
     return QDateTime::currentDateTime().toString(QStringLiteral("yyyyMMdd'T'HHmmss"))
         + QStringLiteral("-%1").arg(QRandomGenerator::global()->bounded(0x10000), 4, 16, QLatin1Char('0'));
+}
+
+// A file's contents as a SHA-256, "-" when there is no file, or empty when it
+// can't be read.
+QString stateOf(const QString &path)
+{
+    const QFileInfo info(path);
+    if (!info.exists() && !info.isSymLink())
+        return QStringLiteral("-");
+    QFile file(path);
+    if (!info.isFile() || !file.open(QIODevice::ReadOnly))
+        return {};
+    QCryptographicHash hash(QCryptographicHash::Sha256);
+    if (!hash.addData(&file))
+        return {};
+    return QString::fromLatin1(hash.result().toHex());
 }
 
 QString expandHome(const QString &path)
@@ -70,7 +88,8 @@ QJsonObject ChangeRunner::Record::toJson() const
     for (const Copy &c : copies)
         copied.append(QJsonObject{{QStringLiteral("original"), c.original},
                                   {QStringLiteral("copy"), c.copy},
-                                  {QStringLiteral("absent"), c.absent}});
+                                  {QStringLiteral("absent"), c.absent},
+                                  {QStringLiteral("after"), c.after}});
     return {{QStringLiteral("id"), id},
             {QStringLiteral("made"), made.toString(Qt::ISODate)},
             {QStringLiteral("proposal"), proposal.toJson()},
@@ -100,7 +119,7 @@ ChangeRunner::Record ChangeRunner::Record::fromJson(const QJsonObject &object)
     for (const QJsonValue &value : object.value(QStringLiteral("copies")).toArray()) {
         const QJsonObject c = value.toObject();
         r.copies.append({c.value(QStringLiteral("original")).toString(), c.value(QStringLiteral("copy")).toString(),
-                         c.value(QStringLiteral("absent")).toBool()});
+                         c.value(QStringLiteral("absent")).toBool(), c.value(QStringLiteral("after")).toString()});
     }
     const QString undone = object.value(QStringLiteral("undone")).toString();
     if (!undone.isEmpty())
@@ -148,17 +167,6 @@ ChangeProposal ChangeRunner::withKnownUndo(const ChangeProposal &change, const A
     if (known.check.isEmpty())
         known.check = Appearance::checkCommand();
     return known;
-}
-
-QString ChangeRunner::undoPromise(const ChangeProposal &change)
-{
-    if (Appearance::touchedBy(change.command) && !change.undo.isEmpty())
-        return QStringLiteral("Undo, in the notebook, puts back the whole look you have now.");
-    if (!change.undo.isEmpty())
-        return QStringLiteral("Undo, in the notebook, runs the way back the assistant gave.");
-    if (!change.files.isEmpty())
-        return QStringLiteral("%1 copies your files aside first. Undo, in the notebook, puts them back.").arg(productName());
-    return QStringLiteral("This can't be undone automatically. It is written in the notebook.");
 }
 
 QString ChangeRunner::bubblewrap()
@@ -358,7 +366,12 @@ QString ChangeRunner::make(const ChangeProposal &change, const std::function<boo
             record.copies.append({original, {}, true});
         }
     }
-    save(record);
+    // Written down, with its way back, before anything changes, or not made.
+    if (!save(record)) {
+        qWarning().noquote() << QStringLiteral("%1: refused to make \"%2\": it couldn't be written down first")
+                                    .arg(productName(), change.title);
+        return {};
+    }
     if (before && !before(record)) {
         record.status = QStringLiteral("failed");
         record.output = QStringLiteral("Not made: it could not be written down first.");
@@ -372,6 +385,8 @@ QString ChangeRunner::make(const ChangeProposal &change, const std::function<boo
     run(program, m_timeLimit, [this, record](int exitCode, const QString &output) mutable {
         record.exitCode = exitCode;
         record.output = output;
+        for (Copy &c : record.copies)
+            c.after = stateOf(c.original);
         record.status = exitCode == 0 ? QStringLiteral("done") : QStringLiteral("failed");
         save(record);
         qInfo().noquote() << QStringLiteral("%1: change %2 %3, exit code %4: %5")
@@ -424,17 +439,11 @@ bool ChangeRunner::undo(const QString &id, QString *error)
             Q_EMIT undone(done);
         });
     };
-    const auto putBackCopies = [r] {
-        bool ok = true;
-        for (const Copy &c : r.copies) {
-            if (c.absent) {
-                if (QFileInfo::exists(c.original))
-                    ok = QFile::remove(c.original) && ok;
-                continue;
-            }
-            QFile::remove(c.original);
-            ok = QFile::copy(c.copy, c.original) && ok;
-        }
+    const auto putBackCopies = [this, r](QString *output) {
+        QString why;
+        const bool ok = this->putBackCopies(r, &why);
+        if (!why.isEmpty())
+            *output += (output->isEmpty() ? QString() : QStringLiteral("\n")) + why;
         return ok;
     };
 
@@ -451,7 +460,9 @@ bool ChangeRunner::undo(const QString &id, QString *error)
         return true;
     }
     if (r.proposal.undo.isEmpty()) {
-        finish(putBackCopies(), QString());
+        QString output;
+        const bool ok = putBackCopies(&output);
+        finish(ok, output);
         return true;
     }
     // The record is the person's own file, so its way back is held to what a
@@ -460,13 +471,16 @@ bool ChangeRunner::undo(const QString &id, QString *error)
         return fail(QStringLiteral("That change can't be undone automatically."));
     const QStringList program = guarded(unattended(r.proposal.undo));
     run(program, m_timeLimit,
-        [finish, putBackCopies, hasCopies = !r.copies.isEmpty()](int exitCode, const QString &output) {
+        [finish, putBackCopies, hasCopies = !r.copies.isEmpty()](int exitCode, QString output) {
             // The way back failed: the copies, where there are any, still
             // put the files back.
-            if (exitCode != 0 && hasCopies)
-                finish(putBackCopies(), output + QStringLiteral("\nPut back the copies of the files instead."));
-            else
+            if (exitCode != 0 && hasCopies) {
+                output += QStringLiteral("\nPut back the copies of the files instead.");
+                const bool ok = putBackCopies(&output);
+                finish(ok, output);
+            } else {
                 finish(exitCode == 0, output);
+            }
         });
     return true;
 }
@@ -495,12 +509,62 @@ std::optional<ChangeRunner::Record> ChangeRunner::record(const QString &id) cons
     return Record::fromJson(document.object());
 }
 
-void ChangeRunner::save(const Record &record) const
+bool ChangeRunner::save(const Record &record) const
 {
     QDir().mkpath(QDir(m_store).filePath(record.id));
-    QFile file(QDir(m_store).filePath(record.id + QStringLiteral("/change.json")));
-    if (file.open(QIODevice::WriteOnly | QIODevice::Truncate))
-        file.write(QJsonDocument(record.toJson()).toJson());
+    QSaveFile file(QDir(m_store).filePath(record.id + QStringLiteral("/change.json")));
+    if (!file.open(QIODevice::WriteOnly) || file.write(QJsonDocument(record.toJson()).toJson()) < 0 || !file.commit()) {
+        qWarning().noquote() << QStringLiteral("%1: couldn't write down change %2: %3").arg(productName(), record.id, file.errorString());
+        return false;
+    }
+    return true;
+}
+
+bool ChangeRunner::putBackCopies(const Record &record, QString *why) const
+{
+    const QDir folder(QDir(m_store).filePath(record.id));
+    const QString stamp = QDateTime::currentDateTime().toString(QStringLiteral("yyyyMMdd'T'HHmmsszzz"));
+    // Changed since the change was made, by the person or anything else:
+    // putting the old copies back would lose that, so none is.
+    QStringList changed;
+    for (const Copy &c : record.copies) {
+        if (!c.after.isEmpty() && stateOf(c.original) != c.after)
+            changed.append(c.original);
+    }
+    if (!changed.isEmpty()) {
+        if (why)
+            *why = QStringLiteral("Nothing was put back: %1 has changed since.").arg(changed.join(QStringLiteral(", ")));
+        return false;
+    }
+    QStringList left;
+    int n = 0;
+    for (const Copy &c : record.copies) {
+        const QString name = QFileInfo(c.original).fileName();
+        const QString aside = folder.filePath(QStringLiteral("%1-%2.before-undo-%3").arg(n++).arg(name, stamp));
+        const QString now = stateOf(c.original);
+        if (c.absent) {
+            // The change made it; kept aside rather than deleted.
+            if (now != QLatin1String("-") && !QFile::rename(c.original, aside))
+                left.append(QStringLiteral("%1 couldn't be moved aside.").arg(c.original));
+            continue;
+        }
+        QFile copy(c.copy);
+        if (!copy.open(QIODevice::ReadOnly)) {
+            left.append(QStringLiteral("The copy of %1 couldn't be read, so it was left as it is.").arg(c.original));
+            continue;
+        }
+        if (now != QLatin1String("-") && !QFile::copy(c.original, aside)) {
+            left.append(QStringLiteral("%1 couldn't be kept aside first, so it was left as it is.").arg(c.original));
+            continue;
+        }
+        // Replaced whole in one step, so a failure leaves the file as it was.
+        QSaveFile original(c.original);
+        if (!original.open(QIODevice::WriteOnly) || original.write(copy.readAll()) < 0 || !original.commit())
+            left.append(QStringLiteral("%1 couldn't be put back: %2").arg(c.original, original.errorString()));
+    }
+    if (why)
+        *why = left.join(QLatin1Char('\n'));
+    return left.isEmpty();
 }
 
 void ChangeRunner::afterChange(const ChangeProposal &change, bool withCheck, std::function<void(const QString &)> done)
