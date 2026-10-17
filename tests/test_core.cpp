@@ -454,7 +454,7 @@ private Q_SLOTS:
     void theNoticeSettingMovesEveryTopicsMarks()
     {
         Desk d;
-        QCOMPARE(d.core->notice(), QStringLiteral("balanced"));
+        QCOMPARE(d.core->notice(), 50);
         d.setNotice(QStringLiteral("quiet"));
         QCOMPARE(d.core->storageLimits().ticker, 85);
         QCOMPARE(d.core->updatesLimits().ticker, 21);
@@ -481,9 +481,42 @@ private Q_SLOTS:
         QCOMPARE(e.topics, (QStringList{QStringLiteral("storage"), QStringLiteral("updates")}));
         QCOMPARE(read(e.dir.filePath(QStringLiteral("core/storage.tsv"))).count(QLatin1Char('\n')), 1);
 
-        // Anything else reads as balanced.
+        // Anything else reads as the default.
         d.setNotice(QStringLiteral("loud"));
-        QCOMPARE(d.core->notice(), QStringLiteral("balanced"));
+        QCOMPARE(d.core->notice(), 50);
+        QCOMPARE(d.core->storageLimits().ticker, 75);
+    }
+
+    void theNoticeSliderMovesTheMarksBetweenItsEnds()
+    {
+        Desk d;
+        // The ends and the middle are the three steps it replaced.
+        d.setNotice(QStringLiteral("0"));
+        QCOMPARE(d.core->storageLimits().ticker, 85);
+        QCOMPARE(d.core->updatesLimits().island, 45);
+        d.setNotice(QStringLiteral("50"));
+        QCOMPARE(d.core->storageLimits().island, 90);
+        QCOMPARE(d.core->updatesLimits().ticker, 7);
+        d.setNotice(QStringLiteral("100"));
+        QCOMPARE(d.core->storageLimits().ticker, 70);
+        QCOMPARE(d.core->updatesLimits().ticker, 3);
+        // Between, in a straight line.
+        d.setNotice(QStringLiteral("25"));
+        QCOMPARE(d.core->storageLimits().ticker, 80);
+        QCOMPARE(d.core->storageLimits().island, 93);
+        QCOMPARE(d.core->updatesLimits().ticker, 14);
+        QCOMPARE(d.core->updatesLimits().island, 33);
+        d.setNotice(QStringLiteral("75"));
+        QCOMPARE(d.core->updatesLimits().island, 16);
+        // Out of range holds at the end.
+        d.setNotice(QStringLiteral("140"));
+        QCOMPARE(d.core->notice(), 100);
+        d.setNotice(QStringLiteral("-5"));
+        QCOMPARE(d.core->notice(), 0);
+        // A slider set to 80 is felt at the next look.
+        d.setNotice(QStringLiteral("80"));
+        d.look(73);
+        QCOMPARE(d.topics, (QStringList{QStringLiteral("storage")}));
     }
 
     void updatesSwitchedOffAreSilentAndAbsent()

@@ -15,13 +15,13 @@ on its own, in an ordinary window, from Core or Search (`DESKTOP.md`).
 
 | Input | What happens |
 | --- | --- |
-| Tap or click it in Search, or tap or click a notice from Core | The Helper opens in its window and looks first: Update, Free up space, Install a new app, Remove an app, Health check, What changed, Restore points or Community apps. It changes nothing until its own button is tapped, and asks for the password in the system's own prompt where it must. |
+| Tap or click it in Search, or tap or click a notice from Core | The Helper opens in its window and looks first: Update, Free up space, Install a new app, Remove an app, Health check, What changed, Restore points or Community apps. It changes nothing until you tap its own button, and asks for a password only in the system's own prompt, where one is needed. |
 
 ## Act on a Helper
 
 | Input | What happens |
 | --- | --- |
-| Tap or click its button | The Helper does its one job, as its card said: what it changes is written in the notebook first, with how to undo it, and its progress shows on the card until it is done. |
+| Tap or click its button | The Helper does its one job, as its card said. It first writes what it will change in the notebook, with how to undo it, and shows its progress on the card until it is done. |
 
 ## Scroll
 
@@ -40,4 +40,4 @@ on its own, in an ordinary window, from Core or Search (`DESKTOP.md`).
 
 | Input | What happens |
 | --- | --- |
-| Tap or click Undo beside a change, or Undo it, on What changed | That change is put back, the way its card promised, and its line in This computer.md says it was undone. A file changed since the change is left as it is, and nothing is put back; any file Undo replaces or removes is kept aside in the change's own folder first. Undo is offered only while nothing else is being changed. |
+| Tap or click Undo beside a change, or Undo it, on What changed | Split Rock puts that change back, as its card promised, and marks its line in This computer.md as undone. If a file has changed since, Split Rock leaves it as it is and puts nothing back. Before Undo replaces or removes a file, it keeps a copy in the change's own folder. Undo is offered only while nothing else is being changed. |

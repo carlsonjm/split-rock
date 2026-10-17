@@ -4,41 +4,41 @@ Core is Split Rock's front desk: a small background program with no window,
 `split-rock-core`, one for each person. It looks at the computer on a schedule,
 writes what it saw in a logbook the person can read, and tells the desktop's
 surfaces when a fact deserves attention. Search, the island and the ticker show
-what it says; the upkeep cards do the work, after the person's yes. The
-conversation is a separate part and Core never needs it.
+what it says; the upkeep cards do the work, after the person's yes. Core works
+without the conversation.
 
-Its topics are Storage and Updates. Each repeats the same pattern: what Core
-watches, the card it can open, and the words it uses.
+Core watches two topics, Storage and Updates. Each section below gives what
+Core watches, the card it can open and the words it uses.
 
 ## What holds
 
 - It runs as the person, never as the administrator.
-- It never calls a language model, and works with no model installed. What it
-  says is fixed wording ("Storage · 91% full").
-- It never changes the computer. The most it does is open an upkeep card, where
-  the person decides, as every card already asks.
+- It calls no language model and works with none installed. What it says is
+  fixed wording ("Storage · 91% full").
+- It changes nothing on the computer. The most it does is open an upkeep card,
+  where the person decides.
 - Everything it keeps is a plain file in `split-rock/core` in the person's data
   folder, cut back to the last 90 days:
   - `logbook.txt`: what it saw and said, and what the person did, one line each,
     by time
   - `storage.tsv`: its looks at the drive: time, size and free space in
     kilobytes
-  - `attention.ini`: what it has said, so it never says it twice, and its
+  - `attention.ini`: what it has said, so it doesn't say it twice, and its
     last look for updates
-- Core as a whole, or any one topic, is switched off in `split-rock-corerc` in
-  the person's settings folder (`[General] Enabled=false`, or
-  `[Storage] Enabled=false`, `[Updates] Enabled=false`). A topic switched off
-  is neither watched nor offered.
+- `split-rock-corerc` in the person's settings folder switches off Core as a
+  whole (`[General] Enabled=false`) or one topic (`[Storage] Enabled=false`,
+  `[Updates] Enabled=false`). Core neither watches nor offers a topic that is
+  switched off.
 - Core starts at sign-in, from `io.github.carlsonjm.splitrock.Core.desktop` in
   the system's autostart folder, so it keeps its schedule whether or not a
   surface has asked for it yet. A second start ends at once.
 - Where systemd runs the person's services, Core runs as
-  `split-rock-core.service`, part of the signed-in desktop, whether sign-in or
-  the session bus started it: signing out stops it, so the next sign-in runs
-  the program as installed then. `install.sh` also replaces a running Core
+  `split-rock-core.service` inside the signed-in desktop, whether sign-in or
+  the session bus started it. Signing out stops it, so the next sign-in starts
+  whichever version is installed then. `install.sh` also replaces a running Core
   with the one it just installed.
-- Every surface works as it always has without Core. A surface finds Core on the
-  session bus or carries on without it.
+- Every surface works without Core. A surface looks for Core on the session bus
+  and carries on if it isn't there.
 
 ## Storage
 
@@ -54,12 +54,13 @@ the drive is filling.
 
 ## Updates
 
-Core looks for updates two minutes after it starts, every 6 hours after, and
-two minutes after pacman's log, or the mark a Flatpak installation (the
-system's or the person's own) sets on each install and update, stops changing,
-so a finished update is seen at once. It counts the system's updates with `checkupdates`, which fetches the
-package lists into a folder of its own, adds Flatpak apps with updates, and
-reads the time of the last full update from pacman's log. A computer without
+Core looks for updates two minutes after it starts and every 6 hours after
+that. It also looks two minutes after pacman's log stops changing, or after the
+mark a Flatpak installation (the system's or the person's own) sets on each
+install and update stops changing, so it sees a finished update at once. It
+counts the system's updates with `checkupdates`, which fetches the package
+lists into a folder of its own, adds Flatpak apps with updates, and reads the
+time of the last full update from pacman's log. A computer without
 `checkupdates` has no Updates fact. A look that fails, such as with no
 network, leaves the last fact standing.
 
@@ -70,20 +71,26 @@ network, leaves the last fact standing.
 | Island | Updates waiting, 21 days or more since the last full update | Search's island. Tapping it opens Check for updates |
 
 The step is a week: Updates speaks again only a week further behind, and Not
-now quiets it for a week. Nothing waiting is settled. Without a record of the
-last update, the days count from when Core first saw updates waiting.
+now quiets it for a week. Nothing waiting counts as settled. Without a record
+of the last update, the days count from when Core first saw updates waiting.
 
 ## Notice
 
 One setting moves every topic's marks together: `[General] Notice` in
-`split-rock-corerc`, which Shuffle Settings shows as Reminders (Less, Balanced,
-More). Core feels a change as soon as the file is saved.
+`split-rock-corerc`, a number from 0 (Less) to 100 (More), 50 by default, which
+Shuffle Settings shows as the Pings slider on its Helpers page. Core picks up a
+change as soon as the file is saved. The words an earlier Settings wrote still
+read: `quiet` is 0 and `eager` is 100; anything else is 50.
+
+The marks at the ends and the middle are below; between them each moves in a
+straight line, rounded to a whole point or day (25 is 80%, 93% and 14 days, 33
+days).
 
 | Notice | Storage: ticker, island | Updates: ticker, island |
 | --- | --- | --- |
-| `quiet` | 85%, 95% | 21 days, 45 days |
-| `balanced` (the default) | 75%, 90% | 7 days, 21 days |
-| `eager` | 70%, 85% | 3 days, 10 days |
+| 0, Less | 85%, 95% | 21 days, 45 days |
+| 50, the default | 75%, 90% | 7 days, 21 days |
+| 100, More | 70%, 85% | 3 days, 10 days |
 
 ## How often Core speaks
 
@@ -102,8 +109,7 @@ More). Core feels a change as soon as the file is saved.
 
 The logbook records Core's first look after each start, every time it spoke,
 and whether the person opened the card, said not now, or left it, so real use
-can set these limits. Below the ticker's mark it writes nothing more: a quiet
-drive gives it nothing to say.
+can set these limits. Below the ticker's mark it writes nothing more.
 
 ## On the bus
 
@@ -147,14 +153,14 @@ for updates, Free up space, Install an app, Health check, What changed, Restore
 points and Community apps. Core lists them with the words each is found by,
 and Search matches what is typed against them without asking Core anything.
 Enter on one asks Core to open it. Each card looks first and changes nothing
-until the person's yes, as it always has. The logbook records each one opened.
+until the person says yes. The logbook records each card opened.
 
 ## Opening a card
 
 Core opens a card by starting `split-rock --card space`, or
-`split-rock --card install --query "pdf editor"` for the card that takes words. Split Rock then opens
-that one upkeep card on its own, in an ordinary window titled after the card,
-with no conversation and no assistant started. The window closes when the card
-does, and can't be closed while the card is busy. A card that hands over to
+`split-rock --card install --query "pdf editor"` for the card that takes words. Split Rock then
+opens that one upkeep card on its own, in an ordinary window titled after the
+card, with no conversation and no assistant started. The window closes when the
+card does, and can't be closed while the card is busy. A card that hands over to
 another, as Health check does to Free up space, keeps the window: the next card
 opens in it.
