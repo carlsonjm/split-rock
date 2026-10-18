@@ -19,6 +19,7 @@ That is a developer install for the maintainer's own computer, not the package.
 | Start | What opens |
 | --- | --- |
 | `--card NAME` | One Helper in a window of its own: `update`, `space`, `install`, `uninstall`, `health`, `changes`, `restore` or `community`. `--query` gives Install an app what to look for, or Remove an app the desktop file id of the app to remove |
+| `--health-report` | No window: it looks the computer over as Health check does, prints what it finds, and ends. It needs no desktop, no assistant and no language model, and changes nothing, not even the last look Health check keeps. It ends with 1 only when the look could not run to its end. Shuffle's package checks run it on a freshly installed system |
 | No `--card` | Nothing: it says how to start a Helper, and ends |
 
 Only one Split Rock runs at a time. A second start hands its arguments to the

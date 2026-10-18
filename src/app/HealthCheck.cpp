@@ -457,6 +457,31 @@ QList<HealthCheck::Item> HealthCheck::readLook(const QString &output, const QDat
     return items;
 }
 
+QString HealthCheck::defaultLookScript()
+{
+    return LookScript;
+}
+
+bool HealthCheck::lookFinished(const QString &output)
+{
+    return sections(output).contains(QStringLiteral("end"));
+}
+
+QString HealthCheck::report(const QList<Item> &items)
+{
+    const int attention = int(std::count_if(items.cbegin(), items.cend(), [](const Item &i) { return i.state != QLatin1String("good"); }));
+    QStringList lines{attention == 0 ? QStringLiteral("Health check: nothing needs a look.")
+                      : attention == 1 ? QStringLiteral("Health check: 1 thing needs a look.")
+                                       : QStringLiteral("Health check: %1 things need a look.").arg(attention)};
+    for (const Item &item : items) {
+        const QString state = item.state == QLatin1String("bad")    ? QStringLiteral("problem")
+                            : item.state == QLatin1String("warn")   ? QStringLiteral("look")
+                                                                    : QStringLiteral("good");
+        lines.append(QStringLiteral("%1  %2: %3").arg(state.leftJustified(7), item.title, item.detail));
+    }
+    return lines.join(QLatin1Char('\n')) + QLatin1Char('\n');
+}
+
 QVariantList HealthCheck::itemList() const
 {
     QVariantList list;
