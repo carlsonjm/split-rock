@@ -3,6 +3,7 @@
 // Split Rock's Helpers: one at a time, each in a window of its own.
 //
 //   split-rock --card NAME [--query TEXT] [--notebook DIR]
+//   split-rock --health-report
 //
 // --card opens one Helper, such as space, in an ordinary window: Core and
 // Search open Free up space and the others this way (docs/CORE.md). Split Rock
@@ -10,13 +11,20 @@
 // It ends once the last Helper's window has closed.
 //
 // --notebook    the notebook folder (default: Notebook in the Documents folder)
+//
+// --health-report looks the computer over as Health check does and prints what
+// it finds, with no window, no assistant and no language model. It changes
+// nothing, not even the last look Health check keeps. It ends with 1 only when
+// the look could not run to its end.
 
+#include "app/HealthCheck.h"
 #include "app/Helpers.h"
 #include "app/Notebook.h"
 #include "app/QmlContext.h"
 #include "desktop/Entry.h"
 
 #include <QCommandLineParser>
+#include <QCoreApplication>
 #include <QDBusConnection>
 #include <QDBusConnectionInterface>
 #include <QDBusMessage>
@@ -24,12 +32,15 @@
 #include <QQmlApplicationEngine>
 #include <QQmlComponent>
 #include <QQmlContext>
+#include <QProcess>
 #include <QQuickWindow>
 #include <QSocketNotifier>
 #include <QTimer>
 #include <QUrl>
 
 #include <csignal>
+#include <cstdio>
+#include <cstring>
 #include <sys/socket.h>
 #include <unistd.h>
 
@@ -66,10 +77,35 @@ void quitOnSignals(QGuiApplication &app)
         std::signal(signal, onSignal);
 }
 
+// The look runs as the person, the same script as the card's, and waits for it.
+int healthReport(int argc, char **argv)
+{
+    QCoreApplication app(argc, argv);
+    QProcess look;
+    look.start(QStringLiteral("/bin/sh"), {QStringLiteral("-c"), splitrock::HealthCheck::defaultLookScript()});
+    if (!look.waitForFinished(60000)) {
+        look.kill();
+        std::fputs("Health check: the look didn't finish.\n", stderr);
+        return 1;
+    }
+    const QString output = QString::fromUtf8(look.readAllStandardOutput());
+    if (!splitrock::HealthCheck::lookFinished(output)) {
+        std::fputs("Health check: the look stopped before its end.\n", stderr);
+        return 1;
+    }
+    std::fputs(splitrock::HealthCheck::report(splitrock::HealthCheck::readLook(output)).toUtf8().constData(), stdout);
+    return 0;
+}
+
 } // namespace
 
 int main(int argc, char **argv)
 {
+    // Before the desktop's own start, so it runs where there is no desktop.
+    for (int i = 1; i < argc; ++i)
+        if (std::strcmp(argv[i], "--health-report") == 0)
+            return healthReport(argc, argv);
+
     QGuiApplication app(argc, argv);
     QGuiApplication::setApplicationName(QStringLiteral("split-rock"));
     splitrock::setInsideShuffle(splitrock::shuffleInstalled());

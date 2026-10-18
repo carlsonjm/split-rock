@@ -69,6 +69,14 @@ public:
 
     static QList<Item> readLook(const QString &output, const QDateTime &now = QDateTime::currentDateTime());
 
+    // The look itself: a script that only reads, run as the person.
+    static QString defaultLookScript();
+    // Whether a look's output came through to its end.
+    static bool lookFinished(const QString &output);
+    // What a look found, as lines of plain text: problems first, each with its
+    // state, title and detail.
+    static QString report(const QList<Item> &items);
+
     void setLookScript(const QString &script) { m_lookScript = script; }
 
 private:

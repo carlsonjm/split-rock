@@ -686,6 +686,31 @@ private Q_SLOTS:
         QTRY_COMPARE(health.stage(), QStringLiteral("done"));
     }
 
+    void theHealthReportSaysWhatTheLookFound()
+    {
+        const QString look = fixture(QStringLiteral("health-look.txt"));
+        QVERIFY(HealthCheck::lookFinished(look));
+        QVERIFY(!HealthCheck::lookFinished(look.section(QStringLiteral("@@ end"), 0, 0)));
+        const QList<HealthCheck::Item> items = HealthCheck::readLook(look, Now);
+        const QStringList lines = HealthCheck::report(items).trimmed().split(QLatin1Char('\n'));
+        QCOMPARE(lines.size(), items.size() + 1);
+        QVERIFY(lines.first().startsWith(QStringLiteral("Health check: ")));
+        QVERIFY(lines.at(1).startsWith(QStringLiteral("problem  Services: ")));
+        QVERIFY(lines.at(1).contains(QStringLiteral("bluetooth-autoconnect.service")));
+        QVERIFY(lines.last().startsWith(QStringLiteral("good")));
+        QCOMPARE(HealthCheck::report({}).trimmed(), QStringLiteral("Health check: nothing needs a look."));
+    }
+
+    // The real look, on whatever computer runs the tests: it only reads, needs
+    // no assistant, and comes through to its end.
+    void theRealLookRunsToItsEnd()
+    {
+        QProcess look;
+        look.start(QStringLiteral("/bin/sh"), {QStringLiteral("-c"), HealthCheck::defaultLookScript()});
+        QVERIFY(look.waitForFinished(60000));
+        QVERIFY(HealthCheck::lookFinished(QString::fromUtf8(look.readAllStandardOutput())));
+    }
+
     void versionsCompareAsPacmanDoes()
     {
         QVERIFY(CommunityApps::compareVersions(QStringLiteral("1.104.0-1"), QStringLiteral("1.105.1-1")) < 0);
