@@ -19,6 +19,8 @@ Rectangle {
     property bool checked: false
     // Opens something: a chevron at its end.
     property bool opens: false
+    // Does something in place, as its trailing words say, with no chevron.
+    property bool acts: false
     // good, warn or bad: a dot instead of the icon.
     property string standing
     // What it holds, folded under it.
@@ -26,7 +28,7 @@ Rectangle {
     property string listTitle: "Show which"
     signal clicked()
 
-    readonly property bool tappable: checkable || opens
+    readonly property bool tappable: checkable || opens || acts
     readonly property color dot: standing === "bad" ? theme.bad : standing === "warn" ? theme.warn : theme.good
     width: parent ? parent.width : 0
     height: Math.max(56, rowColumn.implicitHeight + 24)

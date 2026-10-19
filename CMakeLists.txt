@@ -98,6 +98,7 @@ add_library(splitrock_core_watch STATIC
     src/core/Attention.cpp
     src/core/Core.cpp
     src/core/CoreService.cpp
+    src/core/Health.cpp
     src/core/Storage.cpp
     src/core/Updates.cpp
 )

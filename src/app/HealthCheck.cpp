@@ -14,7 +14,9 @@
 #include <QHash>
 #include <QRegularExpression>
 #include <QSet>
+#include <QFile>
 #include <QSettings>
+#include <QSysInfo>
 #include <QVariantMap>
 
 #include <algorithm>
@@ -202,6 +204,7 @@ HealthCheck::HealthCheck(QObject *parent)
     , m_checked(QSettings(Organization, Settings).value(QStringLiteral("health/checked")).toDateTime())
     , m_lastAttention(QSettings(Organization, Settings).value(QStringLiteral("health/attention"), -1).toInt())
     , m_lookScript(LookScript)
+    , m_coreSettings(QStandardPaths::writableLocation(QStandardPaths::GenericConfigLocation) + QStringLiteral("/split-rock-corerc"))
 {
     for (const QVariant &item : QSettings(Organization, Settings).value(QStringLiteral("health/items")).toList())
         m_items.append(Item::fromMap(item.toMap()));
@@ -482,6 +485,21 @@ QString HealthCheck::report(const QList<Item> &items)
     return lines.join(QLatin1Char('\n')) + QLatin1Char('\n');
 }
 
+QString HealthCheck::facts(const QList<Item> &items)
+{
+    QString out;
+    for (const Item &item : items) {
+        const QString state = item.state == QLatin1String("bad")    ? QStringLiteral("problem")
+                            : item.state == QLatin1String("warn")   ? QStringLiteral("look")
+                                                                    : QStringLiteral("good");
+        // A tab or a line break inside the words would split the line.
+        const auto plain = [](QString text) { return text.replace(QLatin1Char('\t'), QLatin1Char(' ')).replace(QLatin1Char('\n'), QLatin1Char(' ')); };
+        out += state + QLatin1Char('\t') + plain(item.id) + QLatin1Char('\t') + plain(item.title) + QLatin1Char('\t')
+            + plain(item.detail) + QLatin1Char('\n');
+    }
+    return out;
+}
+
 QVariantList HealthCheck::itemList() const
 {
     QVariantList list;
@@ -504,6 +522,51 @@ QString HealthCheck::lastChecked() const
         return QString();
     const qint64 ago = m_checked.daysTo(QDateTime::currentDateTime());
     return ago <= 0 ? QStringLiteral("Today") : ago == 1 ? QStringLiteral("Yesterday") : QStringLiteral("%1 days ago").arg(ago);
+}
+
+bool HealthCheck::watched() const
+{
+    QSettings core(m_coreSettings, QSettings::IniFormat);
+    return core.value(QStringLiteral("General/Enabled"), true).toBool()
+        && core.value(QStringLiteral("Health/Enabled"), true).toBool();
+}
+
+QString HealthCheck::helpText(const QString &question) const
+{
+    return helpText(question, aboutThisComputer());
+}
+
+QString HealthCheck::helpText(const QString &question, const QString &computer)
+{
+    if (computer.isEmpty())
+        return question;
+    return question + QStringLiteral("\n\nAbout my computer:\n") + computer;
+}
+
+QString HealthCheck::aboutThisComputer()
+{
+    const auto line = [](const QString &path) {
+        QFile file(path);
+        return file.open(QIODevice::ReadOnly) ? QString::fromUtf8(file.readAll()).trimmed() : QString();
+    };
+    QStringList lines;
+    const QString model = (line(QStringLiteral("/sys/class/dmi/id/sys_vendor")) + QLatin1Char(' ')
+                           + line(QStringLiteral("/sys/class/dmi/id/product_name"))).trimmed();
+    if (!model.isEmpty())
+        lines.append(QStringLiteral("Computer: %1").arg(model));
+    lines.append(QStringLiteral("System: %1").arg(QSysInfo::prettyProductName()));
+    lines.append(QStringLiteral("Linux kernel: %1").arg(QSysInfo::kernelVersion()));
+    // "plasmashell 6.8.0", where Plasma is installed.
+    QProcess plasma;
+    plasma.start(QStringLiteral("plasmashell"), {QStringLiteral("--version")});
+    if (plasma.waitForFinished(2000) && plasma.exitStatus() == QProcess::NormalExit && plasma.exitCode() == 0) {
+        const QString version = QString::fromUtf8(plasma.readAllStandardOutput()).trimmed().section(QLatin1Char(' '), -1);
+        if (!version.isEmpty())
+            lines.append(QStringLiteral("KDE Plasma: %1").arg(version));
+    } else {
+        plasma.kill();
+    }
+    return lines.join(QLatin1Char('\n'));
 }
 
 void HealthCheck::openDownloads()

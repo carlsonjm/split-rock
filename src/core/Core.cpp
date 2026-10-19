@@ -16,6 +16,7 @@ namespace {
 
 const QString Storage = QStringLiteral("storage");
 const QString Updates = QStringLiteral("updates");
+const QString Health = QStringLiteral("health");
 
 QString stamp(const QDateTime &at)
 {
@@ -46,6 +47,7 @@ Core::Core(const QString &folder, const QString &settings, Hooks hooks, QObject 
     trimLogbook();
     m_storage = judge(m_samples, storageLimits());
     m_updates = judge(m_updatesLook, m_waitingSince, updatesLimits());
+    m_health = judge(m_healthLook);
 }
 
 bool Core::enabled(const QString &topic) const
@@ -221,6 +223,49 @@ void Core::seeUpdates(const UpdatesLook &look)
         Q_EMIT factChanged(updatesFact());
 }
 
+bool Core::healthDue() const
+{
+    if (!enabled(Health))
+        return false;
+    return !m_healthLook.at.isValid() || m_healthLook.at.secsTo(m_hooks.now()) >= HealthEveryDays * 86400;
+}
+
+void Core::seeHealth(const HealthLook &look)
+{
+    if (!enabled(Health))
+        return;
+    if (!look.known) {
+        if (!m_healthLooked)
+            write(QStringLiteral("Health  Could not look over the computer; will try again later."));
+        m_healthLooked = true;
+        return;
+    }
+    const HealthFact before = m_health;
+    const bool islandBefore = m_healthAttention.islandOpen;
+    m_healthLook = look;
+    m_health = judge(look);
+
+    // A problem more is worse; one fixed, with others left, is not news.
+    Measure measure;
+    measure.known = true;
+    measure.level = m_health.level;
+    measure.score = m_health.problems;
+    measure.step = 1;
+    measure.settled = m_health.problems == 0;
+    const bool dnd = m_hooks.doNotDisturb && m_hooks.doNotDisturb();
+    const Spoken spoken = decide(measure, m_healthAttention, look.at, dnd);
+
+    if (!m_healthLooked)
+        write(QStringLiteral("Health  First look since starting: %1, %2.").arg(m_health.line, m_health.detail));
+    m_healthLooked = true;
+    tell(Health, QStringLiteral("Health"), spoken, m_health.line, m_health.detail);
+    saveAttention(Health);
+
+    if (!before.known || before.problems != m_health.problems || before.level != m_health.level
+        || before.detail != m_health.detail || islandBefore != m_healthAttention.islandOpen)
+        Q_EMIT factChanged(healthFact());
+}
+
 QList<QVariantMap> Core::facts() const
 {
     QList<QVariantMap> facts;
@@ -228,7 +273,26 @@ QList<QVariantMap> Core::facts() const
         facts.append(storageFact());
     if (enabled(Updates) && m_updates.known)
         facts.append(updatesFact());
+    if (enabled(Health) && m_health.known)
+        facts.append(healthFact());
     return facts;
+}
+
+QVariantMap Core::healthFact() const
+{
+    return {
+        {QStringLiteral("topic"), Health},
+        {QStringLiteral("title"), QStringLiteral("Health")},
+        {QStringLiteral("line"), m_health.line},
+        {QStringLiteral("detail"), m_health.detail},
+        {QStringLiteral("problems"), m_health.problems},
+        {QStringLiteral("level"), levelName(m_health.level)},
+        {QStringLiteral("attention"), m_healthAttention.islandOpen ? QStringLiteral("island") : QStringLiteral("none")},
+        {QStringLiteral("icon"), QStringLiteral("security-high")},
+        {QStringLiteral("actionText"), QStringLiteral("Health check")},
+        {QStringLiteral("keywords"), QStringList{QStringLiteral("health"), QStringLiteral("health check"),
+                                                 QStringLiteral("problem"), QStringLiteral("check my computer")}},
+    };
 }
 
 QVariantMap Core::updatesFact() const
@@ -268,6 +332,25 @@ QVariantMap Core::storageFact() const
 
 bool Core::act(const QString &topic, const QString &action)
 {
+    if (topic == Health) {
+        if (!enabled(Health) || !m_health.known)
+            return false;
+        const bool islandBefore = m_healthAttention.islandOpen;
+        if (!answer(m_healthAttention, action, m_health.problems, 1))
+            return false;
+        if (action == QLatin1String("open")) {
+            write(QStringLiteral("Health  You opened Health check."));
+            if (m_hooks.openCard)
+                m_hooks.openCard(QStringLiteral("health"), QString());
+        } else {
+            write(QStringLiteral("Health  You %1; quiet until a problem more.")
+                      .arg(action == QLatin1String("not-now") ? QStringLiteral("said not now") : QStringLiteral("dismissed it")));
+        }
+        saveAttention(Health);
+        if (islandBefore != m_healthAttention.islandOpen)
+            Q_EMIT factChanged(healthFact());
+        return true;
+    }
     if (topic == Updates) {
         if (!enabled(Updates) || !m_updates.known)
             return false;
@@ -495,6 +578,17 @@ void Core::loadAttention()
     m_updatesLook.waiting = saved.value(QStringLiteral("Updates/Waiting"), 0).toInt();
     m_updatesLook.lastUpdate = savedTime(saved, QStringLiteral("Updates/LastUpdate"));
     m_waitingSince = savedTime(saved, QStringLiteral("Updates/WaitingSince"));
+    // The last look at the computer's health, with its problems.
+    loadState(saved, QStringLiteral("Health"), m_healthAttention);
+    m_healthLook.at = savedTime(saved, QStringLiteral("Health/LookedAt"));
+    m_healthLook.known = m_healthLook.at.isValid();
+    const int problems = saved.beginReadArray(QStringLiteral("HealthProblems"));
+    for (int i = 0; i < problems; ++i) {
+        saved.setArrayIndex(i);
+        m_healthLook.problems.append({saved.value(QStringLiteral("Id")).toString(), saved.value(QStringLiteral("Title")).toString(),
+                                      saved.value(QStringLiteral("Detail")).toString()});
+    }
+    saved.endArray();
 }
 
 void Core::saveAttention(const QString &topic) const
@@ -507,6 +601,21 @@ void Core::saveAttention(const QString &topic) const
         saved.setValue(QStringLiteral("Updates/Waiting"), m_updatesLook.waiting);
         saved.setValue(QStringLiteral("Updates/LastUpdate"), time(m_updatesLook.lastUpdate));
         saved.setValue(QStringLiteral("Updates/WaitingSince"), time(m_waitingSince));
+        return;
+    }
+    if (topic == Health) {
+        saveState(saved, QStringLiteral("Health"), m_healthAttention);
+        saved.setValue(QStringLiteral("Health/LookedAt"),
+                       m_healthLook.at.isValid() ? m_healthLook.at.toUTC().toString(Qt::ISODate) : QString());
+        saved.remove(QStringLiteral("HealthProblems"));
+        saved.beginWriteArray(QStringLiteral("HealthProblems"), int(m_healthLook.problems.size()));
+        for (int i = 0; i < m_healthLook.problems.size(); ++i) {
+            saved.setArrayIndex(i);
+            saved.setValue(QStringLiteral("Id"), m_healthLook.problems.at(i).id);
+            saved.setValue(QStringLiteral("Title"), m_healthLook.problems.at(i).title);
+            saved.setValue(QStringLiteral("Detail"), m_healthLook.problems.at(i).detail);
+        }
+        saved.endArray();
         return;
     }
     saveState(saved, QStringLiteral("Storage"), m_attention);

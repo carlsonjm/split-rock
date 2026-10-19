@@ -1026,3 +1026,24 @@ Rejected for now: when each app was last used, which would mean reading
 Plasma's private record of app use; and removing several at once with one
 password, which would change the administrator's helper. Both are kept for
 after launch.
+
+## Health is Core's third topic, and a problem is copied for help
+
+Core looks over the computer once a week with the Health check's own look and
+speaks of a new problem: the ticker for any, the island only for a drive that
+reports it is failing, the one problem that can lose files. Space and updates
+are left to their own topics. A problem no Helper fixes, which once offered
+"Ask about it" in the conversation, now offers "Copy for help": the problem as a
+question, with what the computer is, for the person to paste where they ask.
+The Health check says it runs by itself once a week only while Core's Health
+topic is on.
+
+Why: the card said it ran by itself once a week, and nothing ran it once the
+conversation was gone; its questions had nowhere to go. The product owner
+chose copying over a web search, because it works without a network and sends
+nothing on its own.
+
+Rejected: a web search for the problem, whose results are often old threads
+that don't fit this computer; leaving those rows with nothing to do; and the
+island for every problem, which would make a failed service as loud as a
+failing drive.

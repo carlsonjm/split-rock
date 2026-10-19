@@ -8,6 +8,9 @@
 //   split-rock-core [--folder DIR] [--settings FILE] [--drive DIR] [--every MINUTES]
 //                   [--updates-every HOURS]
 //
+// It also looks over the computer's health once a week, with Split Rock's own
+// `split-rock --health-facts`.
+//
 // --folder    where its logbook and looks are kept
 //             (default: split-rock/core in the person's data folder)
 // --settings  the settings file where a topic is switched off
@@ -76,19 +79,25 @@ public:
 
     void send(const QString &topic, const QString &summary, const QString &body)
     {
-        const bool updates = topic == QLatin1String("updates");
+        // Each topic's name, icon and card.
+        struct Words {
+            QString name;
+            QString icon;
+            QString card;
+        };
+        const Words words = topic == QLatin1String("updates")
+            ? Words{QStringLiteral("Updates"), QStringLiteral("system-software-update"), QStringLiteral("Check for updates")}
+            : topic == QLatin1String("health")
+            ? Words{QStringLiteral("Health"), QStringLiteral("security-high"), QStringLiteral("Health check")}
+            : Words{QStringLiteral("Storage"), QStringLiteral("drive-harddisk"), QStringLiteral("Free up space")};
         QDBusMessage call = QDBusMessage::createMethodCall(Notifications, NotificationsPath, Notifications,
                                                            QStringLiteral("Notify"));
         const QVariantMap hints{{QStringLiteral("desktop-entry"), QStringLiteral("io.github.carlsonjm.SplitRock")},
                                 {QStringLiteral("urgency"), QVariant::fromValue<uchar>(1)}};
         // Each topic replaces only its own last notification.
         const uint last = m_last.value(topic);
-        call.setArguments({updates ? QStringLiteral("Updates") : QStringLiteral("Storage"), last,
-                           updates ? QStringLiteral("system-software-update") : QStringLiteral("drive-harddisk"),
-                           summary, body,
-                           QStringList{QStringLiteral("default"),
-                                       updates ? QStringLiteral("Check for updates") : QStringLiteral("Free up space")},
-                           hints, -1});
+        call.setArguments({words.name, last, words.icon, summary, body,
+                           QStringList{QStringLiteral("default"), words.card}, hints, -1});
         const QDBusReply<uint> reply = m_bus.call(call, QDBus::Block, 2000);
         if (reply.isValid())
             m_last.insert(topic, reply.value());
@@ -200,6 +209,50 @@ private:
     std::function<void(const UpdatesLook &)> m_seen;
     UpdatesLook m_look;
     bool m_busy = false;
+};
+
+// Looks over the computer's health with Split Rock's own program, which runs
+// the Health check's look as the person and only reads. One look at a time.
+class HealthLooker : public QObject
+{
+public:
+    explicit HealthLooker(std::function<void(const HealthLook &)> seen)
+        : m_seen(std::move(seen))
+    {
+    }
+
+    void look()
+    {
+        if (m_process)
+            return;
+        m_process = new QProcess(this);
+        m_process->setProcessChannelMode(QProcess::SeparateChannels);
+        auto *limit = new QTimer(m_process);
+        limit->setSingleShot(true);
+        QObject::connect(limit, &QTimer::timeout, m_process, &QProcess::kill);
+        QObject::connect(m_process, &QProcess::finished, this, [this](int code, QProcess::ExitStatus status) {
+            const bool known = status == QProcess::NormalExit && code == 0;
+            HealthLook seen;
+            if (known)
+                seen = readHealthFacts(QString::fromUtf8(m_process->readAllStandardOutput()), QDateTime::currentDateTimeUtc());
+            m_process->deleteLater();
+            m_process = nullptr;
+            m_seen(seen);
+        });
+        QObject::connect(m_process, &QProcess::errorOccurred, this, [this](QProcess::ProcessError error) {
+            if (error != QProcess::FailedToStart)
+                return;
+            m_process->deleteLater();
+            m_process = nullptr;
+            m_seen(HealthLook());
+        });
+        limit->start(std::chrono::minutes(3));
+        m_process->start(splitRockProgram(), {QStringLiteral("--health-facts")});
+    }
+
+private:
+    std::function<void(const HealthLook &)> m_seen;
+    QProcess *m_process = nullptr;
 };
 
 } // namespace
@@ -316,6 +369,20 @@ int main(int argc, char **argv)
         }
     };
     watchMarks();
+    // Health: once a week, counted from the last look, so a computer that was
+    // off or asleep looks soon after it is back. Asking each hour costs
+    // nothing until the week is up.
+    HealthLooker health([&desk](const HealthLook &look) { desk.seeHealth(look); });
+    const auto lookAtHealth = [&desk, &health] {
+        if (desk.healthDue())
+            health.look();
+    };
+    QTimer::singleShot(std::chrono::minutes(10), &desk, lookAtHealth);
+    QTimer healthEvery;
+    healthEvery.setInterval(std::chrono::hours(1));
+    QObject::connect(&healthEvery, &QTimer::timeout, &desk, lookAtHealth);
+    healthEvery.start();
+
     // Settings, such as how readily Core speaks, take effect when they are
     // written. The folder is watched, since a settings file is replaced, not
     // edited, when it is saved.
