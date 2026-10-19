@@ -126,8 +126,8 @@ CardFrame {
         Pill {
             objectName: "communityButton"
             visible: card.stage === "reviewed"
-            implicitHeight: 52
-            padding: 28
+            implicitHeight: 44
+            padding: 16
             fontSize: 16
             filled: true
             tone: card.risky ? theme.bad : card.tone
@@ -139,8 +139,8 @@ CardFrame {
         }
         Pill {
             visible: card.stage === "reviewed" || card.stage === "done" || (card.stage === "failed" && card.apps.length > 0)
-            implicitHeight: 52
-            padding: 22
+            implicitHeight: 44
+            padding: 16
             fontSize: 15
             iconPath: Icons.back
             text: card.stage === "reviewed" ? "Back" : "The others"
@@ -148,16 +148,16 @@ CardFrame {
         }
         Pill {
             visible: card.stage === "failed" && card.apps.length === 0
-            implicitHeight: 52
-            padding: 22
+            implicitHeight: 44
+            padding: 16
             fontSize: 15
             text: "Try again"
             onClicked: card.job.check()
         }
         Pill {
             objectName: "communityClose"
-            implicitHeight: 52
-            padding: 22
+            implicitHeight: 44
+            padding: 16
             fontSize: 15
             text: card.stage === "ready" ? "Not now" : "Close"
             onClicked: card.job.close()

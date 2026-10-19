@@ -52,8 +52,8 @@ CardFrame {
     Pill {
         objectName: "changesUndoLatest"
         visible: card.stage === "ready" && card.latest.title !== undefined
-        implicitHeight: 52
-        padding: 28
+        implicitHeight: 44
+        padding: 16
         fontSize: 16
         filled: true
         tone: card.tone
@@ -72,7 +72,7 @@ CardFrame {
             model: 3
             Rectangle {
                 width: card.innerWidth
-                height: 64; radius: 16
+                height: 56; radius: theme.cardRadius
                 color: theme.inset
                 SequentialAnimation on opacity {
                     loops: Animation.Infinite
@@ -100,9 +100,7 @@ CardFrame {
                     text: modelData.day
                     color: theme.quiet
                     font.pixelSize: 13
-                    font.weight: Font.Bold
-                    font.capitalization: Font.AllUppercase
-                    font.letterSpacing: 0.6
+                    font.weight: Font.Medium
                 }
                 CardRow {
                     objectName: "change-" + modelData.id
@@ -133,8 +131,8 @@ CardFrame {
         spacing: 10
         visible: card.stage !== "looking"
         Pill {
-            implicitHeight: 52
-            padding: 22
+            implicitHeight: 44
+            padding: 16
             fontSize: 15
             iconPath: Icons.refresh
             text: "Look again"
@@ -142,8 +140,8 @@ CardFrame {
         }
         Pill {
             objectName: "changesClose"
-            implicitHeight: 52
-            padding: 22
+            implicitHeight: 44
+            padding: 16
             fontSize: 15
             text: "Close"
             onClicked: card.job.close()

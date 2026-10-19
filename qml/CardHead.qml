@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 import QtQuick
 
-// A card's heading: its icon in a tile of its colour, what it is and where it
-// has got to, and a line under it.
+// A card's heading: its icon in a tile, what it is and where it has got to,
+// and a line under it.
 Row {
     id: head
     property string icon
@@ -14,18 +14,15 @@ Row {
     property alias headingObjectName: headingText.objectName
 
     width: parent ? parent.width : 0
-    spacing: 14
+    spacing: 12
 
     Rectangle {
-        width: 48; height: 48; radius: 15
-        gradient: Gradient {
-            GradientStop { position: 0; color: theme.soft(head.tone, theme.dark ? 0.32 : 0.22) }
-            GradientStop { position: 1; color: theme.soft(head.tone, theme.dark ? 0.16 : 0.10) }
-        }
+        width: 40; height: 40; radius: theme.cardRadius
+        color: theme.inset
         Icon {
             id: headIcon
             anchors.centerIn: parent
-            width: 24; height: 24
+            width: 20; height: 20
             stroke: 2
             path: head.icon
             color: head.tone
@@ -43,7 +40,7 @@ Row {
 
     Column {
         anchors.verticalCenter: parent.verticalCenter
-        width: head.width - 62
+        width: head.width - 52
         spacing: 3
         Text {
             id: headingText
@@ -51,8 +48,8 @@ Row {
             wrapMode: Text.WordWrap
             text: head.heading
             color: theme.text
-            font.pixelSize: 22
-            font.weight: Font.Bold
+            font.pixelSize: 16
+            font.weight: Font.DemiBold
         }
         Text {
             width: parent.width
@@ -60,7 +57,7 @@ Row {
             visible: text !== ""
             text: head.sub
             color: theme.quiet
-            font.pixelSize: 15
+            font.pixelSize: 13
             lineHeight: 1.3
         }
     }

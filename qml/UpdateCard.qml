@@ -98,17 +98,15 @@ CardFrame {
             text: "Big pieces in this update"
             color: theme.quiet
             font.pixelSize: 13
-            font.weight: Font.Bold
+            font.weight: Font.Medium
         }
         Repeater {
             model: card.reading ? card.plan.pieces || [] : []
             Rectangle {
                 width: card.innerWidth
                 height: 48
-                radius: 12
+                radius: theme.cardRadius
                 color: modelData.step ? theme.soft(theme.warn, 0.16) : theme.inset
-                border.width: 1
-                border.color: theme.hairline
                 Text {
                     x: 14
                     anchors.verticalCenter: parent.verticalCenter
@@ -168,13 +166,13 @@ CardFrame {
             text: "Everything this installs"
             color: theme.quiet
             font.pixelSize: 13
-            font.weight: Font.Bold
+            font.weight: Font.Medium
         }
         Rectangle {
             objectName: "updateList"
             width: card.innerWidth
             height: Math.min(listColumn.implicitHeight, 300) + 16
-            radius: 10
+            radius: theme.cardRadius
             color: theme.sheet
             border.width: 1
             border.color: theme.line
@@ -314,7 +312,7 @@ CardFrame {
         Pill {
             objectName: "updateButton"
             visible: card.stage === "ready"
-            implicitHeight: 52
+            implicitHeight: 44
             padding: 30
             fontSize: 16
             filled: true
@@ -328,7 +326,7 @@ CardFrame {
         Pill {
             objectName: "updateAnyway"
             visible: card.stage === "confirming"
-            implicitHeight: 52
+            implicitHeight: 44
             padding: 30
             fontSize: 16
             filled: true
@@ -341,8 +339,8 @@ CardFrame {
         Pill {
             objectName: "restartButton"
             visible: card.stage === "done" && card.result.restart
-            implicitHeight: 52
-            padding: 26
+            implicitHeight: 44
+            padding: 16
             fontSize: 16
             filled: true
             tone: card.tone
@@ -353,16 +351,16 @@ CardFrame {
         }
         Pill {
             visible: card.stage === "failed"
-            implicitHeight: 52
-            padding: 22
+            implicitHeight: 44
+            padding: 16
             fontSize: 15
             text: "Try again"
             onClicked: card.job.check()
         }
         Pill {
             objectName: "updateClose"
-            implicitHeight: 52
-            padding: 22
+            implicitHeight: 44
+            padding: 16
             fontSize: 15
             text: card.reading ? "Not now" : card.stage === "done" && card.result.restart ? "Later" : "Close"
             onClicked: card.job.close()

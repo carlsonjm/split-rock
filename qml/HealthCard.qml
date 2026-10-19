@@ -37,23 +37,22 @@ CardFrame {
            : "Checked " + card.job.lastChecked.toLowerCase() + ". It runs by itself once a week."
     }
 
-    // How it stands, in colour.
+    // How it stands, in colour: plain words, since a pill would read as a
+    // control.
     Flow {
         visible: card.stage === "done"
         width: card.innerWidth
-        spacing: 8
+        spacing: 16
         Repeater {
             model: [{ n: card.bad, words: card.bad === 1 ? "problem" : "problems", color: theme.bad },
                     { n: card.warn, words: "to look at", color: theme.warn },
                     { n: card.good, words: "good", color: theme.good }].filter(c => c.n > 0)
-            Rectangle {
-                height: 34
-                width: tally.implicitWidth + 30
-                radius: 17
-                color: theme.soft(modelData.color, 0.16)
+            Item {
+                height: 20
+                width: tally.implicitWidth
                 Row {
                     id: tally
-                    anchors.centerIn: parent
+                    anchors.verticalCenter: parent.verticalCenter
                     spacing: 8
                     Rectangle {
                         anchors.verticalCenter: parent.verticalCenter
@@ -62,9 +61,9 @@ CardFrame {
                     }
                     Text {
                         text: modelData.n + " " + modelData.words
-                        color: theme.text
-                        font.pixelSize: 14
-                        font.weight: Font.DemiBold
+                        color: theme.quiet
+                        font.pixelSize: 13
+                        font.weight: Font.Medium
                     }
                 }
             }
@@ -79,7 +78,7 @@ CardFrame {
             model: 4
             Rectangle {
                 width: card.innerWidth
-                height: 64; radius: 16
+                height: 56; radius: theme.cardRadius
                 color: theme.inset
                 SequentialAnimation on opacity {
                     loops: Animation.Infinite
@@ -117,8 +116,8 @@ CardFrame {
         spacing: 10
         visible: card.stage === "done"
         Pill {
-            implicitHeight: 52
-            padding: 22
+            implicitHeight: 44
+            padding: 16
             fontSize: 15
             iconPath: Icons.refresh
             text: "Check again"
@@ -126,8 +125,8 @@ CardFrame {
         }
         Pill {
             objectName: "healthClose"
-            implicitHeight: 52
-            padding: 22
+            implicitHeight: 44
+            padding: 16
             fontSize: 15
             text: "Close"
             onClicked: card.job.close()

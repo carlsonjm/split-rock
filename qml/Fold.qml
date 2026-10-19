@@ -34,7 +34,7 @@ Column {
                 text: fold.title
                 color: theme.quiet
                 font.pixelSize: 13
-                font.weight: Font.Bold
+                font.weight: Font.Medium
             }
         }
         MouseArea {
@@ -51,7 +51,7 @@ Column {
         visible: fold.open
         width: fold.width
         height: Math.min(detail.implicitHeight, fold.longest) + 24
-        radius: 10
+        radius: theme.cardRadius
         color: theme.sheet
         border.width: 1
         border.color: theme.line
@@ -93,7 +93,7 @@ Column {
             text: "▴ Hide"
             color: theme.quiet
             font.pixelSize: 13
-            font.weight: Font.Bold
+            font.weight: Font.Medium
         }
         MouseArea {
             anchors.fill: parent
