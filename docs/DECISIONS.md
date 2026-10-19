@@ -1011,3 +1011,18 @@ match the seven already here.
 Rejected: keeping each Helper's own hue and larger corners, which made the
 Helpers the one place in Shuffle that did not match; and redrawing only the
 Helpers new work touched, which would have left two looks side by side.
+
+## Your apps lists only what the person added, and removes one at a time
+
+Your apps lists the apps the person installed on purpose, from the system's
+shelf or Flathub, by the room each takes, and removes one with Install an
+app's own yes and restore point. Shelf apps ask for the password once each.
+
+Why: the product owner chose the simple version for 1.1: what the person
+added and how big it is can be read plainly, and removing reuses a path
+already proved.
+
+Rejected for now: when each app was last used, which would mean reading
+Plasma's private record of app use; and removing several at once with one
+password, which would change the administrator's helper. Both are kept for
+after launch.

@@ -10,6 +10,8 @@ Rectangle {
     property string title
     property string detail
     property string trailing
+    // What a tap does, quiet after the trailing words, such as Remove.
+    property string action
     property color tone: theme.accent
     property string icon
     // A box to tick, instead of the icon.
@@ -97,7 +99,7 @@ Rectangle {
         id: rowColumn
         x: 56
         y: 12
-        width: parent.width - x - 12 - (trailingText.visible ? trailingText.implicitWidth + 12 : 0) - (row.opens ? 24 : 0)
+        width: parent.width - x - 12 - (trailingRow.implicitWidth > 0 ? trailingRow.implicitWidth + 12 : 0) - (row.opens ? 24 : 0)
         spacing: 3
         Text {
             width: parent.width
@@ -124,16 +126,26 @@ Rectangle {
         }
     }
 
-    Text {
-        id: trailingText
-        visible: text !== ""
+    Row {
+        id: trailingRow
         anchors.right: parent.right
         anchors.rightMargin: row.opens ? 36 : 12
         y: 18
-        text: row.trailing
-        color: row.checkable && !row.checked ? theme.quiet : row.tone
-        font.pixelSize: 13
-        font.weight: Font.Medium
+        spacing: 12
+        Text {
+            id: trailingText
+            visible: text !== ""
+            text: row.trailing
+            color: row.checkable && !row.checked ? theme.quiet : row.tone
+            font.pixelSize: 13
+            font.weight: row.action !== "" ? Font.DemiBold : Font.Medium
+        }
+        Text {
+            visible: text !== ""
+            text: row.action
+            color: theme.quiet
+            font.pixelSize: 13
+        }
     }
 
     Icon {

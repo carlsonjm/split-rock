@@ -194,6 +194,7 @@ private Q_SLOTS:
         SpaceCleanup space;
         space.setElevate({});
         space.setAdmin({QStringLiteral("false")});
+        space.setYoursScript(QStringLiteral("true"));
         space.check();
         QTRY_VERIFY_WITH_TIMEOUT(space.stage() == QLatin1String("ready") || space.stage() == QLatin1String("nothing"), 60000);
         const QList<SpaceCleanup::Item> items = space.items();
@@ -226,6 +227,7 @@ private Q_SLOTS:
         space.setElevate({});
         space.setAdmin(adminInSource());
         space.setLookScript(printing(QStringLiteral("space-look.txt")));
+        space.setYoursScript(printing(QStringLiteral("yours-look.txt")));
         space.setFreeScript(QStringLiteral("echo 49048576"));
         QStringList written;
         space.setWriteDown([&written](const QString &id, const QString &title, const QString &undo, QString *) {
@@ -238,6 +240,10 @@ private Q_SLOTS:
         space.check();
         QTRY_COMPARE(space.stage(), QStringLiteral("ready"));
         QVERIFY(space.needsPassword());
+        // How much room the apps the person added take, for Your apps' row;
+        // never one of the things cleared.
+        QCOMPARE(space.yoursKb(), qint64(13997976));
+        QCOMPARE(space.yoursSize(), QStringLiteral("13 GB"));
         // Only the person's own and the old copies; nothing of the real
         // computer's runs as the test.
         space.choose(QStringLiteral("journal"), false);
@@ -490,6 +496,48 @@ private Q_SLOTS:
         QTRY_COMPARE(install.stage(), QStringLiteral("removed"));
         QCOMPARE(title, QStringLiteral("Removed main-keyboard-git"));
         QVERIFY(install.log().contains(QStringLiteral("pacman -Rn --noconfirm --noprogressbar --color never -- main-keyboard-git")));
+    }
+
+    void yourAppsListsWhatThePersonAddedBiggestFirst()
+    {
+        QTemporaryDir logs;
+        AppInstall install;
+        install.setElevate({});
+        install.setLogFolder(logs.path());
+        install.setYoursScript(printing(QStringLiteral("yours-look.txt")));
+        install.setWriteDown([](const QString &, const QString &, const QString &, QString *) { return true; });
+        install.listYours();
+        QVERIFY(install.yours());
+        QVERIFY(install.removing());
+        QTRY_COMPARE(install.stage(), QStringLiteral("results"));
+        // Apps in the menu installed on purpose, and Flathub's; never a
+        // package that came with another, one the menu hides, or what the
+        // system runs on.
+        QStringList keys;
+        for (const AppInstall::App &a : install.results())
+            keys.append(a.key);
+        QCOMPARE(keys, (QStringList{QStringLiteral("flathub:com.valvesoftware.Steam"), QStringLiteral("flathub:us.zoom.Zoom"),
+                                    QStringLiteral("shelf:obs-studio"), QStringLiteral("shelf:blender"),
+                                    QStringLiteral("shelf:okular"), QStringLiteral("flathub:org.example.Tiny")}));
+        const QVariantMap steam = install.resultList().value(0).toMap();
+        QCOMPARE(steam.value(QStringLiteral("name")).toString(), QStringLiteral("Steam"));
+        QCOMPARE(steam.value(QStringLiteral("size")).toString(), QStringLiteral("9.8 GB"));
+        QCOMPARE(install.resultList().value(1).toMap().value(QStringLiteral("size")).toString(), QStringLiteral("1.9 GB"));
+        QCOMPARE(install.resultList().value(3).toMap().value(QStringLiteral("size")).toString(), QStringLiteral("412 MB"));
+        QCOMPARE(install.yoursSize(), QStringLiteral("13 GB"));
+        // A yes before one goes, and back to the list without it.
+        install.remove(QStringLiteral("flathub:us.zoom.Zoom"));
+        QTRY_COMPARE(install.stage(), QStringLiteral("confirm"));
+        QCOMPARE(install.pickedMap().value(QStringLiteral("size")).toString(), QStringLiteral("1.9 GB"));
+        install.back();
+        QCOMPARE(install.stage(), QStringLiteral("results"));
+        QVERIFY(install.yours());
+        install.remove(QStringLiteral("shelf:linux"));
+        QCOMPARE(install.stage(), QStringLiteral("results"));
+        // Asking for an app afterwards is Install an app again.
+        install.ask();
+        QVERIFY(!install.yours());
+        QVERIFY(!install.removing());
     }
 
     void searchRemovesAnAppByItsMenuEntry()
@@ -977,6 +1025,7 @@ private Q_SLOTS:
         QTemporaryDir store;
         Helpers h(store.path());
         h.spaceCleanup()->setLookScript(printing(QStringLiteral("space-look.txt")));
+        h.spaceCleanup()->setYoursScript(printing(QStringLiteral("yours-look.txt")));
         h.healthCheck()->setLookScript(printing(QStringLiteral("health-look.txt")));
         QVERIFY(!h.openChore(QStringLiteral("dishes")));
         QVERIFY(h.openChore(QStringLiteral("space")));

@@ -50,8 +50,8 @@ const QCommandLineOption queryOption(QStringLiteral("query"),
                                      QStringLiteral("With --card install: what to look for, or to remove."),
                                      QStringLiteral("text"));
 const QCommandLineOption cardOption(QStringLiteral("card"),
-                                    QStringLiteral("Open one Helper: update, space, install, uninstall, health, changes, "
-                                                   "restore or community."),
+                                    QStringLiteral("Open one Helper: update, space, install, uninstall, apps, health, "
+                                                   "changes, restore or community."),
                                     QStringLiteral("name"));
 const QCommandLineOption notebookOption(QStringLiteral("notebook"),
                                         QStringLiteral("The notebook folder (default: Notebook in the Documents folder)."),

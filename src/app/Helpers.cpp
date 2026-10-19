@@ -87,9 +87,11 @@ bool Helpers::changing() const
 
 bool Helpers::openChore(const QString &asked, const QString &query)
 {
-    // Removing one app by its desktop file id is Install an app's to do.
+    // Removing one app by its desktop file id, and Your apps, are Install an
+    // app's to do.
     const bool uninstall = asked == QLatin1String("uninstall");
-    const QString name = uninstall ? QStringLiteral("install") : asked;
+    const bool yours = asked == QLatin1String("apps");
+    const QString name = uninstall || yours ? QStringLiteral("install") : asked;
     const auto found = std::find_if(m_chores.cbegin(), m_chores.cend(), [&name](const auto &c) { return c.first == name; });
     if (found == m_chores.cend())
         return false;
@@ -112,6 +114,8 @@ bool Helpers::openChore(const QString &asked, const QString &query)
         m_space->check();
     else if (uninstall)
         m_install->removeApp(query);
+    else if (yours)
+        m_install->listYours();
     else if (name == QLatin1String("install"))
         query.isEmpty() ? m_install->ask() : m_install->search(query);
     else if (name == QLatin1String("restore"))

@@ -1,0 +1,43 @@
+@@ explicit
+steam-native-runtime
+blender
+okular
+obs-studio
+plasma-desktop
+linux
+git
+@@ menu
+blender.desktop	Blender
+org.kde.okular.desktop	Okular
+com.obsproject.Studio.desktop	OBS Studio
+org.kde.plasmashell.desktop	Plasma
+org.kde.kmenuedit.desktop	Menu Editor
+qt6-designer.desktop	Designer
+@@ owners
+/usr/share/applications/blender.desktop is owned by blender 17:4.5.3-1
+/usr/share/applications/org.kde.okular.desktop is owned by okular 25.08.1-1
+/usr/share/applications/org.kde.okular.desktop is owned by okular 25.08.1-1
+/usr/share/applications/com.obsproject.Studio.desktop is owned by obs-studio 31.1.2-1
+/usr/share/applications/org.kde.plasmashell.desktop is owned by plasma-workspace 6.8.0-1
+/usr/share/applications/org.kde.kmenuedit.desktop is owned by kmenuedit 6.8.0-1
+/usr/share/applications/qt6-designer.desktop is owned by qt6-tools 6.10.0-1
+@@ sizes
+Name            : blender
+Installed Size  : 412.30 MiB
+Name            : git
+Installed Size  : 28.20 MiB
+Name            : linux
+Installed Size  : 140.10 MiB
+Name            : obs-studio
+Installed Size  : 1.20 GiB
+Name            : okular
+Installed Size  : 48.00 MiB
+Name            : plasma-desktop
+Installed Size  : 30.00 MiB
+Name            : steam-native-runtime
+Installed Size  : 4.00 KiB
+@@ flathub
+com.valvesoftware.Steam	Steam	9.8 GB
+us.zoom.Zoom	Zoom	1.9 GB
+org.example.Tiny	Tiny	512 bytes
+@@ end

@@ -2,9 +2,11 @@
 #include "app/AppInstall.h"
 
 #include "app/Product.h"
+#include "app/SpaceCleanup.h"
 
 #include <QDateTime>
 #include <QDebug>
+#include <QHash>
 #include <QProcess>
 #include <QRegularExpression>
 #include <QSet>
@@ -84,6 +86,28 @@ if command -v kstart >/dev/null 2>&1; then exec kstart --application "$id"; fi
 exec gtk-launch "$id"
 )SH");
 
+// Run as the person: what Your apps lists. Each section starts with a line
+// "@@ name": the packages installed on purpose, the app menu's entries as
+// "file<TAB>Name", who owns each entry, each package's size, and Flathub's
+// apps as "id<TAB>name<TAB>size". Nothing here changes anything.
+const QString YoursScript = QStringLiteral(R"SH(export LANG=C LC_ALL=C
+echo "@@ explicit"
+pacman -Qqe 2>/dev/null
+echo "@@ menu"
+for f in /usr/share/applications/*.desktop; do
+    [ -f "$f" ] || continue
+    grep -qiE '^(NoDisplay|Hidden)=true' "$f" && continue
+    printf '%s\t%s\n' "${f##*/}" "$(sed -n 's/^Name=//p' "$f" | head -n 1)"
+done
+echo "@@ owners"
+pacman -Qo /usr/share/applications/*.desktop 2>/dev/null
+echo "@@ sizes"
+pacman -Qqe 2>/dev/null | xargs -r pacman -Qi 2>/dev/null | grep -E '^(Name|Installed Size) '
+echo "@@ flathub"
+command -v flatpak >/dev/null 2>&1 && flatpak list --app --columns=application,name,size 2>/dev/null
+echo "@@ end"
+)SH");
+
 const QRegularExpression &packageName()
 {
     static const QRegularExpression name(QStringLiteral("^[a-z0-9@_+][a-z0-9@._+-]*$"));
@@ -108,7 +132,9 @@ QVariantMap AppInstall::App::toMap() const
                                                                                : QStringLiteral("This system's shelf")},
             {QStringLiteral("package"), package},
             {QStringLiteral("installed"), installed},
-            {QStringLiteral("alsoFlathub"), alsoFlathub}};
+            {QStringLiteral("alsoFlathub"), alsoFlathub},
+            {QStringLiteral("kb"), kb},
+            {QStringLiteral("size"), kb < 0 ? QString() : kb < 1024 ? QStringLiteral("Under 1 MB") : Chore::size(kb)}};
 }
 
 AppInstall::AppInstall(QObject *parent)
@@ -118,6 +144,7 @@ AppInstall::AppInstall(QObject *parent)
     , m_openScript(OpenScript)
     , m_flathubRemoveScript(FlathubRemoveScript)
     , m_ownerScript(OwnerScript)
+    , m_yoursScript(YoursScript)
 {
 }
 
@@ -288,6 +315,122 @@ QList<AppInstall::App> AppInstall::readSearch(const QString &output, const QStri
     return apps;
 }
 
+QString AppInstall::yoursScript()
+{
+    return YoursScript;
+}
+
+qint64 AppInstall::totalKb(const QList<App> &apps)
+{
+    qint64 kb = 0;
+    for (const App &app : apps)
+        kb += std::max<qint64>(app.kb, 0);
+    return kb;
+}
+
+QString AppInstall::yoursSize() const
+{
+    return size(totalKb(m_results));
+}
+
+QList<AppInstall::App> AppInstall::readYours(const QString &output)
+{
+    const QMap<QString, QStringList> found = sections(output);
+    const auto kbOf = [](QString text) {
+        text.replace(QChar(0xA0), QLatin1Char(' ')).replace(QLatin1String("kB"), QLatin1String("KB"));
+        const qint64 kb = SpaceCleanup::readSize(text);
+        return kb >= 0 ? kb : text.contains(QLatin1String("byte")) ? qint64(0) : qint64(-1);
+    };
+
+    QSet<QString> explicitly;
+    for (const QString &line : found.value(QStringLiteral("explicit")))
+        explicitly.insert(line);
+    QHash<QString, QString> menuNames;
+    for (const QString &line : found.value(QStringLiteral("menu"))) {
+        const qsizetype tab = line.indexOf(QLatin1Char('\t'));
+        if (tab > 0)
+            menuNames.insert(line.left(tab), line.mid(tab + 1).trimmed());
+    }
+    QHash<QString, qint64> sizes;
+    QString named;
+    for (const QString &line : found.value(QStringLiteral("sizes"))) {
+        const QString value = line.section(QLatin1Char(':'), 1).trimmed();
+        if (line.startsWith(QLatin1String("Name ")))
+            named = value;
+        else if (line.startsWith(QLatin1String("Installed Size ")) && !named.isEmpty())
+            sizes.insert(named, kbOf(value));
+    }
+
+    QList<App> apps;
+    // "/usr/share/applications/org.kde.okular.desktop is owned by okular 25.08.1-1"
+    static const QRegularExpression owner(QStringLiteral(R"(^/usr/share/applications/(\S+\.desktop) is owned by (\S+) )"));
+    for (const QString &line : found.value(QStringLiteral("owners"))) {
+        const QRegularExpressionMatch m = owner.match(line);
+        if (!m.hasMatch())
+            continue;
+        const QString file = m.captured(1);
+        App app;
+        app.package = m.captured(2);
+        app.name = menuNames.value(file);
+        // An entry the menu hides, or a package that came with another
+        // rather than on purpose, isn't one the person added.
+        if (app.name.isEmpty() || !explicitly.contains(app.package) || !packageName().match(app.package).hasMatch()
+            || keptBySystem(app.package))
+            continue;
+        app.source = QStringLiteral("shelf");
+        app.key = QStringLiteral("shelf:") + app.package;
+        if (std::any_of(apps.cbegin(), apps.cend(), [&app](const App &a) { return a.key == app.key; }))
+            continue;
+        app.installed = true;
+        app.kb = sizes.value(app.package, -1);
+        apps.append(app);
+    }
+    for (const QString &line : found.value(QStringLiteral("flathub"))) {
+        const QStringList columns = line.split(QLatin1Char('\t'));
+        if (columns.size() < 2 || !flatpakId().match(columns.at(0).trimmed()).hasMatch())
+            continue;
+        App app;
+        app.package = columns.at(0).trimmed();
+        app.name = columns.at(1).trimmed();
+        if (app.name.isEmpty())
+            app.name = app.package;
+        app.source = QStringLiteral("flathub");
+        app.key = QStringLiteral("flathub:") + app.package;
+        app.installed = true;
+        app.kb = kbOf(columns.value(2));
+        if (std::none_of(apps.cbegin(), apps.cend(), [&app](const App &a) { return a.key == app.key; }))
+            apps.append(app);
+    }
+    // Biggest first; an unknown size last, then by name.
+    std::stable_sort(apps.begin(), apps.end(), [](const App &a, const App &b) {
+        if (a.kb != b.kb)
+            return a.kb > b.kb;
+        return a.name.compare(b.name, Qt::CaseInsensitive) < 0;
+    });
+    return apps;
+}
+
+void AppInstall::listYours()
+{
+    if (busy())
+        return;
+    m_removing = true;
+    m_yours = true;
+    m_query.clear();
+    m_results.clear();
+    m_picked = App();
+    m_why.clear();
+    clearProgress();
+    setStage(QStringLiteral("searching"));
+    Q_EMIT changed();
+    run(asPerson(m_yoursScript), 120000, [this](int, const QString &output) {
+        m_results = readYours(output);
+        qInfo().noquote() << QStringLiteral("%1: %2 apps added, %3").arg(productName()).arg(m_results.size()).arg(yoursSize());
+        setStage(QStringLiteral("results"));
+        Q_EMIT changed();
+    });
+}
+
 bool AppInstall::asksToRemove(const QString &words)
 {
     static const QRegularExpression remove(QStringLiteral(
@@ -347,6 +490,7 @@ void AppInstall::removeApp(const QString &desktopId)
         return;
     }
     m_removing = true;
+    m_yours = false;
     m_query = desktopId.chopped(8);
     m_results.clear();
     m_picked = App();
@@ -418,6 +562,7 @@ void AppInstall::ask()
     if (busy())
         return;
     m_removing = false;
+    m_yours = false;
     m_query.clear();
     m_results.clear();
     m_picked = App();
@@ -438,6 +583,7 @@ void AppInstall::search(const QString &query)
         return;
     }
     m_removing = removing;
+    m_yours = false;
     m_query = words;
     m_results.clear();
     m_picked = App();

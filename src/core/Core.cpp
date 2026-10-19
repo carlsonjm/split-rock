@@ -330,6 +330,8 @@ QList<QVariantMap> Core::actions()
                {"free up space", "space", "storage", "disk", "clean up", "cleanup"}),
         action("install", "Install an app", "Say what you need, or remove one", "system-software-install",
                {"install", "install an app", "uninstall", "remove an app", "get an app"}),
+        action("apps", "Your apps", "The apps you added, biggest first", "view-grid",
+               {"your apps", "my apps", "installed apps", "uninstall", "remove apps", "apps taking space", "app sizes"}),
         action("health", "Health check", "A look over the computer", "security-high",
                {"health", "health check", "check my computer", "diagnose", "troubleshoot"}),
         action("changes", "What changed", "Undo, or go back to before", "edit-undo",
