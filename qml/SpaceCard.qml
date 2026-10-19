@@ -146,13 +146,13 @@ CardFrame {
             text: removal.names.length === 1 ? "This package will be removed" : "These " + removal.names.length + " packages will be removed"
             color: theme.quiet
             font.pixelSize: 13
-            font.weight: Font.Bold
+            font.weight: Font.Medium
         }
         Rectangle {
             objectName: "spaceRemoveList"
             width: card.innerWidth
             height: Math.min(removeColumn.implicitHeight, 220) + 16
-            radius: 10
+            radius: theme.cardRadius
             color: theme.sheet
             border.width: 1
             border.color: theme.line
@@ -233,7 +233,7 @@ CardFrame {
         Pill {
             objectName: "spaceButton"
             visible: card.stage === "ready"
-            implicitHeight: 52
+            implicitHeight: 44
             padding: 30
             fontSize: 16
             filled: true
@@ -246,16 +246,16 @@ CardFrame {
         }
         Pill {
             visible: card.stage === "failed"
-            implicitHeight: 52
-            padding: 22
+            implicitHeight: 44
+            padding: 16
             fontSize: 15
             text: "Try again"
             onClicked: card.job.check()
         }
         Pill {
             objectName: "spaceClose"
-            implicitHeight: 52
-            padding: 22
+            implicitHeight: 44
+            padding: 16
             fontSize: 15
             text: card.stage === "ready" ? "Not now" : "Close"
             onClicked: card.job.close()

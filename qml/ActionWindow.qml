@@ -72,7 +72,7 @@ Window {
     Flickable {
         id: scroller
         anchors.fill: parent
-        contentHeight: body.height + 36
+        contentHeight: body.height
         clip: true
         boundsBehavior: Flickable.StopAtBounds
 
@@ -80,8 +80,7 @@ Window {
 
         Loader {
             id: body
-            x: 18; y: 18
-            width: scroller.width - 36
+            width: scroller.width
             sourceComponent: {
                 switch (helpers.chore) {
                 case "update": return updateCard

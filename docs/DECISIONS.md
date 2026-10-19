@@ -991,3 +991,23 @@ GN-3 is fixed where Undo still runs.
 Rejected: keeping the conversation behind a switch, which keeps every finding
 open for a feature the product does not offer; and dropping Undo with it, which
 would leave the changes already made from cards without their way back.
+
+## The Helpers follow the Visual sheet
+
+A later ruling than the conversation's colours (The conversation reads as a
+page, with one colour), which went with the chat. Every Helper draws to the
+suite's Visual sheet: the window is the card, with nothing boxed inside it but
+its rows, on the 8 px paper corner; the card is inset 16 px, its rows stand
+8 px apart and its groups 20; the heading is 16 px demi-bold over a 13 px line
+in the secondary colour; buttons are 40 to 44 px pills; and its chrome is the
+text colour. Colour is kept for state: amber for worth a look, warm red for a
+problem and teal for good. A Helper's colour name still says which it is, and
+draws nothing.
+
+Why: the product owner approved the Helpers moving onto the Visual sheet, so a
+Helper reads like every other Shuffle surface, and the Helpers still to come
+match the seven already here.
+
+Rejected: keeping each Helper's own hue and larger corners, which made the
+Helpers the one place in Shuffle that did not match; and redrawing only the
+Helpers new work touched, which would have left two looks side by side.

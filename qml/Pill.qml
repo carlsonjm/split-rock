@@ -1,13 +1,13 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 import QtQuick
 
-// A rounded button: filled for the main action, outlined otherwise.
+// A rounded button: filled for the main action, a raised control otherwise.
 Rectangle {
     id: pill
     property alias text: label.text
     property bool filled: false
     property int fontSize: 14
-    property int padding: 18
+    property int padding: 16
     property string iconPath
     // A small dot before the words: something Genie noticed, in its colour.
     property color dot: "transparent"
@@ -17,13 +17,11 @@ Rectangle {
     property color toneInk: theme.accentInk
     signal clicked()
 
-    implicitHeight: 44
+    implicitHeight: 40
     implicitWidth: row.implicitWidth + padding * 2
     radius: height / 2
     color: filled ? (area.pressed ? Qt.darker(tone, 1.12) : area.containsMouse ? Qt.lighter(tone, 1.06) : tone)
                   : (area.pressed ? theme.line : area.containsMouse ? theme.chip : theme.raised)
-    border.width: filled ? 0 : 1
-    border.color: theme.hairline
     Behavior on color { ColorAnimation { duration: 120 } }
     opacity: enabled ? 1 : 0.38
     activeFocusOnTab: true
@@ -57,7 +55,7 @@ Rectangle {
             anchors.verticalCenter: parent.verticalCenter
             color: pill.filled ? pill.toneInk : theme.text
             font.pixelSize: pill.fontSize
-            font.weight: pill.filled ? Font.Bold : Font.DemiBold
+            font.weight: Font.Medium
         }
     }
 
@@ -67,7 +65,7 @@ Rectangle {
         radius: height / 2
         color: "transparent"
         border.width: 2
-        border.color: pill.tone
+        border.color: theme.text
         visible: pill.activeFocus
     }
 

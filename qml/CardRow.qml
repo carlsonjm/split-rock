@@ -27,11 +27,9 @@ Rectangle {
     readonly property bool tappable: checkable || opens
     readonly property color dot: standing === "bad" ? theme.bad : standing === "warn" ? theme.warn : theme.good
     width: parent ? parent.width : 0
-    height: Math.max(64, rowColumn.implicitHeight + 24)
-    radius: 16
+    height: Math.max(56, rowColumn.implicitHeight + 24)
+    radius: theme.cardRadius
     color: area.pressed && tappable ? theme.line : area.containsMouse && tappable ? theme.chip : theme.inset
-    border.width: 1
-    border.color: checkable && checked ? theme.soft(tone, 0.45) : theme.hairline
     Behavior on color { ColorAnimation { duration: 120 } }
     activeFocusOnTab: tappable
     Accessible.role: checkable ? Accessible.CheckBox : Accessible.Button
@@ -54,13 +52,13 @@ Rectangle {
     // The start: a box, an icon or a dot.
     Item {
         id: lead
-        x: 14
-        y: 14
-        width: 36; height: 36
+        x: 12
+        y: 12
+        width: 32; height: 32
         Rectangle {
             visible: row.checkable
             anchors.centerIn: parent
-            width: 24; height: 24; radius: 8
+            width: 20; height: 20; radius: 4
             color: row.checked ? row.tone : "transparent"
             border.width: row.checked ? 0 : 2
             border.color: theme.edge
@@ -68,7 +66,7 @@ Rectangle {
             Icon {
                 visible: row.checked
                 anchors.centerIn: parent
-                width: 16; height: 16
+                width: 14; height: 14
                 stroke: 2.4
                 path: Icons.check
                 color: theme.hueInk
@@ -77,8 +75,8 @@ Rectangle {
         Rectangle {
             visible: !row.checkable && row.standing === "" && row.icon !== ""
             anchors.fill: parent
-            radius: 11
-            color: theme.soft(row.tone)
+            radius: theme.cardRadius
+            color: theme.inset
             Icon {
                 anchors.centerIn: parent
                 width: 18; height: 18
@@ -90,22 +88,16 @@ Rectangle {
         Rectangle {
             visible: !row.checkable && row.standing !== ""
             anchors.centerIn: parent
-            width: 14; height: 14; radius: 7
+            width: 10; height: 10; radius: 5
             color: row.dot
-            Rectangle {
-                anchors.centerIn: parent
-                width: 26; height: 26; radius: 13
-                color: theme.soft(row.dot, 0.18)
-                z: -1
-            }
         }
     }
 
     Column {
         id: rowColumn
-        x: 64
+        x: 56
         y: 12
-        width: parent.width - x - 14 - (trailingText.visible ? trailingText.implicitWidth + 12 : 0) - (row.opens ? 24 : 0)
+        width: parent.width - x - 12 - (trailingText.visible ? trailingText.implicitWidth + 12 : 0) - (row.opens ? 24 : 0)
         spacing: 3
         Text {
             width: parent.width
@@ -113,7 +105,7 @@ Rectangle {
             text: row.title
             color: theme.text
             font.pixelSize: 15
-            font.weight: Font.DemiBold
+            font.weight: Font.Medium
             lineHeight: 1.25
         }
         Text {
@@ -136,19 +128,19 @@ Rectangle {
         id: trailingText
         visible: text !== ""
         anchors.right: parent.right
-        anchors.rightMargin: row.opens ? 38 : 16
-        y: 20
+        anchors.rightMargin: row.opens ? 36 : 12
+        y: 18
         text: row.trailing
         color: row.checkable && !row.checked ? theme.quiet : row.tone
-        font.pixelSize: 15
-        font.weight: Font.Bold
+        font.pixelSize: 13
+        font.weight: Font.Medium
     }
 
     Icon {
         visible: row.opens
         anchors.right: parent.right
-        anchors.rightMargin: 14
-        y: 22
+        anchors.rightMargin: 12
+        y: 19
         width: 18; height: 18
         rotation: -90
         path: Icons.chevron

@@ -99,7 +99,7 @@ CardFrame {
                         text: index + 1
                         color: card.tone
                         font.pixelSize: 13
-                        font.weight: Font.Bold
+                        font.weight: Font.Medium
                     }
                 }
                 Text {
@@ -135,8 +135,8 @@ CardFrame {
         Pill {
             objectName: "restoreShow"
             visible: card.stage === "denied"
-            implicitHeight: 52
-            padding: 28
+            implicitHeight: 44
+            padding: 16
             fontSize: 16
             filled: true
             tone: card.tone
@@ -148,8 +148,8 @@ CardFrame {
         Pill {
             objectName: "restoreRestart"
             visible: card.stage === "chosen" && card.job.steps.length > 0
-            implicitHeight: 52
-            padding: 28
+            implicitHeight: 44
+            padding: 16
             fontSize: 16
             filled: true
             tone: card.tone
@@ -160,8 +160,8 @@ CardFrame {
         }
         Pill {
             visible: (card.stage === "booted" || (card.stage === "chosen" && card.job.steps.length === 0)) && card.job.keepTool !== ""
-            implicitHeight: 52
-            padding: 26
+            implicitHeight: 44
+            padding: 16
             fontSize: 16
             filled: true
             tone: card.tone
@@ -172,8 +172,8 @@ CardFrame {
         }
         Pill {
             visible: card.stage === "booted"
-            implicitHeight: 52
-            padding: 22
+            implicitHeight: 44
+            padding: 16
             fontSize: 15
             iconPath: Icons.power
             text: "Restart normally"
@@ -181,8 +181,8 @@ CardFrame {
         }
         Pill {
             visible: card.stage === "chosen"
-            implicitHeight: 52
-            padding: 22
+            implicitHeight: 44
+            padding: 16
             fontSize: 15
             iconPath: Icons.back
             text: "Back"
@@ -190,8 +190,8 @@ CardFrame {
         }
         Pill {
             objectName: "restoreClose"
-            implicitHeight: 52
-            padding: 22
+            implicitHeight: 44
+            padding: 16
             fontSize: 15
             text: "Close"
             onClicked: card.job.close()

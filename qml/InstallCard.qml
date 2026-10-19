@@ -75,8 +75,8 @@ CardFrame {
     Rectangle {
         visible: card.stage === "asking" || card.stage === "results" || card.stage === "failed"
         width: card.innerWidth
-        height: 52
-        radius: 26
+        height: 44
+        radius: 22
         color: theme.inset
         border.width: 1
         border.color: queryField.activeFocus ? card.tone : theme.hairline
@@ -164,7 +164,7 @@ CardFrame {
             model: 3
             Rectangle {
                 width: card.innerWidth
-                height: 64; radius: 16
+                height: 56; radius: theme.cardRadius
                 color: theme.inset
                 SequentialAnimation on opacity {
                     loops: Animation.Infinite
@@ -226,8 +226,8 @@ CardFrame {
         Pill {
             objectName: "openApp"
             visible: card.stage === "done"
-            implicitHeight: 52
-            padding: 28
+            implicitHeight: 44
+            padding: 16
             fontSize: 16
             filled: true
             tone: card.tone
@@ -238,8 +238,8 @@ CardFrame {
         }
         Pill {
             visible: card.stage === "asking"
-            implicitHeight: 52
-            padding: 28
+            implicitHeight: 44
+            padding: 16
             fontSize: 16
             filled: true
             tone: card.tone
@@ -252,8 +252,8 @@ CardFrame {
         Pill {
             objectName: "confirmRemove"
             visible: card.stage === "confirm"
-            implicitHeight: 52
-            padding: 28
+            implicitHeight: 44
+            padding: 16
             fontSize: 16
             filled: true
             tone: theme.bad
@@ -264,16 +264,16 @@ CardFrame {
         }
         Pill {
             visible: card.stage === "confirm"
-            implicitHeight: 52
-            padding: 22
+            implicitHeight: 44
+            padding: 16
             fontSize: 15
             text: "Back"
             onClicked: card.job.back()
         }
         Pill {
             visible: card.stage === "done"
-            implicitHeight: 52
-            padding: 22
+            implicitHeight: 44
+            padding: 16
             fontSize: 15
             text: "Find another"
             onClicked: card.job.ask()
@@ -281,16 +281,16 @@ CardFrame {
         Pill {
             objectName: "removeInstead"
             visible: card.stage === "asking" && !card.removing
-            implicitHeight: 52
-            padding: 22
+            implicitHeight: 44
+            padding: 16
             fontSize: 15
             text: "Remove an app instead"
             onClicked: card.job.askRemove()
         }
         Pill {
             objectName: "installClose"
-            implicitHeight: 52
-            padding: 22
+            implicitHeight: 44
+            padding: 16
             fontSize: 15
             visible: card.stage !== "confirm"
             text: card.stage === "asking" || card.stage === "results" ? "Not now" : "Close"
