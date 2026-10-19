@@ -2,6 +2,7 @@
 #pragma once
 
 #include "core/Attention.h"
+#include "core/Health.h"
 #include "core/Storage.h"
 #include "core/Updates.h"
 
@@ -24,7 +25,7 @@ namespace splitrock::core {
 //   logbook.txt    what it saw and said, and what the person did, by day
 //   storage.tsv    its looks at the drive: time, size and free, in kilobytes
 //   attention.ini  what it has said, so it never says it twice, and its
-//                  last look for updates
+//                  last looks for updates and at the computer's health
 // Each is cut back to the last 90 days.
 class Core : public QObject
 {
@@ -59,6 +60,18 @@ public:
     void reconsider();
     // Whether the Updates topic is switched on, so the program knows to look.
     bool watchesUpdates() const;
+    // A look at the computer's health, taken outside because it runs the
+    // Health check's look; it speaks if a new problem appeared. A failed
+    // look leaves the last fact standing.
+    void seeHealth(const HealthLook &look);
+    // Whether the Health topic is switched on and its weekly look is due.
+    bool healthDue() const;
+
+    // A Windows installer arrived in the Downloads folder: Core offers, once,
+    // to find the Linux version.
+    void seeInstaller(const QString &fileName);
+    // Whether the Windows programs topic is on and was not told to stop.
+    bool watchesDownloads() const;
 
     // How readily Core speaks, the person's Notice setting, from 0 (Less) to
     // 100 (More), 50 by default; the words "quiet" and "eager" read as 0 and
@@ -98,6 +111,9 @@ private:
     bool enabled(const QString &topic) const;
     QVariantMap storageFact() const;
     QVariantMap updatesFact() const;
+    QVariantMap healthFact() const;
+
+    QVariantMap windowsFact() const;
     // Judges the drive from the looks so far, and speaks if it got worse.
     void judgeStorage(const QDateTime &now);
     // Logbook lines and the ticker for what one decision said.
@@ -122,6 +138,18 @@ private:
     UpdatesFact m_updates;
     Attention m_updatesAttention;
     bool m_updatesLooked = false;
+    HealthLook m_healthLook;
+    HealthFact m_health;
+    Attention m_healthAttention;
+    bool m_healthLooked = false;
+
+    // The installer last seen, the program it is for, and how many have come.
+    QString m_installer;
+    QString m_program;
+    int m_installers = 0;
+    // The person said not to tell them again.
+    bool m_windowsNever = false;
+    Attention m_windowsAttention;
 };
 
 } // namespace splitrock::core

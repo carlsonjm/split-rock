@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 #include "core/Core.h"
 
+#include "core/Windows.h"
+
 #include <QDir>
 #include <QFile>
 #include <QRegularExpression>
@@ -16,6 +18,8 @@ namespace {
 
 const QString Storage = QStringLiteral("storage");
 const QString Updates = QStringLiteral("updates");
+const QString Health = QStringLiteral("health");
+const QString Windows = QStringLiteral("windows");
 
 QString stamp(const QDateTime &at)
 {
@@ -46,6 +50,7 @@ Core::Core(const QString &folder, const QString &settings, Hooks hooks, QObject 
     trimLogbook();
     m_storage = judge(m_samples, storageLimits());
     m_updates = judge(m_updatesLook, m_waitingSince, updatesLimits());
+    m_health = judge(m_healthLook);
 }
 
 bool Core::enabled(const QString &topic) const
@@ -221,6 +226,101 @@ void Core::seeUpdates(const UpdatesLook &look)
         Q_EMIT factChanged(updatesFact());
 }
 
+bool Core::healthDue() const
+{
+    if (!enabled(Health))
+        return false;
+    return !m_healthLook.at.isValid() || m_healthLook.at.secsTo(m_hooks.now()) >= HealthEveryDays * 86400;
+}
+
+void Core::seeHealth(const HealthLook &look)
+{
+    if (!enabled(Health))
+        return;
+    if (!look.known) {
+        if (!m_healthLooked)
+            write(QStringLiteral("Health  Could not look over the computer; will try again later."));
+        m_healthLooked = true;
+        return;
+    }
+    const HealthFact before = m_health;
+    const bool islandBefore = m_healthAttention.islandOpen;
+    m_healthLook = look;
+    m_health = judge(look);
+
+    // A problem more is worse; one fixed, with others left, is not news.
+    Measure measure;
+    measure.known = true;
+    measure.level = m_health.level;
+    measure.score = m_health.problems;
+    measure.step = 1;
+    measure.settled = m_health.problems == 0;
+    const bool dnd = m_hooks.doNotDisturb && m_hooks.doNotDisturb();
+    const Spoken spoken = decide(measure, m_healthAttention, look.at, dnd);
+
+    if (!m_healthLooked)
+        write(QStringLiteral("Health  First look since starting: %1, %2.").arg(m_health.line, m_health.detail));
+    m_healthLooked = true;
+    tell(Health, QStringLiteral("Health"), spoken, m_health.line, m_health.detail);
+    saveAttention(Health);
+
+    if (!before.known || before.problems != m_health.problems || before.level != m_health.level
+        || before.detail != m_health.detail || islandBefore != m_healthAttention.islandOpen)
+        Q_EMIT factChanged(healthFact());
+}
+
+bool Core::watchesDownloads() const
+{
+    return enabled(Windows) && !m_windowsNever;
+}
+
+void Core::seeInstaller(const QString &fileName)
+{
+    if (!watchesDownloads() || !isWindowsInstaller(fileName))
+        return;
+    const bool islandBefore = m_windowsAttention.islandOpen;
+    m_installer = fileName.section(QLatin1Char('/'), -1);
+    m_program = programName(m_installer);
+    ++m_installers;
+
+    // Each installer is news once; the island's daily allowance and Do Not
+    // Disturb leave a second one the same day to the ticker.
+    Measure measure;
+    measure.known = true;
+    measure.level = Level::Island;
+    measure.score = m_installers;
+    measure.step = 1;
+    const QDateTime now = m_hooks.now();
+    const bool dnd = m_hooks.doNotDisturb && m_hooks.doNotDisturb();
+    const Spoken spoken = decide(measure, m_windowsAttention, now, dnd);
+    const QVariantMap fact = windowsFact();
+    tell(Windows, QStringLiteral("Windows programs"), spoken, fact.value(QStringLiteral("line")).toString(),
+         fact.value(QStringLiteral("detail")).toString());
+    saveAttention(Windows);
+    if (spoken.island || islandBefore != m_windowsAttention.islandOpen)
+        Q_EMIT factChanged(windowsFact());
+}
+
+QVariantMap Core::windowsFact() const
+{
+    const QString find = m_program.isEmpty() ? QStringLiteral("Find a Linux app") : QStringLiteral("Find %1").arg(m_program);
+    return {
+        {QStringLiteral("topic"), Windows},
+        {QStringLiteral("title"), QStringLiteral("Windows programs")},
+        {QStringLiteral("line"), QStringLiteral("%1 is for Windows").arg(m_installer)},
+        {QStringLiteral("detail"), m_program.isEmpty()
+             ? QStringLiteral("Windows programs don't run here. Find a Linux app that does the same")
+             : QStringLiteral("Windows programs don't run here. Find the Linux version of %1").arg(m_program)},
+        {QStringLiteral("program"), m_program},
+        {QStringLiteral("level"), levelName(Level::Island)},
+        {QStringLiteral("attention"), m_windowsAttention.islandOpen ? QStringLiteral("island") : QStringLiteral("none")},
+        {QStringLiteral("icon"), QStringLiteral("application-x-ms-dos-executable")},
+        {QStringLiteral("actionText"), find},
+        {QStringLiteral("keywords"), QStringList{QStringLiteral("exe"), QStringLiteral("windows program"),
+                                                 QStringLiteral("installer")}},
+    };
+}
+
 QList<QVariantMap> Core::facts() const
 {
     QList<QVariantMap> facts;
@@ -228,7 +328,29 @@ QList<QVariantMap> Core::facts() const
         facts.append(storageFact());
     if (enabled(Updates) && m_updates.known)
         facts.append(updatesFact());
+    if (enabled(Health) && m_health.known)
+        facts.append(healthFact());
+    // An installer is news only while its island is up.
+    if (watchesDownloads() && m_windowsAttention.islandOpen)
+        facts.append(windowsFact());
     return facts;
+}
+
+QVariantMap Core::healthFact() const
+{
+    return {
+        {QStringLiteral("topic"), Health},
+        {QStringLiteral("title"), QStringLiteral("Health")},
+        {QStringLiteral("line"), m_health.line},
+        {QStringLiteral("detail"), m_health.detail},
+        {QStringLiteral("problems"), m_health.problems},
+        {QStringLiteral("level"), levelName(m_health.level)},
+        {QStringLiteral("attention"), m_healthAttention.islandOpen ? QStringLiteral("island") : QStringLiteral("none")},
+        {QStringLiteral("icon"), QStringLiteral("security-high")},
+        {QStringLiteral("actionText"), QStringLiteral("Health check")},
+        {QStringLiteral("keywords"), QStringList{QStringLiteral("health"), QStringLiteral("health check"),
+                                                 QStringLiteral("problem"), QStringLiteral("check my computer")}},
+    };
 }
 
 QVariantMap Core::updatesFact() const
@@ -268,6 +390,48 @@ QVariantMap Core::storageFact() const
 
 bool Core::act(const QString &topic, const QString &action)
 {
+    if (topic == Health) {
+        if (!enabled(Health) || !m_health.known)
+            return false;
+        const bool islandBefore = m_healthAttention.islandOpen;
+        if (!answer(m_healthAttention, action, m_health.problems, 1))
+            return false;
+        if (action == QLatin1String("open")) {
+            write(QStringLiteral("Health  You opened Health check."));
+            if (m_hooks.openCard)
+                m_hooks.openCard(QStringLiteral("health"), QString());
+        } else {
+            write(QStringLiteral("Health  You %1; quiet until a problem more.")
+                      .arg(action == QLatin1String("not-now") ? QStringLiteral("said not now") : QStringLiteral("dismissed it")));
+        }
+        saveAttention(Health);
+        if (islandBefore != m_healthAttention.islandOpen)
+            Q_EMIT factChanged(healthFact());
+        return true;
+    }
+    if (topic == Windows) {
+        if (!enabled(Windows) || m_installer.isEmpty())
+            return false;
+        const bool islandBefore = m_windowsAttention.islandOpen;
+        if (action == QLatin1String("never")) {
+            m_windowsNever = true;
+            m_windowsAttention.islandOpen = false;
+            write(QStringLiteral("Windows programs  You said not to tell you again."));
+        } else if (!answer(m_windowsAttention, action, m_installers, 1)) {
+            return false;
+        } else if (action == QLatin1String("open")) {
+            write(QStringLiteral("Windows programs  You looked for the Linux version of %1.").arg(m_installer));
+            if (m_hooks.openCard)
+                m_hooks.openCard(QStringLiteral("install"), m_program);
+        } else {
+            write(QStringLiteral("Windows programs  You %1.")
+                      .arg(action == QLatin1String("not-now") ? QStringLiteral("said not now") : QStringLiteral("dismissed it")));
+        }
+        saveAttention(Windows);
+        if (islandBefore != m_windowsAttention.islandOpen)
+            Q_EMIT factChanged(windowsFact());
+        return true;
+    }
     if (topic == Updates) {
         if (!enabled(Updates) || !m_updates.known)
             return false;
@@ -325,19 +489,20 @@ QList<QVariantMap> Core::actions()
     // The same cards, words and order as the upkeep shelf.
     return {
         action("update", "Check for updates", "Everything, with a restore point first", "system-software-update",
-               {"update", "updates", "upgrade", "check for updates"}),
+               {"update", "updates", "upgrade", "check for updates", "windows update"}),
         action("space", "Free up space", "Old copies and leftovers", "drive-harddisk",
-               {"free up space", "space", "storage", "disk", "clean up", "cleanup"}),
+               {"free up space", "space", "storage", "disk", "clean up", "cleanup", "disk cleanup", "storage sense"}),
         action("install", "Install an app", "Say what you need, or remove one", "system-software-install",
-               {"install", "install an app", "uninstall", "remove an app", "get an app"}),
+               {"install", "install an app", "uninstall", "remove an app", "get an app", "add or remove programs",
+                "programs and features", "uninstall a program", "microsoft store", "app store"}),
         action("apps", "Your apps", "The apps you added, biggest first", "view-grid",
                {"your apps", "my apps", "installed apps", "uninstall", "remove apps", "apps taking space", "app sizes"}),
         action("health", "Health check", "A look over the computer", "security-high",
-               {"health", "health check", "check my computer", "diagnose", "troubleshoot"}),
+               {"health", "health check", "check my computer", "diagnose", "troubleshoot", "troubleshooter"}),
         action("changes", "What changed", "Undo, or go back to before", "edit-undo",
                {"what changed", "changed", "undo", "something changed", "stopped working"}),
         action("restore", "Restore points", "Go back to an earlier state", "document-revert",
-               {"restore", "restore point", "restore points", "snapshot", "go back"}),
+               {"restore", "restore point", "restore points", "snapshot", "go back", "system restore"}),
         action("community", "Community apps", "Read, then update, AUR apps", "applications-other",
                {"community apps", "aur", "community"}),
     };
@@ -495,6 +660,22 @@ void Core::loadAttention()
     m_updatesLook.waiting = saved.value(QStringLiteral("Updates/Waiting"), 0).toInt();
     m_updatesLook.lastUpdate = savedTime(saved, QStringLiteral("Updates/LastUpdate"));
     m_waitingSince = savedTime(saved, QStringLiteral("Updates/WaitingSince"));
+    // The last look at the computer's health, with its problems.
+    loadState(saved, QStringLiteral("Health"), m_healthAttention);
+    m_healthLook.at = savedTime(saved, QStringLiteral("Health/LookedAt"));
+    m_healthLook.known = m_healthLook.at.isValid();
+    const int problems = saved.beginReadArray(QStringLiteral("HealthProblems"));
+    for (int i = 0; i < problems; ++i) {
+        saved.setArrayIndex(i);
+        m_healthLook.problems.append({saved.value(QStringLiteral("Id")).toString(), saved.value(QStringLiteral("Title")).toString(),
+                                      saved.value(QStringLiteral("Detail")).toString()});
+    }
+    saved.endArray();
+    loadState(saved, QStringLiteral("Windows"), m_windowsAttention);
+    m_installer = saved.value(QStringLiteral("Windows/Installer")).toString();
+    m_program = saved.value(QStringLiteral("Windows/Program")).toString();
+    m_installers = saved.value(QStringLiteral("Windows/Installers"), 0).toInt();
+    m_windowsNever = saved.value(QStringLiteral("Windows/Never"), false).toBool();
 }
 
 void Core::saveAttention(const QString &topic) const
@@ -507,6 +688,29 @@ void Core::saveAttention(const QString &topic) const
         saved.setValue(QStringLiteral("Updates/Waiting"), m_updatesLook.waiting);
         saved.setValue(QStringLiteral("Updates/LastUpdate"), time(m_updatesLook.lastUpdate));
         saved.setValue(QStringLiteral("Updates/WaitingSince"), time(m_waitingSince));
+        return;
+    }
+    if (topic == Health) {
+        saveState(saved, QStringLiteral("Health"), m_healthAttention);
+        saved.setValue(QStringLiteral("Health/LookedAt"),
+                       m_healthLook.at.isValid() ? m_healthLook.at.toUTC().toString(Qt::ISODate) : QString());
+        saved.remove(QStringLiteral("HealthProblems"));
+        saved.beginWriteArray(QStringLiteral("HealthProblems"), int(m_healthLook.problems.size()));
+        for (int i = 0; i < m_healthLook.problems.size(); ++i) {
+            saved.setArrayIndex(i);
+            saved.setValue(QStringLiteral("Id"), m_healthLook.problems.at(i).id);
+            saved.setValue(QStringLiteral("Title"), m_healthLook.problems.at(i).title);
+            saved.setValue(QStringLiteral("Detail"), m_healthLook.problems.at(i).detail);
+        }
+        saved.endArray();
+        return;
+    }
+    if (topic == Windows) {
+        saveState(saved, QStringLiteral("Windows"), m_windowsAttention);
+        saved.setValue(QStringLiteral("Windows/Installer"), m_installer);
+        saved.setValue(QStringLiteral("Windows/Program"), m_program);
+        saved.setValue(QStringLiteral("Windows/Installers"), m_installers);
+        saved.setValue(QStringLiteral("Windows/Never"), m_windowsNever);
         return;
     }
     saveState(saved, QStringLiteral("Storage"), m_attention);
