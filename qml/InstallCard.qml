@@ -4,8 +4,8 @@ import "Icons.js" as Icons
 
 // The Install an app card: what the person needs, the apps for it with where
 // each comes from, and one tap to install one; or, asked to remove an app, the
-// installed apps that fit, and a yes before one is removed
-// (src/app/AppInstall.h).
+// installed apps that fit, and a yes before one is removed; or, as Your apps,
+// the apps the person added, biggest first (src/app/AppInstall.h).
 CardFrame {
     id: card
     objectName: "installCard"
@@ -14,6 +14,7 @@ CardFrame {
     readonly property var results: card.job.results
     readonly property var picked: card.job.picked
     readonly property bool removing: card.job.removing
+    readonly property bool yours: card.job.yours
     hue: card.stage === "failed" ? "coral" : "violet"
 
     function search(text) {
@@ -25,12 +26,14 @@ CardFrame {
         headingObjectName: "installHeading"
         tone: card.tone
         icon: card.stage === "done" || card.stage === "removed" ? Icons.check : card.stage === "failed" ? Icons.alert
-            : card.removing ? Icons.trash : Icons.download
+            : card.yours && card.stage !== "confirm" ? Icons.apps : card.removing ? Icons.trash : Icons.download
         spinning: false
         heading: {
             switch (card.stage) {
-            case "searching": return "Looking for " + card.job.query
+            case "searching": return card.yours ? "Your apps" : "Looking for " + card.job.query
             case "results":
+                if (card.yours)
+                    return card.results.length === 0 ? "No apps you added" : "Your apps"
                 if (card.removing)
                     return card.results.length === 0 ? "Nothing installed fits “" + card.job.query + "”"
                                                      : "Remove which app?"
@@ -49,22 +52,27 @@ CardFrame {
             switch (card.stage) {
             case "asking": return card.removing ? "Say which app, and " + productName + " finds it on this computer."
                                                 : "Say what you need, and " + productName + " finds the apps for it."
-            case "searching": return card.removing ? "Among the apps installed on this computer."
+            case "searching": return card.yours ? "Looking at the apps you added." : card.removing ? "Among the apps installed on this computer."
                                                    : "On this system's own shelf, and on Flathub."
             case "results":
+                if (card.yours)
+                    return card.results.length === 0 ? "Apps you install from this system's shelf or Flathub show here."
+                         : (card.results.length === 1 ? "1 app you added takes " : card.results.length + " apps you added take ")
+                           + card.job.yoursSize + ". Biggest first."
                 if (card.removing)
                     return card.results.length === 0 ? "Try its name as the app menu shows it. Parts the system needs aren't listed."
                                                      : "Tap the one to remove. Nothing is removed until you say yes."
                 return card.results.length === 0 ? "Try other words, such as what you want to do with it."
                                                  : "This system's own shelf comes first: it's checked by the system's keys and updated with it."
-            case "confirm": return card.picked.source === "shelf"
+            case "confirm": return card.yours && card.picked.size !== "" ? card.picked.size + " comes free." : card.picked.source === "shelf"
                                    ? "A restore point is taken first, and only this app is removed. If another app needs it, nothing is removed."
                                    : "It's removed from Flathub's apps on this computer. Its own settings stay."
             case "installing": return card.picked.source === "shelf" ? "From this system's shelf, with a restore point first."
                                                                     : "From Flathub."
             case "removing": return "You can keep working."
             case "done": return "It's in the app menu now."
-            case "removed": return "To have it back, install it again from this card."
+            case "removed": return card.yours ? "To have it back, install it again from Install an app."
+                                              : "To have it back, install it again from this card."
             case "failed": return card.job.why
             }
             return ""
@@ -73,7 +81,7 @@ CardFrame {
 
     // What the person needs, in their words.
     Rectangle {
-        visible: card.stage === "asking" || card.stage === "results" || card.stage === "failed"
+        visible: !card.yours && (card.stage === "asking" || card.stage === "results" || card.stage === "failed")
         width: card.innerWidth
         height: 44
         radius: 22
@@ -187,9 +195,11 @@ CardFrame {
                 tone: modelData.source === "shelf" ? card.tone : theme.hue("teal")
                 icon: modelData.source === "shelf" ? Icons.box : Icons.globe
                 title: modelData.name
-                detail: modelData.summary + (modelData.summary !== "" ? "\n" : "") + modelData.sourceName
+                detail: card.yours ? modelData.sourceName
+                      : modelData.summary + (modelData.summary !== "" ? "\n" : "") + modelData.sourceName
                         + (modelData.alsoFlathub ? " · also on Flathub" : "")
-                trailing: card.removing ? "Remove" : modelData.installed ? "Open" : "Install"
+                trailing: card.yours ? modelData.size : card.removing ? "Remove" : modelData.installed ? "Open" : "Install"
+                action: card.yours ? "Remove" : ""
                 opens: true
                 Accessible.name: (card.removing ? "Remove " : modelData.installed ? "Open " : "Install ") + modelData.name
                 onClicked: card.removing ? card.job.remove(modelData.key)
@@ -198,10 +208,24 @@ CardFrame {
         }
     }
 
+    // The app a yes removes, as Your apps listed it.
+    CardRow {
+        objectName: "yoursPicked"
+        visible: card.yours && card.stage === "confirm"
+        tone: card.picked.source === "shelf" ? card.tone : theme.hue("teal")
+        icon: card.picked.source === "shelf" ? Icons.box : Icons.globe
+        title: card.picked.name || ""
+        detail: card.picked.source === "shelf"
+                ? "A restore point is taken first, and only this app is removed. If another app needs it, nothing is removed."
+                : "From Flathub. Its own settings stay."
+        trailing: card.picked.size || ""
+    }
+
     CardFact {
         visible: card.stage === "results" && card.results.some(r => r.source === "shelf" && (card.removing || !r.installed))
         icon: Icons.lock
-        label: "Apps from this system's shelf need your password"
+        label: card.yours ? "Apps from this system's shelf need your password, once per app"
+                          : "Apps from this system's shelf need your password"
     }
 
     CardProgress {
@@ -267,7 +291,7 @@ CardFrame {
             implicitHeight: 44
             padding: 16
             fontSize: 15
-            text: "Back"
+            text: card.yours ? "Keep it" : "Back"
             onClicked: card.job.back()
         }
         Pill {
@@ -277,6 +301,15 @@ CardFrame {
             fontSize: 15
             text: "Find another"
             onClicked: card.job.ask()
+        }
+        Pill {
+            objectName: "backToYours"
+            visible: card.yours && (card.stage === "removed" || card.stage === "failed")
+            implicitHeight: 44
+            padding: 16
+            fontSize: 15
+            text: "Back to your apps"
+            onClicked: card.job.listYours()
         }
         Pill {
             objectName: "removeInstead"

@@ -297,18 +297,19 @@ private Q_SLOTS:
             QVERIFY(!action.value(QStringLiteral("keywords")).toStringList().isEmpty());
         }
         QCOMPARE(ids, (QStringList{QStringLiteral("update"), QStringLiteral("space"), QStringLiteral("install"),
-                                   QStringLiteral("health"), QStringLiteral("changes"), QStringLiteral("restore"),
+                                   QStringLiteral("apps"), QStringLiteral("health"), QStringLiteral("changes"), QStringLiteral("restore"),
                                    QStringLiteral("community")}));
         QVERIFY(d.core->openAction(QStringLiteral("health"), QStringLiteral("health")));
         // Only Install an app takes what was typed.
         QVERIFY(d.core->openAction(QStringLiteral("install"), QStringLiteral(" install pdf editor ")));
+        QVERIFY(d.core->openAction(QStringLiteral("apps"), QStringLiteral("uninstall")));
         QVERIFY(!d.core->openAction(QStringLiteral("format-the-disk"), QString()));
         // Search's Uninstall names the app by its desktop file id alone.
         QVERIFY(d.core->removeApp(QStringLiteral("org.videolan.vlc.desktop")));
         QVERIFY(!d.core->removeApp(QStringLiteral("../vlc.desktop")));
         QVERIFY(!d.core->removeApp(QStringLiteral("vlc; rm -rf ~")));
         QCOMPARE(d.opened, (QStringList{QStringLiteral("health"), QStringLiteral("install: install pdf editor"),
-                                        QStringLiteral("uninstall: org.videolan.vlc.desktop")}));
+                                        QStringLiteral("apps"), QStringLiteral("uninstall: org.videolan.vlc.desktop")}));
         QVERIFY(d.logbook().contains(QStringLiteral("Search  You opened Health check.")));
         QVERIFY(d.logbook().contains(QStringLiteral("Search  You asked to remove org.videolan.vlc.")));
     }
@@ -555,7 +556,7 @@ private Q_SLOTS:
             = bus.call(QDBusMessage::createMethodCall(QLatin1String(CoreService::Service), QLatin1String(CoreService::Path),
                                                       QStringLiteral("io.github.carlsonjm.SplitRock.Core"), QStringLiteral("Actions")));
         QVERIFY2(actions.isValid(), qPrintable(actions.error().message()));
-        QCOMPARE(actions.value().size(), 7);
+        QCOMPARE(actions.value().size(), 8);
         bus.unregisterService(QLatin1String(CoreService::Service));
         bus.unregisterObject(QLatin1String(CoreService::Path));
     }

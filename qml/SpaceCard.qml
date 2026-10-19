@@ -133,6 +133,20 @@ CardFrame {
         }
     }
 
+    // The apps the person added, at the end and never ticked: freeing up
+    // space never removes an app. A tap opens Your apps.
+    CardRow {
+        objectName: "spaceYours"
+        visible: (card.stage === "ready" || card.stage === "nothing") && card.job.yoursKb > 0
+        width: card.innerWidth
+        icon: Icons.apps
+        title: "Your apps"
+        detail: "Apps you added take " + card.job.yoursSize + ". See which, biggest first."
+        trailing: card.job.yoursSize
+        opens: true
+        onClicked: helpers.openChore("apps")
+    }
+
     // Parts nothing uses, once ticked: every package that will be removed,
     // by name, before the button is tapped. Nothing else goes with them.
     Column {

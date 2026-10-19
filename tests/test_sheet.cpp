@@ -180,6 +180,7 @@ private Q_SLOTS:
         SpaceCleanup *space = c.spaceCleanup();
         space->setElevate({});
         space->setLookScript(QStringLiteral("cat '") + chores + QStringLiteral("space-look.txt'"));
+        space->setYoursScript(QStringLiteral("cat '") + chores + QStringLiteral("yours-look.txt'"));
         space->setReport({});
 
         QQmlApplicationEngine engine;
@@ -263,6 +264,7 @@ private Q_SLOTS:
         SpaceCleanup *space = c.spaceCleanup();
         space->setElevate({});
         space->setLookScript(printing(QStringLiteral("space-look.txt")));
+        space->setYoursScript(printing(QStringLiteral("yours-look.txt")));
         space->setAdmin(adminStandIn(QStringLiteral("echo '@@ step pkgcache'; sleep 0.3; echo '@@ step journal'")));
         space->setPersonScript(QStringLiteral("echo '@@ step cache'"));
         space->setFreeScript(QStringLiteral("echo 52500000"));
@@ -271,6 +273,7 @@ private Q_SLOTS:
         install->setSearchScript(printing(QStringLiteral("install-search.txt")));
         install->setAdmin(adminStandIn(QStringLiteral("echo 'Packages (1) pdfarranger-1.11-1'; echo 'installing pdfarranger...'")));
         install->setOpenScript(QStringLiteral("true"));
+        install->setYoursScript(printing(QStringLiteral("yours-look.txt")));
         RestorePoints *restore = c.restorePoints();
         restore->setLookScript(printing(QStringLiteral("restore-look.txt")));
         HealthCheck *health = c.healthCheck();
@@ -328,6 +331,27 @@ private Q_SLOTS:
         QTRY_COMPARE(install->stage(), QStringLiteral("removed"));
         shows(QStringLiteral("installCard"), QStringLiteral("48-remove-done"));
         install->setSearchScript(printing(QStringLiteral("install-search.txt")));
+        // Your apps: what the person added, biggest first, from Free up
+        // space's row; then a yes before one goes.
+        QVERIFY(opens(QStringLiteral("space")));
+        QTRY_COMPARE(space->stage(), QStringLiteral("ready"));
+        QTRY_VERIFY(find(full, QStringLiteral("spaceYours")) && find(full, QStringLiteral("spaceYours"))->isVisible());
+        full->setGeometry(0, 0, 560, 1500);
+        shows(QStringLiteral("spaceCard"), QStringLiteral("49-space-your-apps-row"));
+        full->setGeometry(0, 0, 560, 800);
+        QMetaObject::invokeMethod(find(full, QStringLiteral("spaceYours")), "clicked");
+        QTRY_COMPARE(install->stage(), QStringLiteral("results"));
+        QVERIFY(install->yours());
+        QCOMPARE(c.chore(), QStringLiteral("install"));
+        QCOMPARE(full->title(), QStringLiteral("Your apps"));
+        shows(QStringLiteral("installCard"), QStringLiteral("50-your-apps"));
+        install->remove(QStringLiteral("flathub:com.valvesoftware.Steam"));
+        QTRY_COMPARE(install->stage(), QStringLiteral("confirm"));
+        QTRY_VERIFY(find(full, QStringLiteral("yoursPicked")) && find(full, QStringLiteral("yoursPicked"))->isVisible());
+        shows(QStringLiteral("installCard"), QStringLiteral("51-your-apps-confirm"));
+        install->back();
+        QCOMPARE(install->stage(), QStringLiteral("results"));
+        install->close();
 
         QVERIFY(opens(QStringLiteral("restore")));
         QTRY_COMPARE(restore->stage(), QStringLiteral("ready"));

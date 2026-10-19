@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 #include "app/SpaceCleanup.h"
 
+#include "app/AppInstall.h"
 #include "app/Product.h"
 
 #include <QDateTime>
@@ -185,6 +186,7 @@ SpaceCleanup::SpaceCleanup(QObject *parent)
     , m_lookScript(LookScript)
     , m_personScript(PersonScript)
     , m_freeScript(FreeScript)
+    , m_yoursScript(AppInstall::yoursScript())
 {
 }
 
@@ -437,6 +439,7 @@ void SpaceCleanup::check()
     if (busy())
         return;
     m_look = Look();
+    m_yoursKb = 0;
     m_freed.clear();
     m_heldBack.clear();
     m_why.clear();
@@ -446,7 +449,13 @@ void SpaceCleanup::check()
         // Then the parts nothing uses, as the administrator's job counts
         // them; none are offered when it can't run.
         run(asPersonJob(QStringLiteral("unused")), 120000, [this, output](int code, const QString &unused) {
-            looked(code == 0 ? output + QLatin1Char('\n') + unused : output);
+            const QString look = code == 0 ? output + QLatin1Char('\n') + unused : output;
+            // Then how much room the apps the person added take, for the
+            // row that opens Your apps.
+            run(asPerson(m_yoursScript), 120000, [this, look](int, const QString &yours) {
+                m_yoursKb = AppInstall::totalKb(AppInstall::readYours(yours));
+                looked(look);
+            });
         });
     });
 }

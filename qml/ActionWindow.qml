@@ -13,7 +13,7 @@ Window {
         switch (helpers.chore) {
         case "update": return "Update"
         case "space": return "Free up space"
-        case "install": return helpers.install.removing ? "Remove an app" : "Install a new app"
+        case "install": return helpers.install.yours ? "Your apps" : helpers.install.removing ? "Remove an app" : "Install a new app"
         case "restore": return "Restore points"
         case "health": return "Health check"
         case "community": return "Community apps"

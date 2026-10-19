@@ -149,11 +149,19 @@ Each fact is a dictionary of strings to variants:
 ## Actions from Search
 
 Every upkeep card opens from Search on its own, with no conversation: Check
-for updates, Free up space, Install an app, Health check, What changed, Restore
-points and Community apps. Core lists them with the words each is found by,
+for updates, Free up space, Install an app, Your apps, Health check, What
+changed, Restore points and Community apps. Core lists them with the words each is found by,
 and Search matches what is typed against them without asking Core anything.
 Enter on one asks Core to open it. Each card looks first and changes nothing
 until the person says yes. The logbook records each card opened.
+
+Your apps lists the apps the person added themselves, biggest first with the
+room each takes: apps in the app menu whose package was installed on purpose,
+and Flathub's apps; never what the system runs on. Removing one is Install an
+app's removal, with its yes and its restore point, one app and one password
+at a time. It never opens on its own: Search finds it, and Free up space ends
+with a row that opens it, never ticked, so freeing up space never removes an
+app.
 
 ## Opening a card
 

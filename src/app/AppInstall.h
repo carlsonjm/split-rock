@@ -22,6 +22,10 @@ namespace splitrock {
 // one tap, then a yes, removes the one picked, with a restore point first for
 // the system's own. What the system can't run without is never offered.
 //
+// As Your apps it lists the apps the person added themselves, from the shelf
+// or Flathub, biggest first with the room each takes, and removes one the
+// same way; what the system runs on is never among them.
+//
 // Its stages: asking, searching, results, installing, done, confirm (removing
 // one waits for a yes), removing, removed or failed.
 class AppInstall : public Chore
@@ -35,6 +39,10 @@ class AppInstall : public Chore
     Q_PROPERTY(QString why READ why NOTIFY changed)
     // The person asked to remove an app, rather than to find one.
     Q_PROPERTY(bool removing READ removing NOTIFY changed)
+    // The card is Your apps: the apps the person added, biggest first.
+    Q_PROPERTY(bool yours READ yours NOTIFY changed)
+    // How much room the apps listed take, in words, such as "23 GB".
+    Q_PROPERTY(QString yoursSize READ yoursSize NOTIFY changed)
 
 public:
     struct App {
@@ -48,6 +56,8 @@ public:
         QString remote;
         bool installed = false;
         bool alsoFlathub = false;
+        // The room it takes, in kilobytes; -1 when unknown.
+        qint64 kb = -1;
         QVariantMap toMap() const;
     };
 
@@ -60,6 +70,8 @@ public:
     QVariantMap pickedMap() const { return m_picked.toMap(); }
     QString why() const { return m_why; }
     bool removing() const { return m_removing; }
+    bool yours() const { return m_yours; }
+    QString yoursSize() const;
 
     // Opens the card, empty, for the person to say what they need.
     Q_INVOKABLE void ask();
@@ -80,6 +92,8 @@ public:
     // Flatpak that owns it is found, and the card waits for a yes. One the
     // system can't run without, or one nothing owns, is said and left.
     void removeApp(const QString &desktopId);
+    // Opens the card as Your apps.
+    Q_INVOKABLE void listYours();
 
     // Words that ask to remove an app rather than find one, and the words
     // that are left once those are taken out: "uninstall MaiN Keyboard" is
@@ -93,12 +107,21 @@ public:
 
     // What the search printed, read into apps, best first, at most eight.
     static QList<App> readSearch(const QString &output, const QString &query);
+    // What the person added themselves, as the Your apps script prints it,
+    // biggest first: apps in the app menu whose package was installed on
+    // purpose, and Flathub's apps; never what the system runs on.
+    static QList<App> readYours(const QString &output);
+    // The script that lists them, run as the person; Free up space runs it
+    // too, to say how much room they take.
+    static QString yoursScript();
+    static qint64 totalKb(const QList<App> &apps);
 
     void setSearchScript(const QString &script) { m_searchScript = script; }
     void setFlathubScript(const QString &script) { m_flathubScript = script; }
     void setOpenScript(const QString &script) { m_openScript = script; }
     void setFlathubRemoveScript(const QString &script) { m_flathubRemoveScript = script; }
     void setOwnerScript(const QString &script) { m_ownerScript = script; }
+    void setYoursScript(const QString &script) { m_yoursScript = script; }
 
 private:
     // Waits for the yes to remove app, once the administrator's helper has
@@ -113,12 +136,14 @@ private:
     QString m_id;
     QString m_why;
     bool m_removing = false;
+    bool m_yours = false;
 
     QString m_searchScript;
     QString m_flathubScript;
     QString m_openScript;
     QString m_flathubRemoveScript;
     QString m_ownerScript;
+    QString m_yoursScript;
 };
 
 } // namespace splitrock

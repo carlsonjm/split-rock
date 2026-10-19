@@ -36,6 +36,10 @@ class SpaceCleanup : public Chore
     // Why less came free than was counted, when it did; empty otherwise.
     Q_PROPERTY(QString heldBack READ heldBack NOTIFY changed)
     Q_PROPERTY(QString why READ why NOTIFY changed)
+    // How much room the apps the person added take, for the Your apps row
+    // at the end; never cleared from here. 0 when none are known.
+    Q_PROPERTY(qint64 yoursKb READ yoursKb NOTIFY changed)
+    Q_PROPERTY(QString yoursSize READ yoursSize NOTIFY changed)
 
 public:
     struct Item {
@@ -70,6 +74,8 @@ public:
     QString freed() const { return m_freed; }
     QString heldBack() const { return m_heldBack; }
     QString why() const { return m_why; }
+    qint64 yoursKb() const { return m_yoursKb; }
+    QString yoursSize() const { return size(m_yoursKb); }
 
     Q_INVOKABLE void check();
     Q_INVOKABLE void choose(const QString &id, bool chosen);
@@ -83,6 +89,7 @@ public:
     void setLookScript(const QString &script) { m_lookScript = script; }
     void setPersonScript(const QString &script) { m_personScript = script; }
     void setFreeScript(const QString &script) { m_freeScript = script; }
+    void setYoursScript(const QString &script) { m_yoursScript = script; }
 
 private:
     void looked(const QString &output);
@@ -98,10 +105,12 @@ private:
     QStringList m_chosenTitles;
     QStringList m_removed;
     int m_pre = -1;
+    qint64 m_yoursKb = 0;
 
     QString m_lookScript;
     QString m_personScript;
     QString m_freeScript;
+    QString m_yoursScript;
 };
 
 } // namespace splitrock
