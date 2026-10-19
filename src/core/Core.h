@@ -67,6 +67,12 @@ public:
     // Whether the Health topic is switched on and its weekly look is due.
     bool healthDue() const;
 
+    // A Windows installer arrived in the Downloads folder: Core offers, once,
+    // to find the Linux version.
+    void seeInstaller(const QString &fileName);
+    // Whether the Windows programs topic is on and was not told to stop.
+    bool watchesDownloads() const;
+
     // How readily Core speaks, the person's Notice setting, from 0 (Less) to
     // 100 (More), 50 by default; the words "quiet" and "eager" read as 0 and
     // 100. The limits each topic holds follow it.
@@ -106,6 +112,8 @@ private:
     QVariantMap storageFact() const;
     QVariantMap updatesFact() const;
     QVariantMap healthFact() const;
+
+    QVariantMap windowsFact() const;
     // Judges the drive from the looks so far, and speaks if it got worse.
     void judgeStorage(const QDateTime &now);
     // Logbook lines and the ticker for what one decision said.
@@ -134,6 +142,14 @@ private:
     HealthFact m_health;
     Attention m_healthAttention;
     bool m_healthLooked = false;
+
+    // The installer last seen, the program it is for, and how many have come.
+    QString m_installer;
+    QString m_program;
+    int m_installers = 0;
+    // The person said not to tell them again.
+    bool m_windowsNever = false;
+    Attention m_windowsAttention;
 };
 
 } // namespace splitrock::core

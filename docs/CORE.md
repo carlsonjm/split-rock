@@ -7,7 +7,8 @@ surfaces when a fact deserves attention. Search, the island and the ticker show
 what it says; the upkeep cards do the work, after the person's yes. Core works
 without the conversation.
 
-Core watches three topics, Storage, Updates and Health. Each section below gives what
+Core watches three topics, Storage, Updates and Health, and the Downloads
+folder for a Windows program. Each section below gives what
 Core watches, the card it can open and the words it uses.
 
 ## What holds
@@ -27,7 +28,7 @@ Core watches, the card it can open and the words it uses.
     last looks for updates and at the computer's health
 - `split-rock-corerc` in the person's settings folder switches off Core as a
   whole (`[General] Enabled=false`) or one topic (`[Storage] Enabled=false`,
-  `[Updates] Enabled=false`, `[Health] Enabled=false`). Core neither watches nor offers a topic that is
+  `[Updates] Enabled=false`, `[Health] Enabled=false`, `[Windows] Enabled=false`). Core neither watches nor offers a topic that is
   switched off.
 - Core starts at sign-in, from `io.github.carlsonjm.splitrock.Core.desktop` in
   the system's autostart folder, so it keeps its schedule whether or not a
@@ -98,6 +99,22 @@ problem, written as a question, with the computer's maker and model, its
 system, its Linux kernel and Plasma's version, to paste in a forum or send to
 someone. Nothing is sent anywhere.
 
+## Windows programs
+
+Someone who has used Windows for decades downloads a program the way they
+always have, and gets a `.exe` or `.msi` that can't run here. When one arrives
+in the Downloads folder, Core says so once, on Search's island:
+"ZoomInstaller.exe is for Windows", "Windows programs don't run here. Find the
+Linux version of Zoom". Tapping it opens Install an app, searching for the name
+in the file's, without the words installers add and their versions. Only a file
+that arrives while Core runs counts, five seconds after the folder stops
+changing, so a download has finished and been named.
+
+Each installer is news once. A second one the same day, or one during Do Not
+Disturb, goes to the ticker. Once the person taps it or sets it aside, it is
+no longer a fact. `never` on the bus stops it for good. Core reads only the
+names of the files there, never what is in them.
+
 ## Notice
 
 One setting moves Storage's and Updates' marks together: `[General] Notice` in
@@ -148,7 +165,7 @@ can set these limits. Below the ticker's mark it writes nothing more.
 | --- | --- |
 | `ProtocolVersion() → u` | The version, `1` |
 | `Facts() → aa{sv}` | Every fact Core has now; none for a topic switched off |
-| `Act(s topic, s action) → b` | The person answered a fact: `open` opens its card, `not-now` and `dismiss` quiet it. False for any other topic or action |
+| `Act(s topic, s action) → b` | The person answered a fact: `open` opens its card, `not-now` and `dismiss` quiet it, and `never`, for Windows programs, stops it for good. False for any other topic or action |
 | `Actions() → aa{sv}` | The upkeep cards Search can open by their words: `id`, `title`, `sub`, `icon` and `keywords` (`as`) each |
 | `OpenAction(s id, s query) → b` | Opens that card on its own. `query` goes only to Install an app, which searches for it, or removes an app when it starts with "uninstall" or "remove". False for an id not listed |
 | `RemoveApp(s desktopId) → b` | Opens Install an app straight to removing the app with that desktop file id, such as `org.videolan.vlc.desktop`: it finds the package or Flatpak that owns it and waits for the person's yes. False for anything not shaped like a desktop file id |
@@ -158,13 +175,14 @@ Each fact is a dictionary of strings to variants:
 
 | Key | Type | What it is |
 | --- | --- | --- |
-| `topic` | `s` | `storage`, `updates` or `health` |
-| `title` | `s` | `Storage`, `Updates`, `Health` |
+| `topic` | `s` | `storage`, `updates`, `health` or `windows` |
+| `title` | `s` | `Storage`, `Updates`, `Health`, `Windows programs` |
 | `line` | `s` | `91% full`, `12 waiting`, `Up to date`, `1 problem`, `All good` |
 | `detail` | `s` | `45 GB free · filling about 2 GB a day` (the rate only when it is at least 100 MB a day), `Last updated 9 days ago` |
 | `percent` | `i` | Storage only: how full, in whole points |
 | `waiting`, `daysBehind` | `i` | Updates only: how many, and days since the last full update |
 | `problems` | `i` | Health only: how many problems |
+| `program` | `s` | Windows programs only: the program the installer is for, such as `Zoom`; empty when its name gives none |
 | `level` | `s` | `quiet`, `ticker` or `island` |
 | `attention` | `s` | `island` while the island should show it, `none` otherwise |
 | `icon` | `s` | An icon name from the icon theme |
@@ -177,6 +195,9 @@ Every upkeep card opens from Search on its own, with no conversation: Check
 for updates, Free up space, Install an app, Your apps, Health check, What
 changed, Restore points and Community apps. Core lists them with the words each is found by,
 and Search matches what is typed against them without asking Core anything.
+Windows's own words find them too: Add or remove programs opens Install an
+app, Disk Cleanup Free up space, Windows Update Check for updates and System
+Restore Restore points.
 Enter on one asks Core to open it. Each card looks first and changes nothing
 until the person says yes. The logbook records each card opened.
 

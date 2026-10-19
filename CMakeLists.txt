@@ -101,6 +101,7 @@ add_library(splitrock_core_watch STATIC
     src/core/Health.cpp
     src/core/Storage.cpp
     src/core/Updates.cpp
+    src/core/Windows.cpp
 )
 target_include_directories(splitrock_core_watch PUBLIC src)
 target_link_libraries(splitrock_core_watch PUBLIC Qt6::Core Qt6::DBus)
