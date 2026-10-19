@@ -198,7 +198,9 @@ and Search matches what is typed against them without asking Core anything.
 Windows's own words find them too: Add or remove programs opens Install an
 app, Disk Cleanup Free up space, Windows Update Check for updates and System
 Restore Restore points.
-Enter on one asks Core to open it. Each card looks first and changes nothing
+Enter on one asks Core to open it. Install an app searches for what was
+typed; a Windows installer's name typed in full, such as ZoomInstaller.exe,
+searches for its program, Zoom. Each card looks first and changes nothing
 until the person says yes. The logbook records each card opened.
 
 Your apps lists the apps the person added themselves, biggest first with the

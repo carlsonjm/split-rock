@@ -514,8 +514,13 @@ bool Core::openAction(const QString &id, const QString &query)
         if (action.value(QStringLiteral("id")).toString() != id)
             continue;
         write(QStringLiteral("Search  You opened %1.").arg(action.value(QStringLiteral("title")).toString()));
+        // A Windows installer's name typed in full, "ZoomInstaller.exe",
+        // asks for the program it installs: "Zoom".
+        QString asked = query.trimmed();
+        if (isWindowsInstaller(asked) && !programName(asked).isEmpty())
+            asked = programName(asked);
         if (m_hooks.openCard)
-            m_hooks.openCard(id, id == QLatin1String("install") ? query.trimmed() : QString());
+            m_hooks.openCard(id, id == QLatin1String("install") ? asked : QString());
         return true;
     }
     return false;
