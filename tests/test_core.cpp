@@ -9,6 +9,7 @@
 #include "core/CoreService.h"
 #include "core/Storage.h"
 #include "core/Updates.h"
+#include "core/Windows.h"
 
 #include <QDBusConnection>
 #include <QDBusConnectionInterface>
@@ -531,6 +532,97 @@ private Q_SLOTS:
         QVERIFY(d.fact(QStringLiteral("updates")).isEmpty());
         QVERIFY(d.ticker.isEmpty());
         QVERIFY(!d.core->act(QStringLiteral("updates"), QStringLiteral("open")));
+    }
+
+    void aWindowsInstallerIsNamedForItsProgram()
+    {
+        QVERIFY(isWindowsInstaller(QStringLiteral("ZoomInstaller.exe")));
+        QVERIFY(isWindowsInstaller(QStringLiteral("Setup.MSI")));
+        QVERIFY(!isWindowsInstaller(QStringLiteral("zoom.deb")));
+        QVERIFY(!isWindowsInstaller(QStringLiteral("ZoomInstaller.exe.part")));
+        const QList<std::pair<const char *, const char *>> names{
+            {"ZoomInstaller.exe", "Zoom"},
+            {"ChromeSetup.exe", "Chrome"},
+            {"SteamSetup.exe", "Steam"},
+            {"Firefox Installer.exe", "Firefox"},
+            {"vlc-3.0.21-win64.exe", "vlc"},
+            {"Discord-Setup-x64 (1).exe", "Discord"},
+            {"spotify_installer-1.2.45.exe", "spotify"},
+            {"OBS-Studio-30.2-Full-Installer-x64.exe", "OBS Studio"},
+            {"setup.exe", ""},
+        };
+        for (const auto &[file, name] : names)
+            QCOMPARE(programName(QString::fromUtf8(file)), QString::fromUtf8(name));
+    }
+
+    void aWindowsInstallerGetsTheIslandOnceAndFindsTheLinuxVersion()
+    {
+        Desk d;
+        QVERIFY(d.core->watchesDownloads());
+        QVERIFY(d.fact(QStringLiteral("windows")).isEmpty());
+        d.core->seeInstaller(QStringLiteral("ZoomInstaller.exe"));
+        QVariantMap fact = d.fact(QStringLiteral("windows"));
+        QCOMPARE(fact.value(QStringLiteral("attention")).toString(), QStringLiteral("island"));
+        QCOMPARE(fact.value(QStringLiteral("line")).toString(), QStringLiteral("ZoomInstaller.exe is for Windows"));
+        QCOMPARE(fact.value(QStringLiteral("detail")).toString(),
+                 QStringLiteral("Windows programs don't run here. Find the Linux version of Zoom"));
+        QCOMPARE(fact.value(QStringLiteral("actionText")).toString(), QStringLiteral("Find Zoom"));
+        QVERIFY(d.ticker.isEmpty());
+        // Another the same day: the island's allowance is spent, so the ticker.
+        d.core->seeInstaller(QStringLiteral("ChromeSetup.exe"));
+        QCOMPARE(d.ticker, QStringList{QStringLiteral("Windows programs · ChromeSetup.exe is for Windows | "
+                                                      "Windows programs don't run here. Find the Linux version of Chrome")});
+        QVERIFY(d.core->act(QStringLiteral("windows"), QStringLiteral("open")));
+        QCOMPARE(d.opened, QStringList{QStringLiteral("install: Chrome")});
+        // Once looked at, it's no longer news.
+        QVERIFY(d.fact(QStringLiteral("windows")).isEmpty());
+        QVERIFY(d.logbook().contains(QStringLiteral("Windows programs  You looked for the Linux version of ChromeSetup.exe.")));
+        // Not a Windows installer: nothing.
+        d.core->seeInstaller(QStringLiteral("notes.pdf"));
+        QCOMPARE(d.ticker.size(), 1);
+    }
+
+    void toldNotToTellAgainItStopsForGood()
+    {
+        Desk d;
+        d.core->seeInstaller(QStringLiteral("ZoomInstaller.exe"));
+        QVERIFY(d.core->act(QStringLiteral("windows"), QStringLiteral("never")));
+        QVERIFY(!d.core->watchesDownloads());
+        QVERIFY(d.fact(QStringLiteral("windows")).isEmpty());
+        d.make();
+        QVERIFY(!d.core->watchesDownloads());
+        d.now = d.now.addDays(2);
+        d.core->seeInstaller(QStringLiteral("ChromeSetup.exe"));
+        QVERIFY(d.ticker.isEmpty());
+        QVERIFY(d.fact(QStringLiteral("windows")).isEmpty());
+    }
+
+    void windowsProgramsSwitchedOffAreSilent()
+    {
+        Desk d;
+        {
+            QSettings settings(d.dir.filePath(QStringLiteral("corerc")), QSettings::IniFormat);
+            settings.setValue(QStringLiteral("Windows/Enabled"), false);
+        }
+        QVERIFY(!d.core->watchesDownloads());
+        d.core->seeInstaller(QStringLiteral("ZoomInstaller.exe"));
+        QVERIFY(d.fact(QStringLiteral("windows")).isEmpty());
+        QVERIFY(!d.core->act(QStringLiteral("windows"), QStringLiteral("open")));
+    }
+
+    void theHelpersAnswerToWindowsWords()
+    {
+        const auto findsBy = [](const QString &words) {
+            for (const QVariantMap &action : Core::actions()) {
+                if (action.value(QStringLiteral("keywords")).toStringList().contains(words))
+                    return action.value(QStringLiteral("id")).toString();
+            }
+            return QString();
+        };
+        QCOMPARE(findsBy(QStringLiteral("add or remove programs")), QStringLiteral("install"));
+        QCOMPARE(findsBy(QStringLiteral("disk cleanup")), QStringLiteral("space"));
+        QCOMPARE(findsBy(QStringLiteral("windows update")), QStringLiteral("update"));
+        QCOMPARE(findsBy(QStringLiteral("system restore")), QStringLiteral("restore"));
     }
 
     void theBusOffersTheFacts()

@@ -6,7 +6,7 @@
 // the person, never as the administrator, and never calls a language model.
 //
 //   split-rock-core [--folder DIR] [--settings FILE] [--drive DIR] [--every MINUTES]
-//                   [--updates-every HOURS]
+//                   [--updates-every HOURS] [--downloads DIR]
 //
 // --folder    where its logbook and looks are kept
 //             (default: split-rock/core in the person's data folder)
@@ -18,6 +18,8 @@
 //             hours between looks for updates (default: 6); it also looks a
 //             little after pacman's log or a Flatpak installation stops
 //             changing, so a finished update is seen at once
+// --downloads the folder where a Windows installer would arrive
+//             (default: the person's Downloads folder)
 //
 // Core runs once: a second start ends at once.
 
@@ -37,6 +39,7 @@
 #include <QFileInfo>
 #include <QFileSystemWatcher>
 #include <QHash>
+#include <QSet>
 #include <QProcess>
 #include <QStandardPaths>
 #include <QTimer>
@@ -76,19 +79,26 @@ public:
 
     void send(const QString &topic, const QString &summary, const QString &body)
     {
-        const bool updates = topic == QLatin1String("updates");
+        // Each topic's name, icon and card.
+        struct Words {
+            QString name;
+            QString icon;
+            QString card;
+        };
+        const Words words = topic == QLatin1String("updates")
+            ? Words{QStringLiteral("Updates"), QStringLiteral("system-software-update"), QStringLiteral("Check for updates")}
+            : topic == QLatin1String("windows")
+            ? Words{QStringLiteral("Windows programs"), QStringLiteral("application-x-ms-dos-executable"),
+                    QStringLiteral("Find the Linux version")}
+            : Words{QStringLiteral("Storage"), QStringLiteral("drive-harddisk"), QStringLiteral("Free up space")};
         QDBusMessage call = QDBusMessage::createMethodCall(Notifications, NotificationsPath, Notifications,
                                                            QStringLiteral("Notify"));
         const QVariantMap hints{{QStringLiteral("desktop-entry"), QStringLiteral("io.github.carlsonjm.SplitRock")},
                                 {QStringLiteral("urgency"), QVariant::fromValue<uchar>(1)}};
         // Each topic replaces only its own last notification.
         const uint last = m_last.value(topic);
-        call.setArguments({updates ? QStringLiteral("Updates") : QStringLiteral("Storage"), last,
-                           updates ? QStringLiteral("system-software-update") : QStringLiteral("drive-harddisk"),
-                           summary, body,
-                           QStringList{QStringLiteral("default"),
-                                       updates ? QStringLiteral("Check for updates") : QStringLiteral("Free up space")},
-                           hints, -1});
+        call.setArguments({words.name, last, words.icon, summary, body,
+                           QStringList{QStringLiteral("default"), words.card}, hints, -1});
         const QDBusReply<uint> reply = m_bus.call(call, QDBus::Block, 2000);
         if (reply.isValid())
             m_last.insert(topic, reply.value());
@@ -225,7 +235,9 @@ int main(int argc, char **argv)
     const QCommandLineOption updatesOption(QStringLiteral("updates-every"),
                                            QStringLiteral("Hours between looks for updates."), QStringLiteral("hours"),
                                            QStringLiteral("6"));
-    parser.addOptions({folderOption, settingsOption, driveOption, everyOption, updatesOption});
+    const QCommandLineOption downloadsOption(QStringLiteral("downloads"),
+                                             QStringLiteral("Where a Windows installer would arrive."), QStringLiteral("dir"));
+    parser.addOptions({folderOption, settingsOption, driveOption, everyOption, updatesOption, downloadsOption});
     parser.process(app);
 
     QDBusConnection bus = QDBusConnection::sessionBus();
@@ -316,6 +328,38 @@ int main(int argc, char **argv)
         }
     };
     watchMarks();
+    // Windows installers: a new .exe or .msi in the Downloads folder, a few
+    // seconds after the folder stops changing, so a download has finished
+    // and been named. Only files that arrive while Core runs count; one
+    // already there was seen before, or arrived when nobody asked.
+    const QString downloads = parser.isSet(downloadsOption)
+        ? parser.value(downloadsOption)
+        : QStandardPaths::writableLocation(QStandardPaths::DownloadLocation);
+    const QDateTime started = QDateTime::currentDateTime();
+    QSet<QString> installersSeen;
+    QFileSystemWatcher downloadsWatcher;
+    if (!downloads.isEmpty() && QFileInfo(downloads).isDir())
+        downloadsWatcher.addPath(downloads);
+    QTimer downloadsSettled;
+    downloadsSettled.setSingleShot(true);
+    downloadsSettled.setInterval(std::chrono::seconds(5));
+    QObject::connect(&downloadsWatcher, &QFileSystemWatcher::directoryChanged, &desk, [&downloadsSettled] {
+        downloadsSettled.start();
+    });
+    QObject::connect(&downloadsSettled, &QTimer::timeout, &desk, [&desk, downloads, started, &installersSeen] {
+        if (!desk.watchesDownloads())
+            return;
+        const QFileInfoList files = QDir(downloads).entryInfoList({QStringLiteral("*.exe"), QStringLiteral("*.msi"),
+                                                                   QStringLiteral("*.EXE"), QStringLiteral("*.MSI")},
+                                                                  QDir::Files, QDir::Time);
+        for (const QFileInfo &file : files) {
+            if (file.lastModified() < started || installersSeen.contains(file.fileName()))
+                continue;
+            installersSeen.insert(file.fileName());
+            desk.seeInstaller(file.fileName());
+        }
+    });
+
     // Settings, such as how readily Core speaks, take effect when they are
     // written. The folder is watched, since a settings file is replaced, not
     // edited, when it is saved.

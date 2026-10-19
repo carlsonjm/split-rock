@@ -991,3 +991,20 @@ GN-3 is fixed where Undo still runs.
 Rejected: keeping the conversation behind a switch, which keeps every finding
 open for a feature the product does not offer; and dropping Undo with it, which
 would leave the changes already made from cards without their way back.
+
+## A Windows installer gets one island, and the Helpers know Windows's words
+
+When a `.exe` or `.msi` arrives in the Downloads folder, Core says once, on the
+island, that Windows programs don't run here, and offers to find the Linux
+version by the program's name. Each installer is news once; `never` stops it
+for good. The Helpers also answer to Windows's own words: Add or remove
+programs, Disk Cleanup, Windows Update, System Restore.
+
+Why: Split Rock is for someone who has used Windows for decades, and a
+downloaded installer that does nothing is where they get stuck. The product
+owner chose the island at that moment over a line in Search they would have
+to think to look for.
+
+Rejected: a line in Search and the Health check only, which waits for the
+person to look; and offering to run Windows programs through a compatibility
+layer, which fails often enough to look like the desktop's fault.

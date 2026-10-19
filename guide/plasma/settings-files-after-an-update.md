@@ -35,4 +35,4 @@ is swapped, because a wrong swap can stop updates, the internet or printing.
 
 1. Carry on. Nothing needs doing today.
 2. Don't delete them or swap one for yours by hand.
-3. To tidy them up, ask Codex to compare each new file with yours. It shows a card for each change, and nothing changes until you tap Do it.
+3. To tidy them up, ask someone who knows Arch Linux to compare each new file with yours before anything is swapped. Copy for help on the health check gives them the list.
