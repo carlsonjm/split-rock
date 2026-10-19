@@ -49,5 +49,5 @@ QtObject {
     readonly property string mono: "monospace"
     // Corners: the Visual sheet's paper tier, for the card and everything laid
     // in it.
-    readonly property int cardRadius: 8
+    readonly property int cardRadius: 10
 }

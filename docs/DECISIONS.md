@@ -997,7 +997,7 @@ would leave the changes already made from cards without their way back.
 A later ruling than the conversation's colours (The conversation reads as a
 page, with one colour), which went with the chat. Every Helper draws to the
 suite's Visual sheet: the window is the card, with nothing boxed inside it but
-its rows, on the 8 px paper corner; the card is inset 16 px, its rows stand
+its rows, on the 10 px paper corner; the card is inset 16 px, its rows stand
 8 px apart and its groups 20; the heading is 16 px demi-bold over a 13 px line
 in the secondary colour; buttons are 40 to 44 px pills; and its chrome is the
 text colour. Colour is kept for state: amber for worth a look, warm red for a
