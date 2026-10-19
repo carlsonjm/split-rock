@@ -7,7 +7,7 @@ surfaces when a fact deserves attention. Search, the island and the ticker show
 what it says; the upkeep cards do the work, after the person's yes. Core works
 without the conversation.
 
-Core watches two topics, Storage and Updates. Each section below gives what
+Core watches three topics, Storage, Updates and Health. Each section below gives what
 Core watches, the card it can open and the words it uses.
 
 ## What holds
@@ -24,10 +24,10 @@ Core watches, the card it can open and the words it uses.
   - `storage.tsv`: its looks at the drive: time, size and free space in
     kilobytes
   - `attention.ini`: what it has said, so it doesn't say it twice, and its
-    last look for updates
+    last looks for updates and at the computer's health
 - `split-rock-corerc` in the person's settings folder switches off Core as a
   whole (`[General] Enabled=false`) or one topic (`[Storage] Enabled=false`,
-  `[Updates] Enabled=false`). Core neither watches nor offers a topic that is
+  `[Updates] Enabled=false`, `[Health] Enabled=false`). Core neither watches nor offers a topic that is
   switched off.
 - Core starts at sign-in, from `io.github.carlsonjm.splitrock.Core.desktop` in
   the system's autostart folder, so it keeps its schedule whether or not a
@@ -74,9 +74,33 @@ The step is a week: Updates speaks again only a week further behind, and Not
 now quiets it for a week. Nothing waiting counts as settled. Without a record
 of the last update, the days count from when Core first saw updates waiting.
 
+## Health
+
+Core looks over the computer once a week, counted from its last look, so a
+computer that was off or asleep looks ten minutes after Core starts. It runs
+`split-rock --health-facts`, the Health check's own look, which only reads and
+changes nothing, not even the last look the card keeps. Of what it finds, Core
+keeps only the problems; space, updates and old copies of updates are left to
+Storage and Updates. A look that fails leaves the last fact standing.
+
+| Level | When | Where it shows |
+| --- | --- | --- |
+| Quiet | No problems | Search only, when asked |
+| Ticker | A problem: a service that didn't start, an install that was cut off, a broken list of what's installed | "Health · 1 problem", "Services: One didn't start: …". Tapping it opens Health check |
+| Island | The drive reports it is failing, the one problem that can lose files | Search's island. Tapping it opens Health check |
+
+The step is one problem: Health speaks again only when there is a problem
+more, and Not now quiets it until then. No problems counts as settled. The
+Notice setting does not move Health: a problem is a problem.
+
+A problem no Helper fixes says "Copy for help" on the card. A tap copies the
+problem, written as a question, with the computer's maker and model, its
+system, its Linux kernel and Plasma's version, to paste in a forum or send to
+someone. Nothing is sent anywhere.
+
 ## Notice
 
-One setting moves every topic's marks together: `[General] Notice` in
+One setting moves Storage's and Updates' marks together: `[General] Notice` in
 `split-rock-corerc`, a number from 0 (Less) to 100 (More), 50 by default, which
 Shuffle Settings shows as the Pings slider on its Helpers page. Core picks up a
 change as soon as the file is saved. The words an earlier Settings wrote still
@@ -96,15 +120,15 @@ days).
 
 - A fact speaks only when it gets worse, never because time passed: once at the
   ticker, once at the island, then again only after it is a step worse (3
-  points fuller; a week further behind).
+  points fuller; a week further behind; a problem more).
 - Not now, or dismissing the island, quiets the fact until it is a step worse.
 - At most one island a day for each topic; each keeps its own allowance, so
   one topic never silences another. Past that, the ticker carries it.
 - Do Not Disturb leaves only the ticker.
 - An island nobody touches closes after a day, and the logbook says it went
   unanswered.
-- When the drive falls 2 points under the ticker's mark, or nothing is left to
-  update, the fact has settled: what was said is forgotten, so the next time it
+- When the drive falls 2 points under the ticker's mark, nothing is left to
+  update, or no problem is left, the fact has settled: what was said is forgotten, so the next time it
   gets worse, Core speaks again.
 
 The logbook records Core's first look after each start, every time it spoke,
@@ -134,16 +158,17 @@ Each fact is a dictionary of strings to variants:
 
 | Key | Type | What it is |
 | --- | --- | --- |
-| `topic` | `s` | `storage` or `updates` |
-| `title` | `s` | `Storage`, `Updates` |
-| `line` | `s` | `91% full`, `12 waiting`, `Up to date` |
+| `topic` | `s` | `storage`, `updates` or `health` |
+| `title` | `s` | `Storage`, `Updates`, `Health` |
+| `line` | `s` | `91% full`, `12 waiting`, `Up to date`, `1 problem`, `All good` |
 | `detail` | `s` | `45 GB free · filling about 2 GB a day` (the rate only when it is at least 100 MB a day), `Last updated 9 days ago` |
 | `percent` | `i` | Storage only: how full, in whole points |
 | `waiting`, `daysBehind` | `i` | Updates only: how many, and days since the last full update |
+| `problems` | `i` | Health only: how many problems |
 | `level` | `s` | `quiet`, `ticker` or `island` |
 | `attention` | `s` | `island` while the island should show it, `none` otherwise |
 | `icon` | `s` | An icon name from the icon theme |
-| `actionText` | `s` | What the card is called: `Free up space`, `Check for updates` |
+| `actionText` | `s` | What the card is called: `Free up space`, `Check for updates`, `Health check` |
 | `keywords` | `as` | The words Search finds it by |
 
 ## Actions from Search

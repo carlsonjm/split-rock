@@ -8,6 +8,7 @@
 
 #include <QDir>
 #include <QFile>
+#include <QClipboard>
 #include <QGuiApplication>
 #include <QPalette>
 #include <QQmlApplicationEngine>
@@ -338,6 +339,15 @@ private Q_SLOTS:
         QVERIFY(opens(QStringLiteral("health")));
         QTRY_COMPARE(health->stage(), QStringLiteral("done"));
         shows(QStringLiteral("healthCard"), QStringLiteral("37-health"));
+        // A problem no card fixes is copied, to ask someone about.
+        QQuickItem *services = find(full, QStringLiteral("health-services"));
+        QVERIFY(services);
+        QCOMPARE(services->property("trailing").toString(), QStringLiteral("Copy for help"));
+        QMetaObject::invokeMethod(services, "clicked");
+        QTRY_COMPARE(services->property("trailing").toString(), QStringLiteral("Copied"));
+        QVERIFY(QGuiApplication::clipboard()->text().contains(QStringLiteral("bluetooth-autoconnect.service")));
+        QVERIFY(QGuiApplication::clipboard()->text().contains(QStringLiteral("About my computer:")));
+        shows(QStringLiteral("healthCard"), QStringLiteral("37b-health-copied"));
 
         QVERIFY(opens(QStringLiteral("community")));
         QTRY_COMPARE(community->stage(), QStringLiteral("ready"));

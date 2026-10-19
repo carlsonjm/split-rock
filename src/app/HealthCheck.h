@@ -14,12 +14,11 @@ namespace splitrock {
 // waiting beside the person's own, apps that crashed this week, a restart an
 // update waits for, the package manager's list of what is installed, and
 // downloads left unopened for months. Each is
-// good, worth a look, or a problem, with the card that helps, or a question
-// for the assistant.
+// good, worth a look, or a problem, with the card that helps, or a description
+// of the problem the person can copy to ask someone for help.
 //
-// It runs by itself once a day, quietly, while Split Rock runs; the notebook
-// shows what it found, Genie's tiles say what needs the person, and the card
-// opens only when the person asks.
+// Core looks the same way once a week (docs/CORE.md § Health) and speaks of
+// new problems; the card itself looks each time it opens.
 //
 // Its stages: looking and done.
 class HealthCheck : public Chore
@@ -32,6 +31,8 @@ class HealthCheck : public Chore
     // How many are worth a look or a problem.
     Q_PROPERTY(int attention READ attention NOTIFY changed)
     Q_PROPERTY(QString lastChecked READ lastChecked NOTIFY changed)
+    // Whether Core looks by itself each week: its Health topic is switched on.
+    Q_PROPERTY(bool watched READ watched NOTIFY changed)
 
 public:
     struct Item {
@@ -53,6 +54,15 @@ public:
     QVariantList itemList() const;
     int attention() const;
     QString lastChecked() const;
+    bool watched() const;
+
+    // What to paste in a forum or send to a friend for one problem: its
+    // question, then what this computer is.
+    Q_INVOKABLE QString helpText(const QString &question) const;
+    static QString helpText(const QString &question, const QString &computer);
+    // This computer in a few lines: its maker and model, its system, its
+    // Linux kernel and Plasma's version, where each is known.
+    static QString aboutThisComputer();
 
     // Opens the card and looks.
     Q_INVOKABLE void check();
@@ -76,8 +86,13 @@ public:
     // What a look found, as lines of plain text: problems first, each with its
     // state, title and detail.
     static QString report(const QList<Item> &items);
+    // The same, for Core: one line per item, its state (good, look or
+    // problem), id, title and detail, separated by tabs.
+    static QString facts(const QList<Item> &items);
 
     void setLookScript(const QString &script) { m_lookScript = script; }
+    // Core's settings file, where its Health topic is switched off.
+    void setCoreSettings(const QString &path) { m_coreSettings = path; }
 
 private:
     void look(bool open);
@@ -87,6 +102,7 @@ private:
     int m_lastAttention = -1;
     bool m_quiet = false;
     QString m_lookScript;
+    QString m_coreSettings;
 };
 
 } // namespace splitrock

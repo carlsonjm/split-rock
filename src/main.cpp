@@ -4,6 +4,7 @@
 //
 //   split-rock --card NAME [--query TEXT] [--notebook DIR]
 //   split-rock --health-report
+//   split-rock --health-facts
 //
 // --card opens one Helper, such as space, in an ordinary window: Core and
 // Search open Free up space and the others this way (docs/CORE.md). Split Rock
@@ -15,7 +16,9 @@
 // --health-report looks the computer over as Health check does and prints what
 // it finds, with no window, no assistant and no language model. It changes
 // nothing, not even the last look Health check keeps. It ends with 1 only when
-// the look could not run to its end.
+// the look could not run to its end. --health-facts is the same look for
+// Core, one line per item: its state (good, look or problem), id, title and
+// detail, separated by tabs.
 
 #include "app/HealthCheck.h"
 #include "app/Helpers.h"
@@ -78,7 +81,9 @@ void quitOnSignals(QGuiApplication &app)
 }
 
 // The look runs as the person, the same script as the card's, and waits for it.
-int healthReport(int argc, char **argv)
+// facts: one line per item for Core, its state, id, title and detail between
+// tabs, instead of the report for a person.
+int healthReport(int argc, char **argv, bool facts)
 {
     QCoreApplication app(argc, argv);
     QProcess look;
@@ -93,7 +98,9 @@ int healthReport(int argc, char **argv)
         std::fputs("Health check: the look stopped before its end.\n", stderr);
         return 1;
     }
-    std::fputs(splitrock::HealthCheck::report(splitrock::HealthCheck::readLook(output)).toUtf8().constData(), stdout);
+    const auto items = splitrock::HealthCheck::readLook(output);
+    const QString printed = facts ? splitrock::HealthCheck::facts(items) : splitrock::HealthCheck::report(items);
+    std::fputs(printed.toUtf8().constData(), stdout);
     return 0;
 }
 
@@ -103,8 +110,8 @@ int main(int argc, char **argv)
 {
     // Before the desktop's own start, so it runs where there is no desktop.
     for (int i = 1; i < argc; ++i)
-        if (std::strcmp(argv[i], "--health-report") == 0)
-            return healthReport(argc, argv);
+        if (std::strcmp(argv[i], "--health-report") == 0 || std::strcmp(argv[i], "--health-facts") == 0)
+            return healthReport(argc, argv, std::strcmp(argv[i], "--health-facts") == 0);
 
     QGuiApplication app(argc, argv);
     QGuiApplication::setApplicationName(QStringLiteral("split-rock"));

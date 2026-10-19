@@ -7,6 +7,7 @@
 #include "core/Attention.h"
 #include "core/Core.h"
 #include "core/CoreService.h"
+#include "core/Health.h"
 #include "core/Storage.h"
 #include "core/Updates.h"
 
@@ -89,6 +90,17 @@ struct Desk {
         if (daysSince >= 0)
             seen.lastUpdate = now.addDays(-daysSince);
         core->seeUpdates(seen);
+    }
+
+    // A look at the computer's health, with these problems by id, a day later
+    // unless said otherwise.
+    void health(const QStringList &problems, int minutesLater = 60 * 24)
+    {
+        now = now.addSecs(minutesLater * 60);
+        QString printed = QStringLiteral("good\tbattery\tBattery\tHolds 86%\n");
+        for (const QString &id : problems)
+            printed += QStringLiteral("problem\t%1\t%2\tIt went wrong.\n").arg(id, id.left(1).toUpper() + id.mid(1));
+        core->seeHealth(readHealthFacts(printed, now));
     }
 
     void setNotice(const QString &notice)
@@ -531,6 +543,90 @@ private Q_SLOTS:
         QVERIFY(d.fact(QStringLiteral("updates")).isEmpty());
         QVERIFY(d.ticker.isEmpty());
         QVERIFY(!d.core->act(QStringLiteral("updates"), QStringLiteral("open")));
+    }
+
+    void healthKeepsOnlyItsOwnProblems()
+    {
+        const HealthLook look = readHealthFacts(QStringLiteral("problem\tservices\tServices\tOne didn't start.\n"
+                                                               "problem\tspace\tSpace\t1 GB free of 477 GB.\n"
+                                                               "look\tcrashes\tCrashes\t3 this week.\n"
+                                                               "good\tdrive\tDrive\tIt reports no problems.\n"
+                                                               "a line that isn't one\n"),
+                                                Start);
+        QCOMPARE(look.problems.size(), 1);
+        QCOMPARE(look.problems.first().id, QStringLiteral("services"));
+        const HealthFact fact = judge(look);
+        QCOMPARE(fact.line, QStringLiteral("1 problem"));
+        QCOMPARE(fact.detail, QStringLiteral("Services: One didn't start."));
+        QCOMPARE(fact.level, Level::Ticker);
+        QCOMPARE(judge(readHealthFacts(QString(), Start)).line, QStringLiteral("All good"));
+    }
+
+    void healthSpeaksOfANewProblemAndAFailingDriveGetsTheIsland()
+    {
+        Desk d;
+        QVERIFY(d.core->healthDue());
+        d.health({});
+        QVERIFY(d.ticker.isEmpty());
+        QVERIFY(!d.core->healthDue());
+        d.health({QStringLiteral("services")});
+        QCOMPARE(d.ticker, QStringList{QStringLiteral("Health · 1 problem | Services: It went wrong.")});
+        QCOMPARE(d.topics, QStringList{QStringLiteral("health")});
+        // The same problem again is not news.
+        d.health({QStringLiteral("services")});
+        QCOMPARE(d.ticker.size(), 1);
+        // The drive failing is the one that takes the island, and leads.
+        d.health({QStringLiteral("services"), QStringLiteral("drive")});
+        QCOMPARE(d.ticker.size(), 1);
+        const QVariantMap fact = d.fact(QStringLiteral("health"));
+        QCOMPARE(fact.value(QStringLiteral("attention")).toString(), QStringLiteral("island"));
+        QCOMPARE(fact.value(QStringLiteral("detail")).toString(), QStringLiteral("Drive: It went wrong."));
+        QVERIFY(d.core->act(QStringLiteral("health"), QStringLiteral("open")));
+        QCOMPARE(d.opened, QStringList{QStringLiteral("health")});
+        QVERIFY(d.logbook().contains(QStringLiteral("Health  Showed the island: 2 problems")));
+    }
+
+    void healthLooksAgainAfterAWeekAndSurvivesARestart()
+    {
+        Desk d;
+        d.health({QStringLiteral("packages")});
+        d.make();
+        QCOMPARE(d.fact(QStringLiteral("health")).value(QStringLiteral("line")).toString(), QStringLiteral("1 problem"));
+        QVERIFY(!d.core->healthDue());
+        d.now = d.now.addDays(HealthEveryDays);
+        QVERIFY(d.core->healthDue());
+        // Nothing new after the restart: the problem was already spoken of.
+        d.health({QStringLiteral("packages")}, 0);
+        QCOMPARE(d.ticker.size(), 1);
+        // Fixed: settled, so a problem later speaks again.
+        d.health({});
+        QVERIFY(d.logbook().contains(QStringLiteral("Health  Settled at All good")));
+        d.health({QStringLiteral("packages")});
+        QCOMPARE(d.ticker.size(), 2);
+    }
+
+    void notNowQuietsHealthUntilAProblemMore()
+    {
+        Desk d;
+        d.health({QStringLiteral("services")});
+        QVERIFY(d.core->act(QStringLiteral("health"), QStringLiteral("not-now")));
+        QVERIFY(d.logbook().contains(QStringLiteral("Health  You said not now; quiet until a problem more.")));
+        d.health({QStringLiteral("services"), QStringLiteral("packages")});
+        QCOMPARE(d.ticker.size(), 2);
+    }
+
+    void healthSwitchedOffIsSilentAndAbsent()
+    {
+        Desk d;
+        {
+            QSettings settings(d.dir.filePath(QStringLiteral("corerc")), QSettings::IniFormat);
+            settings.setValue(QStringLiteral("Health/Enabled"), false);
+        }
+        QVERIFY(!d.core->healthDue());
+        d.health({QStringLiteral("drive")});
+        QVERIFY(d.fact(QStringLiteral("health")).isEmpty());
+        QVERIFY(d.ticker.isEmpty());
+        QVERIFY(!d.core->act(QStringLiteral("health"), QStringLiteral("open")));
     }
 
     void theBusOffersTheFacts()

@@ -701,6 +701,43 @@ private Q_SLOTS:
         QCOMPARE(HealthCheck::report({}).trimmed(), QStringLiteral("Health check: nothing needs a look."));
     }
 
+    // The same look for Core: state, id, title and detail, between tabs.
+    void theHealthFactsAreOneLineAnItem()
+    {
+        const QList<HealthCheck::Item> items = HealthCheck::readLook(fixture(QStringLiteral("health-look.txt")), Now);
+        const QStringList lines = HealthCheck::facts(items).trimmed().split(QLatin1Char('\n'));
+        QCOMPARE(lines.size(), items.size());
+        const QStringList services = lines.first().split(QLatin1Char('\t'));
+        QCOMPARE(services.size(), 4);
+        QCOMPARE(services.at(0), QStringLiteral("problem"));
+        QCOMPARE(services.at(1), QStringLiteral("services"));
+        QVERIFY(services.at(3).contains(QStringLiteral("bluetooth-autoconnect.service")));
+        for (const QString &line : lines)
+            QCOMPARE(line.count(QLatin1Char('\t')), 3);
+        HealthCheck::Item odd{QStringLiteral("x"), QStringLiteral("A\ttitle"), QStringLiteral("bad"),
+                              QStringLiteral("Two\nlines"), {}, {}, {}};
+        QCOMPARE(HealthCheck::facts({odd}), QStringLiteral("problem\tx\tA title\tTwo lines\n"));
+    }
+
+    // A problem no card fixes is copied with what this computer is, to ask
+    // someone; the card says it runs weekly only while Core looks.
+    void aProblemIsCopiedForHelp()
+    {
+        QCOMPARE(HealthCheck::helpText(QStringLiteral("Why?"), QStringLiteral("System: Arch Linux")),
+                 QStringLiteral("Why?\n\nAbout my computer:\nSystem: Arch Linux"));
+        QCOMPARE(HealthCheck::helpText(QStringLiteral("Why?"), QString()), QStringLiteral("Why?"));
+        const QString about = HealthCheck::aboutThisComputer();
+        QVERIFY(about.contains(QStringLiteral("System: ")));
+        QVERIFY(about.contains(QStringLiteral("Linux kernel: ")));
+
+        QTemporaryDir dir;
+        HealthCheck health;
+        health.setCoreSettings(dir.filePath(QStringLiteral("corerc")));
+        QVERIFY(health.watched());
+        QSettings(dir.filePath(QStringLiteral("corerc")), QSettings::IniFormat).setValue(QStringLiteral("Health/Enabled"), false);
+        QVERIFY(!health.watched());
+    }
+
     // The real look, on whatever computer runs the tests: it only reads, needs
     // no assistant, and comes through to its end.
     void theRealLookRunsToItsEnd()

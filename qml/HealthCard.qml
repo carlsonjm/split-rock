@@ -3,7 +3,8 @@ import QtQuick
 import "Icons.js" as Icons
 
 // The Health check card: each part of the computer as good, worth a look or a
-// problem, with the card or the question that helps (src/app/HealthCheck.h).
+// problem, with the card that helps, or the problem described for someone to
+// help with (src/app/HealthCheck.h).
 CardFrame {
     id: card
     objectName: "healthCard"
@@ -15,8 +16,17 @@ CardFrame {
     readonly property int good: card.items.filter(i => i.state === "good").length
     hue: card.stage === "done" && card.bad > 0 ? "coral" : card.stage === "done" && card.warn > 0 ? "amber" : "green"
 
+    // The row whose description was copied last, to say so for a moment.
+    property string copied: ""
+
     function act(item) {
-        if (item.action === "restart") {
+        if (item.action === "ask") {
+            clipboard.text = card.job.helpText(item.question)
+            clipboard.selectAll()
+            clipboard.copy()
+            card.copied = item.id
+            copiedFor.restart()
+        } else if (item.action === "restart") {
             card.job.restart()
         } else if (item.action === "downloads") {
             card.job.openDownloads()
@@ -34,7 +44,18 @@ CardFrame {
                : card.job.attention === 0 ? "All good"
                : card.job.attention === 1 ? "1 thing to look at" : card.job.attention + " things to look at"
         sub: card.stage === "looking" ? "It only reads; nothing changes."
-           : "Checked " + card.job.lastChecked.toLowerCase() + ". It runs by itself once a week."
+           : "Checked " + card.job.lastChecked.toLowerCase() + "." + (card.job.watched ? " It runs by itself once a week." : "")
+    }
+
+    // The clipboard, through an edit nobody sees.
+    TextEdit {
+        id: clipboard
+        visible: false
+    }
+    Timer {
+        id: copiedFor
+        interval: 2500
+        onTriggered: card.copied = ""
     }
 
     // How it stands, in colour.
@@ -99,14 +120,16 @@ CardFrame {
             model: card.stage === "done" ? card.items : []
             CardRow {
                 objectName: "health-" + modelData.id
-                // Asking about a finding was the old chat's.
+                // A finding no card can fix is copied, to ask someone about.
+                readonly property bool asks: modelData.action === "ask" && modelData.question !== ""
                 readonly property bool canAct: modelData.action !== "" && modelData.action !== "ask"
                 standing: modelData.state
                 tone: modelData.state === "bad" ? theme.bad : modelData.state === "warn" ? theme.warn : theme.good
                 title: modelData.title
                 detail: modelData.detail
-                trailing: canAct ? modelData.actionLabel : ""
+                trailing: asks ? (card.copied === modelData.id ? "Copied" : "Copy for help") : canAct ? modelData.actionLabel : ""
                 opens: canAct
+                acts: asks
                 onClicked: card.act(modelData)
             }
         }
