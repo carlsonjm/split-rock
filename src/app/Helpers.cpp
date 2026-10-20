@@ -28,6 +28,8 @@ Helpers::Helpers(const QString &store, QObject *parent)
     addChore(QStringLiteral("health"), m_health);
     m_community = new CommunityApps(this);
     addChore(QStringLiteral("community"), m_community);
+    m_tidy = new TidyUp(this);
+    addChore(QStringLiteral("tidy"), m_tidy);
     m_recent = new RecentChanges(this);
     m_recent->setRecords([this] { return m_runner->records(); });
     addChore(QStringLiteral("changes"), m_recent);
@@ -126,6 +128,8 @@ bool Helpers::openChore(const QString &asked, const QString &query)
         m_community->check();
     else if (name == QLatin1String("changes"))
         m_recent->check();
+    else if (name == QLatin1String("tidy"))
+        m_tidy->check();
     return true;
 }
 

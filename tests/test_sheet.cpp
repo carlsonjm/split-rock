@@ -16,6 +16,7 @@
 #include <QQmlContext>
 #include <QQuickItem>
 #include <QQuickWindow>
+#include <QStandardPaths>
 #include <QTemporaryDir>
 #include <QTest>
 
@@ -353,6 +354,71 @@ private Q_SLOTS:
         install->back();
         QCOMPARE(install->stage(), QStringLiteral("results"));
         install->close();
+
+        // Tidy up Downloads, from Free up space's last row: the groups, one
+        // opened to its files, then what went to the Trash.
+        QTemporaryDir tidyHome(QDir::homePath() + QStringLiteral("/sheet-tidy-XXXXXX"));
+        const QString downloads = tidyHome.filePath(QStringLiteral("Downloads"));
+        const auto put = [](const QString &path, const QByteArray &bytes, int daysAgo = 0) {
+            QDir().mkpath(QFileInfo(path).absolutePath());
+            QFile file(path);
+            if (!file.open(QIODevice::WriteOnly))
+                return false;
+            file.write(bytes);
+            if (daysAgo > 0) {
+                const QDateTime then = QDateTime::currentDateTime().addDays(-daysAgo);
+                file.setFileTime(then, QFileDevice::FileModificationTime);
+                file.setFileTime(then, QFileDevice::FileAccessTime);
+            }
+            return true;
+        };
+        QVERIFY(put(downloads + QStringLiteral("/ZoomInstaller.exe"), QByteArray(180000, 'z')));
+        QVERIFY(put(downloads + QStringLiteral("/report.pdf"), QByteArray(820000, 'r')));
+        QVERIFY(put(downloads + QStringLiteral("/report (1).pdf"), QByteArray(820000, 'r')));
+        QVERIFY(put(downloads + QStringLiteral("/budget (2).xlsx"), QByteArray(40000, 'b')));
+        QVERIFY(put(downloads + QStringLiteral("/budget.xlsx"), QByteArray(40000, 'b')));
+        QVERIFY(put(downloads + QStringLiteral("/Obsidian-1.7.AppImage"), QByteArray(98000, 'o')));
+        QVERIFY(put(downloads + QStringLiteral("/holiday.mov"), QByteArray(3900000, 'h'), 60));
+        QVERIFY(put(downloads + QStringLiteral("/Screenshot_20261006_101500.png"), QByteArray(54000, 's')));
+        TidyUp *tidy = c.tidyUp();
+        tidy->setFolders({downloads});
+        tidy->setTrashOpener({});
+        QVERIFY(opens(QStringLiteral("space")));
+        QTRY_COMPARE(space->stage(), QStringLiteral("ready"));
+        QTRY_VERIFY(find(full, QStringLiteral("spaceTidy")) && find(full, QStringLiteral("spaceTidy"))->isVisible());
+        QMetaObject::invokeMethod(find(full, QStringLiteral("spaceTidy")), "clicked");
+        QTRY_COMPARE(tidy->stage(), QStringLiteral("ready"));
+        QCOMPARE(c.chore(), QStringLiteral("tidy"));
+        QCOMPARE(full->title(), QStringLiteral("Tidy up Downloads"));
+        shows(QStringLiteral("tidyCard"), QStringLiteral("52-tidy-ready"));
+        QQuickItem *installers = find(full, QStringLiteral("tidy-installers"));
+        QVERIFY(installers);
+        // Opening a group: a tap anywhere but its box.
+        QTest::mouseClick(full, Qt::LeftButton, {}, installers->mapToScene(QPointF(installers->width() / 2, installers->height() / 2)).toPoint());
+        QTRY_VERIFY(find(full, QStringLiteral("tidyFile-ZoomInstaller.exe")) && find(full, QStringLiteral("tidyFile-ZoomInstaller.exe"))->isVisible());
+        shows(QStringLiteral("tidyCard"), QStringLiteral("53-tidy-group-open"));
+        // Its box unticks the whole group, and a file's own row ticks it back.
+        QQuickItem *box = find(full, QStringLiteral("tidyTick-installers"));
+        QVERIFY(box);
+        QTest::mouseClick(full, Qt::LeftButton, {}, box->mapToScene(QPointF(box->width() / 2, box->height() / 2)).toPoint());
+        QTRY_COMPARE(tidy->chosenCount(), 2);
+        QMetaObject::invokeMethod(find(full, QStringLiteral("tidyFile-ZoomInstaller.exe")), "clicked");
+        QTRY_COMPARE(tidy->chosenCount(), 3);
+        QMetaObject::invokeMethod(find(full, QStringLiteral("tidyButton")), "clicked");
+        QTRY_COMPARE(tidy->stage(), QStringLiteral("done"));
+        QCOMPARE(tidy->moved(), 3);
+        shows(QStringLiteral("tidyCard"), QStringLiteral("54-tidy-done"));
+        QVERIFY(QFile::exists(downloads + QStringLiteral("/report.pdf")));
+        QVERIFY(!QFile::exists(downloads + QStringLiteral("/report (1).pdf")));
+        QMetaObject::invokeMethod(find(full, QStringLiteral("tidyClose")), "clicked");
+        QDir(QStandardPaths::writableLocation(QStandardPaths::GenericDataLocation) + QStringLiteral("/Trash")).removeRecursively();
+        // A narrow window, as a Bento column.
+        full->setGeometry(0, 0, 420, 800);
+        QVERIFY(opens(QStringLiteral("tidy")));
+        QTRY_COMPARE(tidy->stage(), QStringLiteral("ready"));
+        shows(QStringLiteral("tidyCard"), QStringLiteral("55-tidy-narrow"));
+        tidy->close();
+        full->setGeometry(0, 0, 560, 800);
 
         QVERIFY(opens(QStringLiteral("restore")));
         QTRY_COMPARE(restore->stage(), QStringLiteral("ready"));

@@ -72,6 +72,11 @@ public:
     void seeInstaller(const QString &fileName);
     // Whether the Windows programs topic is on and was not told to stop.
     bool watchesDownloads() const;
+    // What the Downloads folder and the Desktop hold, in kilobytes: past
+    // 5 GB Core says so once on the ticker, and again only 5 GB later.
+    void seeTidy(qint64 kb);
+    bool watchesTidy() const;
+    static constexpr qint64 TidyStepKb = 5LL * 1024 * 1024;
 
     // How readily Core speaks, the person's Notice setting, from 0 (Less) to
     // 100 (More), 50 by default; the words "quiet" and "eager" read as 0 and
@@ -138,6 +143,9 @@ private:
     UpdatesFact m_updates;
     Attention m_updatesAttention;
     bool m_updatesLooked = false;
+    // What Downloads and the Desktop held when the ticker last said so, or
+    // less since, when they were tidied.
+    qint64 m_tidySpokenKb = 0;
     HealthLook m_healthLook;
     HealthFact m_health;
     Attention m_healthAttention;

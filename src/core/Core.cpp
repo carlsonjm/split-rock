@@ -20,6 +20,7 @@ const QString Storage = QStringLiteral("storage");
 const QString Updates = QStringLiteral("updates");
 const QString Health = QStringLiteral("health");
 const QString Windows = QStringLiteral("windows");
+const QString Tidy = QStringLiteral("tidy");
 
 QString stamp(const QDateTime &at)
 {
@@ -301,6 +302,30 @@ void Core::seeInstaller(const QString &fileName)
         Q_EMIT factChanged(windowsFact());
 }
 
+bool Core::watchesTidy() const
+{
+    return enabled(Tidy);
+}
+
+void Core::seeTidy(qint64 kb)
+{
+    if (!watchesTidy() || kb < 0)
+        return;
+    // Tidied since: the next mark is 5 GB above what is left.
+    if (kb < m_tidySpokenKb) {
+        m_tidySpokenKb = kb;
+        saveAttention(Tidy);
+    }
+    if (kb < m_tidySpokenKb + TidyStepKb || (m_hooks.doNotDisturb && m_hooks.doNotDisturb()))
+        return;
+    m_tidySpokenKb = kb;
+    const QString held = sizeText(kb);
+    write(QStringLiteral("Tidy up  Told the ticker: Downloads and the Desktop hold %1.").arg(held));
+    if (m_hooks.notify)
+        m_hooks.notify(Tidy, QStringLiteral("Downloads · %1").arg(held), QStringLiteral("Tidy up Downloads"));
+    saveAttention(Tidy);
+}
+
 QVariantMap Core::windowsFact() const
 {
     const QString find = m_program.isEmpty() ? QStringLiteral("Find a Linux app") : QStringLiteral("Find %1").arg(m_program);
@@ -432,6 +457,14 @@ bool Core::act(const QString &topic, const QString &action)
             Q_EMIT factChanged(windowsFact());
         return true;
     }
+    if (topic == Tidy) {
+        if (!enabled(Tidy) || action != QLatin1String("open"))
+            return false;
+        write(QStringLiteral("Tidy up  You opened Tidy up Downloads."));
+        if (m_hooks.openCard)
+            m_hooks.openCard(Tidy, QString());
+        return true;
+    }
     if (topic == Updates) {
         if (!enabled(Updates) || !m_updates.known)
             return false;
@@ -492,6 +525,9 @@ QList<QVariantMap> Core::actions()
                {"update", "updates", "upgrade", "check for updates", "windows update"}),
         action("space", "Free up space", "Old copies and leftovers", "drive-harddisk",
                {"free up space", "space", "storage", "disk", "clean up", "cleanup", "disk cleanup", "storage sense"}),
+        action("tidy", "Tidy up Downloads", "Old downloads and copies, to the Trash", "folder-download",
+               {"tidy up", "tidy", "tidy up downloads", "downloads", "clean downloads", "clean desktop", "copies",
+                "duplicates", "duplicate files", "old downloads", "old files"}),
         action("install", "Install an app", "Say what you need, or remove one", "system-software-install",
                {"install", "install an app", "uninstall", "remove an app", "get an app", "add or remove programs",
                 "programs and features", "uninstall a program", "microsoft store", "app store"}),
@@ -681,6 +717,7 @@ void Core::loadAttention()
     m_program = saved.value(QStringLiteral("Windows/Program")).toString();
     m_installers = saved.value(QStringLiteral("Windows/Installers"), 0).toInt();
     m_windowsNever = saved.value(QStringLiteral("Windows/Never"), false).toBool();
+    m_tidySpokenKb = saved.value(QStringLiteral("Tidy/SpokenKb"), 0).toLongLong();
 }
 
 void Core::saveAttention(const QString &topic) const
@@ -716,6 +753,10 @@ void Core::saveAttention(const QString &topic) const
         saved.setValue(QStringLiteral("Windows/Program"), m_program);
         saved.setValue(QStringLiteral("Windows/Installers"), m_installers);
         saved.setValue(QStringLiteral("Windows/Never"), m_windowsNever);
+        return;
+    }
+    if (topic == Tidy) {
+        saved.setValue(QStringLiteral("Tidy/SpokenKb"), m_tidySpokenKb);
         return;
     }
     saveState(saved, QStringLiteral("Storage"), m_attention);
