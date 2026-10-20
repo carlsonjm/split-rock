@@ -7,8 +7,8 @@ surfaces when a fact deserves attention. Search, the island and the ticker show
 what it says; the upkeep cards do the work, after the person's yes. Core works
 without the conversation.
 
-Core watches three topics, Storage, Updates and Health, and the Downloads
-folder for a Windows program. Each section below gives what
+Core watches three topics, Storage, Updates and Health, the Downloads
+folder for a Windows program, and new devices. Each section below gives what
 Core watches, the card it can open and the words it uses.
 
 ## What holds
@@ -25,10 +25,12 @@ Core watches, the card it can open and the words it uses.
   - `storage.tsv`: its looks at the drive: time, size and free space in
     kilobytes
   - `attention.ini`: what it has said, so it doesn't say it twice, and its
-    last looks for updates and at the computer's health
+    last looks for updates and at the computer's health, and the devices
+    it knows
 - `split-rock-corerc` in the person's settings folder switches off Core as a
   whole (`[General] Enabled=false`) or one topic (`[Storage] Enabled=false`,
-  `[Updates] Enabled=false`, `[Health] Enabled=false`, `[Windows] Enabled=false`). Core neither watches nor offers a topic that is
+  `[Updates] Enabled=false`, `[Health] Enabled=false`, `[Windows] Enabled=false`,
+  `[Devices] Enabled=false`). Core neither watches nor offers a topic that is
   switched off.
 - Core starts at sign-in, from `io.github.carlsonjm.splitrock.Core.desktop` in
   the system's autostart folder, so it keeps its schedule whether or not a
@@ -115,6 +117,26 @@ Disturb, goes to the ticker. Once the person taps it or sets it aside, it is
 no longer a fact. `never` on the bus stops it for good. Core reads only the
 names of the files there, never what is in them.
 
+## Devices
+
+The first time the computer sees a printer, a drive that can be unplugged or
+a Bluetooth device once it is paired, Core says so once, at the ticker: "New
+printer · Set it up", with the device's own name under it, such as "LaserJet
+M110we". Tapping it opens KDE's own settings page for that kind of device:
+Printers, Removable Storage or Bluetooth. It never takes the island, has no
+fact on the bus, and speaks during Do Not Disturb too, as only the ticker does.
+
+Core reads the system bus and changes nothing there: UDisks2's drives that
+say they can be removed, BlueZ's paired devices, and the device units that
+want systemd's `printer.target`, which udev's own rules give every printer
+it finds. It lists each kind half a minute after it starts, and again a few
+seconds after the bus says something about that kind changed. The first time
+Core lists a kind, what is already there is known without a word, so only
+what arrives afterwards is new. A drive is known by its id, a Bluetooth device
+by its address and a printer by its model; Core keeps the last 200 of each.
+Where a kind's settings page isn't installed, as on a desktop without Plasma's
+printer settings, the logbook alone records the new device.
+
 ## Notice
 
 One setting moves Storage's and Updates' marks together: `[General] Notice` in
@@ -170,6 +192,9 @@ can set these limits. Below the ticker's mark it writes nothing more.
 | `OpenAction(s id, s query) → b` | Opens that card on its own. `query` goes only to Install an app, which searches for it, or removes an app when it starts with "uninstall" or "remove". False for an id not listed |
 | `RemoveApp(s desktopId) → b` | Opens Install an app straight to removing the app with that desktop file id, such as `org.videolan.vlc.desktop`: it finds the package or Flatpak that owns it and waits for the person's yes. False for anything not shaped like a desktop file id |
 | `FactChanged(a{sv})` | A fact changed: its words, its level or whether it wants the island |
+
+`Act("devices", "open")` opens the settings page for the kind of device Core
+spoke of last, as a tap on its ticker line does.
 
 Each fact is a dictionary of strings to variants:
 
