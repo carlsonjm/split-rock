@@ -9,7 +9,8 @@
 //                   [--updates-every HOURS] [--downloads DIR]
 //
 // It also looks over the computer's health once a week, with Split Rock's own
-// `split-rock --health-facts`.
+// `split-rock --health-facts`, and, on the system bus, for a printer, a drive
+// or a Bluetooth device it hasn't seen before.
 //
 // --folder    where its logbook and looks are kept
 //             (default: split-rock/core in the person's data folder)
@@ -34,6 +35,8 @@
 #include <QDBusConnection>
 #include <QDBusConnectionInterface>
 #include <QDBusInterface>
+#include <QDBusMetaType>
+#include <QDBusObjectPath>
 #include <QDBusMessage>
 #include <QDBusReply>
 #include <QDBusVariant>
@@ -92,6 +95,8 @@ public:
             ? Words{QStringLiteral("Updates"), QStringLiteral("system-software-update"), QStringLiteral("Check for updates")}
             : topic == QLatin1String("health")
             ? Words{QStringLiteral("Health"), QStringLiteral("security-high"), QStringLiteral("Health check")}
+            : topic == QLatin1String("devices")
+            ? Words{QStringLiteral("Devices"), QStringLiteral("device-notifier"), QStringLiteral("Set it up")}
             : topic == QLatin1String("windows")
             ? Words{QStringLiteral("Windows programs"), QStringLiteral("application-x-ms-dos-executable"),
                     QStringLiteral("Find the Linux version")}
@@ -261,6 +266,143 @@ private:
     QProcess *m_process = nullptr;
 };
 
+// What a service's ObjectManager lists: each object and its interfaces'
+// properties.
+using Interfaces = QMap<QString, QVariantMap>;
+using ManagedObjects = QMap<QDBusObjectPath, Interfaces>;
+
+// Watches the system bus for devices: UDisks2's drives, BlueZ's paired
+// devices and the printers udev hands to systemd's printer.target. Each kind
+// is listed whole when Core starts and again a moment after anything about
+// it changes, and Core decides what is new. A service that isn't there
+// leaves its kind unlooked at.
+class DeviceWatcher : public QObject
+{
+    Q_OBJECT
+
+public:
+    DeviceWatcher(QDBusConnection bus, std::function<void(DeviceKind, const QList<Device> &)> seen)
+        : m_bus(bus)
+        , m_seen(std::move(seen))
+    {
+        qDBusRegisterMetaType<Interfaces>();
+        qDBusRegisterMetaType<ManagedObjects>();
+        for (const auto &[kind, timer] : {std::pair{DeviceKind::Drive, &m_drives}, std::pair{DeviceKind::Bluetooth, &m_bluetooth},
+                                         std::pair{DeviceKind::Printer, &m_printers}}) {
+            timer->setSingleShot(true);
+            timer->setInterval(std::chrono::seconds(3));
+            QObject::connect(timer, &QTimer::timeout, this, [this, kind = kind] { list(kind); });
+        }
+        const QString objects = QStringLiteral("org.freedesktop.DBus.ObjectManager");
+        for (const QString &signal : {QStringLiteral("InterfacesAdded"), QStringLiteral("InterfacesRemoved")}) {
+            m_bus.connect(UDisks, UDisksPath, objects, signal, this, SLOT(drivesChanged()));
+            m_bus.connect(BlueZ, QStringLiteral("/"), objects, signal, this, SLOT(bluetoothChanged()));
+        }
+        // Pairing an existing device changes its Paired property, on its own path.
+        m_bus.connect(BlueZ, QString(), QStringLiteral("org.freedesktop.DBus.Properties"),
+                      QStringLiteral("PropertiesChanged"), this, SLOT(bluetoothChanged()));
+        // systemd speaks of new units only to those who asked.
+        m_bus.connect(Systemd, SystemdPath, SystemdManager, QStringLiteral("UnitNew"), this,
+                      SLOT(unitNew(QString)));
+        m_bus.asyncCall(QDBusMessage::createMethodCall(Systemd, SystemdPath, SystemdManager, QStringLiteral("Subscribe")));
+    }
+
+    void start()
+    {
+        m_drives.start();
+        m_bluetooth.start();
+        m_printers.start();
+    }
+
+private Q_SLOTS:
+    void drivesChanged() { m_drives.start(); }
+    void bluetoothChanged() { m_bluetooth.start(); }
+    void unitNew(const QString &id)
+    {
+        if (id.endsWith(QLatin1String(".device")))
+            m_printers.start();
+    }
+
+private:
+    const QString UDisks = QStringLiteral("org.freedesktop.UDisks2");
+    const QString BlueZ = QStringLiteral("org.bluez");
+    const QString Systemd = QStringLiteral("org.freedesktop.systemd1");
+    const QString UDisksPath = QStringLiteral("/org/freedesktop/UDisks2");
+    const QString SystemdPath = QStringLiteral("/org/freedesktop/systemd1");
+    const QString SystemdManager = QStringLiteral("org.freedesktop.systemd1.Manager");
+
+    void list(DeviceKind kind)
+    {
+        if (kind == DeviceKind::Printer) {
+            listPrinters();
+            return;
+        }
+        const bool drives = kind == DeviceKind::Drive;
+        const QString service = drives ? UDisks : BlueZ;
+        const QString path = drives ? UDisksPath : QStringLiteral("/");
+        const QString interface = drives ? QStringLiteral("org.freedesktop.UDisks2.Drive") : QStringLiteral("org.bluez.Device1");
+        const QDBusReply<ManagedObjects> reply = m_bus.call(
+            QDBusMessage::createMethodCall(service, path, QStringLiteral("org.freedesktop.DBus.ObjectManager"),
+                                           QStringLiteral("GetManagedObjects")),
+            QDBus::Block, 3000);
+        if (!reply.isValid())
+            return;
+        QList<Device> present;
+        for (const Interfaces &interfaces : reply.value()) {
+            if (!interfaces.contains(interface))
+                continue;
+            const auto device = drives ? driveFrom(interfaces.value(interface)) : bluetoothFrom(interfaces.value(interface));
+            if (device)
+                present.append(*device);
+        }
+        m_seen(kind, present);
+    }
+
+    QVariant unitProperty(const QDBusObjectPath &unit, const QString &name)
+    {
+        QDBusMessage call = QDBusMessage::createMethodCall(Systemd, unit.path(),
+                                                           QStringLiteral("org.freedesktop.DBus.Properties"),
+                                                           QStringLiteral("Get"));
+        call.setArguments({QStringLiteral("org.freedesktop.systemd1.Unit"), name});
+        const QDBusReply<QDBusVariant> reply = m_bus.call(call, QDBus::Block, 2000);
+        return reply.isValid() ? reply.value().variant() : QVariant();
+    }
+
+    QDBusObjectPath unit(const QString &method, const QString &name)
+    {
+        QDBusMessage call = QDBusMessage::createMethodCall(Systemd, SystemdPath, SystemdManager, method);
+        call.setArguments({name});
+        const QDBusReply<QDBusObjectPath> reply = m_bus.call(call, QDBus::Block, 2000);
+        return reply.isValid() ? reply.value() : QDBusObjectPath();
+    }
+
+    // The printers are the device units that want printer.target, which
+    // udev's own rules give every printer it sees.
+    void listPrinters()
+    {
+        const QDBusObjectPath target = unit(QStringLiteral("LoadUnit"), QStringLiteral("printer.target"));
+        if (target.path().isEmpty())
+            return;
+        QList<Device> present;
+        for (const QString &wanting : unitProperty(target, QStringLiteral("WantedBy")).toStringList()) {
+            if (!wanting.endsWith(QLatin1String(".device")))
+                continue;
+            const QDBusObjectPath device = unit(QStringLiteral("GetUnit"), wanting);
+            if (device.path().isEmpty())
+                continue;
+            if (const auto printer = printerFrom(unitProperty(device, QStringLiteral("Description")).toString()))
+                present.append(*printer);
+        }
+        m_seen(DeviceKind::Printer, present);
+    }
+
+    QDBusConnection m_bus;
+    std::function<void(DeviceKind, const QList<Device> &)> m_seen;
+    QTimer m_drives;
+    QTimer m_bluetooth;
+    QTimer m_printers;
+};
+
 } // namespace
 
 int main(int argc, char **argv)
@@ -318,6 +460,21 @@ int main(int argc, char **argv)
         ticker.send(topic, summary, body);
     };
     hooks.openCard = openCard;
+    // KDE's settings pages are plugins; System Settings opens one by name.
+    hooks.hasSettings = [](const QString &page) {
+        for (const QString &plugins : QCoreApplication::libraryPaths()) {
+            if (QFile::exists(plugins + QStringLiteral("/plasma/kcms/systemsettings/") + page + QStringLiteral(".so")))
+                return true;
+        }
+        return false;
+    };
+    hooks.openSettings = [](const QString &page) {
+        const QString settings = QStandardPaths::findExecutable(QStringLiteral("systemsettings"));
+        if (!settings.isEmpty())
+            QProcess::startDetached(settings, {page});
+        else
+            QProcess::startDetached(QStringLiteral("kcmshell6"), {page});
+    };
     Core desk(parser.isSet(folderOption) ? parser.value(folderOption) : Core::defaultFolder(),
               parser.isSet(settingsOption) ? parser.value(settingsOption) : Core::defaultSettings(), hooks);
     core = &desk;
@@ -421,6 +578,16 @@ int main(int argc, char **argv)
             installersSeen.insert(file.fileName());
             desk.seeInstaller(file.fileName());
         }
+    });
+
+    // Devices: a first list of each kind once the session has settled, then
+    // whenever the system bus says something about them changed.
+    DeviceWatcher devices(QDBusConnection::systemBus(), [&desk](DeviceKind kind, const QList<Device> &present) {
+        desk.seeDevices(kind, present);
+    });
+    QTimer::singleShot(std::chrono::seconds(30), &desk, [&devices, &desk] {
+        if (desk.watchesDevices())
+            devices.start();
     });
 
     // Settings, such as how readily Core speaks, take effect when they are

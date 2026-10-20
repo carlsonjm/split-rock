@@ -1064,3 +1064,20 @@ to think to look for.
 Rejected: a line in Search and the Health check only, which waits for the
 person to look; and offering to run Windows programs through a compatibility
 layer, which fails often enough to look like the desktop's fault.
+
+## A new device gets one ticker line that opens its settings
+
+Core's Devices topic starts with printers, drives and Bluetooth, the three
+that people moving from Windows ask about most. The first time one is seen,
+one ticker line names it and opens KDE's own settings page for its kind. What
+is already plugged in when Core first looks is known without a word. Core
+reads only what UDisks2, BlueZ and systemd already publish on the system bus.
+
+Why: on Windows a new device announces itself and offers its setup; here the
+setup page exists but has to be found. A ticker line is enough for news that
+asks for nothing, and the product owner chose the three kinds first.
+
+Rejected: every kind of device at once, with more to test on hardware nobody
+here has; the island, which is for what can't wait; and a note in the
+notebook's `Device/` folder for each one, which describes the computer
+itself, not what was plugged into it. The logbook keeps each device instead.

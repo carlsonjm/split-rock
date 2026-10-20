@@ -7,6 +7,7 @@
 #include "core/Attention.h"
 #include "core/Core.h"
 #include "core/CoreService.h"
+#include "core/Devices.h"
 #include "core/Health.h"
 #include "core/Storage.h"
 #include "core/Updates.h"
@@ -52,6 +53,9 @@ struct Desk {
     QStringList ticker;
     QStringList topics;
     QStringList opened;
+    QStringList settingsOpened;
+    QStringList settingsInstalled{QStringLiteral("kcm_printer_manager"), QStringLiteral("kcm_device_automounter"),
+                                  QStringLiteral("kcm_bluetooth")};
     std::unique_ptr<Core> core;
 
     Desk() { make(); }
@@ -69,6 +73,8 @@ struct Desk {
         hooks.openCard = [this](const QString &card, const QString &query) {
             opened.append(query.isEmpty() ? card : card + QStringLiteral(": ") + query);
         };
+        hooks.hasSettings = [this](const QString &page) { return settingsInstalled.contains(page); };
+        hooks.openSettings = [this](const QString &page) { settingsOpened.append(page); };
         core = std::make_unique<Core>(dir.filePath(QStringLiteral("core")), dir.filePath(QStringLiteral("corerc")), hooks);
     }
 
@@ -723,6 +729,93 @@ private Q_SLOTS:
         QCOMPARE(findsBy(QStringLiteral("disk cleanup")), QStringLiteral("space"));
         QCOMPARE(findsBy(QStringLiteral("windows update")), QStringLiteral("update"));
         QCOMPARE(findsBy(QStringLiteral("system restore")), QStringLiteral("restore"));
+    }
+
+    void devicesAreReadFromWhatTheBusSays()
+    {
+        // UDisks2: only a drive that can be unplugged.
+        const auto stick = driveFrom({{QStringLiteral("Id"), QStringLiteral("SanDisk-Cruzer-Blade-4C53")},
+                                      {QStringLiteral("Vendor"), QStringLiteral("SanDisk")},
+                                      {QStringLiteral("Model"), QStringLiteral("Cruzer_Blade  ")},
+                                      {QStringLiteral("Removable"), true}});
+        QVERIFY(stick);
+        QCOMPARE(stick->id, QStringLiteral("SanDisk-Cruzer-Blade-4C53"));
+        QCOMPARE(stick->name, QStringLiteral("SanDisk Cruzer Blade"));
+        QVERIFY(!driveFrom({{QStringLiteral("Id"), QStringLiteral("Samsung-SSD-990")}, {QStringLiteral("Removable"), false}}));
+        QCOMPARE(driveFrom({{QStringLiteral("Id"), QStringLiteral("x")}, {QStringLiteral("Removable"), true}})->name,
+                 QStringLiteral("A drive"));
+        // BlueZ: only once paired, by its own name.
+        const QVariantMap headphones{{QStringLiteral("Address"), QStringLiteral("AC:80:0A:12:34:56")},
+                                     {QStringLiteral("Alias"), QStringLiteral("WH-1000XM4")},
+                                     {QStringLiteral("Paired"), true}};
+        QCOMPARE(bluetoothFrom(headphones)->name, QStringLiteral("WH-1000XM4"));
+        QCOMPARE(bluetoothFrom(headphones)->id, QStringLiteral("AC:80:0A:12:34:56"));
+        QVariantMap unpaired = headphones;
+        unpaired.insert(QStringLiteral("Paired"), false);
+        QVERIFY(!bluetoothFrom(unpaired));
+        // A printer by the model systemd describes it with.
+        QCOMPARE(printerFrom(QStringLiteral("LaserJet_M110we"))->name, QStringLiteral("LaserJet M110we"));
+        QVERIFY(!printerFrom(QStringLiteral("  ")));
+        QCOMPARE(deviceSettingsPage(DeviceKind::Bluetooth), QStringLiteral("kcm_bluetooth"));
+    }
+
+    void aNewDeviceSpeaksOnceAtTheTickerAndOpensItsSettings()
+    {
+        Desk d;
+        QVERIFY(d.core->watchesDevices());
+        const Device stick{DeviceKind::Drive, QStringLiteral("SanDisk-1"), QStringLiteral("SanDisk Cruzer Blade")};
+        const Device disk{DeviceKind::Drive, QStringLiteral("WD-2"), QStringLiteral("WD Elements")};
+        const Device printer{DeviceKind::Printer, QStringLiteral("LaserJet M110we"), QStringLiteral("LaserJet M110we")};
+        // What is there when Core first looks is known already.
+        d.core->seeDevices(DeviceKind::Drive, {stick});
+        d.core->seeDevices(DeviceKind::Printer, {});
+        QVERIFY(d.ticker.isEmpty());
+        QVERIFY(d.logbook().contains(QStringLiteral("Devices  Looked at the drives here: 1 known.")));
+        // One plugged in later is news once, at the ticker, during Do Not Disturb too.
+        d.doNotDisturb = true;
+        d.core->seeDevices(DeviceKind::Drive, {stick, disk});
+        QCOMPARE(d.ticker, QStringList{QStringLiteral("New drive · Set it up | WD Elements")});
+        QCOMPARE(d.topics, QStringList{QStringLiteral("devices")});
+        QVERIFY(d.logbook().contains(QStringLiteral("Devices  New drive: WD Elements.")));
+        d.core->seeDevices(DeviceKind::Drive, {stick});
+        d.core->seeDevices(DeviceKind::Drive, {stick, disk});
+        QCOMPARE(d.ticker.size(), 1);
+        // It never takes the island, and has no fact.
+        for (const QVariantMap &fact : d.core->facts())
+            QVERIFY(fact.value(QStringLiteral("topic")).toString() != QStringLiteral("devices"));
+        // A tap opens the settings for the kind it spoke of last.
+        d.core->seeDevices(DeviceKind::Printer, {printer});
+        QCOMPARE(d.ticker.last(), QStringLiteral("New printer · Set it up | LaserJet M110we"));
+        QVERIFY(d.core->act(QStringLiteral("devices"), QStringLiteral("open")));
+        QCOMPARE(d.settingsOpened, QStringList{QStringLiteral("kcm_printer_manager")});
+        QVERIFY(d.logbook().contains(QStringLiteral("Devices  You opened the printer settings.")));
+        QVERIFY(!d.core->act(QStringLiteral("devices"), QStringLiteral("not-now")));
+        // Known across a restart.
+        d.make();
+        d.core->seeDevices(DeviceKind::Printer, {printer});
+        d.core->seeDevices(DeviceKind::Drive, {stick, disk});
+        QCOMPARE(d.ticker.size(), 2);
+        QVERIFY(d.core->act(QStringLiteral("devices"), QStringLiteral("open")));
+        // A kind whose settings page isn't installed is kept in the logbook alone.
+        d.settingsInstalled.removeAll(QStringLiteral("kcm_bluetooth"));
+        d.core->seeDevices(DeviceKind::Bluetooth, {});
+        d.core->seeDevices(DeviceKind::Bluetooth, {{DeviceKind::Bluetooth, QStringLiteral("AC:80"), QStringLiteral("WH-1000XM4")}});
+        QCOMPARE(d.ticker.size(), 2);
+        QVERIFY(d.logbook().contains(QStringLiteral("Devices  New Bluetooth device: WH-1000XM4.")));
+    }
+
+    void devicesSwitchedOffAreSilent()
+    {
+        Desk d;
+        {
+            QSettings settings(d.dir.filePath(QStringLiteral("corerc")), QSettings::IniFormat);
+            settings.setValue(QStringLiteral("Devices/Enabled"), false);
+        }
+        QVERIFY(!d.core->watchesDevices());
+        d.core->seeDevices(DeviceKind::Drive, {});
+        d.core->seeDevices(DeviceKind::Drive, {{DeviceKind::Drive, QStringLiteral("WD-2"), QStringLiteral("WD Elements")}});
+        QVERIFY(d.ticker.isEmpty());
+        QVERIFY(!d.core->act(QStringLiteral("devices"), QStringLiteral("open")));
     }
 
     void theBusOffersTheFacts()

@@ -2,11 +2,13 @@
 #pragma once
 
 #include "core/Attention.h"
+#include "core/Devices.h"
 #include "core/Health.h"
 #include "core/Storage.h"
 #include "core/Updates.h"
 
 #include <QDateTime>
+#include <QHash>
 #include <QList>
 #include <QObject>
 #include <QVariantMap>
@@ -44,6 +46,10 @@ public:
         // Opens an upkeep card by its name, such as "space", with what the
         // person typed for the cards that take it.
         std::function<void(const QString &card, const QString &query)> openCard;
+        // Whether KDE's settings page by that name, such as kcm_bluetooth,
+        // is installed, and opening it.
+        std::function<bool(const QString &page)> hasSettings = [](const QString &) { return true; };
+        std::function<void(const QString &page)> openSettings;
     };
 
     // folder: where its files are kept. settings: the person's settings file,
@@ -72,6 +78,13 @@ public:
     void seeInstaller(const QString &fileName);
     // Whether the Windows programs topic is on and was not told to stop.
     bool watchesDownloads() const;
+
+    // Every device of one kind there is now. One Core has not seen before is
+    // news once, at the ticker; the first time Core looks at a kind, what is
+    // already there is known without a word.
+    void seeDevices(DeviceKind kind, const QList<Device> &present);
+    // Whether the Devices topic is switched on.
+    bool watchesDevices() const;
 
     // How readily Core speaks, the person's Notice setting, from 0 (Less) to
     // 100 (More), 50 by default; the words "quiet" and "eager" read as 0 and
@@ -150,6 +163,11 @@ private:
     // The person said not to tell them again.
     bool m_windowsNever = false;
     Attention m_windowsAttention;
+
+    // The devices of each kind Core knows, by id, and the kinds it has
+    // looked at; the kind it spoke of last, which a tap on the ticker opens.
+    QHash<QString, QStringList> m_devicesKnown;
+    QString m_deviceSpoken;
 };
 
 } // namespace splitrock::core
