@@ -12,6 +12,10 @@ What Split Rock does not do yet, and what it will not do.
 - English only.
 - Core's Devices topic has been run against stand-ins for UDisks2, BlueZ and
   systemd, not yet with a real printer.
+- Ask's front desk has been tested against a pretend model here. Its last
+  trial against the real model was before it became a program of its own;
+  `tools/desk-trial/` runs it again on a computer that has the model.
+- Ask needs `llama-server` installed; nothing in Split Rock installs it.
 
 ## Not planned
 

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Installs Split Rock on this computer, for every account, from this checkout:
-# the Helpers' program, its desktop file and icon, Core, and the guide and the
-# tour. What an earlier install placed is removed first, so nothing it left
+# the Helpers' program, its desktop file and icon, Core, Ask and its settings
+# skills, and the guide and the tour. What an earlier install placed is removed first, so nothing it left
 # behind stays.
 #
 # This is a developer install for the maintainer's own computer; it is not
@@ -27,7 +27,7 @@ fi
 cmake -S "${project_root}" -B "${build_dir}" "${generator[@]}" \
     -DCMAKE_BUILD_TYPE=RelWithDebInfo \
     -DCMAKE_INSTALL_PREFIX=/usr >/dev/null
-cmake --build "${build_dir}" --parallel --target split-rock split-rock-core
+cmake --build "${build_dir}" --parallel --target split-rock split-rock-core split-rock-ask
 # Shuffle's install key, where it is set up, installs with no password: the
 # build is laid out here with this account's own rights, and a root-owned helper
 # takes the files as a stream and puts only Split Rock's own in place.
@@ -73,6 +73,9 @@ if pgrep -x -u "$(id -u)" split-rock-core >/dev/null 2>&1; then
         echo "Core restarted with the new program."
     fi
 fi
+
+# An Ask already running ends, so the next question starts the new program.
+pkill -x -u "$(id -u)" split-rock-ask >/dev/null 2>&1 || true
 
 echo "Split Rock installed. Core opens its Helpers; Search finds them by name."
 echo "A Helper's window already open keeps the old program until it closes."
