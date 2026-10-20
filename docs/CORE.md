@@ -23,7 +23,8 @@ Helper it can open and the words it uses.
 
 - It runs as the person, never as the administrator.
 - It calls no language model and works with none installed. What it says is
-  fixed wording ("Storage · 91% full").
+  fixed wording ("Storage · 91% full"). Ask, which does answer with a model,
+  is a program of its own beside it (`ASK.md`).
 - It changes nothing on the computer. The most it does is open a Helper, where
   the person decides.
 - Everything it keeps is a plain file in `split-rock/core` in the person's data

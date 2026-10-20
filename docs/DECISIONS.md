@@ -1166,3 +1166,29 @@ it by hand; putting back the look and panels live before it is proven, since
 writing Plasma's panel file while Plasma runs is overwritten or breaks the
 panel; and reading the settings' history from a backup tool, which most
 computers don't have.
+
+## Ask comes back on its own, beside Core
+
+Ask answers plain questions on the computer (`ASK.md`): the front desk and the
+model from "Genie on this computer" above, unchanged in how they decide, as a
+program of their own, `split-rock-ask`, on the session bus beside Core. There
+is no chat. Search asks one question at a time, each afresh, and shows the
+answer with the Helpers that fit under it; a Do it card from a settings skill
+waits for the person's tap. Every answer says it was given on this computer,
+so the person always knows who is speaking. The safety check answers before
+any model is downloaded. Only `llama-server` runs in the fence, since the
+desk is Split Rock's own code and reaches nothing but the model and the
+skills' read-only looks. The model downloads after a tap, and the program
+ends after ten minutes with nothing to answer, which gives its memory back.
+
+Why: the product owner put Ask and the small model in 1.1 after the third
+trial (125 of 144). Core never calls a model, so Ask can't live inside it,
+and a program the bus starts only when asked costs nothing to someone who
+never asks. The chat's open findings stay closed: nothing here reads beyond
+the model and the skills, and no account's token is anywhere near it.
+
+Rejected: Ask inside Core, which would break Core's rule and keep 2.5 GB of
+model in memory all day; bringing back the conversation and the Agent Client
+Protocol for the desk, which was only needed while the desk was one assistant
+among several; and keeping earlier questions in each answer, which Search's
+one-question box has no way to show.
