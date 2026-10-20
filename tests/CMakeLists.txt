@@ -69,6 +69,7 @@ qt_add_resources(test_sheet "sheet_for_test"
         ${PROJECT_SOURCE_DIR}/qml/CardProgress.qml
         ${PROJECT_SOURCE_DIR}/qml/CardRow.qml
         ${PROJECT_SOURCE_DIR}/qml/SpaceCard.qml
+        ${PROJECT_SOURCE_DIR}/qml/TidyCard.qml
         ${PROJECT_SOURCE_DIR}/qml/InstallCard.qml
         ${PROJECT_SOURCE_DIR}/qml/RestoreCard.qml
         ${PROJECT_SOURCE_DIR}/qml/HealthCard.qml

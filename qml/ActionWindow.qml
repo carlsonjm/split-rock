@@ -18,6 +18,7 @@ Window {
         case "health": return "Health check"
         case "community": return "Community apps"
         case "changes": return "What changed"
+        case "tidy": return "Tidy up Downloads"
         }
         return productTitle
     }
@@ -39,6 +40,7 @@ Window {
         case "health": return helpers.health
         case "community": return helpers.community
         case "changes": return helpers.recent
+        case "tidy": return helpers.tidy
         }
         return null
     }
@@ -90,6 +92,7 @@ Window {
                 case "health": return healthCard
                 case "community": return communityCard
                 case "changes": return changesCard
+                case "tidy": return tidyCard
                 }
                 return null
             }
@@ -103,4 +106,5 @@ Window {
     Component { id: healthCard; HealthCard {} }
     Component { id: communityCard; CommunityCard {} }
     Component { id: changesCard; ChangesCard {} }
+    Component { id: tidyCard; TidyCard {} }
 }

@@ -147,6 +147,19 @@ CardFrame {
         onClicked: helpers.openChore("apps")
     }
 
+    // Downloads and the Desktop, last and never ticked: the person's own
+    // files go only from Tidy up Downloads, to the Trash, file by file.
+    CardRow {
+        objectName: "spaceTidy"
+        visible: card.stage === "ready" || card.stage === "nothing"
+        width: card.innerWidth
+        icon: Icons.tidy
+        title: "Tidy up Downloads"
+        detail: "Old downloads and copies, to the Trash"
+        opens: true
+        onClicked: helpers.openChore("tidy")
+    }
+
     // Parts nothing uses, once ticked: every package that will be removed,
     // by name, before the button is tapped. Nothing else goes with them.
     Column {

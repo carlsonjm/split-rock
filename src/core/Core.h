@@ -78,6 +78,11 @@ public:
     void seeInstaller(const QString &fileName);
     // Whether the Windows programs topic is on and was not told to stop.
     bool watchesDownloads() const;
+    // What the Downloads folder and the Desktop hold, in kilobytes: past
+    // 5 GB Core says so once on the ticker, and again only 5 GB later.
+    void seeTidy(qint64 kb);
+    bool watchesTidy() const;
+    static constexpr qint64 TidyStepKb = 5LL * 1024 * 1024;
 
     // Every device of one kind there is now. One Core has not seen before is
     // news once, at the ticker; the first time Core looks at a kind, what is
@@ -151,6 +156,9 @@ private:
     UpdatesFact m_updates;
     Attention m_updatesAttention;
     bool m_updatesLooked = false;
+    // What Downloads and the Desktop held when the ticker last said so, or
+    // less since, when they were tidied.
+    qint64 m_tidySpokenKb = 0;
     HealthLook m_healthLook;
     HealthFact m_health;
     Attention m_healthAttention;

@@ -315,7 +315,7 @@ private Q_SLOTS:
             QVERIFY(!action.value(QStringLiteral("title")).toString().isEmpty());
             QVERIFY(!action.value(QStringLiteral("keywords")).toStringList().isEmpty());
         }
-        QCOMPARE(ids, (QStringList{QStringLiteral("update"), QStringLiteral("space"), QStringLiteral("install"),
+        QCOMPARE(ids, (QStringList{QStringLiteral("update"), QStringLiteral("space"), QStringLiteral("tidy"), QStringLiteral("install"),
                                    QStringLiteral("apps"), QStringLiteral("health"), QStringLiteral("changes"), QStringLiteral("restore"),
                                    QStringLiteral("community")}));
         QVERIFY(d.core->openAction(QStringLiteral("health"), QStringLiteral("health")));
@@ -716,6 +716,51 @@ private Q_SLOTS:
         QVERIFY(!d.core->act(QStringLiteral("windows"), QStringLiteral("open")));
     }
 
+    void downloadsSpeakPastFiveGigabytesAndAgainFiveLater()
+    {
+        Desk d;
+        QVERIFY(d.core->watchesTidy());
+        d.core->seeTidy(4 * Gb);
+        QVERIFY(d.ticker.isEmpty());
+        d.core->seeTidy(qint64(7.4 * Gb));
+        QCOMPARE(d.ticker, QStringList{QStringLiteral("Downloads · 7.4 GB | Tidy up Downloads")});
+        QCOMPARE(d.topics, QStringList{QStringLiteral("tidy")});
+        QVERIFY(d.logbook().contains(QStringLiteral("Tidy up  Told the ticker: Downloads and the Desktop hold 7.4 GB.")));
+        // Growing, but not yet 5 GB more: quiet.
+        d.core->seeTidy(11 * Gb);
+        QCOMPARE(d.ticker.size(), 1);
+        // Remembered through a restart.
+        d.make();
+        d.core->seeTidy(12 * Gb);
+        QCOMPARE(d.ticker.size(), 1);
+        d.core->seeTidy(qint64(12.5 * Gb));
+        QCOMPARE(d.ticker.size(), 2);
+        // Tidied to 2 GB: the next mark is 7 GB.
+        d.core->seeTidy(2 * Gb);
+        d.core->seeTidy(6 * Gb);
+        QCOMPARE(d.ticker.size(), 2);
+        // Do Not Disturb holds it until it is off.
+        d.doNotDisturb = true;
+        d.core->seeTidy(8 * Gb);
+        QCOMPARE(d.ticker.size(), 2);
+        d.doNotDisturb = false;
+        d.core->seeTidy(8 * Gb);
+        QCOMPARE(d.ticker.size(), 3);
+        // A tap opens the card.
+        QVERIFY(d.core->act(QStringLiteral("tidy"), QStringLiteral("open")));
+        QCOMPARE(d.opened, QStringList{QStringLiteral("tidy")});
+        QVERIFY(d.logbook().contains(QStringLiteral("Tidy up  You opened Tidy up Downloads.")));
+        // Switched off: silent, and a tap opens nothing.
+        {
+            QSettings settings(d.dir.filePath(QStringLiteral("corerc")), QSettings::IniFormat);
+            settings.setValue(QStringLiteral("Tidy/Enabled"), false);
+        }
+        QVERIFY(!d.core->watchesTidy());
+        d.core->seeTidy(40 * Gb);
+        QCOMPARE(d.ticker.size(), 3);
+        QVERIFY(!d.core->act(QStringLiteral("tidy"), QStringLiteral("open")));
+    }
+
     void theHelpersAnswerToWindowsWords()
     {
         const auto findsBy = [](const QString &words) {
@@ -840,7 +885,7 @@ private Q_SLOTS:
             = bus.call(QDBusMessage::createMethodCall(QLatin1String(CoreService::Service), QLatin1String(CoreService::Path),
                                                       QStringLiteral("io.github.carlsonjm.SplitRock.Core"), QStringLiteral("Actions")));
         QVERIFY2(actions.isValid(), qPrintable(actions.error().message()));
-        QCOMPARE(actions.value().size(), 8);
+        QCOMPARE(actions.value().size(), 9);
         bus.unregisterService(QLatin1String(CoreService::Service));
         bus.unregisterObject(QLatin1String(CoreService::Path));
     }

@@ -8,7 +8,8 @@ what it says; the upkeep cards do the work, after the person's yes. Core works
 without the conversation.
 
 Core watches three topics, Storage, Updates and Health, the Downloads
-folder for a Windows program, and new devices. Each section below gives what
+folder for a Windows program and for how much has piled up there, and new
+devices. Each section below gives what
 Core watches, the card it can open and the words it uses.
 
 ## What holds
@@ -30,7 +31,7 @@ Core watches, the card it can open and the words it uses.
 - `split-rock-corerc` in the person's settings folder switches off Core as a
   whole (`[General] Enabled=false`) or one topic (`[Storage] Enabled=false`,
   `[Updates] Enabled=false`, `[Health] Enabled=false`, `[Windows] Enabled=false`,
-  `[Devices] Enabled=false`). Core neither watches nor offers a topic that is
+  `[Tidy] Enabled=false`, `[Devices] Enabled=false`). Core neither watches nor offers a topic that is
   switched off.
 - Core starts at sign-in, from `io.github.carlsonjm.splitrock.Core.desktop` in
   the system's autostart folder, so it keeps its schedule whether or not a
@@ -117,6 +118,23 @@ Disturb, goes to the ticker. Once the person taps it or sets it aside, it is
 no longer a fact. `never` on the bus stops it for good. Core reads only the
 names of the files there, never what is in them.
 
+## Tidy up Downloads
+
+With each look at the drive, and when a download has settled, Core adds up
+what the Downloads folder and the Desktop hold, folders inside them too. Past
+5 GB it says so once on the ticker: "Downloads · 7.4 GB", "Tidy up Downloads".
+It speaks again only 5 GB later; when the folders are tidied, the next mark is
+5 GB above what is left. During Do Not Disturb it waits. Tapping it opens Tidy
+up Downloads. Core reads only the sizes of the files there.
+
+The card groups the files directly in those two folders: installers of apps
+already installed and Windows programs, copies the same as their original,
+files not opened in 30 days, screenshots, and the folders there, each whole
+with its size. Only the first two are ticked;
+an AppImage opened in the last month never is. What is ticked goes to the
+Trash, where it can be put back, with no password. Free up space ends with a
+row that opens it, never ticked.
+
 ## Devices
 
 The first time the computer sees a printer, a drive that can be unplugged or
@@ -200,7 +218,7 @@ Each fact is a dictionary of strings to variants:
 
 | Key | Type | What it is |
 | --- | --- | --- |
-| `topic` | `s` | `storage`, `updates`, `health` or `windows` |
+| `topic` | `s` | `storage`, `updates`, `health` or `windows` (`tidy` speaks only on the ticker and has no fact) |
 | `title` | `s` | `Storage`, `Updates`, `Health`, `Windows programs` |
 | `line` | `s` | `91% full`, `12 waiting`, `Up to date`, `1 problem`, `All good` |
 | `detail` | `s` | `45 GB free · filling about 2 GB a day` (the rate only when it is at least 100 MB a day), `Last updated 9 days ago` |
@@ -217,8 +235,8 @@ Each fact is a dictionary of strings to variants:
 ## Actions from Search
 
 Every upkeep card opens from Search on its own, with no conversation: Check
-for updates, Free up space, Install an app, Your apps, Health check, What
-changed, Restore points and Community apps. Core lists them with the words each is found by,
+for updates, Free up space, Tidy up Downloads, Install an app, Your apps,
+Health check, What changed, Restore points and Community apps. Core lists them with the words each is found by,
 and Search matches what is typed against them without asking Core anything.
 Windows's own words find them too: Add or remove programs opens Install an
 app, Disk Cleanup Free up space, Windows Update Check for updates and System

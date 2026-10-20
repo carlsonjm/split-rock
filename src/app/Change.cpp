@@ -54,7 +54,8 @@ QStringList shellWords(const QString &line)
 QStringList ChangeProposal::cards()
 {
     return {QStringLiteral("update"), QStringLiteral("space"), QStringLiteral("install"),
-            QStringLiteral("restore"), QStringLiteral("health"), QStringLiteral("community"), QStringLiteral("changes")};
+            QStringLiteral("restore"), QStringLiteral("health"), QStringLiteral("community"), QStringLiteral("changes"),
+            QStringLiteral("tidy")};
 }
 
 std::optional<ChangeProposal> ChangeProposal::fromJson(const QByteArray &json, QString *error)

@@ -45,8 +45,11 @@ var undo = "M9 14L4 9l5-5 M4 9h10.5a5.5 5.5 0 0 1 0 11H11"
 // A setting: a sliders mark.
 var sliders = "M4 21v-7 M4 10V3 M12 21v-9 M12 8V3 M20 21v-5 M20 12V3 M1 14h6 M9 8h6 M17 16h6"
 var back = "M15 18l-6-6 6-6"
+// Tidy up Downloads: down into a tray.
+var tidy = "M12 3v12 M7 10l5 5 5-5 M5 21h14"
+var folder = "M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"
 
 // Each upkeep card's icon.
 function forChore(name) {
-    return ({ update: refresh, space: drive, install: download, restore: history, health: pulse, community: box, changes: undo })[name] || refresh
+    return ({ update: refresh, space: drive, install: download, restore: history, health: pulse, community: box, changes: undo, tidy: tidy })[name] || refresh
 }

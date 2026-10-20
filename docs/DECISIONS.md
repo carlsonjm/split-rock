@@ -1065,6 +1065,29 @@ Rejected: a line in Search and the Health check only, which waits for the
 person to look; and offering to run Windows programs through a compatibility
 layer, which fails often enough to look like the desktop's fault.
 
+## Tidy up Downloads moves to the Trash, and ticks only the plainly safe
+
+A Helper of its own gathers what has piled up in the Downloads folder and on the
+Desktop and nowhere else, in five groups: installers of apps already
+installed and Windows programs, copies the same as their original ("report
+(1).pdf"), files not opened in 30 days, screenshots, and the folders there,
+each whole. Only the first two are ticked; what is in a folder can't be told
+from its name. What the person ticks goes to the
+Trash, file by file, with no password and no restore point. Core says once on
+the ticker when the two folders pass 5 GB, and again only 5 GB later; Free up
+space ends with a row for it, never ticked.
+
+Why: Downloads is where a Windows user's leftovers pile up, and the person
+can't tell an installer they used from a document they need. The product
+owner approved the mock-up that ticks only what is plainly safe and keeps the
+rest for the person to look at.
+
+Rejected: deleting for good, which can't be undone; ticking old files, which
+may be the one thing the person kept; looking in any other folder; and an
+island, which would make a full Downloads folder as loud as a full drive. An
+AppImage the person opened in the last month is run from where it is, so it is
+never ticked.
+
 ## A new device gets one ticker line that opens its settings
 
 Core's Devices topic starts with printers, drives and Bluetooth, the three

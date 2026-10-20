@@ -24,6 +24,7 @@ add_library(splitrock_core STATIC
     src/app/SystemUpdate.cpp
     src/app/Chore.cpp
     src/app/SpaceCleanup.cpp
+    src/app/TidyUp.cpp
     src/app/AppInstall.cpp
     src/app/RestorePoints.cpp
     src/app/RecentChanges.cpp
@@ -58,6 +59,7 @@ qt_add_resources(split-rock "sheet"
         qml/CardProgress.qml
         qml/CardRow.qml
         qml/SpaceCard.qml
+        qml/TidyCard.qml
         qml/InstallCard.qml
         qml/RestoreCard.qml
         qml/HealthCard.qml

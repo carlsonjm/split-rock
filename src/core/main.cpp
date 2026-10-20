@@ -6,7 +6,7 @@
 // the person, never as the administrator, and never calls a language model.
 //
 //   split-rock-core [--folder DIR] [--settings FILE] [--drive DIR] [--every MINUTES]
-//                   [--updates-every HOURS] [--downloads DIR]
+//                   [--updates-every HOURS] [--downloads DIR] [--desktop DIR]
 //
 // It also looks over the computer's health once a week, with Split Rock's own
 // `split-rock --health-facts`, and, on the system bus, for a printer, a drive
@@ -24,6 +24,8 @@
 //             changing, so a finished update is seen at once
 // --downloads the folder where a Windows installer would arrive
 //             (default: the person's Downloads folder)
+// --desktop   the Desktop folder, measured with Downloads for Tidy up
+//             Downloads (default: the person's Desktop folder)
 //
 // Core runs once: a second start ends at once.
 
@@ -41,6 +43,7 @@
 #include <QDBusReply>
 #include <QDBusVariant>
 #include <QDir>
+#include <QDirIterator>
 #include <QFile>
 #include <QFileInfo>
 #include <QFileSystemWatcher>
@@ -100,6 +103,8 @@ public:
             : topic == QLatin1String("windows")
             ? Words{QStringLiteral("Windows programs"), QStringLiteral("application-x-ms-dos-executable"),
                     QStringLiteral("Find the Linux version")}
+            : topic == QLatin1String("tidy")
+            ? Words{QStringLiteral("Downloads"), QStringLiteral("folder-download"), QStringLiteral("Tidy up Downloads")}
             : Words{QStringLiteral("Storage"), QStringLiteral("drive-harddisk"), QStringLiteral("Free up space")};
         QDBusMessage call = QDBusMessage::createMethodCall(Notifications, NotificationsPath, Notifications,
                                                            QStringLiteral("Notify"));
@@ -266,6 +271,24 @@ private:
     QProcess *m_process = nullptr;
 };
 
+// What the folders hold, folders inside them too, in kilobytes; links are not
+// followed. It stops counting at a hundred thousand files, which is enough to
+// say a folder is big.
+qint64 heldKb(const QStringList &folders)
+{
+    qint64 bytes = 0;
+    int seen = 0;
+    for (const QString &folder : folders) {
+        QDirIterator it(folder, QDir::Files | QDir::Hidden | QDir::NoSymLinks, QDirIterator::Subdirectories);
+        while (it.hasNext() && seen < 100000) {
+            it.next();
+            bytes += it.fileInfo().size();
+            ++seen;
+        }
+    }
+    return bytes / 1024;
+}
+
 // What a service's ObjectManager lists: each object and its interfaces'
 // properties.
 using Interfaces = QMap<QString, QVariantMap>;
@@ -428,7 +451,9 @@ int main(int argc, char **argv)
                                            QStringLiteral("6"));
     const QCommandLineOption downloadsOption(QStringLiteral("downloads"),
                                              QStringLiteral("Where a Windows installer would arrive."), QStringLiteral("dir"));
-    parser.addOptions({folderOption, settingsOption, driveOption, everyOption, updatesOption, downloadsOption});
+    const QCommandLineOption desktopOption(QStringLiteral("desktop"),
+                                           QStringLiteral("The Desktop, measured with Downloads."), QStringLiteral("dir"));
+    parser.addOptions({folderOption, settingsOption, driveOption, everyOption, updatesOption, downloadsOption, desktopOption});
     parser.process(app);
 
     QDBusConnection bus = QDBusConnection::sessionBus();
@@ -579,6 +604,23 @@ int main(int argc, char **argv)
             desk.seeInstaller(file.fileName());
         }
     });
+
+    // Tidy up Downloads: what Downloads and the Desktop hold, with each look at
+    // the drive and when a download has settled.
+    QStringList tidied;
+    const QString desktop = parser.isSet(desktopOption) ? parser.value(desktopOption)
+                                                        : QStandardPaths::writableLocation(QStandardPaths::DesktopLocation);
+    for (const QString &folder : {downloads, desktop}) {
+        if (!folder.isEmpty() && QFileInfo(folder).isDir() && QDir(folder) != QDir::home() && !tidied.contains(folder))
+            tidied.append(folder);
+    }
+    const auto measureTidy = [&desk, tidied] {
+        if (desk.watchesTidy() && !tidied.isEmpty())
+            desk.seeTidy(heldKb(tidied));
+    };
+    QTimer::singleShot(std::chrono::minutes(5), &desk, measureTidy);
+    QObject::connect(&every, &QTimer::timeout, &desk, measureTidy);
+    QObject::connect(&downloadsSettled, &QTimer::timeout, &desk, measureTidy);
 
     // Devices: a first list of each kind once the session has settled, then
     // whenever the system bus says something about them changed.

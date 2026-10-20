@@ -11,12 +11,14 @@
 #include "app/RecentChanges.h"
 #include "app/RestorePoints.h"
 #include "app/SpaceCleanup.h"
+#include "app/TidyUp.h"
 
 #include <QDir>
 #include <QFile>
 #include <QProcess>
 #include <QSettings>
 #include <QSignalSpy>
+#include <QStandardPaths>
 #include <QScopeGuard>
 #include <QTemporaryDir>
 #include <QTest>
@@ -1055,6 +1057,159 @@ private Q_SLOTS:
         // Nothing found, nothing said.
         for (const HealthCheck::Item &i : HealthCheck::readLook(fixture(QStringLiteral("health-look.txt")), Now))
             QVERIFY(i.id != QLatin1String("restart") && i.id != QLatin1String("packages") && i.id != QLatin1String("downloads"));
+    }
+
+    void installersAreNamedForTheirApps()
+    {
+        QCOMPARE(TidyUp::installerFor(QStringLiteral("zoom-6.2.0-1-x86_64.pkg.tar.zst")), QStringLiteral("zoom"));
+        QCOMPARE(TidyUp::installerFor(QStringLiteral("visual-studio-code-bin-1.95.0-1-x86_64.pkg.tar.zst")),
+                 QStringLiteral("visual-studio-code-bin"));
+        QCOMPARE(TidyUp::installerFor(QStringLiteral("zoom_x86_64.pkg.tar.xz")), QStringLiteral("zoom"));
+        QCOMPARE(TidyUp::installerFor(QStringLiteral("steam_latest.deb")), QStringLiteral("steam"));
+        QCOMPARE(TidyUp::installerFor(QStringLiteral("google-chrome-stable-131.0-1.x86_64.rpm")),
+                 QStringLiteral("google-chrome-stable"));
+        QCOMPARE(TidyUp::installerFor(QStringLiteral("com.spotify.Client.flatpakref")), QStringLiteral("com.spotify.client"));
+        QCOMPARE(TidyUp::installerFor(QStringLiteral("report.pdf")), QString());
+        QCOMPARE(TidyUp::installerFor(QStringLiteral("firefox-131.0.tar.bz2")), QString());
+    }
+
+    void tidyUpTicksOnlyWhatIsPlainlySafe()
+    {
+        const TidyUp::Look look = TidyUp::readLook(fixture(QStringLiteral("tidy-look.txt")), Now.toSecsSinceEpoch());
+        QCOMPARE(look.heldKb, qint64(7864320));
+        QStringList ids;
+        QMap<QString, TidyUp::File> byName;
+        QMap<QString, QString> groupOf;
+        for (const TidyUp::Group &group : look.groups) {
+            ids.append(group.id);
+            for (const TidyUp::File &file : group.files) {
+                byName.insert(file.name, file);
+                groupOf.insert(file.name, group.id);
+            }
+        }
+        QCOMPARE(ids, (QStringList{QStringLiteral("installers"), QStringLiteral("copies"), QStringLiteral("old"),
+                                   QStringLiteral("screenshots"), QStringLiteral("folders")}));
+        // Folders whole, biggest first, never ticked.
+        QCOMPARE(look.groups.at(4).files.first().name, QStringLiteral("Games temp"));
+        QCOMPARE(look.groups.at(4).files.first().kb, qint64(234567890));
+        QVERIFY(!look.groups.at(4).files.first().chosen);
+        QVERIFY(look.groups.at(4).files.first().detail.startsWith(QStringLiteral("Folder · changed ")));
+        QCOMPARE(look.groups.at(4).detail, QStringLiteral("2 folders, each with all it holds. Look before you tick"));
+        // Installers of what is installed, and Windows programs: ticked.
+        QCOMPARE(byName.value(QStringLiteral("zoom-6.2.0-1-x86_64.pkg.tar.zst")).detail, QStringLiteral("Zoom is installed"));
+        QVERIFY(byName.value(QStringLiteral("zoom-6.2.0-1-x86_64.pkg.tar.zst")).chosen);
+        QCOMPARE(byName.value(QStringLiteral("ZoomInstaller.exe")).detail, QStringLiteral("Windows only"));
+        QVERIFY(byName.value(QStringLiteral("ZoomInstaller.exe")).chosen);
+        QCOMPARE(byName.value(QStringLiteral("steam_latest.deb")).detail, QStringLiteral("Steam is installed"));
+        // An AppImage run lately is kept; one unused for months is only old.
+        QVERIFY(byName.value(QStringLiteral("Obsidian-1.7.AppImage")).kept);
+        QVERIFY(!byName.value(QStringLiteral("Obsidian-1.7.AppImage")).chosen);
+        QCOMPARE(groupOf.value(QStringLiteral("Old-Thing-1.0.AppImage")), QStringLiteral("old"));
+        // An installer for an app that isn't installed, recent: not offered.
+        QVERIFY(!byName.contains(QStringLiteral("gimp-2.10.rpm")));
+        // A copy the same as its original: ticked. A copy that isn't, recent: not offered.
+        QCOMPARE(groupOf.value(QStringLiteral("report (1).pdf")), QStringLiteral("copies"));
+        QVERIFY(byName.value(QStringLiteral("report (1).pdf")).chosen);
+        QCOMPARE(byName.value(QStringLiteral("report (1).pdf")).detail, QStringLiteral("The same as report.pdf"));
+        QVERIFY(!byName.contains(QStringLiteral("notes (2).txt")));
+        // Old files and screenshots: listed, never ticked.
+        QCOMPARE(groupOf.value(QStringLiteral("report.pdf")), QStringLiteral("old"));
+        QCOMPARE(groupOf.value(QStringLiteral("firefox-131.0.tar.bz2")), QStringLiteral("old"));
+        QVERIFY(!byName.value(QStringLiteral("holiday.mov")).chosen);
+        QCOMPARE(groupOf.value(QStringLiteral("Screenshot_20261006_101500.png")), QStringLiteral("screenshots"));
+        QVERIFY(!byName.value(QStringLiteral("Screenshot_20260801_090000.png")).chosen);
+        // A download still arriving, and a fresh one: left alone.
+        QVERIFY(!byName.contains(QStringLiteral("big.iso.part")));
+        QVERIFY(!byName.contains(QStringLiteral("fresh.zip")));
+
+        QCOMPARE(look.groups.at(0).detail, QStringLiteral("3 files for apps already installed, or for Windows"));
+        QCOMPARE(look.groups.at(1).detail, QStringLiteral("\"report (1).pdf\", the same as the one it copies"));
+        QCOMPARE(look.groups.at(2).detail, QStringLiteral("4 files. Look before you tick"));
+        QCOMPARE(look.groups.at(3).detail, QStringLiteral("2 in Downloads and on the Desktop"));
+        // Biggest first, what is kept last.
+        QCOMPARE(look.groups.at(0).files.first().name, QStringLiteral("zoom-6.2.0-1-x86_64.pkg.tar.zst"));
+        QCOMPARE(look.groups.at(0).files.last().name, QStringLiteral("Obsidian-1.7.AppImage"));
+    }
+
+    void tidyUpMovesWhatIsTickedToTheTrash()
+    {
+        // Real files in folders of the test's own, looked at with the real look,
+        // in the test's home, on the drive its Trash is on.
+        QTemporaryDir home(QDir::homePath() + QStringLiteral("/tidy-XXXXXX"));
+        const QString downloads = home.filePath(QStringLiteral("Downloads"));
+        const QString desktop = home.filePath(QStringLiteral("Desktop"));
+        QVERIFY(write(downloads + QStringLiteral("/report.pdf"), QStringLiteral("the report")));
+        QVERIFY(write(downloads + QStringLiteral("/report (1).pdf"), QStringLiteral("the report")));
+        QVERIFY(write(downloads + QStringLiteral("/report (2).pdf"), QStringLiteral("the report, changed")));
+        QVERIFY(write(downloads + QStringLiteral("/ChromeSetup.exe"), QStringLiteral("MZ")));
+        QVERIFY(write(downloads + QStringLiteral("/.hidden"), QStringLiteral("x")));
+        QVERIFY(write(desktop + QStringLiteral("/old notes.txt"), QStringLiteral("notes")));
+        QVERIFY(write(desktop + QStringLiteral("/Screenshot_20261001_120000.png"), QStringLiteral("png")));
+        QVERIFY(write(desktop + QStringLiteral("/Games temp/save/slot1.dat"), QStringLiteral("save")));
+        {
+            QFile old(desktop + QStringLiteral("/old notes.txt"));
+            QVERIFY(old.open(QIODevice::ReadWrite));
+            const QDateTime then = QDateTime::currentDateTime().addDays(-45);
+            QVERIFY(old.setFileTime(then, QFileDevice::FileModificationTime));
+            QVERIFY(old.setFileTime(then, QFileDevice::FileAccessTime));
+        }
+
+        QTemporaryDir store;
+        Helpers h(store.path());
+        TidyUp *tidy = h.tidyUp();
+        tidy->setFolders({downloads, desktop});
+        QStringList reported;
+        tidy->setReport([&reported](const QString &, bool ok, const QString &shown, const QString &) {
+            reported.append(QStringLiteral("%1 %2").arg(ok).arg(shown));
+        });
+        QVERIFY(h.openChore(QStringLiteral("tidy")));
+        QTRY_COMPARE(tidy->stage(), QStringLiteral("ready"));
+        QStringList names;
+        for (const TidyUp::Group &group : tidy->groups()) {
+            for (const TidyUp::File &file : group.files)
+                names.append(group.id + QLatin1Char(':') + file.name + (file.chosen ? QStringLiteral("+") : QString()));
+        }
+        names.sort();
+        QCOMPARE(names, (QStringList{QStringLiteral("copies:report (1).pdf+"), QStringLiteral("folders:Games temp"),
+                                     QStringLiteral("installers:ChromeSetup.exe+"), QStringLiteral("old:old notes.txt"),
+                                     QStringLiteral("screenshots:Screenshot_20261001_120000.png")}));
+        QCOMPARE(tidy->chosenCount(), 2);
+        QVERIFY(tidy->heldWords().startsWith(QLatin1String("Downloads and Desktop hold ")));
+
+        // A group ticked as a whole, and one file unticked again.
+        tidy->choose(QStringLiteral("old"), true);
+        QCOMPARE(tidy->chosenCount(), 3);
+        tidy->chooseFile(downloads + QStringLiteral("/ChromeSetup.exe"), false);
+        QCOMPARE(tidy->chosenCount(), 2);
+        // A folder goes whole.
+        tidy->choose(QStringLiteral("folders"), true);
+        QCOMPARE(tidy->chosenCount(), 3);
+
+        tidy->start();
+        QCOMPARE(tidy->stage(), QStringLiteral("done"));
+        QCOMPARE(tidy->moved(), 3);
+        QVERIFY(!QFileInfo::exists(desktop + QStringLiteral("/Games temp")));
+        QVERIFY(QFile::exists(QStandardPaths::writableLocation(QStandardPaths::GenericDataLocation)
+                              + QStringLiteral("/Trash/files/Games temp/save/slot1.dat")));
+        QVERIFY(tidy->missed().isEmpty());
+        QVERIFY(!QFile::exists(downloads + QStringLiteral("/report (1).pdf")));
+        QVERIFY(!QFile::exists(desktop + QStringLiteral("/old notes.txt")));
+        QVERIFY(QFile::exists(downloads + QStringLiteral("/report.pdf")));
+        QVERIFY(QFile::exists(downloads + QStringLiteral("/report (2).pdf")));
+        QVERIFY(QFile::exists(downloads + QStringLiteral("/ChromeSetup.exe")));
+        // In the Trash, where it can be put back.
+        const QString trash = QStandardPaths::writableLocation(QStandardPaths::GenericDataLocation) + QStringLiteral("/Trash");
+        QVERIFY(QFile::exists(trash + QStringLiteral("/files/report (1).pdf")));
+        QVERIFY(QFile::exists(trash + QStringLiteral("/info/report (1).pdf.trashinfo")));
+        QCOMPARE(reported, QStringList{QStringLiteral("1 3 files in the Trash")});
+        QVERIFY(tidy->log().contains(QStringLiteral("Moved to the Trash: ") + desktop + QStringLiteral("/old notes.txt")));
+
+        // Looked at again, the copy is gone.
+        QVERIFY(h.openChore(QStringLiteral("tidy")));
+        QTRY_COMPARE(tidy->stage(), QStringLiteral("ready"));
+        for (const TidyUp::Group &group : tidy->groups())
+            QVERIFY(group.id != QLatin1String("copies"));
+        QDir(trash).removeRecursively();
     }
 
     void aHelperIsOpenedByName()
