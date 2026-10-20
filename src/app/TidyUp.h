@@ -100,7 +100,7 @@ public:
     void setFolders(const QStringList &folders) { m_folders = folders; }
     void setLookScript(const QString &script) { m_lookScript = script; }
     // What opens the Trash: the desktop's file manager, asked on the bus
-    // (Files, where Shuffle installed it), or xdg-open where none answers.
+    // (Files, where Shuffle installed it), or xdg-open where none is there.
     static QStringList trashOpener();
     void setTrashOpener(const QStringList &program) { m_trashOpener = program; }
 

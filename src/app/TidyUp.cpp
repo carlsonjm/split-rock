@@ -487,12 +487,15 @@ void TidyUp::start()
 
 QStringList TidyUp::trashOpener()
 {
-    // Asked straight, the file manager that is already running shows it at
-    // once; xdg-open goes through the desktop's lookup first.
+    // Asked straight, the file manager shows it at once; xdg-open goes
+    // through the desktop's lookup first. One still starting is waited for,
+    // and one that took the request but hasn't answered has it, so only a
+    // desktop with no file manager on the bus goes on to xdg-open.
     return {QStringLiteral("/bin/sh"), QStringLiteral("-c"),
-            QStringLiteral("dbus-send --session --print-reply --reply-timeout=3000 --dest=org.freedesktop.FileManager1 "
-                           "/org/freedesktop/FileManager1 org.freedesktop.FileManager1.ShowFolders "
-                           "array:string:trash:/ string: >/dev/null 2>&1 || exec xdg-open trash:/")};
+            QStringLiteral("why=$(dbus-send --session --print-reply --reply-timeout=20000 "
+                           "--dest=org.freedesktop.FileManager1 /org/freedesktop/FileManager1 "
+                           "org.freedesktop.FileManager1.ShowFolders array:string:trash:/ string: 2>&1) && exit 0; "
+                           "case $why in *NoReply*) exit 0;; esac; exec xdg-open trash:/")};
 }
 
 void TidyUp::openTrash()

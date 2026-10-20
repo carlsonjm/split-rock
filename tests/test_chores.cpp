@@ -1212,6 +1212,44 @@ private Q_SLOTS:
         QDir(trash).removeRecursively();
     }
 
+    void theTrashOpensInTheFileManagerFirst()
+    {
+        // Stand-ins for dbus-send and xdg-open, each writing down its call.
+        QTemporaryDir bin;
+        const auto stub = [&bin](const QString &name, const QByteArray &body) {
+            QFile file(bin.filePath(name));
+            QVERIFY(file.open(QIODevice::WriteOnly));
+            file.write("#!/bin/sh\necho " + name.toUtf8() + " >> \"$STUB_LOG\"\n" + body);
+            file.close();
+            file.setPermissions(file.permissions() | QFileDevice::ExeOwner);
+        };
+        stub(QStringLiteral("dbus-send"), "case $STUB_BUS in\n"
+             "answered) exit 0;;\n"
+             "slow) echo 'Error org.freedesktop.DBus.Error.NoReply: no reply'; exit 1;;\n"
+             "*) echo 'Error org.freedesktop.DBus.Error.ServiceUnknown: not provided'; exit 1;;\nesac\n");
+        stub(QStringLiteral("xdg-open"), "");
+        const QStringList opener = TidyUp::trashOpener();
+        const auto calls = [&](const QString &bus) {
+            QFile::remove(bin.filePath(QStringLiteral("log")));
+            QProcess run;
+            QProcessEnvironment environment = QProcessEnvironment::systemEnvironment();
+            environment.insert(QStringLiteral("PATH"), bin.path() + QLatin1Char(':') + environment.value(QStringLiteral("PATH")));
+            environment.insert(QStringLiteral("STUB_LOG"), bin.filePath(QStringLiteral("log")));
+            environment.insert(QStringLiteral("STUB_BUS"), bus);
+            run.setProcessEnvironment(environment);
+            run.start(opener.first(), opener.mid(1));
+            run.waitForFinished();
+            QFile log(bin.filePath(QStringLiteral("log")));
+            return log.open(QIODevice::ReadOnly) ? QString::fromUtf8(log.readAll()).split(QLatin1Char('\n'), Qt::SkipEmptyParts)
+                                                 : QStringList();
+        };
+        // A file manager that answers, or took the request and is still
+        // starting, shows it; only none on the bus goes on to xdg-open.
+        QCOMPARE(calls(QStringLiteral("answered")), QStringList{QStringLiteral("dbus-send")});
+        QCOMPARE(calls(QStringLiteral("slow")), QStringList{QStringLiteral("dbus-send")});
+        QCOMPARE(calls(QStringLiteral("none")), (QStringList{QStringLiteral("dbus-send"), QStringLiteral("xdg-open")}));
+    }
+
     void aHelperIsOpenedByName()
     {
         QTemporaryDir store;
