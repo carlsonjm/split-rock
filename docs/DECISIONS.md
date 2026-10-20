@@ -1037,6 +1037,9 @@ are left to their own topics. A problem no Helper fixes, which once offered
 question, with what the computer is, for the person to paste where they ask.
 The Health check says it runs by itself once a week only while Core's Health
 topic is on.
+What changed does the same for a change with no way back, such as settings
+saved, a service that stopped or Flathub's apps: its row offers "Copy for help"
+with the change as a question.
 
 Why: the card said it ran by itself once a week, and nothing ran it once the
 conversation was gone; its questions had nowhere to go. The product owner

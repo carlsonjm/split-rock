@@ -15,6 +15,9 @@ CardFrame {
     readonly property var shown: card.all ? card.items : card.items.slice(0, 8)
     hue: "pink"
 
+    // The row whose description was copied last, to say so for a moment.
+    property string copied: ""
+
     function iconFor(kind) {
         return ({ own: Icons.undo, update: Icons.refresh, install: Icons.download, remove: Icons.trash,
                   apps: Icons.box, settings: Icons.sliders, service: Icons.alert, restart: Icons.power })[kind] || Icons.history
@@ -31,7 +34,27 @@ CardFrame {
         case "restart":
             card.job.restart()
             break
+        case "ask":
+            // Described as the Health check describes a problem: the question,
+            // then what this computer is.
+            clipboard.text = helpers.health.helpText(item.question)
+            clipboard.selectAll()
+            clipboard.copy()
+            card.copied = item.id
+            copiedFor.restart()
+            break
         }
+    }
+
+    // The clipboard, through an edit nobody sees.
+    TextEdit {
+        id: clipboard
+        visible: false
+    }
+    Timer {
+        id: copiedFor
+        interval: 2500
+        onTriggered: card.copied = ""
     }
 
     CardHead {
@@ -104,16 +127,17 @@ CardFrame {
                 }
                 CardRow {
                     objectName: "change-" + modelData.id
-                    // Asking about a change was the old chat's, so a change with
-                    // no other way back shows none.
+                    // A change with no way back is copied, to ask someone about.
+                    readonly property bool asks: modelData.action === "ask" && modelData.question !== ""
                     readonly property bool canAct: modelData.action !== "" && modelData.action !== "ask"
                                                     && (modelData.action !== "undo" || !helpers.changing)
                     tone: modelData.kind === "service" || modelData.kind === "restart" ? theme.warn : card.tone
                     icon: card.iconFor(modelData.kind)
                     title: modelData.title
                     detail: modelData.detail
-                    trailing: canAct ? modelData.actionLabel : ""
+                    trailing: asks ? (card.copied === modelData.id ? "Copied" : "Copy for help") : canAct ? modelData.actionLabel : ""
                     opens: canAct
+                    acts: asks
                     onClicked: card.act(modelData)
                 }
             }

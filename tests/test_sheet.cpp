@@ -489,6 +489,15 @@ private Q_SLOTS:
         QVERIFY(opens(QStringLiteral("changes")));
         QTRY_COMPARE(recent->stage(), QStringLiteral("ready"));
         shows(QStringLiteral("changesCard"), QStringLiteral("42-changes-ready"));
+        // A change with no way back is copied, to ask someone about.
+        QQuickItem *stopped = find(full, QStringLiteral("change-service-bluetooth.service"));
+        QVERIFY(stopped);
+        QCOMPARE(stopped->property("trailing").toString(), QStringLiteral("Copy for help"));
+        QMetaObject::invokeMethod(stopped, "clicked");
+        QTRY_COMPARE(stopped->property("trailing").toString(), QStringLiteral("Copied"));
+        QVERIFY(QGuiApplication::clipboard()->text().contains(QStringLiteral("bluetooth.service")));
+        QVERIFY(QGuiApplication::clipboard()->text().contains(QStringLiteral("About my computer:")));
+        shows(QStringLiteral("changesCard"), QStringLiteral("42b-changes-copied"));
         // The whole card at once, for the screens.
         full->setGeometry(0, 0, 560, 1500);
         shows(QStringLiteral("changesCard"), QStringLiteral("45-changes-whole"));
