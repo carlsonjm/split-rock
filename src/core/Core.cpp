@@ -21,6 +21,10 @@ const QString Updates = QStringLiteral("updates");
 const QString Health = QStringLiteral("health");
 const QString Windows = QStringLiteral("windows");
 const QString Tidy = QStringLiteral("tidy");
+const QString Devices = QStringLiteral("devices");
+
+// How many of each kind of device are kept, the latest first.
+constexpr int DevicesKept = 200;
 
 QString stamp(const QDateTime &at)
 {
@@ -326,6 +330,46 @@ void Core::seeTidy(qint64 kb)
     saveAttention(Tidy);
 }
 
+bool Core::watchesDevices() const
+{
+    return enabled(Devices);
+}
+
+void Core::seeDevices(DeviceKind kind, const QList<Device> &present)
+{
+    if (!watchesDevices())
+        return;
+    const QString name = deviceKindName(kind);
+    const bool first = !m_devicesKnown.contains(name);
+    QStringList &known = m_devicesKnown[name];
+    bool changed = first;
+    for (const Device &device : present) {
+        if (device.kind != kind || device.id.isEmpty() || known.contains(device.id))
+            continue;
+        known.prepend(device.id);
+        changed = true;
+        if (first)
+            continue;
+        const QString title = newDeviceTitle(kind);
+        write(QStringLiteral("Devices  %1: %2.").arg(title, device.name));
+        // Only when its settings page is there to open; otherwise the
+        // logbook alone keeps it.
+        if (!m_hooks.hasSettings(deviceSettingsPage(kind)))
+            continue;
+        m_deviceSpoken = name;
+        if (m_hooks.notify)
+            m_hooks.notify(Devices, QStringLiteral("%1 · Set it up").arg(title), device.name);
+    }
+    if (first)
+        write(QStringLiteral("Devices  Looked at the %1 here: %2 known.")
+                  .arg(kind == DeviceKind::Bluetooth ? QStringLiteral("Bluetooth devices") : name + QLatin1Char('s'))
+                  .arg(known.size()));
+    if (known.size() > DevicesKept)
+        known.resize(DevicesKept);
+    if (changed)
+        saveAttention(Devices);
+}
+
 QVariantMap Core::windowsFact() const
 {
     const QString find = m_program.isEmpty() ? QStringLiteral("Find a Linux app") : QStringLiteral("Find %1").arg(m_program);
@@ -432,6 +476,19 @@ bool Core::act(const QString &topic, const QString &action)
         saveAttention(Health);
         if (islandBefore != m_healthAttention.islandOpen)
             Q_EMIT factChanged(healthFact());
+        return true;
+    }
+    if (topic == Devices) {
+        if (!watchesDevices() || m_deviceSpoken.isEmpty() || action != QLatin1String("open"))
+            return false;
+        const DeviceKind kind = m_deviceSpoken == QLatin1String("printer") ? DeviceKind::Printer
+            : m_deviceSpoken == QLatin1String("bluetooth")                ? DeviceKind::Bluetooth
+                                                                          : DeviceKind::Drive;
+        write(QStringLiteral("Devices  You opened the %1 settings.").arg(m_deviceSpoken == QLatin1String("bluetooth")
+                                                                          ? QStringLiteral("Bluetooth")
+                                                                          : m_deviceSpoken));
+        if (m_hooks.openSettings)
+            m_hooks.openSettings(deviceSettingsPage(kind));
         return true;
     }
     if (topic == Windows) {
@@ -718,6 +775,13 @@ void Core::loadAttention()
     m_installers = saved.value(QStringLiteral("Windows/Installers"), 0).toInt();
     m_windowsNever = saved.value(QStringLiteral("Windows/Never"), false).toBool();
     m_tidySpokenKb = saved.value(QStringLiteral("Tidy/SpokenKb"), 0).toLongLong();
+    saved.beginGroup(QStringLiteral("Devices"));
+    for (const QString &kind : {QStringLiteral("printer"), QStringLiteral("drive"), QStringLiteral("bluetooth")}) {
+        if (saved.contains(kind))
+            m_devicesKnown.insert(kind, saved.value(kind).toStringList());
+    }
+    m_deviceSpoken = saved.value(QStringLiteral("Spoken")).toString();
+    saved.endGroup();
 }
 
 void Core::saveAttention(const QString &topic) const
@@ -745,6 +809,14 @@ void Core::saveAttention(const QString &topic) const
             saved.setValue(QStringLiteral("Detail"), m_healthLook.problems.at(i).detail);
         }
         saved.endArray();
+        return;
+    }
+    if (topic == Devices) {
+        saved.beginGroup(QStringLiteral("Devices"));
+        for (auto it = m_devicesKnown.cbegin(); it != m_devicesKnown.cend(); ++it)
+            saved.setValue(it.key(), it.value());
+        saved.setValue(QStringLiteral("Spoken"), m_deviceSpoken);
+        saved.endGroup();
         return;
     }
     if (topic == Windows) {

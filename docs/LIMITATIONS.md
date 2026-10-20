@@ -10,6 +10,8 @@ What Split Rock does not do yet, and what it will not do.
 - The Helpers have been run in test sessions and on the maintainer's computer,
   not yet on a freshly installed one.
 - English only.
+- Core's Devices topic has been run against stand-ins for UDisks2, BlueZ and
+  systemd, not yet with a real printer.
 
 ## Not planned
 
