@@ -12,12 +12,13 @@ namespace splitrock {
 // the Desktop, in groups, each file with its own tick; then one tap moves
 // what is ticked to the Trash, where it can still be put back.
 //
-// Only those two folders, and only the files directly in them. It reads names,
+// Only those two folders: the files directly in them, and the folders in them
+// whole, by their size. It reads names,
 // sizes and dates, and reads a file through only to tell that a copy, "report
 // (1).pdf", is the same as its original. Only the plainly safe is ticked:
 // copies that match their original, Windows programs, and installers of apps
-// already installed. Old files and screenshots are listed for the person to
-// tick. An AppImage opened in the last month is run from where it is, so it is
+// already installed. Old files, screenshots and folders are listed for the
+// person to tick. An AppImage opened in the last month is run from where it is, so it is
 // never ticked. Nothing needs a password: these are the person's own files.
 //
 // Its stages: looking, ready, nothing, moving, done or failed.

@@ -40,6 +40,8 @@ Rectangle {
     Accessible.name: title
     Accessible.checkable: checkable
     Accessible.checked: checked
+    Accessible.onPressAction: if (tappable) clicked()
+    Accessible.onToggleAction: if (checkable) clicked()
     Keys.onReturnPressed: if (tappable) clicked()
     Keys.onSpacePressed: if (tappable) clicked()
 

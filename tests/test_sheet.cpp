@@ -380,6 +380,7 @@ private Q_SLOTS:
         QVERIFY(put(downloads + QStringLiteral("/Obsidian-1.7.AppImage"), QByteArray(98000, 'o')));
         QVERIFY(put(downloads + QStringLiteral("/holiday.mov"), QByteArray(3900000, 'h'), 60));
         QVERIFY(put(downloads + QStringLiteral("/Screenshot_20261006_101500.png"), QByteArray(54000, 's')));
+        QVERIFY(put(downloads + QStringLiteral("/Games temp/data.bin"), QByteArray(2400000, 'g')));
         TidyUp *tidy = c.tidyUp();
         tidy->setFolders({downloads});
         tidy->setTrashOpener({});

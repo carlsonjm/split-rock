@@ -1088,7 +1088,13 @@ private Q_SLOTS:
             }
         }
         QCOMPARE(ids, (QStringList{QStringLiteral("installers"), QStringLiteral("copies"), QStringLiteral("old"),
-                                   QStringLiteral("screenshots")}));
+                                   QStringLiteral("screenshots"), QStringLiteral("folders")}));
+        // Folders whole, biggest first, never ticked.
+        QCOMPARE(look.groups.at(4).files.first().name, QStringLiteral("Games temp"));
+        QCOMPARE(look.groups.at(4).files.first().kb, qint64(234567890));
+        QVERIFY(!look.groups.at(4).files.first().chosen);
+        QVERIFY(look.groups.at(4).files.first().detail.startsWith(QStringLiteral("Folder · changed ")));
+        QCOMPARE(look.groups.at(4).detail, QStringLiteral("2 folders, each with all it holds. Look before you tick"));
         // Installers of what is installed, and Windows programs: ticked.
         QCOMPARE(byName.value(QStringLiteral("zoom-6.2.0-1-x86_64.pkg.tar.zst")).detail, QStringLiteral("Zoom is installed"));
         QVERIFY(byName.value(QStringLiteral("zoom-6.2.0-1-x86_64.pkg.tar.zst")).chosen);
@@ -1139,6 +1145,7 @@ private Q_SLOTS:
         QVERIFY(write(downloads + QStringLiteral("/.hidden"), QStringLiteral("x")));
         QVERIFY(write(desktop + QStringLiteral("/old notes.txt"), QStringLiteral("notes")));
         QVERIFY(write(desktop + QStringLiteral("/Screenshot_20261001_120000.png"), QStringLiteral("png")));
+        QVERIFY(write(desktop + QStringLiteral("/Games temp/save/slot1.dat"), QStringLiteral("save")));
         {
             QFile old(desktop + QStringLiteral("/old notes.txt"));
             QVERIFY(old.open(QIODevice::ReadWrite));
@@ -1163,8 +1170,9 @@ private Q_SLOTS:
                 names.append(group.id + QLatin1Char(':') + file.name + (file.chosen ? QStringLiteral("+") : QString()));
         }
         names.sort();
-        QCOMPARE(names, (QStringList{QStringLiteral("copies:report (1).pdf+"), QStringLiteral("installers:ChromeSetup.exe+"),
-                                     QStringLiteral("old:old notes.txt"), QStringLiteral("screenshots:Screenshot_20261001_120000.png")}));
+        QCOMPARE(names, (QStringList{QStringLiteral("copies:report (1).pdf+"), QStringLiteral("folders:Games temp"),
+                                     QStringLiteral("installers:ChromeSetup.exe+"), QStringLiteral("old:old notes.txt"),
+                                     QStringLiteral("screenshots:Screenshot_20261001_120000.png")}));
         QCOMPARE(tidy->chosenCount(), 2);
         QVERIFY(tidy->heldWords().startsWith(QLatin1String("Downloads and Desktop hold ")));
 
@@ -1173,10 +1181,16 @@ private Q_SLOTS:
         QCOMPARE(tidy->chosenCount(), 3);
         tidy->chooseFile(downloads + QStringLiteral("/ChromeSetup.exe"), false);
         QCOMPARE(tidy->chosenCount(), 2);
+        // A folder goes whole.
+        tidy->choose(QStringLiteral("folders"), true);
+        QCOMPARE(tidy->chosenCount(), 3);
 
         tidy->start();
         QCOMPARE(tidy->stage(), QStringLiteral("done"));
-        QCOMPARE(tidy->moved(), 2);
+        QCOMPARE(tidy->moved(), 3);
+        QVERIFY(!QFileInfo::exists(desktop + QStringLiteral("/Games temp")));
+        QVERIFY(QFile::exists(QStandardPaths::writableLocation(QStandardPaths::GenericDataLocation)
+                              + QStringLiteral("/Trash/files/Games temp/save/slot1.dat")));
         QVERIFY(tidy->missed().isEmpty());
         QVERIFY(!QFile::exists(downloads + QStringLiteral("/report (1).pdf")));
         QVERIFY(!QFile::exists(desktop + QStringLiteral("/old notes.txt")));
@@ -1187,7 +1201,7 @@ private Q_SLOTS:
         const QString trash = QStandardPaths::writableLocation(QStandardPaths::GenericDataLocation) + QStringLiteral("/Trash");
         QVERIFY(QFile::exists(trash + QStringLiteral("/files/report (1).pdf")));
         QVERIFY(QFile::exists(trash + QStringLiteral("/info/report (1).pdf.trashinfo")));
-        QCOMPARE(reported, QStringList{QStringLiteral("1 2 files in the Trash")});
+        QCOMPARE(reported, QStringList{QStringLiteral("1 3 files in the Trash")});
         QVERIFY(tidy->log().contains(QStringLiteral("Moved to the Trash: ") + desktop + QStringLiteral("/old notes.txt")));
 
         // Looked at again, the copy is gone.

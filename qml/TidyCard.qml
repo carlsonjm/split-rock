@@ -97,6 +97,13 @@ CardFrame {
                 width: card.innerWidth
                 spacing: 4
 
+                // Opens it to its files, or folds them away.
+                function toggle() {
+                    const next = Object.assign({}, card.opened)
+                    next[group.modelData.id] = !group.open
+                    card.opened = next
+                }
+
                 // The group: a tap on the box ticks every file; anywhere else
                 // opens it to its files.
                 Rectangle {
@@ -108,17 +115,15 @@ CardFrame {
                     Behavior on color { ColorAnimation { duration: 120 } }
                     Accessible.role: Accessible.Button
                     Accessible.name: group.modelData.title
+                    Accessible.onPressAction: group.toggle()
+                    Accessible.onToggleAction: card.job.choose(group.modelData.id, !group.modelData.chosen)
 
                     MouseArea {
                         id: openArea
                         anchors.fill: parent
                         hoverEnabled: true
                         cursorShape: Qt.PointingHandCursor
-                        onClicked: {
-                            const next = Object.assign({}, card.opened)
-                            next[group.modelData.id] = !group.open
-                            card.opened = next
-                        }
+                        onClicked: group.toggle()
                     }
                     Item {
                         objectName: "tidyTick-" + group.modelData.id
@@ -203,6 +208,8 @@ CardFrame {
                             Accessible.name: fileRow.modelData.name
                             Accessible.checkable: true
                             Accessible.checked: fileRow.modelData.chosen
+                            Accessible.onPressAction: fileRow.clicked()
+                            Accessible.onToggleAction: fileRow.clicked()
                             function clicked() { card.job.chooseFile(fileRow.modelData.path, !fileRow.modelData.chosen) }
                             MouseArea {
                                 id: fileArea

@@ -17,6 +17,9 @@
 100	1791579600.5	1791579600.25	Downloads/big.iso.part
 5000	1791493200.5	1791493200.25	Downloads/fresh.zip
 7000000	1791406800.5	1791406800.25	Downloads/gimp-2.10.rpm
+@@ folders
+234567890	1791000000	Desktop/Games temp
+4	1791000000	Downloads/empty
 @@ same
 Downloads/report (1).pdf
 @@ installed

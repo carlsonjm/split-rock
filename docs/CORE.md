@@ -129,7 +129,8 @@ up Downloads. Core reads only the sizes of the files there.
 
 The card groups the files directly in those two folders: installers of apps
 already installed and Windows programs, copies the same as their original,
-files not opened in 30 days and screenshots. Only the first two are ticked;
+files not opened in 30 days, screenshots, and the folders there, each whole
+with its size. Only the first two are ticked;
 an AppImage opened in the last month never is. What is ticked goes to the
 Trash, where it can be put back, with no password. Free up space ends with a
 row that opens it, never ticked.

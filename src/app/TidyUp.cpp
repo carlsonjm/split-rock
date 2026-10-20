@@ -34,6 +34,13 @@ for d in "$@"; do
     [ -d "$d" ] || continue
     find "$d" -mindepth 1 -maxdepth 1 -type f ! -name '.*' -printf '%s\t%T@\t%A@\t%p\n' 2>/dev/null
 done
+echo "@@ folders"
+for d in "$@"; do
+    [ -d "$d" ] || continue
+    find "$d" -mindepth 1 -maxdepth 1 -type d ! -name '.*' 2>/dev/null | while IFS= read -r f; do
+        printf '%s\t%s\t%s\n' "$(du -sk -- "$f" 2>/dev/null | cut -f1)" "$(stat -c %Y -- "$f")" "$f"
+    done
+done
 echo "@@ same"
 for d in "$@"; do
     [ -d "$d" ] || continue
@@ -188,6 +195,7 @@ TidyUp::Look TidyUp::readLook(const QString &output, qint64 now)
     Group copies{QStringLiteral("copies"), QStringLiteral("Copies"), QString(), QStringLiteral("blue"), {}};
     Group old{QStringLiteral("old"), QStringLiteral("Not opened in 30 days"), QString(), QStringLiteral("amber"), {}};
     Group shots{QStringLiteral("screenshots"), QStringLiteral("Screenshots"), QString(), QStringLiteral("pink"), {}};
+    Group folders{QStringLiteral("folders"), QStringLiteral("Folders"), QString(), QStringLiteral("violet"), {}};
     bool forWindows = false;
     bool forLinux = false;
 
@@ -247,8 +255,24 @@ TidyUp::Look TidyUp::readLook(const QString &output, qint64 now)
         }
     }
 
+    // Folders inside, whole: "KB<tab>CHANGED<tab>PATH". Never ticked by
+    // themselves: what is in one can't be told from its name.
+    for (const QString &line : found.value(QStringLiteral("folders"))) {
+        const QStringList cells = line.split(QLatin1Char('\t'));
+        if (cells.size() < 3)
+            continue;
+        File folder;
+        folder.path = line.section(QLatin1Char('\t'), 2);
+        folder.name = folder.path.section(QLatin1Char('/'), -1);
+        if (folder.name.isEmpty())
+            continue;
+        folder.kb = std::max<qint64>(0, cells.at(0).toLongLong());
+        folder.detail = QStringLiteral("Folder · changed %1").arg(day(cells.at(1).toLongLong()));
+        folders.files.append(folder);
+    }
+
     // Biggest first, what is kept last.
-    for (Group *group : {&installers, &copies, &old, &shots}) {
+    for (Group *group : {&installers, &copies, &old, &shots, &folders}) {
         std::stable_sort(group->files.begin(), group->files.end(), [](const File &a, const File &b) {
             return a.kept != b.kept ? !a.kept : a.kb > b.kb;
         });
@@ -274,8 +298,11 @@ TidyUp::Look TidyUp::readLook(const QString &output, qint64 now)
     }
     old.detail = QStringLiteral("%1. Look before you tick").arg(files(int(old.files.size())));
     shots.detail = QStringLiteral("%1 %2").arg(shots.files.size()).arg(where(shots.files));
+    folders.detail = folders.files.size() == 1 ? QStringLiteral("1 folder, with all it holds. Look before you tick")
+                                               : QStringLiteral("%1 folders, each with all it holds. Look before you tick")
+                                                     .arg(folders.files.size());
 
-    for (Group *group : {&installers, &copies, &old, &shots}) {
+    for (Group *group : {&installers, &copies, &old, &shots, &folders}) {
         if (!group->files.isEmpty())
             look.groups.append(*group);
     }
@@ -361,7 +388,7 @@ void TidyUp::check()
     m_why.clear();
     clearProgress();
     setStage(QStringLiteral("looking"));
-    run(asPerson(m_lookScript, m_folders), 120000, [this](int, const QString &output) { looked(output); });
+    run(asPerson(m_lookScript, m_folders), 5 * 60000, [this](int, const QString &output) { looked(output); });
 }
 
 void TidyUp::looked(const QString &output)

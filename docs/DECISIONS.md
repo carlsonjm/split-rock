@@ -1068,10 +1068,11 @@ layer, which fails often enough to look like the desktop's fault.
 ## Tidy up Downloads moves to the Trash, and ticks only the plainly safe
 
 A Helper of its own gathers what has piled up in the Downloads folder and on the
-Desktop, the files directly in them and nowhere else, in four groups:
-installers of apps already installed and Windows programs, copies the same as
-their original ("report (1).pdf"), files not opened in 30 days, and
-screenshots. Only the first two are ticked. What the person ticks goes to the
+Desktop and nowhere else, in five groups: installers of apps already
+installed and Windows programs, copies the same as their original ("report
+(1).pdf"), files not opened in 30 days, screenshots, and the folders there,
+each whole. Only the first two are ticked; what is in a folder can't be told
+from its name. What the person ticks goes to the
 Trash, file by file, with no password and no restore point. Core says once on
 the ticker when the two folders pass 5 GB, and again only 5 GB later; Free up
 space ends with a row for it, never ticked.
