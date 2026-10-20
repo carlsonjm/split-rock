@@ -99,7 +99,9 @@ public:
     // The folders to look in; Downloads and the Desktop otherwise.
     void setFolders(const QStringList &folders) { m_folders = folders; }
     void setLookScript(const QString &script) { m_lookScript = script; }
-    // What opens the Trash.
+    // What opens the Trash: the desktop's file manager, asked on the bus
+    // (Files, where Shuffle installed it), or xdg-open where none is there.
+    static QStringList trashOpener();
     void setTrashOpener(const QStringList &program) { m_trashOpener = program; }
 
 private:
@@ -113,7 +115,7 @@ private:
 
     QStringList m_folders;
     QString m_lookScript;
-    QStringList m_trashOpener{QStringLiteral("xdg-open"), QStringLiteral("trash:/")};
+    QStringList m_trashOpener = trashOpener();
 };
 
 } // namespace splitrock
