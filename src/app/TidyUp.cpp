@@ -485,6 +485,16 @@ void TidyUp::start()
                     missed.isEmpty() ? QString() : QStringLiteral(" Couldn't move: %1.").arg(missed.join(QStringLiteral(", ")))));
 }
 
+QStringList TidyUp::trashOpener()
+{
+    // Asked straight, the file manager that is already running shows it at
+    // once; xdg-open goes through the desktop's lookup first.
+    return {QStringLiteral("/bin/sh"), QStringLiteral("-c"),
+            QStringLiteral("dbus-send --session --print-reply --reply-timeout=3000 --dest=org.freedesktop.FileManager1 "
+                           "/org/freedesktop/FileManager1 org.freedesktop.FileManager1.ShowFolders "
+                           "array:string:trash:/ string: >/dev/null 2>&1 || exec xdg-open trash:/")};
+}
+
 void TidyUp::openTrash()
 {
     if (!m_trashOpener.isEmpty())
