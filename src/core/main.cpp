@@ -474,6 +474,7 @@ int main(int argc, char **argv)
     };
 
     Core *core = nullptr;
+    CoreService *offeredService = nullptr;
     Ticker ticker(bus, [&core](const QString &topic) {
         if (core)
             core->act(topic, QStringLiteral("open"));
@@ -485,6 +486,10 @@ int main(int argc, char **argv)
         ticker.send(topic, summary, body);
     };
     hooks.openCard = openCard;
+    hooks.openNotifications = [&offeredService] {
+        if (offeredService)
+            Q_EMIT offeredService->OpenNotifications();
+    };
     // KDE's settings pages are plugins; System Settings opens one by name.
     hooks.hasSettings = [](const QString &page) {
         for (const QString &plugins : QCoreApplication::libraryPaths()) {
@@ -505,6 +510,7 @@ int main(int argc, char **argv)
     core = &desk;
 
     CoreService offered(&desk);
+    offeredService = &offered;
     if (!offered.publish(bus))
         return 1;
     const auto claimed = bus.interface()->registerService(service, QDBusConnectionInterface::DontQueueService,

@@ -54,6 +54,7 @@ struct Desk {
     QStringList topics;
     QStringList opened;
     QStringList settingsOpened;
+    int notificationsOpened = 0;
     QStringList settingsInstalled{QStringLiteral("kcm_printer_manager"), QStringLiteral("kcm_device_automounter"),
                                   QStringLiteral("kcm_bluetooth")};
     std::unique_ptr<Core> core;
@@ -75,6 +76,7 @@ struct Desk {
         };
         hooks.hasSettings = [this](const QString &page) { return settingsInstalled.contains(page); };
         hooks.openSettings = [this](const QString &page) { settingsOpened.append(page); };
+        hooks.openNotifications = [this] { ++notificationsOpened; };
         core = std::make_unique<Core>(dir.filePath(QStringLiteral("core")), dir.filePath(QStringLiteral("corerc")), hooks);
     }
 
@@ -863,6 +865,82 @@ private Q_SLOTS:
         QVERIFY(!d.core->act(QStringLiteral("devices"), QStringLiteral("open")));
     }
 
+    void focusSaysOnceWhatCameInDuringDoNotDisturb()
+    {
+        Desk d;
+        QVERIFY(d.core->watchesFocus());
+        d.core->focusEnded(7);
+        const QVariantMap focus = d.fact(QStringLiteral("focus"));
+        QCOMPARE(focus.value(QStringLiteral("attention")).toString(), QStringLiteral("island"));
+        QCOMPARE(focus.value(QStringLiteral("line")).toString(), QStringLiteral("While you were focused"));
+        QCOMPARE(focus.value(QStringLiteral("detail")).toString(), QStringLiteral("7 notifications"));
+        QCOMPARE(focus.value(QStringLiteral("actionText")).toString(), QStringLiteral("See them"));
+        QVERIFY(d.ticker.isEmpty());
+        QVERIFY(d.logbook().contains(QStringLiteral("Focus  Showed the island: While you were focused, 7 notifications.")));
+        // See them opens the notifications, and it is no longer news.
+        QVERIFY(d.core->act(QStringLiteral("focus"), QStringLiteral("open")));
+        QCOMPARE(d.notificationsOpened, 1);
+        QVERIFY(d.fact(QStringLiteral("focus")).isEmpty());
+        QVERIFY(d.logbook().contains(QStringLiteral("Focus  You opened the notifications.")));
+        QVERIFY(!d.core->act(QStringLiteral("focus"), QStringLiteral("open")));
+        // A second time the same day goes to the ticker.
+        d.now = d.now.addSecs(3600);
+        d.core->focusEnded(1);
+        QCOMPARE(d.ticker, QStringList{QStringLiteral("Focus · While you were focused | 1 notification")});
+        QVERIFY(d.fact(QStringLiteral("focus")).isEmpty());
+        // The next day, the island again; it survives a restart.
+        d.now = d.now.addDays(1);
+        d.core->focusEnded(2);
+        d.make();
+        QCOMPARE(d.fact(QStringLiteral("focus")).value(QStringLiteral("detail")).toString(), QStringLiteral("2 notifications"));
+        QVERIFY(d.core->act(QStringLiteral("focus"), QStringLiteral("dismiss")));
+        QVERIFY(d.fact(QStringLiteral("focus")).isEmpty());
+    }
+
+    void focusNamesWhatCoreHeldBack()
+    {
+        Desk d;
+        // The drive passes the island's mark during Do Not Disturb: the ticker only.
+        d.doNotDisturb = true;
+        d.look(92);
+        QCOMPARE(d.ticker.size(), 1);
+        d.doNotDisturb = false;
+        d.core->focusEnded(3);
+        QCOMPARE(d.fact(QStringLiteral("focus")).value(QStringLiteral("detail")).toString(),
+                 QStringLiteral("3 notifications · Storage waiting"));
+        QVERIFY(d.core->act(QStringLiteral("focus"), QStringLiteral("dismiss")));
+        // Held once is said once.
+        d.now = d.now.addDays(1);
+        d.core->focusEnded(0);
+        QVERIFY(d.fact(QStringLiteral("focus")).isEmpty());
+        QVERIFY(d.logbook().contains(QStringLiteral("Focus  Do Not Disturb ended; nothing came in.")));
+        // With nothing counting notifications, what was held opens its own card.
+        d.doNotDisturb = true;
+        d.updates(12, 30);
+        d.doNotDisturb = false;
+        d.core->focusEnded(-1);
+        const QVariantMap focus = d.fact(QStringLiteral("focus"));
+        QCOMPARE(focus.value(QStringLiteral("detail")).toString(), QStringLiteral("Updates waiting"));
+        QCOMPARE(focus.value(QStringLiteral("actionText")).toString(), QStringLiteral("Open"));
+        QVERIFY(d.core->act(QStringLiteral("focus"), QStringLiteral("open")));
+        QCOMPARE(d.opened, QStringList{QStringLiteral("update")});
+        QCOMPARE(d.notificationsOpened, 0);
+    }
+
+    void focusSwitchedOffIsSilent()
+    {
+        Desk d;
+        {
+            QSettings settings(d.dir.filePath(QStringLiteral("corerc")), QSettings::IniFormat);
+            settings.setValue(QStringLiteral("Focus/Enabled"), false);
+        }
+        QVERIFY(!d.core->watchesFocus());
+        d.core->focusEnded(5);
+        QVERIFY(d.fact(QStringLiteral("focus")).isEmpty());
+        QVERIFY(d.ticker.isEmpty());
+        QVERIFY(!d.core->act(QStringLiteral("focus"), QStringLiteral("open")));
+    }
+
     void theBusOffersTheFacts()
     {
         // The test's own bus connection to itself, where there is a bus.
@@ -886,6 +964,14 @@ private Q_SLOTS:
                                                       QStringLiteral("io.github.carlsonjm.SplitRock.Core"), QStringLiteral("Actions")));
         QVERIFY2(actions.isValid(), qPrintable(actions.error().message()));
         QCOMPARE(actions.value().size(), 9);
+        // Do Not Disturb ended, as the notifications tell it.
+        QDBusMessage ended = QDBusMessage::createMethodCall(QLatin1String(CoreService::Service), QLatin1String(CoreService::Path),
+                                                            QStringLiteral("io.github.carlsonjm.SplitRock.Core"),
+                                                            QStringLiteral("FocusEnded"));
+        ended.setArguments({QVariant::fromValue(4u)});
+        const QDBusMessage reply = bus.call(ended);
+        QVERIFY2(reply.type() == QDBusMessage::ReplyMessage, qPrintable(reply.errorMessage()));
+        QCOMPARE(d.fact(QStringLiteral("focus")).value(QStringLiteral("detail")).toString(), QStringLiteral("4 notifications"));
         bus.unregisterService(QLatin1String(CoreService::Service));
         bus.unregisterObject(QLatin1String(CoreService::Path));
     }

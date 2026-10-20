@@ -8,8 +8,8 @@ what it says; the upkeep cards do the work, after the person's yes. Core works
 without the conversation.
 
 Core watches three topics, Storage, Updates and Health, the Downloads
-folder for a Windows program and for how much has piled up there, and new
-devices. Each section below gives what
+folder for a Windows program and for how much has piled up there, new
+devices, and what came in during Do Not Disturb. Each section below gives what
 Core watches, the card it can open and the words it uses.
 
 ## What holds
@@ -31,7 +31,7 @@ Core watches, the card it can open and the words it uses.
 - `split-rock-corerc` in the person's settings folder switches off Core as a
   whole (`[General] Enabled=false`) or one topic (`[Storage] Enabled=false`,
   `[Updates] Enabled=false`, `[Health] Enabled=false`, `[Windows] Enabled=false`,
-  `[Tidy] Enabled=false`, `[Devices] Enabled=false`). Core neither watches nor offers a topic that is
+  `[Tidy] Enabled=false`, `[Devices] Enabled=false`, `[Focus] Enabled=false`). Core neither watches nor offers a topic that is
   switched off.
 - Core starts at sign-in, from `io.github.carlsonjm.splitrock.Core.desktop` in
   the system's autostart folder, so it keeps its schedule whether or not a
@@ -155,6 +155,24 @@ by its address and a printer by its model; Core keeps the last 200 of each.
 Where a kind's settings page isn't installed, as on a desktop without Plasma's
 printer settings, the logbook alone records the new device.
 
+## Focus
+
+When Do Not Disturb ends, Core says once on Search's island what came in
+meanwhile: "While you were focused", "7 notifications · Updates waiting". The
+count comes from whatever shows the desktop's notifications, which calls
+`FocusEnded` with it; Status does, and on a desktop where nothing calls it
+Focus never speaks. "Waiting" names each topic that wanted the island while
+Do Not Disturb kept it to the ticker, held for a day at most, and said once.
+When nothing came in and nothing was held, Core writes it in the logbook and
+says nothing.
+
+Tapping it, See them, asks to show the notifications: Core sends
+`OpenNotifications` on the bus, and Status opens its notification history.
+With no notifications counted, the tap opens the card of the first topic
+held instead. Each time Do Not Disturb ends is news once; the island's daily
+allowance leaves a second time the same day to the ticker. Once answered, it
+is no longer a fact.
+
 ## Notice
 
 One setting moves Storage's and Updates' marks together: `[General] Notice` in
@@ -209,7 +227,9 @@ can set these limits. Below the ticker's mark it writes nothing more.
 | `Actions() → aa{sv}` | The upkeep cards Search can open by their words: `id`, `title`, `sub`, `icon` and `keywords` (`as`) each |
 | `OpenAction(s id, s query) → b` | Opens that card on its own. `query` goes only to Install an app, which searches for it, or removes an app when it starts with "uninstall" or "remove". False for an id not listed |
 | `RemoveApp(s desktopId) → b` | Opens Install an app straight to removing the app with that desktop file id, such as `org.videolan.vlc.desktop`: it finds the package or Flatpak that owns it and waits for the person's yes. False for anything not shaped like a desktop file id |
+| `FocusEnded(u notifications)` | Do Not Disturb ended, and this many notifications came in meanwhile; whatever shows the notifications calls it |
 | `FactChanged(a{sv})` | A fact changed: its words, its level or whether it wants the island |
+| `OpenNotifications()` | The person asked to see what came in during Do Not Disturb; whatever keeps the notifications opens them |
 
 `Act("devices", "open")` opens the settings page for the kind of device Core
 spoke of last, as a tap on its ticker line does.
@@ -218,13 +238,14 @@ Each fact is a dictionary of strings to variants:
 
 | Key | Type | What it is |
 | --- | --- | --- |
-| `topic` | `s` | `storage`, `updates`, `health` or `windows` (`tidy` speaks only on the ticker and has no fact) |
+| `topic` | `s` | `storage`, `updates`, `health`, `windows` or `focus` (`tidy` speaks only on the ticker and has no fact) |
 | `title` | `s` | `Storage`, `Updates`, `Health`, `Windows programs` |
 | `line` | `s` | `91% full`, `12 waiting`, `Up to date`, `1 problem`, `All good` |
 | `detail` | `s` | `45 GB free · filling about 2 GB a day` (the rate only when it is at least 100 MB a day), `Last updated 9 days ago` |
 | `percent` | `i` | Storage only: how full, in whole points |
 | `waiting`, `daysBehind` | `i` | Updates only: how many, and days since the last full update |
 | `problems` | `i` | Health only: how many problems |
+| `notifications` | `i` | Focus only: how many notifications came in during Do Not Disturb |
 | `program` | `s` | Windows programs only: the program the installer is for, such as `Zoom`; empty when its name gives none |
 | `level` | `s` | `quiet`, `ticker` or `island` |
 | `attention` | `s` | `island` while the island should show it, `none` otherwise |

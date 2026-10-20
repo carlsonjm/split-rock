@@ -1107,3 +1107,21 @@ Rejected: every kind of device at once, with more to test on hardware nobody
 here has; the island, which is for what can't wait; and a note in the
 notebook's `Device/` folder for each one, which describes the computer
 itself, not what was plugged into it. The logbook keeps each device instead.
+
+## When Do Not Disturb ends, Focus says once what came in
+
+Core's Focus topic speaks once, on the island, when Do Not Disturb ends: how
+many notifications came in and which of Core's own facts it held back. The
+desktop's notification surface counts the notifications, since only it sees
+them, and tells Core over the bus; a tap asks that surface to open its
+history.
+
+Why: Do Not Disturb already holds Core's islands back, so the moment it ends
+is when the person is ready to hear what waited. One moment and one island
+build on a switch people already use.
+
+Rejected: Core reading every notification on the bus to count them, which
+would put other apps' messages in front of a program that needs only their
+number; focus hours that switch Do Not Disturb on by themselves, which need
+a setting of their own; and a summary at the end of every day, a reminder
+about nothing being wrong.
