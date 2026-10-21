@@ -722,10 +722,9 @@ void FrontDesk::route(const QString &question)
         // picked.
         static const QRegularExpression notAnApp(QStringLiteral("\\b(printers?|scanners?|fonts?|drivers?)\\b"),
                                                  QRegularExpression::CaseInsensitiveOption);
+        const bool picked = offers(target) && !(target == QLatin1String("install") && notAnApp.match(question).hasMatch());
         for (const auto &card : m_context.cards) {
-            if (card.first == QLatin1String("install") && notAnApp.match(question).hasMatch())
-                continue;
-            if (card.first == target && kind == QLatin1String("change")) {
+            if (card.first == target && picked && kind == QLatin1String("change")) {
                 openCard(question, target, query);
                 return;
             }
@@ -753,7 +752,7 @@ void FrontDesk::route(const QString &question)
             handOff(QStringLiteral("no skill or card covers it"));
             return;
         }
-        answer(question, offers(target) ? target : cardFor(question),
+        answer(question, picked ? target : cardFor(question),
                kind == QLatin1String("change") ? QStringLiteral("answer: no skill or card covers it") : QStringLiteral("answer"));
     });
 }

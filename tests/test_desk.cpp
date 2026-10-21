@@ -710,6 +710,13 @@ private Q_SLOTS:
         model.answers.insert(printer, QStringLiteral("Use the Printers page of System Settings."));
         run = ask(desk, printer);
         QVERIFY2(!run.routes.contains(QStringLiteral("card:install")), qPrintable(run.routes.join(QLatin1Char('|'))));
+        // Nor does it go under the answer.
+        const QString add = QStringLiteral("how do I add a printer");
+        model.routes.insert(add, sorted(QStringLiteral("answer"), QStringLiteral("install")));
+        model.answers.insert(add, QStringLiteral("Use the Printers page of System Settings."));
+        tools.proposals.clear();
+        run = ask(desk, add);
+        QVERIFY2(tools.proposals.isEmpty(), qPrintable(run.said));
     }
 
     // Emoji never reach the person.

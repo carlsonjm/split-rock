@@ -96,10 +96,11 @@ QString places(const QString &question)
         {"\\bstart|sign.?in|log.?in|boot|autostart",
          QStringLiteral("Apps that start at sign-in: the Autostart page of System Settings.")},
         {"updat|up to date|upgrade",
-         QStringLiteral("Updates: the Check for updates Helper, which updates everything at once. Neither Settings "
+         QStringLiteral("Updates: the Check for updates Helper, opened by typing its name in Search, which updates everything at once. Neither Settings "
                         "has an Updates page or section, and Discover isn't used for them.")},
         {"space|full|disk|storage|drive|room",
-         QStringLiteral("Disk space: the Free up space Helper. No settings page shows it.")},
+         QStringLiteral("Disk space: the Free up space Helper, opened by typing its name in Search, shows what "
+                        "fills the disk. No settings page shows it.")},
         {"download",
          QStringLiteral("Downloads: the Downloads folder in Files. Tidy up Downloads clears old downloads.")},
         {"install|uninstall|remove|app|program|zoom|chrome|game|software",
@@ -108,20 +109,23 @@ QString places(const QString &question)
         {"frozen|freez|not responding|stuck|hang|crash",
          QStringLiteral("A frozen app: its window's close button, then Close when asked. There is no shortcut for it.")},
         {"pdf",
-         QStringLiteral("PDFs: open them from Files, in the PDF reader already here; the web browser opens them "
-                        "too.")},
+         QStringLiteral("PDFs: double-click one in Files, and it opens in the PDF reader already on this "
+                        "computer.")},
         {"word|excel|powerpoint|office|\\.docx?\\b|spreadsheet|windows program|\\.exe",
          QStringLiteral("Word, Excel, Office and other Windows programs don't run here; their files open in ONLYOFFICE "
-                        "or LibreOffice, which Install an app finds, and Microsoft 365 works in the web browser.")},
+                        "or LibreOffice, which Install an app finds. Word, Excel and PowerPoint themselves also work in the web "
+                        "browser, at office.com, with a Microsoft account.")},
         {"photo|picture|back ?up|backup|copy",
-         QStringLiteral("Photos: the Pictures folder in Files. To back them up, copy the folder to a USB drive in "
-                        "Files, or to a cloud service in the web browser.")},
+         QStringLiteral("Photos: the Pictures folder in Files. A backup is a copy somewhere else: copy the folder "
+                        "to a USB drive in Files, or upload it to a cloud service in the web browser. A copy on this "
+                        "computer's own drive isn't a backup.")},
         {"slow|sluggish|lag",
          QStringLiteral("A slow computer: close apps that aren't in use with their windows' close buttons, and run "
                         "the Health check Helper, which looks for what slows it.")},
         {"slow|restart|reboot|wrong|problem|broken|stopped|keeps|crash|error|help",
-         QStringLiteral("A problem that stays: the Health check and What changed Helpers, and Codex once signed in "
-                        "under Ask Your Computer in Settings. There is no support line or helpdesk to contact.")},
+         QStringLiteral("A problem that stays: the Health check and What changed Helpers, each opened by typing its "
+                        "name in Search, and Codex once signed in under Ask Your Computer in Settings. Helpers aren't "
+                        "in System Settings. There is no support line or helpdesk to contact.")},
     };
     const QString asked = question.toLower();
     QStringList lines;

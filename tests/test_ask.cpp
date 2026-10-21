@@ -204,6 +204,7 @@ private Q_SLOTS:
         facts = f.ask->context().facts;
         QVERIFY(!facts.contains(QStringLiteral("Autostart")));
         QVERIFY(facts.contains(QStringLiteral("What changed")));
+        QVERIFY(facts.contains(QStringLiteral("aren't in System Settings")));
         f.ask->ask(QStringLiteral("how do I uninstall an app"));
         QVERIFY(!f.ask->context().facts.contains(QStringLiteral("comes from Discover")));
     }
