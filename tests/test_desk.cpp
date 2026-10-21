@@ -57,6 +57,13 @@ public:
     }
 };
 
+// The Do it cards among what the desk proposed, apart from the Helpers.
+qsizetype doItCards(const QList<QJsonObject> &proposals)
+{
+    return std::count_if(proposals.cbegin(), proposals.cend(),
+                         [](const QJsonObject &p) { return p.contains(QStringLiteral("command")); });
+}
+
 QJsonObject sorted(const QString &kind, const QString &target, const QString &worry = QStringLiteral("none"),
                    const QString &query = QString())
 {
@@ -273,16 +280,20 @@ private Q_SLOTS:
         QVERIFY(!tools.proposals.first().contains(QStringLiteral("check")));
         QVERIFY(model.asked.contains(QStringLiteral("fits:") + quiet));
 
-        // A card that fails the check goes to the bigger assistant, unseen.
+        // A card that fails the check is never shown: the ask is answered in
+        // words, with the Helper its words name, and handed to no one.
         const QString turbo = QStringLiteral("Set the fans to Turbo mode");
         model.routes.insert(turbo, sorted(QStringLiteral("change"), QStringLiteral("fans")));
+        model.answers.insert(turbo, QStringLiteral("Turbo isn't one of this computer's fan profiles."));
         QJsonObject wrong = model.cards.value(quiet);
         wrong.insert(QStringLiteral("command"), QStringLiteral("asusctl profile -P Turbo"));
         model.cards.insert(turbo, wrong);
         run = ask(desk, turbo);
-        QVERIFY(run.handOff);
-        QCOMPARE(tools.proposals.size(), 1);
-        QVERIFY(run.said.contains(QLatin1String("Ask Codex")));
+        QVERIFY(!run.handOff);
+        QCOMPARE(doItCards(tools.proposals), 1);
+        QVERIFY2(run.routes.last().startsWith(QLatin1String("answer: the card failed")), qPrintable(run.routes.join(QLatin1Char(','))));
+        QCOMPARE(run.said, model.answers.value(turbo));
+        QCOMPARE(tools.proposals.last().value(QStringLiteral("card")).toString(), QStringLiteral("health"));
 
         // A card that passes the check but doesn't do what was asked, as 4B's
         // dark look for "bigger text": the model's own second look stops it.
@@ -297,8 +308,9 @@ private Q_SLOTS:
                                     {QStringLiteral("check"), QString()}});
         model.fits.insert(bigger, false);
         run = ask(desk, bigger);
-        QVERIFY(run.handOff);
-        QCOMPARE(tools.proposals.size(), 1);
+        QVERIFY(!run.handOff);
+        QCOMPARE(doItCards(tools.proposals), 1);
+        QCOMPARE(run.routes.last(), QStringLiteral("answer: the card doesn't do what was asked"));
     }
 
     // The known gap from round two: 4B answered in words where a skill fits.
@@ -368,12 +380,14 @@ private Q_SLOTS:
         Run run = ask(desk, printer);
         QVERIFY(run.handOff);
         QVERIFY(tools.proposals.isEmpty());
-        // With no bigger assistant set up, nothing is offered to tap.
+        // With no bigger assistant signed in, it is answered in words, with
+        // no sign-in asked for.
         c.handOffTo.clear();
         desk.setContext(c);
         run = ask(desk, printer);
         QVERIFY(!run.handOff);
-        QVERIFY(run.said.contains(QLatin1String("ChatGPT")));
+        QVERIFY(!run.said.contains(QLatin1String("ChatGPT")));
+        QCOMPARE(run.routes.last(), QStringLiteral("answer: no skill or card covers it"));
     }
 
     // A skill that names its own undo and check: the desk fills them in from the
@@ -415,8 +429,8 @@ private Q_SLOTS:
                                        {QStringLiteral("undo"), QStringLiteral("systemctl stop bluetooth.service")},
                                        {QStringLiteral("check"), QString()}});
         run = ask(desk, bluetooth);
-        QVERIFY(run.handOff);
-        QCOMPARE(tools.proposals.size(), 1);
+        QVERIFY(!run.handOff);
+        QCOMPARE(doItCards(tools.proposals), 1);
     }
 
     // "Undo that", "it worked yesterday": the What changed card, whether the
@@ -490,6 +504,111 @@ private Q_SLOTS:
             QVERIFY2(isReport(QString::fromLatin1(kind)), kind);
         for (const char *kind : {"question", "framing", "memory", "aside", ""})
             QVERIFY2(!isReport(QString::fromLatin1(kind)), kind);
+    }
+
+    // From the Mini's soak, round one: what a buyer met that the desk now
+    // puts right.
+
+    // An answer names the Helper that fits under it, and the words point to it.
+    void answersCarryTheHelperThatFits()
+    {
+        PretendModel model;
+        PretendTools tools;
+        Model client(model.url(), {});
+        FrontDesk desk(&client, &tools);
+        desk.setContext(context());
+        const QString full = QStringLiteral("my disk is almost full");
+        model.answers.insert(full, QStringLiteral("Free up space, just below, shows what's using it."));
+        Run run = ask(desk, full);
+        QCOMPARE(run.routes.last(), QStringLiteral("answer"));
+        QCOMPARE(tools.proposals.size(), 1);
+        QCOMPARE(tools.proposals.last().value(QStringLiteral("card")).toString(), QStringLiteral("space"));
+        const QStringList cases{QStringLiteral("is my computer up to date"), QStringLiteral("how do I update my computer"),
+                                QStringLiteral("an app is frozen"), QStringLiteral("my computer is slow"),
+                                QStringLiteral("how do I install zoom"), QStringLiteral("how do I free up space"),
+                                QStringLiteral("can I run microsoft word")};
+        const QStringList cards{QStringLiteral("update"), QStringLiteral("update"), QStringLiteral("health"),
+                                QStringLiteral("health"), QStringLiteral("install"), QStringLiteral("space"),
+                                QStringLiteral("install")};
+        for (qsizetype i = 0; i < cases.size(); ++i)
+            QCOMPARE(helperFor(cases.at(i), context().cards), cards.at(i));
+        QCOMPARE(helperFor(QStringLiteral("what time is it in tokyo"), context().cards), QString());
+        // An answer that says what it can't see is put right beneath.
+        const QString date = QStringLiteral("is my computer up to date");
+        model.answers.insert(date, QStringLiteral("Yes, your computer is up to date."));
+        run = ask(desk, date);
+        QVERIFY(run.said.contains(QLatin1String("I can't see that from here")));
+        QCOMPARE(tools.proposals.last().value(QStringLiteral("card")).toString(), QStringLiteral("update"));
+    }
+
+    // "help" and a row of keys get the desk's own words, with no model.
+    void unclearAsksNeedNoModel()
+    {
+        PretendModel model;
+        PretendTools tools;
+        Model client(model.url(), {});
+        FrontDesk desk(&client, &tools);
+        desk.setContext(context());
+        for (const QString &ask_ : {QStringLiteral("asdfghjkl"), QStringLiteral("help"), QStringLiteral("Help!"),
+                                    QStringLiteral("qwrtp")}) {
+            const Run run = ask(desk, ask_);
+            QCOMPARE(run.routes, QStringList{QStringLiteral("unclear")});
+            QVERIFY(!run.said.isEmpty());
+        }
+        QVERIFY(model.asked.isEmpty());
+        for (const QString &ask_ : {QStringLiteral("printer"), QStringLiteral("bluetooth"), QStringLiteral("zoom"),
+                                    QStringLiteral("my wifi keeps dropping")})
+            QVERIFY2(!unclear(ask_), qPrintable(ask_));
+    }
+
+    // Words that go round in circles stop, and are never shown.
+    void loopingWordsAreCutShort()
+    {
+        QCOMPARE(loopStart(QStringLiteral("To connect, open a a a a a a a a a a a a")), 16);
+        QCOMPARE(loopStart(QStringLiteral("Turn it up 11111111111111")), 11);
+        QVERIFY(loopStart(QStringLiteral("1. Open Search.\n2. Type Files.\n3. Tap Downloads.")) < 0);
+        QCOMPARE(loopStart(QString(500, QLatin1Char('\n'))), 0);
+
+        PretendModel model;
+        PretendTools tools;
+        Model client(model.url(), {});
+        FrontDesk desk(&client, &tools);
+        desk.setContext(context());
+        const QString hotspot = QStringLiteral("how do I connect to my phone hotspot");
+        QString circles = QStringLiteral("Open Control Center.");
+        for (int i = 0; i < 60; ++i)
+            circles += QStringLiteral(" a");
+        model.answers.insert(hotspot, circles);
+        const Run run = ask(desk, hotspot);
+        QVERIFY2(run.said.startsWith(QLatin1String("Open Control Center.")), qPrintable(run.said));
+        QVERIFY(!run.said.contains(QLatin1String("a a a")));
+        QVERIFY(run.said.contains(QLatin1String("cut it short")));
+    }
+
+    // Emoji never reach the person.
+    void answersCarryNoEmoji()
+    {
+        QCOMPARE(withoutEmoji(QStringLiteral("Done \U0001F600 and \u2705 ok")), QStringLiteral("Done  and  ok"));
+        QCOMPARE(withoutEmoji(QStringLiteral("Café, naïve – “quoted”")), QStringLiteral("Café, naïve – “quoted”"));
+    }
+
+    // A model's "scam" for an ask that tells no story of a call gets plain
+    // words, not the words about a phone call; asking for a password gets
+    // the desk's own.
+    void safetyWordsFitTheAsk()
+    {
+        QCOMPARE(Gate::check(QStringLiteral("what is my bank password")), std::optional<QString>(QStringLiteral("forgotten")));
+        QCOMPARE(Gate::check(QStringLiteral("i forgot my own wifi password, can i see it")), std::nullopt);
+        PretendModel model;
+        PretendTools tools;
+        Model client(model.url(), {});
+        FrontDesk desk(&client, &tools);
+        desk.setContext(context());
+        const QString email = QStringLiteral("can you send my files to this email");
+        model.routes.insert(email, sorted(QStringLiteral("unsafe"), QStringLiteral("none"), QStringLiteral("scam")));
+        const Run run = ask(desk, email);
+        QVERIFY(!run.said.contains(QLatin1String("Microsoft")));
+        QVERIFY(!run.said.isEmpty());
     }
 };
 

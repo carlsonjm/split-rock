@@ -31,21 +31,29 @@ The desk decides, not the model alone (`DECISIONS.md`, Ask on this computer):
 1. A fixed safety check (`src/desk/Gate.cpp`) answers scams, remote access,
    passwords, money, wiping, piracy, spying, blocked updates, scareware and
    switching protection off with set words. It needs no model, so it answers
-   even before the model is downloaded.
+   even before the model is downloaded. So does an ask with nothing to answer
+   yet, such as "help" or a row of keys.
 2. The model sorts the question: an answer, a change and the skill or Helper
    that covers it, or an unsafe ask and its kind.
 3. An answer is written in words, with no tools, and sent as it is written. A
-   claim that something was changed, or advice to use a terminal, is put right
-   beneath it.
+   claim that something was changed, advice to use a terminal, or a claim
+   about what it can't see, such as "your computer is up to date", is put
+   right beneath it. The Helper its words plainly need goes under it, and the
+   answer points to it. It names only the places Ask describes to the model:
+   Shuffle's own where Shuffle is installed, and System Settings' real pages.
+   Words that go round in circles are cut where the circling began, and
+   never shown.
 4. For a settings skill (`skills/plasma/`), the desk opens it, runs its
    read-only look-around, and the model fills in the Do it card. The desk
    checks the card against the skill's own commands and the names found on
    this computer, and asks the model once more whether it does what was
-   asked, before the card is offered.
+   asked, before the card is offered. A card that fails either is never
+   shown; the ask is answered in words instead.
 5. A Helper is named by its id, and goes under the answer.
 6. Anything else that changes the computer is a bigger change. Once Codex
    is signed in, the answer says so and `handOff` is set, and Search offers
-   Ask Codex; until then, it says where to sign in.
+   Ask Codex; until then, it is answered in words, and nobody is sent to
+   sign in.
 
 ## The model and its download
 
@@ -57,6 +65,8 @@ The desk decides, not the model alone (`DECISIONS.md`, Ask on this computer):
   person's tap, into `split-rock/models` in the person's data folder. A
   download that stops carries on where it stopped.
 - `RemoveModel` deletes it again.
+- Until it is downloaded, and while it downloads, the Helper an ask's words
+  name still goes with the answer, so Search keeps it listed.
 - `llama-server` runs inside a fence (`src/ask/Fence.cpp`): the system
   read-only, the home folder hidden except the model, no message bus, no
   display, and the graphics chip let through. It listens on a free local

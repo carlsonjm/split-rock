@@ -134,13 +134,16 @@ private Q_SLOTS:
     }
 
     // A change no skill or Helper covers says where Codex is signed in.
-    void biggerChangesPointToCodex()
+    // Until Codex is signed in, a bigger change is answered in words, and
+    // nobody is sent off to sign in.
+    void biggerChangesAreAnsweredInWords()
     {
         Fixture f;
         const QString printer = QStringLiteral("Set up my printer");
         f.pretend.routes.insert(printer, route(QStringLiteral("change"), QStringLiteral("none")));
         const QVariantMap result = f.answer(printer);
-        QVERIFY(result.value(QStringLiteral("text")).toString().contains(QStringLiteral("Ask Your Computer")));
+        QVERIFY(!result.value(QStringLiteral("text")).toString().contains(QStringLiteral("ChatGPT")));
+        QVERIFY(result.value(QStringLiteral("routed")).toString().startsWith(QStringLiteral("answer")));
         QVERIFY(!result.value(QStringLiteral("handOff")).toBool());
     }
 
@@ -163,6 +166,16 @@ private Q_SLOTS:
         QVERIFY(result.value(QStringLiteral("needsModel")).toBool());
         QVERIFY(result.value(QStringLiteral("text")).toString().contains(QStringLiteral("about 2.5 GB")));
         QCOMPARE(f.model->state(), QStringLiteral("missing"));
+    }
+
+    // The Helper an ask's words name stays listed before the download.
+    void helpersStayBeforeTheDownload()
+    {
+        Fixture f(false, false);
+        const QVariantMap result = f.answer(QStringLiteral("my disk is almost full"));
+        QVERIFY(result.value(QStringLiteral("needsModel")).toBool());
+        QCOMPARE(result.value(QStringLiteral("helpers")).toStringList(), QStringList{QStringLiteral("space")});
+        QVERIFY(f.answer(QStringLiteral("asdfghjkl")).value(QStringLiteral("routed")).toString() == QLatin1String("unclear"));
     }
 
     void switchedOffIsSilent()
@@ -222,10 +235,14 @@ class Reply(http.server.BaseHTTPRequestHandler):
         self.send_response(200); self.end_headers(); self.wfile.write(b'{"status":"ok"}')
     def do_POST(self):
         self.rfile.read(int(self.headers["Content-Length"]))
+        if self.path == "/apply-template":
+            self.send_response(200); self.send_header("Content-Type", "application/json"); self.end_headers()
+            self.wfile.write(b'{"prompt":"the question"}')
+            return
         home = os.path.expanduser("~")
         seen = [os.path.join(d, f)[len(home):] for d, _, fs in os.walk(home) for f in fs]
         text = ("key " if self.headers.get("Authorization") == "Bearer " + key else "no key ") + " ".join(sorted(seen))
-        body = "data: " + json.dumps({"choices": [{"delta": {"content": text}}]}) + "\n\ndata: [DONE]\n\n"
+        body = "data: " + json.dumps({"content": text, "stop": True}) + "\n\n"
         self.send_response(200); self.send_header("Content-Type", "text/event-stream"); self.end_headers()
         self.wfile.write(body.encode())
     def log_message(self, *args): pass

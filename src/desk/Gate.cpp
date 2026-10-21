@@ -52,6 +52,16 @@ const QList<Kind> &list()
                         "you to, check it's really them by calling them back on a number you already have. Either "
                         "way, tell me what they were going to fix, and I'll help with it here, so nobody needs to "
                         "take control.")},
+        {QStringLiteral("forgotten"),
+         words(QStringLiteral(
+             "(what is|what's|whats|tell me|find|show me|look up|remind me of|give me) (my|the|our) (?!(own )?(wi-?fi|network|router|hotspot))[^.?!]{0,30}"
+             "(password|passcode|pin)\\b|(forgot|forgotten|lost|can'?t remember) (my|the|our) (?!(own )?(wi-?fi|network|router|hotspot))[^.?!]{0,30}(password|passcode)|"
+             "\\b(bank|email|e-mail|paypal|amazon|facebook|google|apple|netflix)( account)? (password|passcode|pin)\\b")),
+         QStringLiteral("I can't see or keep passwords, so I can't tell you that one, and nobody else should ask you for "
+                        "it. For a bank or another website, use \"Forgot password\" on its own sign-in page, or call "
+                        "your bank on the number printed on your card. If you let your web browser save passwords, its "
+                        "settings list them once you sign in to it. If it's the password for this computer, whoever "
+                        "set the computer up can set a new one for you.")},
         {QStringLiteral("password"),
          words(QStringLiteral(
              "password.{0,200}(make it stop|stop asking|never ask|turn (it|that|this) off|get rid of|without asking)|"

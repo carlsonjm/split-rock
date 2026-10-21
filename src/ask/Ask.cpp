@@ -8,6 +8,7 @@
 #include <QFile>
 #include <QJsonDocument>
 #include <QSettings>
+#include <QStandardPaths>
 
 namespace splitrock::ask {
 
@@ -33,7 +34,32 @@ const QList<std::pair<QString, QString>> &upkeep()
     return cards;
 }
 
-// What this computer runs, from os-release.
+// Where things are, in the names the person sees, so an answer never sends
+// them to a menu that isn't there.
+QString places()
+{
+    // KDE's System Settings pages, as Plasma 6 names them.
+    const QString pages = QStringLiteral(
+        "System Settings has pages named Wi-Fi & Networking, Bluetooth, Sound, Display & Monitor (the screen's size, "
+        "text scale and night light), Printers, Users (passwords and the account picture), Power Management, Mouse & "
+        "Touchpad, Keyboard, Autostart and Default Applications. No page shows what fills the disk: the Free up space "
+        "Helper does. Updates come from the Check for updates Helper, or Discover.");
+    if (!QStandardPaths::findExecutable(QStringLiteral("shuffle-settings")).isEmpty())
+        return QStringLiteral(
+            "Shuffle is this computer's desktop, on KDE Plasma. Use its names. Search opens with a tap on the dot at the "
+            "bottom of the screen, or the Meta key (the Windows key); it finds apps, files and settings by name, and "
+            "Apps and Files are in it (Files is like File Explorer, with Downloads, Documents and Pictures). Wi-Fi, "
+            "Bluetooth, sound and brightness are in Control Center: tap the network icon at the top right of the "
+            "screen; its Bluetooth page has Add new device, for a mouse or headphones. Shuffle's own Settings open "
+            "with Meta+I. KDE's System Settings opens from Search by its name. The Helpers are listed in Search, "
+            "under the answer. ") + pages;
+    return QStringLiteral(
+        "Apps, files and settings open from the application launcher at the bottom left of the screen, by typing "
+        "their name. Wi-Fi, Bluetooth, sound and brightness are in the icons at the bottom right. Files are in "
+        "Dolphin, like File Explorer. ") + pages;
+}
+
+// What this computer runs, from os-release, and where things are.
 QString facts()
 {
     QFile file(QStringLiteral("/etc/os-release"));
@@ -48,14 +74,13 @@ QString facts()
                 like = value();
         }
     }
-    if (name.isEmpty())
-        return {};
-    QString words = QStringLiteral("This computer runs %1").arg(name);
+    QString words = name.isEmpty() ? QStringLiteral("This computer runs Linux") : QStringLiteral("This computer runs %1").arg(name);
     if (like.contains(QLatin1String("arch")) || name.contains(QLatin1String("Arch")))
         words += QStringLiteral(", which is based on Arch Linux, with KDE Plasma 6. Software comes from Discover, "
                                 "Plasma's app store; Ubuntu's apt does not exist here.");
     else
         words += QStringLiteral(", with KDE Plasma 6. Software comes from Discover, Plasma's app store.");
+    words += QLatin1Char('\n') + places();
     return words;
 }
 
@@ -159,10 +184,18 @@ uint Ask::ask(const QString &question)
             finish({});
             return;
         }
-        // The safety check needs no model, so it answers before any download.
+        // The safety check needs no model, so it answers before any download,
+        // as does an ask with nothing in it to answer.
         if (const std::optional<QString> kind = desk::Gate::check(m_question)) {
             m_routed = QStringLiteral("gate:") + *kind;
             m_said = desk::Gate::answer(*kind);
+            Q_EMIT said(id, m_said);
+            finish({});
+            return;
+        }
+        if (const std::optional<QString> words = desk::unclear(m_question)) {
+            m_routed = QStringLiteral("unclear");
+            m_said = *words;
             Q_EMIT said(id, m_said);
             finish({});
             return;
@@ -180,6 +213,10 @@ void Ask::begin()
             if (!m_model->isReady()) {
                 // A download under way finishes first; otherwise Ask says
                 // once what it needs.
+                // The Helper the words name stays listed meanwhile.
+                const QString helper = desk::helperFor(m_question, upkeep());
+                if (!helper.isEmpty() && !m_helpers.contains(helper))
+                    m_helpers.append(helper);
                 if (m_model->state() == QLatin1String("downloading") || m_model->state() == QLatin1String("verifying"))
                     return;
                 finish({{QStringLiteral("needsModel"), true},

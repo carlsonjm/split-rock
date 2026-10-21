@@ -19,7 +19,10 @@ namespace {
 constexpr int SortingTokens = 80;
 constexpr int CardTokens = 400;
 constexpr int FitTokens = 20;
-constexpr int AnswerTokens = 700;
+constexpr int AnswerTokens = 450;
+// How long an answer in words may take, in milliseconds: the Mini's
+// processor writes the longest in about a minute.
+constexpr int AnswerTime = 90000;
 // The earlier asks and answers the model sees with each answer.
 constexpr int HistoryTurns = 3;
 // The slots in the model's memory: sorting and its yes-or-no checks, and
@@ -108,6 +111,89 @@ QString cardTitle(const QString &card)
 }
 
 } // namespace
+
+QString helperFor(const QString &question, const QList<std::pair<QString, QString>> &cards)
+{
+    const auto pattern = [](const char *words) {
+        return QRegularExpression(QString::fromLatin1(words), QRegularExpression::CaseInsensitiveOption);
+    };
+    // In order: going back is asked before updating, and an update gone wrong
+    // is the restore points'.
+    static const QList<std::pair<QString, QRegularExpression>> words{
+        {QStringLiteral("space"), pattern(
+             "\\b(disk|drive|storage|space|ssd|hard drive)\\b.{0,40}\\b(full|almost full|running out|low|free up|eating)|"
+             "free (up )?(some )?(space|room|storage)|out of (space|storage|room)|running out of (space|room|storage)|"
+             "make (more )?(space|room)|clean ?up|not enough (space|room|storage)")},
+        {QStringLiteral("restore"), pattern(
+             "restore point|go back to (how it was|yesterday|before)|undo (the |an |that )?update|roll ?back")},
+        {QStringLiteral("update"), pattern(
+             "\\bupdat(e|es|ed|ing)\\b|up.to.date|\\bupgrade\\b|latest version")},
+        {QStringLiteral("health"), pattern(
+             "\\b(so |really |very )?slow(er|ly)?\\b|health check|check (the |my |this )?(computer|system|tablet|laptop)|"
+             "something (is |seems )?wrong with (the |my |this )?(computer|system)|frozen|freez(e|es|ing)|"
+             "not responding|\\bhang(s|ing)?\\b|crash(es|ed|ing)?\\b|keeps (closing|crashing|restarting|rebooting)|"
+             "restart(s|ing)? (by )?itself|\\b(hot|overheat(s|ing)?)\\b|\\bfans?\\b|stopped working|won'?t start")},
+        {QStringLiteral("install"), pattern(
+             "\\b(uninstall|deinstall|get rid of)\\b|\\b(remove|delete)\\b.{0,40}\\b(app|program|game|browser|keyboard|player|editor)\\b|"
+             "^\\s*(please\\s+)?(remove|delete)\\s+\\S+\\s*$|\\binstall(ing)?\\b|"
+             "\\b(get|download|find) (an? |the )?(app|program|browser|game|editor|player)\\b|"
+             "\\brun (microsoft |ms )?(word|excel|powerpoint|outlook|office|photoshop|itunes)\\b|"
+             "windows (programs?|apps?|software)|\\.exe\\b")},
+    };
+    for (const auto &[card, words] : words) {
+        const bool offered = std::any_of(cards.cbegin(), cards.cend(), [&card](const auto &c) { return c.first == card; });
+        if (offered && words.match(question).hasMatch())
+            return card;
+    }
+    return {};
+}
+
+std::optional<QString> unclear(const QString &question)
+{
+    const QString words = question.simplified().toLower().remove(QRegularExpression(QStringLiteral("[?!.]+$")));
+    static const QStringList greetings{QStringLiteral("help"), QStringLiteral("help me"), QStringLiteral("hi"),
+                                       QStringLiteral("hello"), QStringLiteral("hey"), QStringLiteral("test"),
+                                       QStringLiteral("what can you do"), QStringLiteral("can you help"),
+                                       QStringLiteral("can you help me"), QStringLiteral("i need help")};
+    if (words.isEmpty() || greetings.contains(words))
+        return QStringLiteral("I can help with this computer. Tell me in a few words what's wrong or what you'd like to "
+                              "do, such as \"my sound isn't working\" or \"how do I install Zoom\". The Helpers below "
+                              "can check the computer, free up space or update it.");
+    // A run of letters with no word in it: five consonants together, or no
+    // vowel at all.
+    static const QRegularExpression keys(QStringLiteral("^[a-z]{4,}$"));
+    static const QRegularExpression noVowels(QStringLiteral("^[^aeiouy]+$"));
+    static const QRegularExpression consonants(QStringLiteral("[^aeiouy]{5,}"));
+    if (keys.match(words).hasMatch() && (noVowels.match(words).hasMatch() || consonants.match(words).hasMatch()))
+        return QStringLiteral("I didn't quite catch that. Ask me in a few words, such as \"my wifi keeps dropping\" "
+                              "or \"free up space\", and I'll answer here.");
+    return std::nullopt;
+}
+
+QString withoutEmoji(const QString &text)
+{
+    QString out;
+    out.reserve(text.size());
+    for (const char32_t point : text.toStdU32String()) {
+        // Pictures, symbols and dingbats, flags, and the joiner and variation
+        // mark that build them.
+        const bool picture = (point >= 0x1F000 && point <= 0x1FAFF) || (point >= 0x2600 && point <= 0x27BF)
+            || point == 0x200D || point == 0xFE0F;
+        if (!picture)
+            out.append(QString::fromUcs4(&point, 1));
+    }
+    return out;
+}
+
+bool claimsToKnow(const QString &answer)
+{
+    static const QRegularExpression knows(QStringLiteral(
+        "\\b(your|the|this) (computer|system|laptop|tablet|pc|disk|drive|software|apps?)\\b.{0,20}\\b(is|are) (already |fully )?"
+        "(up to date|up-to-date|safe|secure|fine|healthy|working (fine|properly|correctly)|not full|virus.free)\\b|"
+        "\\byou (don'?t|do not) have any updates\\b|\\bno updates (are )?(waiting|available|needed)\\b"),
+        QRegularExpression::CaseInsensitiveOption);
+    return knows.match(answer).hasMatch();
+}
 
 bool isReport(const QString &kind)
 {
@@ -348,11 +434,13 @@ QString FrontDesk::answerWords() const
         "You are the helper on this computer, which runs Linux with the KDE Plasma desktop. The person has used "
         "Windows for years and is new to Linux. Answer in plain words, with no jargon, and name the Windows "
         "equivalent when it helps. Start with one short sentence, then give at most five short numbered steps when "
-        "steps help. Be brief and warm.\n"
+        "steps help. Be brief and warm. Use plain text, with no emoji.\n"
         "In this reply you cannot look at or change the computer, and nothing happens because of what you write, so "
-        "never say that something was changed, opened, checked or fixed, and never promise to do it. Never tell the "
-        "person to open a terminal or type a command; point to System Settings, Discover (the app store) or the "
-        "app's own menus instead. When the person wants something changed that you can't do here, say plainly "
+        "never say that something was changed, opened, checked or fixed, and never promise to do it. You can't see "
+        "whether updates are waiting, how full the disk is or whether something is working, so never say that the "
+        "computer is up to date, fine, safe or full; a Helper finds out. Never tell the person to open a terminal "
+        "or type a command. Name only the places described below, with the names written there, and never make up "
+        "a menu, a page or an app. When the person wants something changed that you can't do here, say plainly "
         "that you can't do that one from here. Never ask for a password, a card number, bank details or a code "
         "sent by text or email. If you don't know, say so; you can't see the news, the weather or the internet.\n");
     if (!m_context.facts.isEmpty())
@@ -438,6 +526,12 @@ void FrontDesk::ask(const QString &question)
         finish(false);
         return;
     }
+    if (const std::optional<QString> words = unclear(question)) {
+        Q_EMIT routed(QStringLiteral("unclear"));
+        say(*words);
+        finish(false);
+        return;
+    }
     // The model may still be warming up; the sorting waits for it.
     if (m_model->busy())
         m_model->cancel();
@@ -461,7 +555,11 @@ void FrontDesk::route(const QString &question)
 
         if (kind == QLatin1String("unsafe")) {
             Q_EMIT routed(QStringLiteral("unsafe:") + worry);
-            const QString fixed = Gate::answer(worry);
+            // A call, a stranger at the controls or an advert is a story of its
+            // own: its words are only for an ask that tells it, which the
+            // desk's own check has already caught.
+            static const QStringList stories{QStringLiteral("scam"), QStringLiteral("remote"), QStringLiteral("scareware")};
+            const QString fixed = stories.contains(worry) ? QString() : Gate::answer(worry);
             say(fixed.isEmpty() ? QStringLiteral("That one could put you or this computer at risk, so I'd rather not "
                                                  "help with it here. If I've misread you, tell me a little more about "
                                                  "what you're trying to do.")
@@ -509,11 +607,14 @@ void FrontDesk::route(const QString &question)
                 return;
             }
         }
-        if (kind == QLatin1String("change")) {
+        // A bigger change goes to Codex where it is signed in; otherwise the
+        // answer in words says what it can.
+        if (kind == QLatin1String("change") && !m_context.handOffTo.isEmpty()) {
             handOff(QStringLiteral("no skill or card covers it"));
             return;
         }
-        answer(question);
+        answer(question, offers(target) ? target : cardFor(question),
+               kind == QLatin1String("change") ? QStringLiteral("answer: no skill or card covers it") : QStringLiteral("answer"));
     });
 }
 
@@ -524,58 +625,59 @@ bool FrontDesk::offers(const QString &card) const
 
 QString FrontDesk::cardFor(const QString &question) const
 {
-    static const QList<std::pair<QString, QRegularExpression>> words{
-        {QStringLiteral("space"), QRegularExpression(QStringLiteral(
-             "\\b(disk|drive|storage|space)\\b.{0,40}\\b(full|almost full|running out|low|free up|eating)|"
-             "free up (some )?(space|room|storage)|out of (space|storage|room)|clean ?up"), QRegularExpression::CaseInsensitiveOption)},
-        {QStringLiteral("update"), QRegularExpression(QStringLiteral(
-             "\\bupdate (the |my |this )?(computer|system|everything|tablet|laptop)\\b|\\bupdates?\\b.{0,30}\\b(install|run|do|waiting|available)\\b|"
-             "\\b(install|run|do) (the )?updates?\\b"), QRegularExpression::CaseInsensitiveOption)},
-        {QStringLiteral("health"), QRegularExpression(QStringLiteral(
-             "\\b(so |really |very )?slow\\b|health check|check (the |my |this )?(computer|system|tablet|laptop)|"
-             "something (is |seems )?wrong with (the |my |this )?(computer|system)"), QRegularExpression::CaseInsensitiveOption)},
-        {QStringLiteral("install"), QRegularExpression(QStringLiteral(
-             "\\b(uninstall|deinstall|get rid of)\\b|\\b(remove|delete)\\b.{0,40}\\b(app|program|game|browser|keyboard|player|editor)\\b|"
-             "^\\s*(please\\s+)?(remove|delete)\\s+\\S+\\s*$"), QRegularExpression::CaseInsensitiveOption)},
-        {QStringLiteral("restore"), QRegularExpression(QStringLiteral(
-             "restore point|go back to (how it was|yesterday|before)|undo (the |an )?update|roll ?back"), QRegularExpression::CaseInsensitiveOption)},
-    };
-    for (const auto &[card, pattern] : words) {
-        const bool offered = std::any_of(m_context.cards.cbegin(), m_context.cards.cend(),
-                                         [&card](const auto &c) { return c.first == card; });
-        if (offered && pattern.match(question).hasMatch())
-            return card;
-    }
-    return {};
+    return helperFor(question, m_context.cards);
 }
 
-void FrontDesk::answer(const QString &question)
+void FrontDesk::answer(const QString &question, const QString &helper, const QString &how)
 {
-    Q_EMIT routed(QStringLiteral("answer"));
+    Q_EMIT routed(how);
+    QString system = answerWords();
+    // The Helper that fits goes under the answer, and the answer points to it
+    // rather than guessing what it would find.
+    if (!helper.isEmpty() && m_tools->propose(QJsonObject{{QStringLiteral("title"), cardTitle(helper)},
+                                                          {QStringLiteral("card"), helper},
+                                                          {QStringLiteral("query"), helper == QLatin1String("install") ? question.left(80) : QString()}})) {
+        QString what;
+        for (const auto &[name, words] : m_context.cards) {
+            if (name == helper)
+                what = words;
+        }
+        system += QStringLiteral("Just below your answer the person sees the Helper %1, for this: %2. It looks first and "
+                                 "changes nothing until they choose. End with one short sentence pointing to %1 by "
+                                 "name, and don't guess what it will find.\n").arg(cardTitle(helper), what);
+    }
     const int generation = m_generation;
-    m_model->complete(withHistory(answerWords(), question, HistoryTurns), {}, AnswerSlot, AnswerTokens,
+    m_model->complete(withHistory(system, question, HistoryTurns), {}, AnswerSlot, AnswerTokens,
                       [this, generation](const QString &chunk) {
                           if (generation == m_generation)
-                              say(chunk);
+                              say(withoutEmoji(chunk));
                       },
                       [this, generation](const QString &text, const QString &error) {
         if (generation != m_generation)
             return;
         if (!error.isEmpty() && text.isEmpty()) {
-            say(QStringLiteral("I couldn't answer that just now. Try asking again."));
+            say(QStringLiteral("I couldn't answer that just now. Try asking again in other words."));
             finish(false);
             return;
         }
         // The words are already on screen; what they got wrong is put right
         // beneath them.
+        if (error == QLatin1String("looping"))
+            say(QStringLiteral("\n\nThat answer stopped making sense, so I cut it short. Try asking again in other "
+                               "words."));
+        else if (!error.isEmpty())
+            say(QStringLiteral("\n\nThat's as far as I got this time."));
         if (claimsDone(text))
             say(QStringLiteral("\n\nTo be clear, nothing on this computer has been changed. Ask me to do it, and if "
                                "I can, I'll show you a card first."));
         else if (sendsToTerminal(text))
             say(QStringLiteral("\n\nYou won't need a terminal for this: ask me, and I'll do what I can with a card "
                                "you approve."));
+        else if (claimsToKnow(text))
+            say(QStringLiteral("\n\nI can't see that from here, so don't take my word for it: a Helper below can "
+                               "look for you."));
         finish(false);
-    });
+    }, AnswerTime);
 }
 
 void FrontDesk::openCard(const QString &question, const QString &card, const QString &query)
@@ -624,8 +726,10 @@ void FrontDesk::fillCard(const QString &question, const Skill &skill)
                 return;
             const QJsonObject card = QJsonDocument::fromJson(text.toUtf8()).object();
             const QString why = error.isEmpty() ? checkCard(card, skillText, seen) : error;
+            // A card the desk can't show is no reason to send the person
+            // elsewhere: the answer in words, with the Helper that fits.
             if (!why.isEmpty()) {
-                handOff(QStringLiteral("the card failed the desk's check: ") + why);
+                answer(question, cardFor(question), QStringLiteral("answer: the card failed the desk's check: ") + why);
                 return;
             }
             // One more question for the model, apart from the card: does it do
@@ -635,11 +739,11 @@ void FrontDesk::fillCard(const QString &question, const Skill &skill)
                 "do what they asked for, and not something else? fits is true only if it plainly does.")
                 .arg(question, card.value(QStringLiteral("title")).toString(), card.value(QStringLiteral("what")).toString());
             m_model->complete(QJsonArray{message(QStringLiteral("user"), fit)}, yesNoShape(), SortingSlot, FitTokens, {},
-                              [this, generation, card, skillText](const QString &text, const QString &error) {
+                              [this, generation, question, card, skillText](const QString &text, const QString &error) {
                 if (generation != m_generation)
                     return;
                 if (!error.isEmpty() || !QJsonDocument::fromJson(text.toUtf8()).object().value(QStringLiteral("fits")).toBool()) {
-                    handOff(QStringLiteral("the card doesn't do what was asked"));
+                    answer(question, cardFor(question), QStringLiteral("answer: the card doesn't do what was asked"));
                     return;
                 }
                 QJsonObject proposal = withSkillsOwnUndo(card, skillText);

@@ -10,6 +10,7 @@
 #include <QStringList>
 
 #include <functional>
+#include <optional>
 
 namespace splitrock::desk {
 
@@ -60,6 +61,21 @@ QString checkCard(const QJsonObject &card, const QString &skillText, const QStri
 // the undo empty.
 QJsonObject withSkillsOwnUndo(const QJsonObject &card, const QString &skillText);
 
+// The Helper an ask plainly needs, by its words alone, among those offered,
+// or empty. It needs no model, so it answers before the model is downloaded.
+QString helperFor(const QString &question, const QList<std::pair<QString, QString>> &cards);
+
+// The desk's own words for an ask with nothing to answer yet, such as "help"
+// or a row of keys, or nothing when there is something to answer.
+std::optional<QString> unclear(const QString &question);
+
+// Text without emoji, which an answer never carries.
+QString withoutEmoji(const QString &text);
+
+// An answer that says what it can't see: that the computer is up to date, or
+// fine.
+bool claimsToKnow(const QString &answer);
+
 // A block Split Rock labelled as how something it ran went, rather than the
 // person's question: a change, a card it opened, an upkeep card that finished,
 // a proposal it refused, or a report with no kind of its own.
@@ -82,7 +98,9 @@ bool sendsToTerminal(const QString &answer);
 //    the Do it card; the desk checks the card, and asks the model once more
 //    whether it does what was asked, before the person sees it.
 // 5. An upkeep card is opened by name; Split Rock's own card does the rest.
-// 6. Anything else that changes the computer is handed to a bigger assistant.
+// 6. Anything else that changes the computer is handed to a bigger assistant
+//    where one is signed in, and answered in words otherwise. A card the desk
+//    can't show is answered in words too.
 // When the model only talks where the ask plainly wants a change, the desk looks
 // for the skill or card itself.
 class FrontDesk : public QObject
@@ -124,7 +142,9 @@ private:
     void say(const QString &text);
     void finish(bool handOff);
     void route(const QString &question);
-    void answer(const QString &question);
+    // An answer in words, with the Helper that fits under it, if any; how is
+    // what routed says.
+    void answer(const QString &question, const QString &helper = {}, const QString &how = QStringLiteral("answer"));
     void fillCard(const QString &question, const Skill &skill);
     void openCard(const QString &question, const QString &card, const QString &query);
     void handOff(const QString &why);
