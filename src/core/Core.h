@@ -96,8 +96,13 @@ public:
     // Do Not Disturb ended, as the desktop's notifications tell it: how many
     // notifications came in meanwhile, or -1 when nothing counted them. With
     // what Core itself held back from the island, it is said once, on the
-    // island; nothing is said when nothing came in.
-    void focusEnded(int notifications);
+    // island; nothing is said when nothing came in. seen: it ended inside
+    // the notifications themselves, where the person is already looking at
+    // what came in, so there is no island.
+    void focusEnded(int notifications, bool seen = false);
+    // The person opened the notifications: what came in is seen, and the
+    // island about it goes.
+    void notificationsSeen();
     bool watchesFocus() const;
 
     // How readily Core speaks, the person's Notice setting, from 0 (Less) to

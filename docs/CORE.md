@@ -168,6 +168,15 @@ Do Not Disturb kept it to the ticker, held for a day at most, and said once.
 When nothing came in and nothing was held, Core writes it in the logbook and
 says nothing.
 
+When Do Not Disturb ends inside the notifications themselves, as with its
+switch in Status, the person is already looking at what came in: Status
+calls `FocusEndedInView`, Core writes it in the logbook, and there is no
+island. Status marks what came in there instead. Whatever Core held went to
+the ticker, so it is among them. The island shows only when Do Not Disturb
+ends somewhere else, by a shortcut or its timer, and opening the
+notifications any way at all counts as seeing them: Status calls
+`NotificationsSeen` and the island goes.
+
 Tapping it, See them, asks to show the notifications: Core sends
 `OpenNotifications` on the bus, and Status opens its notification history.
 With no notifications counted, the tap opens the card of the first topic
@@ -262,6 +271,8 @@ can set these limits. Below the ticker's mark it writes nothing more.
 | `OpenAction(s id, s query) → b` | Opens that card on its own. `query` goes only to Install an app, which searches for it, or removes an app when it starts with "uninstall" or "remove". False for an id not listed |
 | `RemoveApp(s desktopId) → b` | Opens Install an app straight to removing the app with that desktop file id, such as `org.videolan.vlc.desktop`: it finds the package or Flatpak that owns it and waits for the person's yes. False for anything not shaped like a desktop file id |
 | `FocusEnded(u notifications)` | Do Not Disturb ended, and this many notifications came in meanwhile; whatever shows the notifications calls it |
+| `FocusEndedInView(u notifications)` | The same, ended inside the notifications themselves, where the person already sees what came in: logged, and nothing goes on the island |
+| `NotificationsSeen()` | The person opened the notifications, so the island about what came in goes |
 | `FactChanged(a{sv})` | A fact changed: its words, its level or whether it wants the island |
 | `OpenNotifications()` | The person asked to see what came in during Do Not Disturb; whatever keeps the notifications opens them |
 

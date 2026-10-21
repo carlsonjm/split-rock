@@ -927,6 +927,36 @@ private Q_SLOTS:
         QCOMPARE(d.notificationsOpened, 0);
     }
 
+    // Ended inside the notifications, where what came in is in front of the
+    // person: no island. Opening the notifications any other way takes the
+    // island down.
+    void focusSeenInTheNotificationsNeedsNoIsland()
+    {
+        Desk d;
+        d.doNotDisturb = true;
+        d.look(92);
+        d.doNotDisturb = false;
+        d.core->focusEnded(5, true);
+        QVERIFY(d.fact(QStringLiteral("focus")).isEmpty());
+        QCOMPARE(d.ticker.size(), 1);
+        QVERIFY(d.logbook().contains(QStringLiteral("Focus  Do Not Disturb ended in the notifications; 5 came in, shown there.")));
+        // What was held is not said again later.
+        d.now = d.now.addSecs(600);
+        d.core->focusEnded(0);
+        QVERIFY(d.fact(QStringLiteral("focus")).isEmpty());
+
+        d.now = d.now.addSecs(600);
+        d.core->focusEnded(3);
+        QCOMPARE(d.fact(QStringLiteral("focus")).value(QStringLiteral("attention")).toString(), QStringLiteral("island"));
+        d.core->notificationsSeen();
+        QVERIFY(d.fact(QStringLiteral("focus")).isEmpty());
+        QVERIFY(d.logbook().contains(QStringLiteral("Focus  You saw them in the notifications.")));
+        QCOMPARE(d.notificationsOpened, 0);
+        // Seen again: nothing more to do.
+        d.core->notificationsSeen();
+        QVERIFY(!d.core->act(QStringLiteral("focus"), QStringLiteral("open")));
+    }
+
     void focusSwitchedOffIsSilent()
     {
         Desk d;
@@ -972,6 +1002,12 @@ private Q_SLOTS:
         const QDBusMessage reply = bus.call(ended);
         QVERIFY2(reply.type() == QDBusMessage::ReplyMessage, qPrintable(reply.errorMessage()));
         QCOMPARE(d.fact(QStringLiteral("focus")).value(QStringLiteral("detail")).toString(), QStringLiteral("4 notifications"));
+        // Opening the notifications takes it down.
+        const QDBusMessage seen = bus.call(QDBusMessage::createMethodCall(
+            QLatin1String(CoreService::Service), QLatin1String(CoreService::Path), QStringLiteral("io.github.carlsonjm.SplitRock.Core"),
+            QStringLiteral("NotificationsSeen")));
+        QVERIFY2(seen.type() == QDBusMessage::ReplyMessage, qPrintable(seen.errorMessage()));
+        QVERIFY(d.fact(QStringLiteral("focus")).isEmpty());
         bus.unregisterService(QLatin1String(CoreService::Service));
         bus.unregisterObject(QLatin1String(CoreService::Path));
     }

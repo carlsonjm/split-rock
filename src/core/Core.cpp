@@ -413,7 +413,7 @@ void Core::hold(const QString &title, bool doNotDisturb, Level level, const Spok
     m_held.append(title);
 }
 
-void Core::focusEnded(int notifications)
+void Core::focusEnded(int notifications, bool seen)
 {
     QStringList held = m_held;
     const QDateTime now = m_hooks.now();
@@ -425,6 +425,14 @@ void Core::focusEnded(int notifications)
         return;
     if (notifications <= 0 && held.isEmpty()) {
         write(QStringLiteral("Focus  Do Not Disturb ended; nothing came in."));
+        return;
+    }
+    // What Core held went to the ticker, so it is in the notifications too.
+    if (seen) {
+        write(notifications > 0
+                  ? QStringLiteral("Focus  Do Not Disturb ended in the notifications; %1 came in, shown there.").arg(notifications)
+                  : QStringLiteral("Focus  Do Not Disturb ended in the notifications."));
+        notificationsSeen();
         return;
     }
     const bool islandBefore = m_focusAttention.islandOpen;
@@ -446,6 +454,16 @@ void Core::focusEnded(int notifications)
     saveAttention(Focus);
     if (spoken.island || islandBefore != m_focusAttention.islandOpen)
         Q_EMIT factChanged(focusFact());
+}
+
+void Core::notificationsSeen()
+{
+    if (!watchesFocus() || !m_focusAttention.islandOpen)
+        return;
+    m_focusAttention.islandOpen = false;
+    write(QStringLiteral("Focus  You saw them in the notifications."));
+    saveAttention(Focus);
+    Q_EMIT factChanged(focusFact());
 }
 
 QVariantMap Core::focusFact() const

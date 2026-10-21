@@ -1126,6 +1126,12 @@ number; focus hours that switch Do Not Disturb on by themselves, which need
 a setting of their own; and a summary at the end of every day, a reminder
 about nothing being wrong.
 
+Since then, Do Not Disturb turned off inside the notifications raises no
+island: the notifications mark what came in, where the person is looking, and
+opening them takes down an island already up. On the tablet the island came
+up over the open notifications, and its See them asked to open what was
+already open, so the tap did nothing anyone could see.
+
 ## What changed says each change, and puts it back right there
 
 What changed says what changed, old to new, and offers the way back on the

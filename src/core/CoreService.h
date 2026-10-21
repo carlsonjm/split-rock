@@ -38,6 +38,12 @@ public Q_SLOTS:
     // The desktop's notifications say Do Not Disturb ended, and how many
     // notifications came in meanwhile.
     Q_SCRIPTABLE void FocusEnded(uint notifications);
+    // The same, ended inside the notifications, where the person already
+    // sees what came in: nothing goes on the island.
+    Q_SCRIPTABLE void FocusEndedInView(uint notifications);
+    // The person opened the notifications; the island about what came in
+    // goes.
+    Q_SCRIPTABLE void NotificationsSeen();
 
 Q_SIGNALS:
     Q_SCRIPTABLE void FactChanged(const QVariantMap &fact);
