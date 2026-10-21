@@ -45,6 +45,9 @@ QString places(const QString &question)
         // The words of an ask the line is for; empty for every ask.
         const char *about;
         QString line;
+        // Words that mean the ask is about something else, as a loud fan
+        // isn't about the sound.
+        const char *unless = "";
     };
     const bool shuffle = !QStandardPaths::findExecutable(QStringLiteral("shuffle-settings")).isEmpty();
     QList<Place> list;
@@ -65,7 +68,8 @@ QString places(const QString &question)
             {"sound|volume|loud|quiet|speaker|headphone|mute|audio|hear",
              QStringLiteral("Volume: the volume slider in Control Center, opened with a tap on the network icon at the "
                             "top right. Control Center has no other sound page; the output device is chosen on the "
-                            "Sound page of System Settings.")},
+                            "Sound page of System Settings."),
+             "\\bfans?\\b|noisy|hot\\b"},
             {"bright|dim|dark|screen",
              QStringLiteral("Brightness: the brightness slider in Control Center, opened with a tap on the network icon "
                             "at the top right.")},
@@ -80,9 +84,8 @@ QString places(const QString &question)
     }
     list += {
         {"fan|noisy|loud|hot|power|battery|quiet",
-         QStringLiteral("Fans and power: the fans follow the power profile. Asking here to make the fans quieter, or "
-                        "the computer faster, offers a Do it card that changes the profile, after the person's tap. "
-                        "There is no page for it.")},
+         QStringLiteral("Fans and power: the fans follow the power profile, which no settings page shows. A fan "
+                        "gets loud when the computer works hard, so closing apps that aren't in use quiets it.")},
         {"print|scanner",
          QStringLiteral("Printers: the Printers page of System Settings, with Add Printer.")},
         {"monitor|display|screen|text|font|small|big|scale|night",
@@ -90,26 +93,32 @@ QString places(const QString &question)
                         "Settings.")},
         {"password|account|user|picture|photo of me|profile",
          QStringLiteral("Passwords and the account picture: the Users page of System Settings.")},
-        {"start|sign.?in|log.?in|boot|autostart",
+        {"\\bstart|sign.?in|log.?in|boot|autostart",
          QStringLiteral("Apps that start at sign-in: the Autostart page of System Settings.")},
         {"updat|up to date|upgrade",
-         QStringLiteral("Updates: the Check for updates Helper. System Settings has no Update page.")},
+         QStringLiteral("Updates: the Check for updates Helper, which updates everything at once. Neither Settings "
+                        "has an Updates page or section, and Discover isn't used for them.")},
         {"space|full|disk|storage|drive|room",
          QStringLiteral("Disk space: the Free up space Helper. No settings page shows it.")},
         {"download",
          QStringLiteral("Downloads: the Downloads folder in Files. Tidy up Downloads clears old downloads.")},
         {"install|uninstall|remove|app|program|zoom|chrome|game|software",
-         QStringLiteral("Installing or removing an app: the Install an app Helper, told the app's name.")},
+         QStringLiteral("Installing or removing an app: the Install an app Helper, told the app's name. It does "
+                        "both, so the person needs no store or app list.")},
         {"frozen|freez|not responding|stuck|hang|crash",
          QStringLiteral("A frozen app: its window's close button, then Close when asked. There is no shortcut for it.")},
         {"pdf",
-         QStringLiteral("PDFs: open them from Files; the web browser opens them too.")},
+         QStringLiteral("PDFs: open them from Files, in the PDF reader already here; the web browser opens them "
+                        "too.")},
         {"word|excel|powerpoint|office|\\.docx?\\b|spreadsheet|windows program|\\.exe",
          QStringLiteral("Word, Excel, Office and other Windows programs don't run here; their files open in ONLYOFFICE "
                         "or LibreOffice, which Install an app finds, and Microsoft 365 works in the web browser.")},
         {"photo|picture|back ?up|backup|copy",
          QStringLiteral("Photos: the Pictures folder in Files. To back them up, copy the folder to a USB drive in "
                         "Files, or to a cloud service in the web browser.")},
+        {"slow|sluggish|lag",
+         QStringLiteral("A slow computer: close apps that aren't in use with their windows' close buttons, and run "
+                        "the Health check Helper, which looks for what slows it.")},
         {"slow|restart|reboot|wrong|problem|broken|stopped|keeps|crash|error|help",
          QStringLiteral("A problem that stays: the Health check and What changed Helpers, and Codex once signed in "
                         "under Ask Your Computer in Settings. There is no support line or helpdesk to contact.")},
@@ -118,7 +127,9 @@ QString places(const QString &question)
     QStringList lines;
     for (const Place &place : list) {
         const QString about = QString::fromLatin1(place.about);
-        if (about.isEmpty() || QRegularExpression(about).match(asked).hasMatch())
+        const QString unless = QString::fromLatin1(place.unless);
+        if ((about.isEmpty() || QRegularExpression(about).match(asked).hasMatch())
+            && (unless.isEmpty() || !QRegularExpression(unless).match(asked).hasMatch()))
             lines.append(QStringLiteral("- ") + place.line);
     }
     return QStringLiteral("%1Where things are, for this question:\n%2\nName no keyboard shortcut, menu, page, section "
@@ -144,10 +155,9 @@ QString facts(const QString &question)
     }
     QString words = name.isEmpty() ? QStringLiteral("This computer runs Linux") : QStringLiteral("This computer runs %1").arg(name);
     if (like.contains(QLatin1String("arch")) || name.contains(QLatin1String("Arch")))
-        words += QStringLiteral(", which is based on Arch Linux, with KDE Plasma 6. Software comes from Discover, "
-                                "Plasma's app store; Ubuntu's apt does not exist here.");
+        words += QStringLiteral(", which is based on Arch Linux, with KDE Plasma 6. Ubuntu's apt does not exist here.");
     else
-        words += QStringLiteral(", with KDE Plasma 6. Software comes from Discover, Plasma's app store.");
+        words += QStringLiteral(", with KDE Plasma 6.");
     words += QLatin1Char('\n') + places(question);
     return words;
 }

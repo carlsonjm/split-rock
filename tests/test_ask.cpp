@@ -192,6 +192,20 @@ private Q_SLOTS:
         facts = f.ask->context().facts;
         QVERIFY(facts.contains(QStringLiteral("ONLYOFFICE")));
         QVERIFY(!facts.contains(QStringLiteral("Photos:")));
+        // A loud fan isn't about the sound, and promises no card.
+        f.ask->ask(QStringLiteral("the fan is really loud"));
+        facts = f.ask->context().facts;
+        QVERIFY(facts.contains(QStringLiteral("Fans and power:")));
+        QVERIFY(!facts.contains(QStringLiteral("Sound page")));
+        QVERIFY(!facts.contains(QStringLiteral("Do it")));
+        // Restarting isn't starting apps at sign-in, and no answer sends the
+        // person to Discover.
+        f.ask->ask(QStringLiteral("why does my computer keep restarting by itself"));
+        facts = f.ask->context().facts;
+        QVERIFY(!facts.contains(QStringLiteral("Autostart")));
+        QVERIFY(facts.contains(QStringLiteral("What changed")));
+        f.ask->ask(QStringLiteral("how do I uninstall an app"));
+        QVERIFY(!f.ask->context().facts.contains(QStringLiteral("comes from Discover")));
     }
 
     void switchedOffIsSilent()

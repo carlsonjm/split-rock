@@ -19,6 +19,9 @@ echo "System services that failed:"
 systemctl --failed --type=service --no-legend --plain 2>/dev/null | cut -d' ' -f1
 echo "Services of this account that failed:"
 systemctl --user --failed --type=service --no-legend --plain 2>/dev/null | cut -d' ' -f1
+if [ -z "$(systemctl --failed --type=service --no-legend --plain 2>/dev/null)$(systemctl --user --failed --type=service --no-legend --plain 2>/dev/null)" ]; then
+  echo "No card: no service has failed."
+fi
 for unit in $(systemctl --failed --type=service --no-legend --plain 2>/dev/null | cut -d' ' -f1); do
   echo "What $unit said last, since the computer started:"
   journalctl -b -u "$unit" -n 8 -o cat --no-pager 2>&1

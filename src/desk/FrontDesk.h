@@ -65,6 +65,33 @@ QJsonObject withSkillsOwnUndo(const QJsonObject &card, const QString &skillText)
 // or empty. It needs no model, so it answers before the model is downloaded.
 QString helperFor(const QString &question, const QList<std::pair<QString, QString>> &cards);
 
+// The Helper that is itself the answer to a plain "how do I" ask, such as
+// "how do I update my computer" or "how do I uninstall an app", among those
+// offered, or empty. Steps in words would only send the person past it.
+QString helperIsTheHow(const QString &question, const QList<std::pair<QString, QString>> &cards);
+
+// An answer's lines as they are shown. The first line is shown as it is
+// written. After it, a line goes up once it is whole, and is left out when it
+// ends on what can't be done here, promises a card, or names a taskbar or a
+// Search bar at the top, which this desktop doesn't have; the steps that stay
+// are numbered again.
+class AnswerLines
+{
+public:
+    // What to show of the words that came in.
+    QString add(const QString &chunk);
+    // What to show of the rest, once the answer is done.
+    QString finish();
+
+private:
+    QString line(const QString &text);
+    bool m_pastFirst = false;
+    QString m_first;
+    QString m_open;
+    int m_gap = 0;
+    int m_step = 0;
+};
+
 // The desk's own words for an ask with nothing to answer yet, such as "help"
 // or a row of keys, or nothing when there is something to answer.
 std::optional<QString> unclear(const QString &question);

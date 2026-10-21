@@ -10,6 +10,7 @@
 #include <QRegularExpression>
 
 #include <limits>
+#include <memory>
 
 namespace splitrock::desk {
 
@@ -169,6 +170,108 @@ QString helperFor(const QString &question, const QList<std::pair<QString, QStrin
             return card;
     }
     return {};
+}
+
+QString helperIsTheHow(const QString &question, const QList<std::pair<QString, QString>> &cards)
+{
+    static const QString how = QStringLiteral("^\\s*(please\\s+)?(how (do|can|should|would) i|how to|help me|i want to|"
+                                              "i need to|i'd like to|can you)\\s+(please\\s+)?");
+    const auto pattern = [](const QString &words) {
+        return QRegularExpression(how + words, QRegularExpression::CaseInsensitiveOption);
+    };
+    static const QList<std::pair<QString, QRegularExpression>> asks{
+        {QStringLiteral("update"), pattern(QStringLiteral(
+             "(update|upgrade)(\\s+(my |the |this )?(computer|system|laptop|tablet|pc|software|everything|it|apps|all))?"
+             "\\s*[?.!]*$"))},
+        {QStringLiteral("space"), pattern(QStringLiteral(
+             "(free up|clear|make|get|clean up)\\s+(some |more )?(disk |drive )?(space|room|storage)\\b"))},
+        // Apps by name; a printer, a font or a driver isn't one.
+        {QStringLiteral("install"), pattern(QStringLiteral(
+             "((un|de)?install\\s+(?!.*\\b(printer|scanner|font|driver|theme|update|file|photo|picture|folder|"
+             "document|account|password|virus)s?\\b)\\w|(remove|delete|get rid of)\\s+(an? |the |this |my )?"
+             "(app|program|game|browser)s?\\b)"))},
+    };
+    for (const auto &[card, words] : asks) {
+        const bool offered = std::any_of(cards.cbegin(), cards.cend(), [&card](const auto &c) { return c.first == card; });
+        if (offered && words.match(question).hasMatch())
+            return card;
+    }
+    return {};
+}
+
+QString AnswerLines::add(const QString &chunk)
+{
+    QString rest = chunk;
+    QString out;
+    if (!m_pastFirst) {
+        const qsizetype end = rest.indexOf(QLatin1Char('\n'));
+        const QString part = end < 0 ? rest : rest.left(end);
+        m_first += part;
+        out += part;
+        if (end < 0)
+            return out;
+        rest = rest.mid(end + 1);
+        // Blank lines before the first words are nothing to show.
+        if (m_first.trimmed().isEmpty()) {
+            m_first.clear();
+            return out + add(rest);
+        }
+        m_pastFirst = true;
+        m_gap = 1;
+        static const QRegularExpression step(QStringLiteral("^\\s*\\d+[.)]\\s"));
+        if (step.match(m_first).hasMatch())
+            m_step = 1;
+    }
+    m_open += rest;
+    qsizetype end;
+    while ((end = m_open.indexOf(QLatin1Char('\n'))) >= 0) {
+        out += line(m_open.left(end));
+        m_open.remove(0, end + 1);
+    }
+    return out;
+}
+
+QString AnswerLines::finish()
+{
+    if (!m_pastFirst)
+        return {};
+    const QString last = m_open;
+    m_open.clear();
+    return line(last);
+}
+
+QString AnswerLines::line(const QString &text)
+{
+    if (text.trimmed().isEmpty()) {
+        ++m_gap;
+        return {};
+    }
+    const auto words = [](const char *pattern) {
+        return QRegularExpression(QString::fromUtf8(pattern), QRegularExpression::CaseInsensitiveOption);
+    };
+    // A line that ends on what can't be done, unless it says what to do then,
+    // as "if you can't find it, look in Downloads" does.
+    static const QRegularExpression cannot = words(
+        "\\b(i|you|we)\\s+(can['\u2019]?t|cannot|can not|am unable to|are unable to|won['\u2019]?t be able to)\\b|"
+        "\\bthere['\u2019]?s no (direct |other )?way\\b|\\bno automatic updates\\b");
+    static const QRegularExpression ifCannot = words("\\b(if|when|unless)\\b[^.;:]*\\b(can['\u2019]?t|cannot|can not)\\b");
+    static const QRegularExpression card = words("\\bdo it\\b|\\bcards? (that|which) (appears?|shows?)\\b");
+    static const QRegularExpression notHere = words("\\btaskbar|\\bstart menu\\b");
+    static const QRegularExpression windows = words("\\bwindows\\b");
+    static const QRegularExpression searchAtTop = words("\\bsearch\\b[^.]{0,30}\\bat the top\\b");
+    if ((cannot.match(text).hasMatch() && !ifCannot.match(text).hasMatch()) || card.match(text).hasMatch()
+        || (notHere.match(text).hasMatch() && !windows.match(text).hasMatch()) || searchAtTop.match(text).hasMatch())
+        return {};
+    QString kept = text;
+    // Adobe's reader isn't made for Linux.
+    static const QRegularExpression adobe = words(",?\\s+(or|and)\\s+adobe( acrobat)? reader\\b");
+    kept.remove(adobe);
+    static const QRegularExpression step(QStringLiteral("^(\\s*)\\d+([.)]\\s)"));
+    if (const QRegularExpressionMatch numbered = step.match(kept); numbered.hasMatch())
+        kept.replace(0, numbered.capturedLength(), numbered.captured(1) + QString::number(++m_step) + numbered.captured(2));
+    const QString out = QString(m_gap, QLatin1Char('\n')) + kept;
+    m_gap = 1;
+    return out;
 }
 
 std::optional<QString> unclear(const QString &question)
@@ -558,6 +661,11 @@ void FrontDesk::ask(const QString &question)
         finish(false);
         return;
     }
+    // "How do I update?" is answered best by the Helper that does it.
+    if (const QString card = helperIsTheHow(question, m_context.cards); !card.isEmpty()) {
+        openCard(question, card, {});
+        return;
+    }
     // The model may still be warming up; the sorting waits for it.
     if (m_model->busy())
         m_model->cancel();
@@ -610,7 +718,13 @@ void FrontDesk::route(const QString &question)
             openCard(question, QStringLiteral("changes"), {});
             return;
         }
+        // A printer, a scanner or a font isn't an app, whatever card the model
+        // picked.
+        static const QRegularExpression notAnApp(QStringLiteral("\\b(printers?|scanners?|fonts?|drivers?)\\b"),
+                                                 QRegularExpression::CaseInsensitiveOption);
         for (const auto &card : m_context.cards) {
+            if (card.first == QLatin1String("install") && notAnApp.match(question).hasMatch())
+                continue;
             if (card.first == target && kind == QLatin1String("change")) {
                 openCard(question, target, query);
                 return;
@@ -669,14 +783,16 @@ void FrontDesk::answer(const QString &question, const QString &helper, const QSt
                       .arg(cardTitle(helper), helperDoes(helper));
     }
     const int generation = m_generation;
+    auto lines = std::make_shared<AnswerLines>();
     m_model->complete(withHistory(system, question, HistoryTurns), {}, AnswerSlot, AnswerTokens,
-                      [this, generation](const QString &chunk) {
+                      [this, generation, lines](const QString &chunk) {
                           if (generation == m_generation)
-                              say(withoutEmoji(chunk));
+                              say(withoutEmoji(lines->add(chunk)));
                       },
-                      [this, generation, pointer](const QString &text, const QString &error) {
+                      [this, generation, pointer, lines](const QString &text, const QString &error) {
         if (generation != m_generation)
             return;
+        say(withoutEmoji(lines->finish()));
         if (!error.isEmpty() && text.isEmpty()) {
             say(QStringLiteral("I couldn't answer that just now. Try asking again in other words."));
             say(pointer);
@@ -739,6 +855,13 @@ void FrontDesk::fillCard(const QString &question, const Skill &skill)
         const qsizetype at = opened.indexOf(seenHeading);
         const QString skillText = at < 0 ? opened : opened.left(at);
         const QString seen = at < 0 ? QString() : opened.mid(at + seenHeading.size()).trimmed();
+        // The skill's look found nothing a card could change, such as no
+        // failed service: the answer in words, without asking for a card.
+        static const QRegularExpression noCard(QStringLiteral("^No card:"), QRegularExpression::MultilineOption);
+        if (noCard.match(seen).hasMatch()) {
+            answer(question, cardFor(question), QStringLiteral("answer: the skill's look finds nothing to change"));
+            return;
+        }
         const QString system = answerWords() + QStringLiteral(
             "\nThe person's ask needs a change. Here is the settings skill for it and what it reads on this computer "
             "now.\n\n%1\n\n## On this computer now\n\n%2\n\nFill in the Do it card for the person's ask: title is a "

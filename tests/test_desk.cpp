@@ -608,6 +608,110 @@ private Q_SLOTS:
         QCOMPARE(withoutStutter(QStringLiteral("100 apps")), QStringLiteral("100 apps"));
     }
 
+    // After the first line, a line that ends on what can't be done, promises
+    // a card or names a taskbar is left out, and the steps are numbered again.
+    void answerLinesLeaveOutWhatIsntSo()
+    {
+        const QString text = QStringLiteral(
+            "1. Tap the network icon at the top right.\n2. Go to System Settings.\n3. The fan will quiet down after "
+            "you tap the Do it card that appears.\n4. Close apps from the taskbar-like area.\n5. If you can't find "
+            "it, look in Downloads.\n6. Type it in the Search bar at the top.\n\nI can\u2019t adjust the fan "
+            "directly, but I can guide you.");
+        AnswerLines lines;
+        QString shown;
+        // In small pieces, as a stream comes.
+        for (qsizetype i = 0; i < text.size(); i += 7)
+            shown += lines.add(text.mid(i, 7));
+        shown += lines.finish();
+        QCOMPARE(shown, QStringLiteral("1. Tap the network icon at the top right.\n2. Go to System Settings.\n3. If "
+                                       "you can't find it, look in Downloads."));
+
+        // The first line is shown as it comes, and stays.
+        AnswerLines word;
+        QCOMPARE(word.add(QStringLiteral("No, you can't run Word")), QStringLiteral("No, you can't run Word"));
+        QCOMPARE(word.add(QStringLiteral(" here.\n\nOpen PDFs in Okular or Adobe Reader.")), QStringLiteral(" here."));
+        QCOMPARE(word.finish(), QStringLiteral("\n\nOpen PDFs in Okular."));
+        AnswerLines windows;
+        windows.add(QStringLiteral("Here's how.\n"));
+        QCOMPARE(windows.add(QStringLiteral("The dock is like the Windows taskbar.\n")),
+                 QStringLiteral("\nThe dock is like the Windows taskbar."));
+
+        // The desk shows the answer that way.
+        PretendModel model;
+        PretendTools tools;
+        Model client(model.url(), {});
+        FrontDesk desk(&client, &tools);
+        desk.setContext(context());
+        const QString fan = QStringLiteral("the fan is really loud");
+        model.answers.insert(fan, QStringLiteral("Fans follow the power profile.\n1. Close apps.\n2. Tap the Do it "
+                                                 "card.\n\nI can't change the fan here."));
+        const Run run = ask(desk, fan);
+        QVERIFY2(run.said.startsWith(QLatin1String("Fans follow the power profile.\n1. Close apps.\n\nHealth check")),
+                 qPrintable(run.said));
+    }
+
+    // A plain "how do I" ask that a Helper does opens the Helper, with no
+    // model.
+    void howToAsksOpenTheirHelper()
+    {
+        const QList<std::pair<QString, QString>> cases{
+            {QStringLiteral("how do I update my computer"), QStringLiteral("update")},
+            {QStringLiteral("How do I update?"), QStringLiteral("update")},
+            {QStringLiteral("how do I uninstall an app"), QStringLiteral("install")},
+            {QStringLiteral("how do I install zoom"), QStringLiteral("install")},
+            {QStringLiteral("how can I remove a program"), QStringLiteral("install")},
+            {QStringLiteral("how do I free up space"), QStringLiteral("space")},
+            {QStringLiteral("how do I add a printer"), QString()},
+            {QStringLiteral("how do I install a printer"), QString()},
+            {QStringLiteral("how do I update my password"), QString()},
+            {QStringLiteral("how do I delete a file"), QString()},
+            {QStringLiteral("how do I get to settings"), QString()},
+            {QStringLiteral("how do I open a pdf"), QString()},
+            {QStringLiteral("my disk is almost full"), QString()},
+        };
+        for (const auto &[asked, card] : cases)
+            QVERIFY2(helperIsTheHow(asked, context().cards) == card, qPrintable(asked));
+
+        PretendModel model;
+        PretendTools tools;
+        Model client(model.url(), {});
+        FrontDesk desk(&client, &tools);
+        desk.setContext(context());
+        const Run run = ask(desk, QStringLiteral("how do I update my computer"));
+        QCOMPARE(run.routes, QStringList{QStringLiteral("card:update")});
+        QVERIFY(model.asked.isEmpty());
+        QCOMPARE(tools.proposals.last().value(QStringLiteral("card")).toString(), QStringLiteral("update"));
+    }
+
+    // A skill whose look finds nothing to change, such as no failed service,
+    // is answered in words without a card being asked for; and a printer
+    // never opens Install an app.
+    void nothingToChangeIsAnsweredInWords()
+    {
+        PretendModel model;
+        PretendTools tools;
+        tools.seen.insert(QStringLiteral("services"), QStringLiteral("No card: no service has failed."));
+        Model client(model.url(), {});
+        FrontDesk desk(&client, &tools);
+        Context c = context();
+        c.handOffTo.clear();
+        desk.setContext(c);
+        const QString bluetooth = QStringLiteral("bluetooth stopped working");
+        model.routes.insert(bluetooth, sorted(QStringLiteral("change"), QStringLiteral("services")));
+        model.answers.insert(bluetooth, QStringLiteral("Open Control Center's Bluetooth page."));
+        Run run = ask(desk, bluetooth);
+        QVERIFY2(run.routes.contains(QStringLiteral("answer: the skill's look finds nothing to change")),
+                 qPrintable(run.routes.join(QLatin1Char('|'))));
+        QCOMPARE(doItCards(tools.proposals), 0);
+        QVERIFY(run.said.startsWith(QLatin1String("Open Control Center's Bluetooth page.")));
+
+        const QString printer = QStringLiteral("my printer needs adding");
+        model.routes.insert(printer, sorted(QStringLiteral("change"), QStringLiteral("install")));
+        model.answers.insert(printer, QStringLiteral("Use the Printers page of System Settings."));
+        run = ask(desk, printer);
+        QVERIFY2(!run.routes.contains(QStringLiteral("card:install")), qPrintable(run.routes.join(QLatin1Char('|'))));
+    }
+
     // Emoji never reach the person.
     void answersCarryNoEmoji()
     {

@@ -32,7 +32,9 @@ The desk decides, not the model alone (`DECISIONS.md`, Ask on this computer):
    passwords, money, wiping, piracy, spying, blocked updates, scareware and
    switching protection off with set words. It needs no model, so it answers
    even before the model is downloaded. So does an ask with nothing to answer
-   yet, such as "help" or a row of keys.
+   yet, such as "help" or a row of keys, and a plain "how do I" ask whose
+   answer is a Helper: "how do I update my computer", "how do I uninstall an
+   app", "how do I free up space" open that Helper.
 2. The model sorts the question: an answer, a change and the skill or Helper
    that covers it, or an unsafe ask and its kind.
 3. An answer is written in words, with no tools, and sent as it is written. A
@@ -42,12 +44,17 @@ The desk decides, not the model alone (`DECISIONS.md`, Ask on this computer):
    desk's own last line names it and what it does. It names only the places Ask describes to the model:
    Shuffle's own where Shuffle is installed, and System Settings' real pages.
    Words that go round in circles are cut where the circling began, and
-   never shown.
+   never shown. After the first line, a line shows once it is whole, and a
+   line that ends on what can't be done, promises a card, or names a taskbar
+   or a Search bar at the top is left out; the steps that stay are numbered
+   again.
 4. For a settings skill (`skills/plasma/`), the desk opens it, runs its
    read-only look-around, and the model fills in the Do it card. The desk
    checks the card against the skill's own commands and the names found on
    this computer, and asks the model once more whether it does what was
-   asked, before the card is offered. A card that fails either is never
+   asked, before the card is offered. A look-around line that starts
+   `No card:` says there is nothing to change, such as no failed service, and
+   the ask is answered in words without a card being asked for. A card that fails either is never
    shown; the ask is answered in words instead.
 5. A Helper is named by its id, and goes under the answer.
 6. Anything else that changes the computer is a bigger change. Once Codex
