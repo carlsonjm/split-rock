@@ -273,6 +273,9 @@ private Q_SLOTS:
             // pass the card check.
             QStringLiteral("Update plasma6-applets-appgrid from 1.2.r20251021000000.g1a2b3c-1 to 1.3-1"),
             QStringLiteral("paru -S --noconfirm appgrid-20251021000000-1"),
+            // A Helper's own change id: a date and time that happen to pass
+            // the card check.
+            QStringLiteral("- 2026-10-21 · Updated appgrid · change community-20261021-140003"),
         };
         for (const QString &text : allowed)
             QVERIFY2(neverWrittenReason(text).isEmpty(), qPrintable(text));
