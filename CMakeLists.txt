@@ -74,9 +74,10 @@ qt_add_resources(split-rock "sheet"
         qml/ChangesCard.qml
         qml/CommunityCard.qml
         qml/ActionWindow.qml
+        qml/CodexWindow.qml
         qml/WheelScroll.qml
 )
-target_link_libraries(split-rock PRIVATE splitrock_core Qt6::DBus Qt6::Gui Qt6::Quick)
+target_link_libraries(split-rock PRIVATE splitrock_core splitrock_codex Qt6::DBus Qt6::Gui Qt6::Quick)
 
 # The developer install (install.sh), for every account on this computer: the
 # program, its desktop file, its icon, and the guide and the tour. Milestone 3
@@ -146,7 +147,6 @@ add_library(splitrock_ask STATIC
     src/ask/Ask.cpp
     src/ask/AskService.cpp
     src/ask/Engine.cpp
-    src/ask/Fence.cpp
     src/ask/LocalModel.cpp
     src/desk/FrontDesk.cpp
     src/desk/Gate.cpp
@@ -154,14 +154,16 @@ add_library(splitrock_ask STATIC
     src/guide/SkillShelf.cpp
 )
 target_include_directories(splitrock_ask PUBLIC src)
-target_link_libraries(splitrock_ask PUBLIC splitrock_core Qt6::Core Qt6::DBus Qt6::Network)
+target_link_libraries(splitrock_ask PUBLIC splitrock_core splitrock_codex Qt6::Core Qt6::DBus Qt6::Network)
 target_compile_options(splitrock_ask PRIVATE -Wall -Wextra)
 qt_add_executable(split-rock-ask src/ask/main.cpp)
 target_link_libraries(split-rock-ask PRIVATE splitrock_ask)
 target_compile_definitions(split-rock-ask PRIVATE
     # Where Shuffle's own build of llama.cpp puts llama-server.
     SPLIT_ROCK_ENGINE_DIR="${CMAKE_INSTALL_FULL_LIBDIR}/split-rock/engine"
-    SPLIT_ROCK_INSTALLED_MODELS="${CMAKE_INSTALL_FULL_LIBDIR}/split-rock/models.json")
+    SPLIT_ROCK_INSTALLED_MODELS="${CMAKE_INSTALL_FULL_LIBDIR}/split-rock/models.json"
+    # The program that opens Ask Codex.
+    SPLIT_ROCK_INSTALLED_PROGRAM="${CMAKE_INSTALL_FULL_BINDIR}/split-rock")
 install(TARGETS split-rock-ask RUNTIME DESTINATION ${CMAKE_INSTALL_LIBDIR}/split-rock)
 # The models it may download, beside the program in a build and installed
 # beside it otherwise, with the licence of the model the person downloads.
@@ -174,6 +176,24 @@ configure_file(data/io.github.carlsonjm.splitrock.Ask.service.in
     ${CMAKE_CURRENT_BINARY_DIR}/data/io.github.carlsonjm.splitrock.Ask.service @ONLY)
 install(FILES ${CMAKE_CURRENT_BINARY_DIR}/data/io.github.carlsonjm.splitrock.Ask.service
     DESTINATION ${CMAKE_INSTALL_DATADIR}/dbus-1/services)
+
+# Codex, for the bigger questions (docs/ASK.md, Codex): its Agent Client
+# Protocol client, and the conversation in its own window, in the fence Ask's
+# engine runs in.
+add_library(splitrock_codex STATIC
+    src/acp/Client.cpp
+    src/acp/Connection.cpp
+    src/acp/Protocol.cpp
+    src/ask/Fence.cpp
+    src/codex/Agent.cpp
+    src/codex/Chat.cpp
+)
+target_include_directories(splitrock_codex PUBLIC src)
+target_link_libraries(splitrock_codex PUBLIC splitrock_core Qt6::Core)
+target_compile_options(splitrock_codex PRIVATE -Wall -Wextra)
+target_compile_definitions(splitrock_codex PUBLIC
+    # Where Shuffle's own copy of Codex's adapter is installed.
+    SPLIT_ROCK_CODEX_DIR="${CMAKE_INSTALL_FULL_LIBDIR}/split-rock/codex")
 
 # A package build leaves the tests out.
 option(BUILD_TESTING "Build the tests" ON)

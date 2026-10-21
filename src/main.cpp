@@ -3,6 +3,7 @@
 // Split Rock's Helpers: one at a time, each in a window of its own.
 //
 //   split-rock --card NAME [--query TEXT] [--notebook DIR]
+//   split-rock --codex [--question TEXT]
 //   split-rock --health-report
 //   split-rock --health-facts
 //   split-rock --set-shortcut COMPONENT ACTION KEYS NAME
@@ -11,6 +12,10 @@
 // Search open Free up space and the others this way (docs/CORE.md). Split Rock
 // runs once: a second start hands its arguments to the one running and ends.
 // It ends once the last Helper's window has closed.
+//
+// --codex opens Ask Codex, the window for the bigger questions Ask hands on
+// (docs/ASK.md, Codex), with the question; with none, it only signs in, as
+// Settings asks.
 //
 // --notebook    the notebook folder (default: Notebook in the Documents folder)
 //
@@ -27,10 +32,12 @@
 // desktop holds the shortcuts and writes their file itself, so it is asked on
 // the bus. It ends with 1 when the desktop didn't take it.
 
+#include "app/ChangeRunner.h"
 #include "app/HealthCheck.h"
 #include "app/Helpers.h"
 #include "app/Notebook.h"
 #include "app/QmlContext.h"
+#include "codex/Chat.h"
 #include "desktop/Entry.h"
 
 #include <QCommandLineParser>
@@ -41,6 +48,8 @@
 #include <QDBusMessage>
 #include <QDBusMetaType>
 #include <QKeySequence>
+#include <QDBusReply>
+#include <QDesktopServices>
 #include <QGuiApplication>
 #include <QQmlApplicationEngine>
 #include <QQmlComponent>
@@ -66,6 +75,11 @@ const QCommandLineOption cardOption(QStringLiteral("card"),
                                     QStringLiteral("Open one Helper: update, space, install, uninstall, apps, health, "
                                                    "changes, restore or community."),
                                     QStringLiteral("name"));
+const QCommandLineOption codexOption(QStringLiteral("codex"),
+                                     QStringLiteral("Open Ask Codex, with --question, or only to sign in."));
+const QCommandLineOption questionOption(QStringLiteral("question"),
+                                        QStringLiteral("With --codex: the question Codex takes."),
+                                        QStringLiteral("text"));
 const QCommandLineOption notebookOption(QStringLiteral("notebook"),
                                         QStringLiteral("The notebook folder (default: Notebook in the Documents folder)."),
                                         QStringLiteral("dir"));
@@ -194,6 +208,47 @@ int setShortcut(int argc, char **argv)
     return 0;
 }
 
+// Keeps a conversation with Codex as a note: in Notes, in its Ask folder,
+// where Gooseberry is installed, and otherwise in the notebook.
+bool keepNote(splitrock::Notebook &notebook, const QString &title, const QString &text, QString *error)
+{
+    QDBusConnection bus = QDBusConnection::sessionBus();
+    const QString service = QStringLiteral("io.github.carlsonjm.gooseberry");
+    const auto call = [&bus, &service](const QString &method, const QVariantList &arguments) {
+        QDBusMessage request = QDBusMessage::createMethodCall(service, QStringLiteral("/QuickNote"),
+                                                              QStringLiteral("io.github.carlsonjm.Gooseberry.QuickNote"), method);
+        request.setArguments(arguments);
+        return bus.call(request, QDBus::Block, 5000);
+    };
+    const bool notes = bus.isConnected()
+        && (bus.interface()->isServiceRegistered(service).value()
+            || bus.interface()->activatableServiceNames().value().contains(service));
+    if (notes) {
+        const QDBusMessage state = call(QStringLiteral("State"), {});
+        const bool busy = state.type() != QDBusMessage::ReplyMessage
+            || qdbus_cast<QVariantMap>(state.arguments().value(0)).value(QStringLiteral("open")).toBool();
+        // A quick note Search has open is never written over; the note
+        // opens on Gooseberry's own card instead, for the person to keep.
+        const QString note = title.isEmpty() ? text : title + QStringLiteral("\n\n") + text;
+        if (busy)
+            return call(QStringLiteral("OpenOnCard"), {QVariantMap{{QStringLiteral("text"), note}}}).type()
+                == QDBusMessage::ReplyMessage;
+        for (const auto &[method, arguments] : std::initializer_list<std::pair<QString, QVariantList>>{
+                 {QStringLiteral("Start"), {}},
+                 {QStringLiteral("SetText"), {note}},
+                 {QStringLiteral("SetFolder"), {QStringLiteral("Ask")}},
+                 {QStringLiteral("Done"), {}}}) {
+            if (call(method, arguments).type() != QDBusMessage::ReplyMessage) {
+                if (error)
+                    *error = QStringLiteral("Notes couldn't keep it.");
+                return false;
+            }
+        }
+        return true;
+    }
+    return !notebook.keep(title, text, error).isEmpty();
+}
+
 } // namespace
 
 int main(int argc, char **argv)
@@ -221,9 +276,9 @@ int main(int argc, char **argv)
     QCommandLineParser parser;
     parser.setApplicationDescription(QStringLiteral("Split Rock's Helpers, one at a time."));
     parser.addHelpOption();
-    parser.addOptions({cardOption, queryOption, notebookOption});
+    parser.addOptions({cardOption, queryOption, codexOption, questionOption, notebookOption});
     parser.process(app);
-    if (!parser.isSet(cardOption)) {
+    if (!parser.isSet(cardOption) && !parser.isSet(codexOption)) {
         qWarning("Split Rock opens one Helper at a time: split-rock --card NAME. See --help.");
         return 2;
     }
@@ -252,35 +307,67 @@ int main(int argc, char **argv)
     splitrock::Helpers helpers;
     helpers.setNotebook(&notebook);
 
+    splitrock::codex::Chat chat(splitrock::codex::codex(), helpers.changeRunner(), &notebook, {});
+
     QQmlApplicationEngine engine;
     engine.rootContext()->setContextProperty(QStringLiteral("helpers"), &helpers);
+    engine.rootContext()->setContextProperty(QStringLiteral("chat"), &chat);
     splitrock::exposeProduct(engine.rootContext());
     QQmlComponent component(&engine, QUrl(QStringLiteral("qrc:/qml/ActionWindow.qml")));
     auto *window = qobject_cast<QQuickWindow *>(component.create(engine.rootContext()));
-    if (!window) {
-        qWarning().noquote() << component.errorString();
+    QQmlComponent codexComponent(&engine, QUrl(QStringLiteral("qrc:/qml/CodexWindow.qml")));
+    auto *codexWindow = qobject_cast<QQuickWindow *>(codexComponent.create(engine.rootContext()));
+    if (!window || !codexWindow) {
+        qWarning().noquote() << component.errorString() << codexComponent.errorString();
         return 1;
     }
-    // Split Rock ends once the Helper's window has closed, after a moment's
-    // grace: one Helper handing over to another closes the window and opens it
+    const auto showWindow = [](QQuickWindow *shown) {
+        shown->show();
+        shown->raise();
+        shown->requestActivate();
+    };
+    // What Codex hands on: a Helper opens in its own window, and Keep keeps
+    // the conversation as a note.
+    chat.setHands({[&](const QString &card, const QString &query) {
+                       if (!helpers.openChore(card, query))
+                           return false;
+                       showWindow(window);
+                       return true;
+                   },
+                   [&notebook](const QString &title, const QString &text, QString *error) {
+                       return keepNote(notebook, title, text, error);
+                   }});
+    QObject::connect(&chat, &splitrock::codex::Chat::openPage, &app,
+                     [](const QString &page) { QDesktopServices::openUrl(QUrl(page)); });
+    // Split Rock ends once its windows have closed, after a moment's grace:
+    // one Helper handing over to another closes the window and opens it
     // again. The session bus's next start brings it back.
-    QObject::connect(window, &QWindow::visibleChanged, &app, [&](bool visible) {
-        if (!visible)
-            QTimer::singleShot(std::chrono::seconds(2), &app, [&] {
-                if (!window->isVisible() && !helpers.choreBusy())
-                    QCoreApplication::quit();
-            });
-    });
+    const auto quitWhenDone = [&] {
+        QTimer::singleShot(std::chrono::seconds(2), &app, [&] {
+            if (!window->isVisible() && !codexWindow->isVisible() && !helpers.choreBusy()
+                && !(helpers.changeRunner() && helpers.changeRunner()->busy()))
+                QCoreApplication::quit();
+        });
+    };
+    for (QQuickWindow *each : {window, codexWindow}) {
+        QObject::connect(each, &QWindow::visibleChanged, &app, [quitWhenDone](bool visible) {
+            if (!visible)
+                quitWhenDone();
+        });
+    }
 
     const auto handle = [&](const QStringList &arguments) {
         QCommandLineParser request;
-        request.addOptions({cardOption, queryOption, notebookOption});
+        request.addOptions({cardOption, queryOption, codexOption, questionOption, notebookOption});
         request.parse(arguments);
+        if (request.isSet(codexOption)) {
+            chat.begin(request.value(questionOption));
+            showWindow(codexWindow);
+            return;
+        }
         if (!request.isSet(cardOption) || !helpers.openChore(request.value(cardOption), request.value(queryOption)))
             return;
-        window->show();
-        window->raise();
-        window->requestActivate();
+        showWindow(window);
     };
 
     splitrock::Entry entry(handle);
@@ -294,10 +381,11 @@ int main(int argc, char **argv)
     quitOnSignals(app);
 
     handle(app.arguments());
-    if (!window->isVisible())
+    if (!window->isVisible() && !codexWindow->isVisible())
         return 1; // Nothing opened: an unknown Helper, or one already busy.
     const int code = app.exec();
-    // The window goes first, while everything it shows is still there.
+    // The windows go first, while everything they show is still there.
+    delete codexWindow;
     delete window;
     return code;
 }

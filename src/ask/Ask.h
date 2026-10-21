@@ -2,6 +2,7 @@
 #pragma once
 
 #include "ask/Engine.h"
+#include "codex/Agent.h"
 #include "desk/FrontDesk.h"
 #include "guide/SkillShelf.h"
 
@@ -45,12 +46,20 @@ public:
         QString settings;
         // Where the settings skills are found, as the guide's folders.
         QStringList skillRoots;
+        // Codex, which a bigger change is handed to once it is signed in.
+        codex::Agent codex;
     };
 
     Ask(LocalModel *model, const Setup &setup, QObject *parent = nullptr);
     ~Ask() override;
 
     bool enabled() const;
+    // Whether a bigger question goes straight to Codex where it is signed in:
+    // [Ask] HandToCodex, off unless the person switched it on.
+    bool handsToCodex() const;
+    QString settings() const { return m_setup.settings; }
+    // The question asked last, as answered gives its end.
+    QString question() const { return m_question; }
 
     // Starts answering; the words come through said and the end through
     // answered, with the id returned here. A new question stops the one

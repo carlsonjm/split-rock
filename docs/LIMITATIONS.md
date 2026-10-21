@@ -19,6 +19,10 @@ What Split Rock does not do yet, and what it will not do.
   trial against the real model was before it became a program of its own;
   `tools/desk-trial/` runs it again on a computer that has the model.
 - Ask needs `llama-server` installed; nothing in Split Rock installs it.
+- Codex has been tested here against a pretend assistant. Its ChatGPT sign-in
+  through the fence, and what it costs, are still to be checked live.
+- Codex needs its adapter, `codex-acp`, installed; nothing in Split Rock
+  installs it.
 
 ## Not planned
 

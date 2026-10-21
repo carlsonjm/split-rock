@@ -1192,3 +1192,38 @@ model in memory all day; bringing back the conversation and the Agent Client
 Protocol for the desk, which was only needed while the desk was one assistant
 among several; and keeping earlier questions in each answer, which Search's
 one-question box has no way to show.
+
+## Codex comes back in a window of its own, in a tighter fence
+
+A bigger question goes to Codex (`ASK.md`, Codex) only when the person taps Ask
+Codex, or, once they switch on Hand bigger questions to Codex in Settings,
+straight from the answer. Codex answers in a window of its own, Ask Codex,
+drawn like a Helper, which holds one conversation and forgets it on closing
+unless the person taps Keep as a note. Everything in it is under Codex's
+name, and Ask's answers stay under "Answered on this computer", so the two
+are never mixed. Its sign-in is Codex's own, through its page in the
+browser, opened from the window or from Settings; Split Rock keeps nothing
+of the account but Codex's own file in Codex's own folder, and Sign out
+deletes it. Every request Codex makes to act is refused; a change it
+proposes through `split-rock-change` waits on a Do it row, recorded with its
+way back before it is made.
+
+The fence it runs in is the one `llama-server` runs in, and it is now built
+up rather than cut down: the programs and the system's settings, read-only,
+and nothing else of the computer. No other account's home, no drive mounted
+beside the system and no file of the person's but the desktop's own
+settings are inside (GN-2). What of the environment goes in is a list by
+name, so no key, token or password set for another program reaches it
+(GN-4).
+
+Why: the product owner put Codex back for the fixes the small model can't
+make, with the person always knowing who is speaking, since in early tests
+the hand-over between the two was seamless but the speaker was not clear.
+The open findings that went with Genie's chat had to be closed where Codex
+runs, not by its good behaviour: a fence that lists what goes in can't miss
+what a list of what to hide forgets, and the same holds for the environment.
+
+Rejected: Codex answering inside Search's answer box, which mixes the two
+speakers; Codex taking every bigger question by default, which spends the
+person's plan without a tap; and Codex's own sandbox in place of the fence,
+which differs between versions and is Codex's to switch off.
