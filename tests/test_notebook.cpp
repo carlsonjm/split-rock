@@ -250,6 +250,7 @@ private Q_SLOTS:
     {
         const QStringList refused{
             QStringLiteral("My card is 4111 1111 1111 1111"),
+            QStringLiteral("card 4111111111111111."),
             QStringLiteral("card 5500-0000-0000-0004 expires soon"),
             QStringLiteral("Wi-Fi password: Summer2026!"),
             QStringLiteral("the password is \"hunter22\""),
@@ -268,6 +269,10 @@ private Q_SLOTS:
             QStringLiteral("Firmware GZ302EA.308, from 05/20/2026"),
             QStringLiteral("Type its password when the system asks."),
             QStringLiteral("The serial number is 1234567890123."),
+            // A community app's version, with a date stamp that happens to
+            // pass the card check.
+            QStringLiteral("Update plasma6-applets-appgrid from 1.2.r20251021000000.g1a2b3c-1 to 1.3-1"),
+            QStringLiteral("paru -S --noconfirm appgrid-20251021000000-1"),
         };
         for (const QString &text : allowed)
             QVERIFY2(neverWrittenReason(text).isEmpty(), qPrintable(text));

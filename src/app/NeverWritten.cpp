@@ -27,9 +27,13 @@ bool luhn(const QString &digits)
     return sum % 10 == 0;
 }
 
+// A run of digits that stands on its own: a version, a date stamp or a
+// commit in a package's name, such as 1.2.r20251021000000.g1a2b3c, joins
+// letters, dots or signs to its digits and is never a card number.
 bool hasCardNumber(const QString &text)
 {
-    static const QRegularExpression run(QStringLiteral("(?<!\\d)(?:\\d[ -]?){12,18}\\d(?!\\d)"));
+    static const QRegularExpression run(QStringLiteral(
+        "(?<![\\w.:/+~-])(?:\\d[ -]?){12,18}\\d(?![\\w:/+~]|[.-]\\w)"));
     auto it = run.globalMatch(text);
     while (it.hasNext()) {
         QString digits = it.next().captured(0);

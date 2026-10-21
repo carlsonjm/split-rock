@@ -134,7 +134,7 @@ public:
 
     // Opens the card and looks at what is waiting.
     Q_INVOKABLE void check();
-    // Looks at what is waiting without opening the card, for Genie's tiles.
+    // Looks at what is waiting without opening the card, for Core's tiles.
     // Only reads, as the card's own look does.
     void peek();
     // Updates, after the person tapped Update on a ready card: asks once more

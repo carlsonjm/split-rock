@@ -1,5 +1,5 @@
 {
- "about": "Genie's everyday tasks for the local model trial. 'world' is the pretend computer: what the skills' look-around commands read, and canned output for read-only commands. Each case's 'expect' lists what a good answer does; see score() in trial.py. Cases marked speed form the short set used for timing on slower settings.",
+ "about": "Ask's everyday tasks for the local model trial. 'world' is the pretend computer: what the skills' look-around commands read, and canned output for read-only commands. Each case's 'expect' lists what a good answer does; see score() in trial.py. Cases marked speed form the short set used for timing on slower settings.",
  "world": {
   "skills": {
    "fans": "This computer has asusctl.\nProfile now: Active profile is Balanced\nProfiles: Quiet\nBalanced\nPerformance\nPower profile now: balanced\nPower profiles:\n  performance:\n* balanced:\n  power-saver:",
