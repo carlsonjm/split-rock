@@ -59,9 +59,11 @@ QString places(const QString &question)
                                 "there is no taskbar or Start menu.")},
             {"", QStringLiteral("Shuffle's own Settings: Meta+I. KDE's System Settings: type its name in Search.")},
             {"wi-?fi|internet|network|hotspot|online|connect",
-             QStringLiteral("Wi-Fi and a phone's hotspot: Control Center, opened with a tap on the network icon at the "
-                            "top right. Tap a network's name in its list to join; a hotspot shows there by name once "
-                            "it's switched on on the phone. There is no Add network button.")},
+             QStringLiteral("Wi-Fi: Control Center, opened with a tap on the network icon at the top right. Tap a "
+                            "network's name in its list to join. There is no Add network button.")},
+            {"hotspot|tether|phone.{0,20}(internet|data)",
+             QStringLiteral("A phone's hotspot shows in Control Center's list by name once it's switched on on the "
+                            "phone; tap its name to join.")},
             {"bluetooth|headphone|earbud|airpod|mouse|pair|speaker|keyboard",
              QStringLiteral("Bluetooth, headphones, a mouse, AirPods: Control Center's Bluetooth page, with Add new "
                             "device. Control Center opens with a tap on the network icon at the top right.")},

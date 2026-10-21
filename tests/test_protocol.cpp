@@ -140,6 +140,22 @@ private Q_SLOTS:
         QCOMPARE(said, QStringLiteral("Understood."));
     }
 
+    // Under a bare "Internal error", the service's own words are what the
+    // person is told.
+    void errorsSayWhatTheServiceSaid()
+    {
+        const QString unsupported = QStringLiteral("The 'gpt-5.5' model is not supported when using Codex with a ChatGPT account.");
+        acp::RpcError plain{-32603, QStringLiteral("Internal error"), {}};
+        QCOMPARE(plain.said(), QStringLiteral("Internal error"));
+        acp::RpcError text{-32603, QStringLiteral("Internal error"), QJsonValue(unsupported)};
+        QCOMPARE(text.said(), unsupported);
+        acp::RpcError nested{-32603, QStringLiteral("Internal error"),
+                             QJsonObject{{QStringLiteral("message"),
+                                          QStringLiteral("unexpected status 400: {\"detail\":\"x\"}")},
+                                         {QStringLiteral("error"), QStringLiteral("{\"detail\":\"%1\"}").arg(unsupported)}}};
+        QCOMPARE(nested.said(), unsupported);
+    }
+
     void stopFailsWaitingRequests()
     {
         PretendFixture fixture;

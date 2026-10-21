@@ -205,6 +205,9 @@ private Q_SLOTS:
         QVERIFY(!facts.contains(QStringLiteral("Autostart")));
         QVERIFY(facts.contains(QStringLiteral("What changed")));
         QVERIFY(facts.contains(QStringLiteral("aren't in System Settings")));
+        // Wi-Fi that drops isn't about a phone's hotspot.
+        f.ask->ask(QStringLiteral("my wifi keeps dropping"));
+        QVERIFY(!f.ask->context().facts.contains(QStringLiteral("hotspot")));
         f.ask->ask(QStringLiteral("how do I uninstall an app"));
         QVERIFY(!f.ask->context().facts.contains(QStringLiteral("comes from Discover")));
     }

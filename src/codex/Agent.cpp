@@ -45,7 +45,10 @@ Agent codex(const QString &adapter, const QString &home)
     a.home = home;
     a.environment.insert(QStringLiteral("CODEX_HOME"), home);
     a.signInFile = QStringLiteral("auth.json");
-    a.hiddenMethods = {QStringLiteral("codex-api-key"), QStringLiteral("openai-api-key")};
+    // Keys are hidden, as is the code typed on another device: the sign-in
+    // page in the browser is the one way in.
+    a.hiddenMethods = {QStringLiteral("codex-api-key"), QStringLiteral("openai-api-key"), QStringLiteral("api-key"),
+                       QStringLiteral("chat-gpt-device-code"), QStringLiteral("gateway")};
     a.askFirstMode = QStringLiteral("read-only");
     a.leftovers = {QStringLiteral("sessions"), QStringLiteral("archived_sessions"),
                    QStringLiteral("history.jsonl"), QStringLiteral("log"),

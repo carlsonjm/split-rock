@@ -33,6 +33,10 @@ struct RpcError {
 
     // The reason an agent attached to an error, when it gave one.
     QString reason() const;
+    // What went wrong in the agent's own words: the innermost message its
+    // data carries, such as the service's answer under "Internal error", or
+    // the message itself when the data says nothing more.
+    QString said() const;
 };
 
 // One way of signing in that an agent advertises at initialize.

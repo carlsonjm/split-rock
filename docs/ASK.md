@@ -94,6 +94,13 @@ back in a window of its own). Shuffle installs the adapter in
 `lib/split-rock/codex`; elsewhere Split Rock uses one on the PATH, and says
 Codex isn't installed when there is none.
 
+The adapter is `@agentclientprotocol/codex-acp`, which replaced Zed's
+codex-acp; Zed's last release, 0.16.0, carried a Codex too old for ChatGPT
+accounts, which turned every question away. Its ChatGPT sign-in is called
+`chat-gpt` (Zed's was `chatgpt`); the API-key, gateway and device-code ways
+in stay hidden. When Codex fails, the window shows the service's own words
+from under the protocol's "Internal error", not the bare code.
+
 - **When:** only on the person's tap on Ask Codex, under an answer, or
   straight from an answer that is a bigger change once the person switches
   on Hand bigger questions to Codex (`split-rock-corerc`,

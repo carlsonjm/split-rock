@@ -325,7 +325,7 @@ void Chat::start()
     m_client->start(launch);
     m_client->initialize(QStringLiteral(PROJECT_VERSION), productTitle(), [this](const std::optional<acp::RpcError> &error) {
         if (error) {
-            setPhase(QStringLiteral("problem"), QStringLiteral("Codex didn't start: %1").arg(error->message));
+            setPhase(QStringLiteral("problem"), QStringLiteral("Codex didn't start: %1").arg(error->said()));
             return;
         }
         startSession();
@@ -342,7 +342,7 @@ void Chat::startSession()
             return;
         }
         if (error) {
-            setPhase(QStringLiteral("problem"), QStringLiteral("Codex couldn't start a conversation: %1").arg(error->message));
+            setPhase(QStringLiteral("problem"), QStringLiteral("Codex couldn't start a conversation: %1").arg(error->said()));
             return;
         }
         const auto ready = [this] {
@@ -375,10 +375,11 @@ void Chat::enterSignIn()
                  QStringLiteral("Codex offers no way to sign in here that needs neither a terminal nor a key."));
         return;
     }
-    // ChatGPT first: the plan the person already pays for.
+    // ChatGPT first: the plan the person already pays for. Its id is
+    // "chatgpt" in Zed's adapter and "chat-gpt" in the one that replaced it.
     m_signIn = offered.first();
     for (const acp::AuthMethod &method : offered) {
-        if (method.id.contains(QLatin1String("chatgpt"), Qt::CaseInsensitive)) {
+        if (QString(method.id).remove(QLatin1Char('-')).contains(QLatin1String("chatgpt"), Qt::CaseInsensitive)) {
             m_signIn = method;
             break;
         }
@@ -459,7 +460,7 @@ void Chat::send(const QString &prompt)
             return; // Told by the stop itself.
         setPhase(QStringLiteral("ready"));
         if (error)
-            setNotice(QStringLiteral("Codex couldn't answer. %1").arg(error->message));
+            setNotice(QStringLiteral("Codex couldn't answer. %1").arg(error->said()));
         else if (stopReason == QLatin1String("refusal"))
             setNotice(QStringLiteral("Codex would not answer that."));
         else if (stopReason == QLatin1String("max_tokens") || stopReason == QLatin1String("max_turn_requests"))

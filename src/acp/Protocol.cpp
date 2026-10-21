@@ -1,11 +1,48 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 #include "acp/Protocol.h"
 
+#include <QJsonDocument>
+
 namespace acp {
 
 QString RpcError::reason() const
 {
     return data.toObject().value(QStringLiteral("reason")).toString();
+}
+
+namespace {
+
+// The innermost message in an error's data, which may be text, an object, or
+// an object written out as text, as a service's own answer often is.
+QString innermost(const QJsonValue &value, int depth = 0)
+{
+    if (depth > 4)
+        return {};
+    if (value.isString()) {
+        const QString text = value.toString().trimmed();
+        const QJsonDocument inner = QJsonDocument::fromJson(text.toUtf8());
+        if (inner.isObject()) {
+            const QString deeper = innermost(inner.object(), depth + 1);
+            if (!deeper.isEmpty())
+                return deeper;
+        }
+        return text;
+    }
+    const QJsonObject object = value.toObject();
+    for (const char *key : {"error", "detail", "message", "details"}) {
+        const QString found = innermost(object.value(QLatin1String(key)), depth + 1);
+        if (!found.isEmpty())
+            return found;
+    }
+    return {};
+}
+
+} // namespace
+
+QString RpcError::said() const
+{
+    const QString inner = innermost(data);
+    return inner.isEmpty() ? message : inner;
 }
 
 QList<AuthMethod> parseAuthMethods(const QJsonArray &methods)
