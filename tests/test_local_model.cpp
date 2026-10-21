@@ -116,7 +116,13 @@ private Q_SLOTS:
         QVERIFY(!LocalModel::usableGraphics(software));
         const QString small = QStringLiteral("Available devices:\n  Vulkan0: Intel(R) UHD Graphics 620 (KBL GT2) (3072 MiB, 3000 MiB free)\n");
         QVERIFY(!LocalModel::usableGraphics(small));
-        QVERIFY(LocalModel::usableGraphics(small, 3000));
+        QVERIFY(!LocalModel::usableGraphics(small, 3000));
+        // Intel's built-in graphics answer wrongly; the processor answers.
+        const QString mini = QStringLiteral("Available devices:\n  Vulkan0: Intel(R) UHD Graphics 630 (CFL GT2) (15946 MiB, 15000 MiB free)\n");
+        QVERIFY(!LocalModel::usableGraphics(mini));
+        QVERIFY(!LocalModel::usableGraphics(mini, 3000));
+        QVERIFY(!LocalModel::usableGraphics(QStringLiteral("  Vulkan0: Intel(R) Iris(R) Xe Graphics (TGL GT2) (15000 MiB, 14000 MiB free)"), 3000));
+        QVERIFY(LocalModel::usableGraphics(QStringLiteral("  Vulkan0: Intel(R) Arc(tm) A770 Graphics (DG2) (16032 MiB, 16000 MiB free)")));
         QVERIFY(!LocalModel::usableGraphics(QStringLiteral("Available devices:\n")));
         QVERIFY(LocalModel::usableGraphics(QStringLiteral("  CUDA0: NVIDIA GeForce RTX 4060 Laptop GPU (8188 MiB, 7900 MiB free)")));
     }

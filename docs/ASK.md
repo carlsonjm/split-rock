@@ -65,6 +65,11 @@ The desk decides, not the model alone (`DECISIONS.md`, Ask on this computer):
   person's tap, into `split-rock/models` in the person's data folder. A
   download that stops carries on where it stopped.
 - `RemoveModel` deletes it again.
+- The model runs on a graphics chip with room for it, and on the processor
+  otherwise. Intel's older built-in graphics (HD, UHD and Iris) are never
+  used: llama.cpp's Vulkan on them mixed questions together and doubled
+  words, where the processor answered cleanly. On the processor, nothing is
+  handed to the chip at all.
 - Until it is downloaded, and while it downloads, the Helper an ask's words
   name still goes with the answer, so Search keeps it listed.
 - `llama-server` runs inside a fence (`src/ask/Fence.cpp`): the system

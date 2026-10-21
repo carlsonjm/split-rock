@@ -96,6 +96,12 @@ void Engine::start(const QString &engine, const QString &model, const QString &l
     // starts.
     environment.insert(QStringLiteral("LLAMA_ARG_CACHE_RAM"), QStringLiteral("0"));
     environment.insert(QStringLiteral("LLAMA_ARG_CTX_CHECKPOINTS"), QStringLiteral("0"));
+    // Without a graphics chip Ask can use, the processor does all of it:
+    // llama.cpp otherwise still hands some of the work to the chip.
+    if (layers == QLatin1String("0")) {
+        environment.insert(QStringLiteral("LLAMA_ARG_DEVICE"), QStringLiteral("none"));
+        environment.insert(QStringLiteral("GGML_VK_VISIBLE_DEVICES"), QStringLiteral("-1"));
+    }
     m_process->setProcessEnvironment(environment);
     m_process->start(fence, fenced(engine,
                                    {QStringLiteral("--model"), model,

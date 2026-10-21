@@ -80,9 +80,17 @@ bool LocalModel::usableGraphics(const QString &devices, int neededMiB)
                                            QRegularExpression::MultilineOption);
     static const QRegularExpression software(QStringLiteral("llvmpipe|lavapipe|softpipe|swiftshader"),
                                              QRegularExpression::CaseInsensitiveOption);
+    // Intel's older built-in graphics, which share the computer's memory:
+    // on a 2018 Mac mini's UHD 630, llama.cpp's Vulkan answers mixed one
+    // question into the next and doubled its words, where the processor
+    // alone answered every one cleanly and sooner. Intel's Arc chips are
+    // not among them.
+    static const QRegularExpression intelBuiltIn(QStringLiteral("\\bIntel\\b.*\\b(UHD|HD|Iris)\\b"),
+                                                 QRegularExpression::CaseInsensitiveOption);
     for (auto it = device.globalMatch(devices); it.hasNext();) {
         const QRegularExpressionMatch match = it.next();
-        if (!software.match(match.captured(1)).hasMatch() && match.captured(2).toInt() >= neededMiB)
+        const QString name = match.captured(1);
+        if (!software.match(name).hasMatch() && !intelBuiltIn.match(name).hasMatch() && match.captured(2).toInt() >= neededMiB)
             return true;
     }
     return false;
