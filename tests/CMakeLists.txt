@@ -77,3 +77,13 @@ qt_add_resources(test_sheet "sheet_for_test"
         ${PROJECT_SOURCE_DIR}/qml/CommunityCard.qml
         ${PROJECT_SOURCE_DIR}/qml/WheelScroll.qml
 )
+
+# What changed's ways back on the real desktop: it changes the person's own
+# settings and puts them back, so it is built only when asked for and never
+# run by ctest (tests/live_putback.cpp).
+if(SPLIT_ROCK_LIVE_TESTS)
+    add_executable(live_putback live_putback.cpp)
+    target_link_libraries(live_putback PRIVATE splitrock_core Qt6::Test)
+    target_compile_definitions(live_putback PRIVATE SPLIT_ROCK_PROGRAM="$<TARGET_FILE:split-rock>")
+    add_dependencies(live_putback split-rock)
+endif()

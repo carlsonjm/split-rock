@@ -1135,6 +1135,13 @@ private Q_SLOTS:
         QCOMPARE(look.page, QStringLiteral("kcm_colors"));
         QVERIFY(look.question.contains(QLatin1String("Colours: BreezeDark to BreezeLight")));
 
+        // A second screen KWin knew on the same connector is put back on the
+        // screen in that connector now.
+        SettingsChange monitor{at, QStringLiteral("kwinoutputconfig.json"), QStringLiteral("DP-1 (DEL A123)"), QStringLiteral("scale"),
+                               QStringLiteral("1.5"), QStringLiteral("1"), true, true};
+        QCOMPARE(SettingRows::command(monitor, true, program), QStringLiteral("kscreen-doctor 'output.DP-1.scale.1.5'"));
+        QCOMPARE(SettingRows::words(monitor).title, QStringLiteral("Screen on DP-1: scale 150% to 100%"));
+
         // Put back by hand since: the row says so, and offers nothing.
         const auto before = [](const SettingsChange &change, bool *set) {
             *set = change.wasSet;

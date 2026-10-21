@@ -142,6 +142,7 @@ install(FILES ${CMAKE_CURRENT_BINARY_DIR}/data/io.github.carlsonjm.splitrock.Cor
 
 # A package build leaves the tests out.
 option(BUILD_TESTING "Build the tests" ON)
+option(SPLIT_ROCK_LIVE_TESTS "Build the checks that change the signed-in person's settings, run by hand" OFF)
 if(BUILD_TESTING)
     enable_testing()
     add_subdirectory(tests)

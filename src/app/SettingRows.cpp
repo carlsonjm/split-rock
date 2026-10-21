@@ -55,8 +55,16 @@ bool builtIn(const QString &connector)
         || connector.startsWith(QLatin1String("DSI"));
 }
 
-QString screenName(const QString &connector)
+// KWin keeps every screen it has known; a second one on the same connector
+// is named "DP-1 (its EDID)" (settings/SettingsHistory.h).
+QString connectorOf(const QString &group)
 {
+    return group.section(QStringLiteral(" ("), 0, 0);
+}
+
+QString screenName(const QString &group)
+{
+    const QString connector = connectorOf(group);
     return builtIn(connector) ? QStringLiteral("Built-in screen") : QStringLiteral("Screen on %1").arg(connector);
 }
 
@@ -471,10 +479,11 @@ QString SettingRows::command(const SettingsChange &c, bool before, const QString
 
     if (c.file == Outputs) {
         // kscreen-doctor sets one output's setting on the running desktop,
-        // and KWin keeps it.
-        if (c.group.contains(QLatin1Char(' ')) || !set || value.isEmpty())
+        // and KWin keeps it: on the screen in that connector now.
+        const QString connector = connectorOf(c.group);
+        if (connector.isEmpty() || connector.contains(QLatin1Char(' ')) || !set || value.isEmpty())
             return {};
-        const QString output = QStringLiteral("output.%1.").arg(c.group);
+        const QString output = QStringLiteral("output.%1.").arg(connector);
         if (c.key == QLatin1String("scale"))
             return QStringLiteral("kscreen-doctor %1").arg(quoted(output + QStringLiteral("scale.") + value));
         if (c.key == QLatin1String("mode")) {
