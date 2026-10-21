@@ -218,11 +218,27 @@ private Q_SLOTS:
                                   "{ qdbus6 org.kde.KWin /KWin reconfigure || qdbus org.kde.KWin /KWin reconfigure; }")
                 .arg(value ? QStringLiteral("true") : QStringLiteral("false"));
         };
-        const QString restore = set ? write(on) : QStringLiteral("kwriteconfig6 --file kwinrc --group Plugins --key blurEnabled --delete && "
-                                                                 "{ qdbus6 org.kde.KWin /KWin reconfigure || true; }");
         const auto live = [] {
             return sh(QStringLiteral("qdbus6 org.kde.KWin /Effects org.kde.kwin.Effects.isEffectLoaded blur 2>/dev/null"));
         };
+        // Blur may be off by hand, out of step with the settings: KWin is
+        // asked to follow its settings first, so Put back has something true
+        // to compare with, and blur is left on or off as it was found.
+        const QString found = live();
+        sh(QStringLiteral("qdbus6 org.kde.KWin /KWin reconfigure"));
+        QTest::qWait(1500);
+        const QString restore = (set ? write(on) : QStringLiteral("kwriteconfig6 --file kwinrc --group Plugins --key blurEnabled --delete && "
+                                                                  "{ qdbus6 org.kde.KWin /KWin reconfigure || true; }"))
+            + QStringLiteral("; sleep 1; qdbus6 org.kde.KWin /Effects org.kde.kwin.Effects.%1 blur")
+                  .arg(found == QLatin1String("true") ? QStringLiteral("loadEffect") : QStringLiteral("unloadEffect"));
+        qInfo().noquote() << QStringLiteral("blur was live %1, and %2 once KWin follows its settings").arg(found, live());
+        auto leave = qScopeGuard([&] {
+            if (live() != found)
+                qWarning().noquote() << QStringLiteral("NOT AS IT BEGAN: blur is live %1, was %2 — run: qdbus6 org.kde.KWin /Effects "
+                                                       "org.kde.kwin.Effects.%3 blur")
+                                            .arg(live(), found, found == QLatin1String("true") ? QStringLiteral("loadEffect")
+                                                                                                 : QStringLiteral("unloadEffect"));
+        });
         roundTrip(QStringLiteral("kwinrc"), QStringLiteral("Plugins"), QStringLiteral("blurEnabled"), write(!on), restore, live);
     }
 
