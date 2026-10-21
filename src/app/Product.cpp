@@ -14,7 +14,7 @@ bool s_insideShuffle = false;
 
 QString productName()
 {
-    return s_insideShuffle ? QStringLiteral("Genie") : QStringLiteral("Split Rock");
+    return s_insideShuffle ? QStringLiteral("Shuffle Core") : QStringLiteral("Split Rock");
 }
 
 QString productTitle()

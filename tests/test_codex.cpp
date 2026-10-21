@@ -46,6 +46,7 @@ QString lastText(const Chat &chat, const QString &who)
 struct Kept {
     QString title;
     QString text;
+    QString opened;
 };
 
 } // namespace
@@ -63,9 +64,15 @@ class TestCodex : public QObject
                 cards->append(card);
             return true;
         };
-        hands.keep = [kept](const QString &title, const QString &text, QString *) {
+        hands.keep = [kept](const QString &title, const QString &text, QString *note, QString *) {
             if (kept)
                 *kept = {title, text};
+            *note = QStringLiteral("note-1");
+            return true;
+        };
+        hands.openNote = [kept](const QString &note) {
+            if (kept)
+                kept->opened = note;
             return true;
         };
         auto chat = std::make_unique<Chat>(fixture.assistant(script), runner, nullptr, hands);
@@ -249,6 +256,9 @@ private Q_SLOTS:
         QCOMPARE(kept.title, QStringLiteral("my wifi keeps dropping"));
         QVERIFY(kept.text.startsWith(QStringLiteral("You: my wifi keeps dropping\n\nCodex: Your card's power saving is on.")));
         QVERIFY(!chat->keep());
+        QVERIFY(chat->keptOpens());
+        QVERIFY(chat->openKept());
+        QCOMPARE(kept.opened, QStringLiteral("note-1"));
         QVERIFY(QFileInfo::exists(fixture.home() + QStringLiteral("/transcripts")));
         chat->end();
         QVERIFY(!QFileInfo::exists(fixture.home() + QStringLiteral("/transcripts")));

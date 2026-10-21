@@ -677,6 +677,7 @@ private Q_SLOTS:
         QCOMPARE(RestorePoints::describe(QStringLiteral("pacman --sync --needed vlc"), QStringLiteral("number")),
                  QStringLiteral("Before installing vlc"));
         QVERIFY(RestorePoints::isOwn(QStringLiteral("Genie: Update")));
+        QVERIFY(RestorePoints::isOwn(QStringLiteral("Shuffle Core: Update")));
         QVERIFY(!RestorePoints::isOwn(QStringLiteral("pacman -Syu")));
 
         // Started from one: the computer runs on its snapshot.

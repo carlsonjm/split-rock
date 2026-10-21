@@ -209,8 +209,10 @@ int setShortcut(int argc, char **argv)
 }
 
 // Keeps a conversation with Codex as a note: in Notes, in its Ask folder,
-// where Gooseberry is installed, and otherwise in the notebook.
-bool keepNote(splitrock::Notebook &notebook, const QString &title, const QString &text, QString *error)
+// where Gooseberry is installed, and otherwise in the notebook. note is
+// Notes' id for it, when Notes kept it. The note is stuck to no window: the
+// Codex window it was written on closes, and the note outlives it.
+bool keepNote(splitrock::Notebook &notebook, const QString &title, const QString &text, QString *note, QString *error)
 {
     QDBusConnection bus = QDBusConnection::sessionBus();
     const QString service = QStringLiteral("io.github.carlsonjm.gooseberry");
@@ -229,20 +231,25 @@ bool keepNote(splitrock::Notebook &notebook, const QString &title, const QString
             || qdbus_cast<QVariantMap>(state.arguments().value(0)).value(QStringLiteral("open")).toBool();
         // A quick note Search has open is never written over; the note
         // opens on Gooseberry's own card instead, for the person to keep.
-        const QString note = title.isEmpty() ? text : title + QStringLiteral("\n\n") + text;
+        const QString words = title.isEmpty() ? text : title + QStringLiteral("\n\n") + text;
         if (busy)
-            return call(QStringLiteral("OpenOnCard"), {QVariantMap{{QStringLiteral("text"), note}}}).type()
+            return call(QStringLiteral("OpenOnCard"), {QVariantMap{{QStringLiteral("text"), words}}}).type()
                 == QDBusMessage::ReplyMessage;
         for (const auto &[method, arguments] : std::initializer_list<std::pair<QString, QVariantList>>{
                  {QStringLiteral("Start"), {}},
-                 {QStringLiteral("SetText"), {note}},
+                 {QStringLiteral("SetStuck"), {QString(), QString()}},
+                 {QStringLiteral("SetText"), {words}},
                  {QStringLiteral("SetFolder"), {QStringLiteral("Ask")}},
                  {QStringLiteral("Done"), {}}}) {
-            if (call(method, arguments).type() != QDBusMessage::ReplyMessage) {
+            const QDBusMessage reply = call(method, arguments);
+            if (reply.type() != QDBusMessage::ReplyMessage) {
                 if (error)
                     *error = QStringLiteral("Notes couldn't keep it.");
                 return false;
             }
+            const QString id = qdbus_cast<QVariantMap>(reply.arguments().value(0)).value(QStringLiteral("id")).toString();
+            if (note && !id.isEmpty())
+                *note = id;
         }
         return true;
     }
@@ -334,8 +341,17 @@ int main(int argc, char **argv)
                        showWindow(window);
                        return true;
                    },
-                   [&notebook](const QString &title, const QString &text, QString *error) {
-                       return keepNote(notebook, title, text, error);
+                   [&notebook](const QString &title, const QString &text, QString *note, QString *error) {
+                       return keepNote(notebook, title, text, note, error);
+                   },
+                   // Notes, on the Ask folder, at the note.
+                   [](const QString &note) {
+                       QDBusMessage request = QDBusMessage::createMethodCall(
+                           QStringLiteral("io.github.carlsonjm.gooseberry"), QStringLiteral("/QuickNote"),
+                           QStringLiteral("io.github.carlsonjm.Gooseberry.QuickNote"), QStringLiteral("OpenBoard"));
+                       request.setArguments({note, QString()});
+                       const QDBusMessage reply = QDBusConnection::sessionBus().call(request, QDBus::Block, 5000);
+                       return reply.type() == QDBusMessage::ReplyMessage && reply.arguments().value(0).toBool();
                    }});
     QObject::connect(&chat, &splitrock::codex::Chat::openPage, &app,
                      [](const QString &page) { QDesktopServices::openUrl(QUrl(page)); });

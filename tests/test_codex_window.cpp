@@ -81,9 +81,17 @@ private Q_SLOTS:
         QTemporaryDir store;
         ChangeRunner runner(store.path());
         bool keptOne = false;
+        QString opened;
         Chat chat(fixture.assistant(QStringLiteral("codex.json")), &runner, nullptr,
                   {[](const QString &, const QString &) { return true; },
-                   [&keptOne](const QString &, const QString &, QString *) { return keptOne = true; }});
+                   [&keptOne](const QString &, const QString &, QString *note, QString *) {
+                       *note = QStringLiteral("note-1");
+                       return keptOne = true;
+                   },
+                   [&opened](const QString &note) {
+                       opened = note;
+                       return true;
+                   }});
         if (!fenceWorks())
             chat.setFence({});
         QQmlApplicationEngine engine;
@@ -115,7 +123,10 @@ private Q_SLOTS:
         QVERIFY(!doIt->isVisible());
         tap(window.get(), find(root, QStringLiteral("codex-keep")));
         QVERIFY(keptOne);
-        QTRY_VERIFY(!find(root, QStringLiteral("codex-keep"))->isEnabled());
+        // Kept, it opens the note in Notes, which outlives the window.
+        QTRY_COMPARE(find(root, QStringLiteral("codex-keep"))->property("text").toString(), QStringLiteral("Open the note"));
+        tap(window.get(), find(root, QStringLiteral("codex-keep")));
+        QCOMPARE(opened, QStringLiteral("note-1"));
         shoot(window.get(), QStringLiteral("codex-done"));
 
         tap(window.get(), find(root, QStringLiteral("codex-close")));

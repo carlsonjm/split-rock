@@ -260,9 +260,11 @@ Window {
             Pill {
                 objectName: "codex-keep"
                 visible: chat.turns.length > 0
-                enabled: !chat.kept && codexWindow.phase !== "working"
-                text: chat.kept ? "Kept as a note" : "Keep as a note"
-                onClicked: chat.keep()
+                // Once kept, it opens the note in Notes, which outlives this
+                // window.
+                enabled: chat.kept ? chat.keptOpens : codexWindow.phase !== "working"
+                text: chat.kept ? (chat.keptOpens ? "Open the note" : "Kept as a note") : "Keep as a note"
+                onClicked: chat.kept ? chat.openKept() : chat.keep()
             }
             Pill {
                 objectName: "codex-stop"

@@ -52,13 +52,17 @@ class Chat : public QObject
     // The page the sign-in opened, for when the browser didn't come up.
     Q_PROPERTY(QString signInPage READ signInPage NOTIFY phaseChanged)
     Q_PROPERTY(bool kept READ kept NOTIFY keptChanged)
+    // The kept note can be opened in Notes, which outlives this window.
+    Q_PROPERTY(bool keptOpens READ keptOpens NOTIFY keptChanged)
 
 public:
     // What the window does with what Codex hands it: opens one of the
-    // Helpers, by name, and keeps the conversation as a note.
+    // Helpers, by name, keeps the conversation as a note, saying in note
+    // which note when Notes kept it, and opens that note in Notes.
     struct Hands {
         std::function<bool(const QString &card, const QString &query)> openCard;
-        std::function<bool(const QString &title, const QString &text, QString *error)> keep;
+        std::function<bool(const QString &title, const QString &text, QString *note, QString *error)> keep;
+        std::function<bool(const QString &note)> openNote;
     };
 
     Chat(const Agent &agent, ChangeRunner *runner, Notebook *notebook, Hands hands, QObject *parent = nullptr);
@@ -74,6 +78,7 @@ public:
     QString signInName() const { return m_signIn ? m_signIn->name : QString(); }
     QString signInPage() const { return m_signInPage; }
     bool kept() const { return m_kept; }
+    bool keptOpens() const { return m_kept && !m_keptNote.isEmpty() && m_hands.openNote; }
 
     // Starts Codex, with a first question or, when empty, only to sign in.
     Q_INVOKABLE void begin(const QString &question);
@@ -86,6 +91,7 @@ public:
     // Keeps the conversation as a note: in Notes where Gooseberry is
     // installed, otherwise in the notebook.
     Q_INVOKABLE bool keep();
+    Q_INVOKABLE bool openKept();
     // Stops Codex and forgets the conversation.
     Q_INVOKABLE void end();
 
@@ -141,6 +147,7 @@ private:
     QString m_aside;
     bool m_framed = false;
     bool m_kept = false;
+    QString m_keptNote;
     bool m_onlySignIn = false;
     bool m_answering = false;
     bool m_freshTurn = false;

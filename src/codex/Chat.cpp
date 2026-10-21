@@ -661,13 +661,24 @@ bool Chat::keep()
         }
     }
     QString error;
-    if (!m_hands.keep || !m_hands.keep(title, text, &error)) {
+    if (!m_hands.keep || !m_hands.keep(title, text, &m_keptNote, &error)) {
         setNotice(error.isEmpty() ? QStringLiteral("It couldn't be kept.") : error);
         return false;
     }
     m_kept = true;
     Q_EMIT keptChanged();
     setNotice(QStringLiteral("Kept as a note."));
+    return true;
+}
+
+bool Chat::openKept()
+{
+    if (!keptOpens())
+        return false;
+    if (!m_hands.openNote(m_keptNote)) {
+        setNotice(QStringLiteral("Notes didn't open. The note is in its Ask folder."));
+        return false;
+    }
     return true;
 }
 

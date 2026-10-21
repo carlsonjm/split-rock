@@ -96,7 +96,7 @@ is_app() {
 
 is_name() {
     case ${1-} in
-        'Split Rock'|Genie) return 0 ;;
+        'Split Rock'|'Shuffle Core'|Genie) return 0 ;;
     esac
     return 1
 }
