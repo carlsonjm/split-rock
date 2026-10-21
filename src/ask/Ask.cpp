@@ -7,6 +7,7 @@
 
 #include <QFile>
 #include <QJsonDocument>
+#include <QRegularExpression>
 #include <QSettings>
 #include <QStandardPaths>
 
@@ -36,46 +37,98 @@ const QList<std::pair<QString, QString>> &upkeep()
 
 // Where things are, in the names the person sees, so an answer never sends
 // them to a menu that isn't there.
-QString places()
+// Where things are, one place for each job, as lines for the jobs an ask
+// is about: a small model given every line borrows from the wrong one.
+QString places(const QString &question)
 {
-    // One place for each job, so an answer's steps stay in one place, and
-    // what isn't there, which a small model otherwise makes up.
-    const QString common = QStringLiteral(
-        "- Printers, displays (size, text scale, night light), users (passwords, the account picture), the mouse, "
-        "the keyboard and apps that start at sign-in: System Settings, on its pages Printers, Display & Monitor, "
-        "Users, Mouse & Touchpad, Keyboard and Autostart.\n"
-        "- Updates: the Check for updates Helper. System Settings has no Update page.\n"
-        "- Disk space: the Free up space Helper. No settings page shows it.\n"
-        "- Installing or removing an app: the Install an app Helper, told the app's name.\n"
-        "- A frozen app: its window's close button, then Close when asked. There is no shortcut for it.\n"
-        "- PDFs: open them from Files; the web browser opens them too.\n"
-        "- Only when the person asks about Word, Excel or Office: Windows programs don't run here; their files open "
-        "in ONLYOFFICE or LibreOffice, which Install an app finds, and Microsoft 365 works in the web browser.\n"
-        "- A problem that stays: the Health check and What changed Helpers, and Codex once signed in under Ask Your "
-        "Computer in Settings. There is no support line or helpdesk to contact.\n"
-        "Name no keyboard shortcut, menu, page or button that isn't written here, and nothing inside a Helper.");
-    if (!QStandardPaths::findExecutable(QStringLiteral("shuffle-settings")).isEmpty())
-        return QStringLiteral(
-            "Shuffle is this computer's desktop, on KDE Plasma. Where things are, one place for each:\n"
-            "- Apps and files: Search, opened with a tap on the dot at the bottom of the screen or the Meta key (the "
-            "Windows key). Apps and Files are in it; Files is like File Explorer, with Downloads, Documents and "
-            "Pictures. The dock along the bottom holds apps; there is no taskbar or Start menu.\n"
-            "- Wi-Fi, and a phone's hotspot: Control Center, opened with a tap on the network icon at the top right. "
-            "Tap a network's name in its list to join; a hotspot shows there by name once it's switched on on the "
-            "phone. There is no Add network button.\n"
-            "- Bluetooth, headphones, a mouse, AirPods: Control Center's Bluetooth page, with Add new device.\n"
-            "- Volume and brightness: the sliders in Control Center. Control Center has nothing else.\n"
-            "- Fans and power: there is no page for them; ask here, and a card can change the power profile.\n"
-            "- Shuffle's own Settings: Meta+I. KDE's System Settings: type its name in Search.\n") + common;
-    return QStringLiteral(
-        "Where things are, one place for each:\n"
-        "- Apps, files and settings: the application launcher at the bottom left, by typing their name. Files are "
-        "in Dolphin, like File Explorer.\n"
-        "- Wi-Fi, Bluetooth, volume and brightness: the icons at the bottom right.\n") + common;
+    struct Place {
+        // The words of an ask the line is for; empty for every ask.
+        const char *about;
+        QString line;
+    };
+    const bool shuffle = !QStandardPaths::findExecutable(QStringLiteral("shuffle-settings")).isEmpty();
+    QList<Place> list;
+    if (shuffle) {
+        list = {
+            {"", QStringLiteral("Apps and files: Search, opened with a tap on the dot at the bottom of the screen or the "
+                                "Meta key (the Windows key); type the name. Apps and Files are in it; Files is like File "
+                                "Explorer, with Downloads, Documents and Pictures. The dock along the bottom holds apps; "
+                                "there is no taskbar or Start menu.")},
+            {"", QStringLiteral("Shuffle's own Settings: Meta+I. KDE's System Settings: type its name in Search.")},
+            {"wi-?fi|internet|network|hotspot|online|connect",
+             QStringLiteral("Wi-Fi and a phone's hotspot: Control Center, opened with a tap on the network icon at the "
+                            "top right. Tap a network's name in its list to join; a hotspot shows there by name once "
+                            "it's switched on on the phone. There is no Add network button.")},
+            {"bluetooth|headphone|earbud|airpod|mouse|pair|speaker|keyboard",
+             QStringLiteral("Bluetooth, headphones, a mouse, AirPods: Control Center's Bluetooth page, with Add new "
+                            "device. Control Center opens with a tap on the network icon at the top right.")},
+            {"sound|volume|loud|quiet|speaker|headphone|mute|audio|hear",
+             QStringLiteral("Volume: the volume slider in Control Center, opened with a tap on the network icon at the "
+                            "top right. Control Center has no other sound page; the output device is chosen on the "
+                            "Sound page of System Settings.")},
+            {"bright|dim|dark|screen",
+             QStringLiteral("Brightness: the brightness slider in Control Center, opened with a tap on the network icon "
+                            "at the top right.")},
+        };
+    } else {
+        list = {
+            {"", QStringLiteral("Apps, files and settings: the application launcher at the bottom left, by typing their "
+                                "name. Files are in Dolphin, like File Explorer.")},
+            {"wi-?fi|internet|network|hotspot|bluetooth|headphone|airpod|mouse|sound|volume|bright|dim",
+             QStringLiteral("Wi-Fi, Bluetooth, volume and brightness: the icons at the bottom right.")},
+        };
+    }
+    list += {
+        {"fan|noisy|loud|hot|power|battery|quiet",
+         QStringLiteral("Fans and power: the fans follow the power profile. Asking here to make the fans quieter, or "
+                        "the computer faster, offers a Do it card that changes the profile, after the person's tap. "
+                        "There is no page for it.")},
+        {"print|scanner",
+         QStringLiteral("Printers: the Printers page of System Settings, with Add Printer.")},
+        {"monitor|display|screen|text|font|small|big|scale|night",
+         QStringLiteral("Displays, a second monitor, text size and night light: the Display & Monitor page of System "
+                        "Settings.")},
+        {"password|account|user|picture|photo of me|profile",
+         QStringLiteral("Passwords and the account picture: the Users page of System Settings.")},
+        {"start|sign.?in|log.?in|boot|autostart",
+         QStringLiteral("Apps that start at sign-in: the Autostart page of System Settings.")},
+        {"updat|up to date|upgrade",
+         QStringLiteral("Updates: the Check for updates Helper. System Settings has no Update page.")},
+        {"space|full|disk|storage|drive|room",
+         QStringLiteral("Disk space: the Free up space Helper. No settings page shows it.")},
+        {"download",
+         QStringLiteral("Downloads: the Downloads folder in Files. Tidy up Downloads clears old downloads.")},
+        {"install|uninstall|remove|app|program|zoom|chrome|game|software",
+         QStringLiteral("Installing or removing an app: the Install an app Helper, told the app's name.")},
+        {"frozen|freez|not responding|stuck|hang|crash",
+         QStringLiteral("A frozen app: its window's close button, then Close when asked. There is no shortcut for it.")},
+        {"pdf",
+         QStringLiteral("PDFs: open them from Files; the web browser opens them too.")},
+        {"word|excel|powerpoint|office|\\.docx?\\b|spreadsheet|windows program|\\.exe",
+         QStringLiteral("Word, Excel, Office and other Windows programs don't run here; their files open in ONLYOFFICE "
+                        "or LibreOffice, which Install an app finds, and Microsoft 365 works in the web browser.")},
+        {"photo|picture|back ?up|backup|copy",
+         QStringLiteral("Photos: the Pictures folder in Files. To back them up, copy the folder to a USB drive in "
+                        "Files, or to a cloud service in the web browser.")},
+        {"slow|restart|reboot|wrong|problem|broken|stopped|keeps|crash|error|help",
+         QStringLiteral("A problem that stays: the Health check and What changed Helpers, and Codex once signed in "
+                        "under Ask Your Computer in Settings. There is no support line or helpdesk to contact.")},
+    };
+    const QString asked = question.toLower();
+    QStringList lines;
+    for (const Place &place : list) {
+        const QString about = QString::fromLatin1(place.about);
+        if (about.isEmpty() || QRegularExpression(about).match(asked).hasMatch())
+            lines.append(QStringLiteral("- ") + place.line);
+    }
+    return QStringLiteral("%1Where things are, for this question:\n%2\nName no keyboard shortcut, menu, page, section "
+                          "or button that isn't written here, and nothing inside a Helper.")
+        .arg(shuffle ? QStringLiteral("Shuffle is this computer's desktop, on KDE Plasma. ") : QString(),
+             lines.join(QLatin1Char('\n')));
 }
 
 // What this computer runs, from os-release, and where things are.
-QString facts()
+QString facts(const QString &question)
 {
     QFile file(QStringLiteral("/etc/os-release"));
     QString name, like;
@@ -95,7 +148,7 @@ QString facts()
                                 "Plasma's app store; Ubuntu's apt does not exist here.");
     else
         words += QStringLiteral(", with KDE Plasma 6. Software comes from Discover, Plasma's app store.");
-    words += QLatin1Char('\n') + places();
+    words += QLatin1Char('\n') + places(question);
     return words;
 }
 
@@ -143,7 +196,7 @@ desk::Context Ask::context() const
     desk::Context context;
     context.skills = m_shelf.skills();
     context.cards = upkeep();
-    context.facts = facts();
+    context.facts = facts(m_question);
     // Codex takes a bigger change once it is signed in; until then the
     // answer says where to sign in.
     if (m_setup.codex.unavailable.isEmpty() && m_setup.codex.signedIn())

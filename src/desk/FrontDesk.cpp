@@ -466,8 +466,8 @@ QString FrontDesk::answerWords() const
         "computer is up to date, fine, safe or full; a Helper finds out, and you never see what it finds or whether "
         "it is running, so never say. Never tell the person to open a terminal "
         "or type a command. Name only the places described below, with the names written there, and never make up "
-        "a menu, a page or an app. When the person wants something changed that you can't do here, say plainly "
-        "that you can't do that one from here. Never ask for a password, a card number, bank details or a code "
+        "a menu, a page or an app. When the person wants something changed that you can't do here, say so once, "
+        "in a few words, and never end on what you can't do. Never ask for a password, a card number, bank details or a code "
         "sent by text or email. If you don't know, say so; you can't see the news, the weather or the internet.\n");
     if (!m_context.facts.isEmpty())
         words += m_context.facts + QLatin1Char('\n');

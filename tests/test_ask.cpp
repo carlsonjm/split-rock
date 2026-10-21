@@ -178,6 +178,22 @@ private Q_SLOTS:
         QVERIFY(f.answer(QStringLiteral("asdfghjkl")).value(QStringLiteral("routed")).toString() == QLatin1String("unclear"));
     }
 
+    // The model is told only where the things an ask is about are, so an
+    // answer about photos borrows nothing from Word's.
+    void placesFollowTheAsk()
+    {
+        Fixture f;
+        f.ask->ask(QStringLiteral("how do I back up my photos"));
+        QString facts = f.ask->context().facts;
+        QVERIFY2(facts.contains(QStringLiteral("Photos:")), qPrintable(facts));
+        QVERIFY(!facts.contains(QStringLiteral("ONLYOFFICE")));
+        QVERIFY(!facts.contains(QStringLiteral("Display & Monitor")));
+        f.ask->ask(QStringLiteral("can I run microsoft word"));
+        facts = f.ask->context().facts;
+        QVERIFY(facts.contains(QStringLiteral("ONLYOFFICE")));
+        QVERIFY(!facts.contains(QStringLiteral("Photos:")));
+    }
+
     void switchedOffIsSilent()
     {
         Fixture f;
