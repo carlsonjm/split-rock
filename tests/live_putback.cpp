@@ -212,34 +212,41 @@ private Q_SLOTS:
     {
         bool set = false;
         const QString was = valueOf(QStringLiteral("kwinrc"), QStringLiteral("Plugins"), QStringLiteral("blurEnabled"), &set);
-        const bool on = !set || was != QLatin1String("false");
-        const auto write = [](bool value) {
+        const auto write = [](const QString &value) {
             return QStringLiteral("kwriteconfig6 --file kwinrc --group Plugins --key blurEnabled --notify -- %1 && "
                                   "{ qdbus6 org.kde.KWin /KWin reconfigure || qdbus org.kde.KWin /KWin reconfigure; }")
-                .arg(value ? QStringLiteral("true") : QStringLiteral("false"));
+                .arg(value);
         };
         const auto live = [] {
             return sh(QStringLiteral("qdbus6 org.kde.KWin /Effects org.kde.kwin.Effects.isEffectLoaded blur 2>/dev/null"));
         };
-        // Blur may be off by hand, out of step with the settings: KWin is
-        // asked to follow its settings first, so Put back has something true
-        // to compare with, and blur is left on or off as it was found.
+        // KWin re-reads an effect's setting only when it changes, so blur
+        // turned off by hand with the setting left at its default stays off.
+        // The check starts from blur's live state written down, so Put back
+        // has a true value to compare with, and in the end the file and blur
+        // are left as they were found. Putting back a setting that wasn't
+        // there is the layouts' check.
         const QString found = live();
-        sh(QStringLiteral("qdbus6 org.kde.KWin /KWin reconfigure"));
-        QTest::qWait(1500);
-        const QString restore = (set ? write(on) : QStringLiteral("kwriteconfig6 --file kwinrc --group Plugins --key blurEnabled --delete && "
-                                                                  "{ qdbus6 org.kde.KWin /KWin reconfigure || true; }"))
-            + QStringLiteral("; sleep 1; qdbus6 org.kde.KWin /Effects org.kde.kwin.Effects.%1 blur")
-                  .arg(found == QLatin1String("true") ? QStringLiteral("loadEffect") : QStringLiteral("unloadEffect"));
-        qInfo().noquote() << QStringLiteral("blur was live %1, and %2 once KWin follows its settings").arg(found, live());
+        const QString inStep = found == QLatin1String("true") ? QStringLiteral("true") : QStringLiteral("false");
         auto leave = qScopeGuard([&] {
-            if (live() != found)
-                qWarning().noquote() << QStringLiteral("NOT AS IT BEGAN: blur is live %1, was %2 — run: qdbus6 org.kde.KWin /Effects "
-                                                       "org.kde.kwin.Effects.%3 blur")
-                                            .arg(live(), found, found == QLatin1String("true") ? QStringLiteral("loadEffect")
-                                                                                                 : QStringLiteral("unloadEffect"));
+            sh((set ? write(was) : QStringLiteral("kwriteconfig6 --file kwinrc --group Plugins --key blurEnabled --delete"))
+               + QStringLiteral("; sleep 1; qdbus6 org.kde.KWin /Effects org.kde.kwin.Effects.%1 blur")
+                     .arg(found == QLatin1String("true") ? QStringLiteral("loadEffect") : QStringLiteral("unloadEffect")));
+            QTest::qWait(1500);
+            bool nowSet = false;
+            const QString now = valueOf(QStringLiteral("kwinrc"), QStringLiteral("Plugins"), QStringLiteral("blurEnabled"), &nowSet);
+            if (nowSet != set || now != was || live() != found)
+                qWarning().noquote() << QStringLiteral("NOT AS IT BEGAN: blur is %1 in kwinrc and live %2, was %3 and %4")
+                                            .arg(nowSet ? now : QStringLiteral("not set"), live(),
+                                                 set ? was : QStringLiteral("not set"), found);
+            else
+                qInfo().noquote() << "blur is as it began, in kwinrc and live";
         });
-        roundTrip(QStringLiteral("kwinrc"), QStringLiteral("Plugins"), QStringLiteral("blurEnabled"), write(!on), restore, live);
+        sh(write(inStep));
+        QTest::qWait(1500);
+        qInfo().noquote() << QStringLiteral("blur live %1, written down as %2").arg(found, inStep);
+        roundTrip(QStringLiteral("kwinrc"), QStringLiteral("Plugins"), QStringLiteral("blurEnabled"),
+                  write(inStep == QLatin1String("true") ? QStringLiteral("false") : QStringLiteral("true")), write(inStep), live);
     }
 
     // A keyboard shortcut removed, as in System Settings: through the running
