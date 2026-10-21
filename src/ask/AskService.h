@@ -1,7 +1,10 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 #pragma once
 
+#include "codex/Agent.h"
+
 #include <QDBusConnection>
+#include <QFileSystemWatcher>
 #include <QObject>
 #include <QVariantMap>
 
@@ -25,7 +28,10 @@ public:
     static constexpr char Service[] = "io.github.carlsonjm.splitrock.Ask";
     static constexpr char Path[] = "/Ask";
 
-    AskService(ask::Ask *asking, LocalModel *model, QObject *parent = nullptr);
+    // codex: Codex, as the Ask Codex window starts it; window: the program
+    // that opens that window (split-rock --codex).
+    AskService(ask::Ask *asking, LocalModel *model, const codex::Agent &codex, const QString &window,
+               QObject *parent = nullptr);
 
     bool publish(QDBusConnection bus);
 
@@ -40,15 +46,28 @@ public Q_SLOTS:
     Q_SCRIPTABLE void DownloadModel();
     Q_SCRIPTABLE void CancelDownload();
     Q_SCRIPTABLE void RemoveModel();
+    // Codex, for the bigger questions: installed, signedIn, handOff (the
+    // switch in Settings) and, when it can't start, problem.
+    Q_SCRIPTABLE QVariantMap Codex() const;
+    // Opens Ask Codex with the question; with none, it only signs in.
+    Q_SCRIPTABLE bool OpenCodex(const QString &question);
+    Q_SCRIPTABLE bool SignOutCodex();
 
 Q_SIGNALS:
     Q_SCRIPTABLE void Said(uint id, const QString &text);
     Q_SCRIPTABLE void Answered(uint id, const QVariantMap &result);
     Q_SCRIPTABLE void ModelChanged(const QVariantMap &model);
+    Q_SCRIPTABLE void CodexChanged(const QVariantMap &codex);
 
 private:
+    void watchCodex();
+
     ask::Ask *m_ask;
     LocalModel *m_model;
+    codex::Agent m_codex;
+    QString m_window;
+    QFileSystemWatcher m_watch;
+    bool m_signedIn = false;
 };
 
 } // namespace splitrock::ask

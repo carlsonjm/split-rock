@@ -28,6 +28,7 @@
 #include "ask/Ask.h"
 #include "ask/AskService.h"
 #include "ask/LocalModel.h"
+#include "codex/Agent.h"
 #include "desk/Model.h"
 #include "guide/GuideLibrary.h"
 
@@ -205,6 +206,7 @@ int main(int argc, char **argv)
         ? parser.value(settingsOption)
         : QStandardPaths::writableLocation(QStandardPaths::GenericConfigLocation) + QStringLiteral("/split-rock-corerc");
     setup.skillRoots = skillRoots();
+    setup.codex = codex::codex();
     ask::Ask asking(&model, setup);
 
     if (parser.isSet(framingOption)) {
@@ -221,7 +223,8 @@ int main(int argc, char **argv)
 
     model.survey();
     QDBusConnection bus = QDBusConnection::sessionBus();
-    ask::AskService service(&asking, &model);
+    ask::AskService service(&asking, &model, setup.codex,
+                            beside(QStringLiteral("split-rock"), QStringLiteral(SPLIT_ROCK_INSTALLED_PROGRAM)));
     if (!bus.isConnected() || !service.publish(bus)
         || !bus.registerService(QLatin1String(ask::AskService::Service))) {
         // Another Ask already answers, or there is no bus to answer on.

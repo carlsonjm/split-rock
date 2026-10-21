@@ -26,6 +26,8 @@ Rectangle {
     // What it holds, folded under it.
     property string list
     property string listTitle: "Show which"
+    // Room kept at its end for controls of the card's own, such as Do it.
+    property real reserve: 0
     signal clicked()
 
     readonly property bool tappable: checkable || opens || acts
@@ -103,7 +105,7 @@ Rectangle {
         id: rowColumn
         x: 56
         y: 12
-        width: parent.width - x - 12 - (trailingRow.implicitWidth > 0 ? trailingRow.implicitWidth + 12 : 0) - (row.opens ? 24 : 0)
+        width: parent.width - x - 12 - (trailingRow.implicitWidth > 0 ? trailingRow.implicitWidth + 12 : 0) - (row.opens ? 24 : 0) - row.reserve
         spacing: 3
         Text {
             width: parent.width

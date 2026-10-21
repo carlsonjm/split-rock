@@ -17,7 +17,8 @@ Core never calls a model (`CORE.md`). Ask is where the model lives.
 - It changes nothing. An answer is words, the Helpers that fit, and at most
   one Do it card from a settings skill, which waits for the person's tap.
 - Every answer says who gave it: `who` is `computer` for every answer Ask
-  gives. Codex answers only in its own window, so the two are never mixed.
+  gives. Codex answers only in its own window, Ask Codex, so the two are
+  never mixed.
 - Each question is asked afresh, with no earlier question in it, as Search
   asks one at a time.
 - `split-rock-corerc` switches Ask off: `[Ask] Enabled=false`. Off, it answers
@@ -42,8 +43,9 @@ The desk decides, not the model alone (`DECISIONS.md`, Ask on this computer):
    this computer, and asks the model once more whether it does what was
    asked, before the card is offered.
 5. A Helper is named by its id, and goes under the answer.
-6. Anything else that changes the computer is a bigger change: the answer
-   says Codex can take it.
+6. Anything else that changes the computer is a bigger change. Once Codex
+   is signed in, the answer says so and `handOff` is set, and Search offers
+   Ask Codex; until then, it says where to sign in.
 
 ## The model and its download
 
@@ -62,6 +64,38 @@ The desk decides, not the model alone (`DECISIONS.md`, Ask on this computer):
 - Ask finds `llama-server` in Shuffle's own engine folder first
   (`lib/split-rock/engine`), then wherever the system installed it.
 
+## Codex
+
+The bigger fixes: OpenAI's Codex, with the person's own ChatGPT plan, through
+its Agent Client Protocol adapter, `codex-acp` (`DECISIONS.md`, Codex comes
+back in a window of its own). Shuffle installs the adapter in
+`lib/split-rock/codex`; elsewhere Split Rock uses one on the PATH, and says
+Codex isn't installed when there is none.
+
+- **When:** only on the person's tap on Ask Codex, under an answer, or
+  straight from an answer that is a bigger change once the person switches
+  on Hand bigger questions to Codex (`split-rock-corerc`,
+  `[Ask] HandToCodex=true`). `Answered` then carries `handedToCodex`.
+- **Where:** `split-rock --codex --question TEXT` opens Ask Codex, a window
+  drawn like a Helper with one conversation in it, under Codex's name. It
+  ends when the window closes, and what Codex wrote about it is removed.
+  Keep as a note keeps it first: in Notes, in its Ask folder, where Gooseberry
+  is installed, and in the notebook otherwise.
+- **Sign-in:** Codex's own, Login with ChatGPT, through its page in the
+  browser. A way that needs a key or a terminal is never offered.
+  `split-rock --codex` with no question only signs in, as Settings asks.
+  Codex keeps its sign-in in a folder of its own, `split-rock/codex` in the
+  person's data folder, never the person's own Codex; `SignOutCodex` deletes
+  it.
+- **Changes:** Codex runs in read-only mode, and every request it makes to
+  act is refused. A change it proposes with `split-rock-change` goes on a
+  Do it row; Split Rock makes it outside the fence, as the person and never
+  as the administrator, written in the notebook with its way back first, and
+  tells Codex how it went. Upkeep goes to the Helpers instead.
+- **The fence:** the one `llama-server` runs in. Codex reads the desktop's
+  own settings, and writes only its own folder and a working folder of its
+  own; it keeps the network to reach OpenAI and to finish its sign-in.
+
 ## On the bus
 
 Name `io.github.carlsonjm.splitrock.Ask`, object `/Ask`, interface
@@ -77,12 +111,16 @@ Name `io.github.carlsonjm.splitrock.Ask`, object `/Ask`, interface
 | `DownloadModel()` | Downloads the model, after the person's tap |
 | `CancelDownload()` | Stops the download; it carries on from there next time |
 | `RemoveModel()` | Deletes the model from this computer |
+| `Codex() → a{sv}` | Codex: `installed`, `signedIn`, `handOff` (the switch in Settings), and `problem` when it can't start |
+| `OpenCodex(s question) → b` | Opens Ask Codex with the question; with none, it only signs in |
+| `SignOutCodex() → b` | Forgets Codex's sign-in |
 
 | Signal | When |
 | --- | --- |
 | `Said(u id, s text)` | The next words of the answer, as they are written |
 | `Answered(u id, a{sv} result)` | The question is done |
 | `ModelChanged(a{sv} model)` | The download moved on, as `Model()` |
+| `CodexChanged(a{sv} codex)` | Codex signed in or out, as `Codex()` |
 
 `Answered` carries:
 
@@ -94,7 +132,8 @@ Name `io.github.carlsonjm.splitrock.Ask`, object `/Ask`, interface
 | `helpers` | The Helpers that fit, by Core's ids (`space`, `install`, …), for `OpenAction` |
 | `query` | What Install an app looks for |
 | `doIt` | A Do it card from a settings skill, as JSON, or empty |
-| `handOff` | Codex can take it |
+| `handOff` | A bigger change, which Codex, signed in, can take |
+| `handedToCodex` | It went straight on to Codex, as the person switched on |
 | `needsModel` | The model isn't downloaded yet; `text` says what it needs |
 | `off` | Ask is switched off |
 | `cancelled` | A newer question, or `Cancel`, stopped it |

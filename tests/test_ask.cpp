@@ -268,7 +268,8 @@ http.server.HTTPServer(("127.0.0.1", port), Reply).serve_forever()
         QVERIFY(bus.isConnected());
         Fixture f;
         f.pretend.answers.insert(QStringLiteral("What is KDE?"), QStringLiteral("It's the desktop you're using."));
-        AskService service(f.ask.get(), f.model.get());
+        AskService service(f.ask.get(), f.model.get(), codex::codex(QString(), f.dir.filePath(QStringLiteral("codex"))),
+                           QStringLiteral("/bin/true"));
         QVERIFY(service.publish(bus));
         QVERIFY(bus.registerService(QLatin1String(AskService::Service)));
         QDBusInterface ask(QLatin1String(AskService::Service), QLatin1String(AskService::Path),

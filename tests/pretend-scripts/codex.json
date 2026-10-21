@@ -1,0 +1,34 @@
+{
+  "agent": {"name": "pretend", "title": "Pretend assistant", "version": "1"},
+  "signedIn": true,
+  "modes": {"currentModeId": "auto", "availableModes": [
+    {"id": "ask-first", "name": "Ask first"}, {"id": "auto", "name": "Auto"}]},
+  "turns": [
+    {"expectPrompt": "my wifi keeps dropping", "steps": [
+      {"say": "Your card's power saving is on."},
+      {"tool": {"toolCallId": "propose-1", "title": "Propose a change", "kind": "execute", "status": "pending",
+                "rawInput": {"command": ["bash", "-lc",
+                  "split-rock-change '{\"title\": \"Turn off Wi-Fi power saving\", \"what\": \"Power saving goes off for this card\", \"why\": \"It drops the connection\", \"command\": \"true\", \"undo\": \"true\"}'"]}}},
+      {"ask": {"toolCall": {"toolCallId": "propose-1"}, "options": [
+        {"optionId": "yes", "name": "Allow", "kind": "allow_once"},
+        {"optionId": "no", "name": "Reject", "kind": "reject_once"}]}, "expect": "reject_once"},
+      {"tool": {"toolCallId": "look-1", "title": "Read the card", "kind": "read", "status": "completed"}},
+      {"say": "I've put the change on a card below."}
+    ]},
+    {"expectPrompt": "tapped Do it", "steps": [{"say": "It's done. Do the drops stop now?"}]},
+    {"expectPrompt": "through the stand-in", "steps": [
+      {"run": ["sh", "-c", "split-rock-change '{\"title\": \"Show hidden files\", \"what\": \"Dolphin shows hidden files\", \"why\": \"Asked for\", \"command\": \"true\", \"undo\": \"true\"}'"]}
+    ]},
+    {"expectPrompt": "look around", "steps": [
+      {"run": ["sh", "-c", "echo HOME:; ls -A \"$HOME\"; echo MNT:; ls /mnt /media 2>&1; echo OUTSIDE:; cat \"$HOME/../../outside.txt\" 2>&1; echo ENV:; env"]}
+    ]},
+    {"expectPrompt": "a password", "steps": [
+      {"tool": {"toolCallId": "run-1", "title": "Run a command", "kind": "execute", "status": "pending",
+                "rawInput": {"command": ["bash", "-lc", "rm -rf ~/Documents"]}}},
+      {"ask": {"toolCall": {"toolCallId": "run-1"}, "options": [
+        {"optionId": "yes", "name": "Allow", "kind": "allow_once"},
+        {"optionId": "no", "name": "Reject", "kind": "reject_once"}]}, "expect": "reject_once"},
+      {"say": "That was refused."}
+    ]}
+  ]
+}

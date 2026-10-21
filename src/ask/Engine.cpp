@@ -88,6 +88,7 @@ void Engine::start(const QString &engine, const QString &model, const QString &l
     room.readable = {QFileInfo(model).absoluteFilePath(), QFileInfo(engine).absolutePath()};
     // The graphics chip, for the model to run on.
     room.devices = {QStringLiteral("/dev/dri"), QStringLiteral("/dev/kfd")};
+    m_process->setProcessEnvironment(fencedEnvironment(QProcessEnvironment::systemEnvironment()));
     m_process->start(fence, fenced(engine,
                                    {QStringLiteral("--model"), model,
                                     QStringLiteral("--host"), QStringLiteral("127.0.0.1"),

@@ -93,12 +93,21 @@ bool Ask::enabled() const
     return QSettings(m_setup.settings, QSettings::IniFormat).value(QStringLiteral("Ask/Enabled"), true).toBool();
 }
 
+bool Ask::handsToCodex() const
+{
+    return QSettings(m_setup.settings, QSettings::IniFormat).value(QStringLiteral("Ask/HandToCodex"), false).toBool();
+}
+
 desk::Context Ask::context() const
 {
     desk::Context context;
     context.skills = m_shelf.skills();
     context.cards = upkeep();
     context.facts = facts();
+    // Codex takes a bigger change once it is signed in; until then the
+    // answer says where to sign in.
+    if (m_setup.codex.unavailable.isEmpty() && m_setup.codex.signedIn())
+        context.handOffTo = m_setup.codex.name;
     return context;
 }
 
