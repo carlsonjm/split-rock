@@ -24,6 +24,10 @@
 #   community NAME SNAP RECIPE HEAD [HELPER...] -- PACKAGE...
 #                                           build a reviewed recipe at its commit
 #                                           as the person, install what it built
+#   start-service UNIT                      start a system service that stopped
+#                                           working, and only one that did
+#   flatpak-back APP COMMIT                 take a system Flathub app back to
+#                                           the commit it had before
 #
 # NAME is the name the person knows Split Rock by, which restore points carry;
 # SNAP is 1 to take a restore point before and after, 0 not to.
@@ -67,6 +71,27 @@ is_number() {
         ''|*[!0-9]*) return 1 ;;
     esac
     [ ${#1} -le 9 ]
+}
+
+# A systemd unit's name: letters, digits and : _ . @ \ -, with its kind,
+# never starting with -.
+is_unit() {
+    case ${1-} in
+        ''|-*|*[!A-Za-z0-9:_.@\\-]*) return 1 ;;
+        *.service|*.socket|*.timer|*.mount|*.path) ;;
+        *) return 1 ;;
+    esac
+    [ ${#1} -le 256 ]
+}
+
+# A Flathub app's id, as org.mozilla.firefox.
+is_app() {
+    case ${1-} in
+        ''|-*|.*|*..*|*[!A-Za-z0-9._-]*) return 1 ;;
+        *.*.*) ;;
+        *) return 1 ;;
+    esac
+    [ ${#1} -le 255 ]
 }
 
 is_name() {
@@ -338,6 +363,25 @@ community)
     pid=$!
     tail -n +1 --pid="$pid" -f "$log" 2>/dev/null
     wait "$pid"
+    ;;
+
+start-service)
+    [ $# -eq 1 ] && is_unit "$1" || refuse "start-service takes a unit"
+    # Only a service that stopped working: one running, or stopped on
+    # purpose, is left as it is.
+    systemctl is-failed --quiet -- "$1" || refuse "$1 hasn't stopped working"
+    systemctl reset-failed -- "$1"
+    systemctl restart -- "$1" && sleep 2 && systemctl is-active --quiet -- "$1" && exit 0
+    journalctl -u "$1" -n 12 -o cat --no-pager -q
+    exit 1
+    ;;
+
+flatpak-back)
+    [ $# -eq 2 ] && is_app "$1" || refuse "flatpak-back takes an app and a commit"
+    case $2 in *[!0-9a-f]*) refuse "flatpak-back takes a commit's full hash" ;; esac
+    [ ${#2} -eq 64 ] || refuse "flatpak-back takes a commit's full hash"
+    flatpak info --system -- "$1" >/dev/null 2>&1 || refuse "$1 isn't installed for everyone"
+    exec flatpak update --system -y --noninteractive --commit="$2" -- "$1"
     ;;
 
 *)

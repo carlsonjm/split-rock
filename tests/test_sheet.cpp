@@ -5,6 +5,7 @@
 #include "app/ChangeRunner.h"
 #include "app/Helpers.h"
 #include "app/QmlContext.h"
+#include "settings/SettingsHistory.h"
 
 #include <QDir>
 #include <QFile>
@@ -469,13 +470,42 @@ private Q_SLOTS:
                 "%2 [ALPM] installed libvlc-dep (1-1)\n"
                 "@@ explicit\nfirefox\nvlc\n"
                 "@@ settings\n%3 kwinrc\n%3 kdeglobals\n%4 kcminputrc\n"
-                "@@ failed\nsystem|bluetooth.service|%3|Bluetooth service\n"
+                "@@ failed\nsystem|bluetooth.service|%3|Starting Bluetooth service...\037Failed to set mode: Blocked through "
+                "rfkill (0x12)|Bluetooth service\n"
                 "@@ kernel\n6.17.1-2-cachyos\nmissing\n"
                 "@@ snapper\nyes\n@@ end\n")
                            .arg(stamp(1, QStringLiteral("09:10:00")), stamp(3, QStringLiteral("08:00:00")), secs(0), secs(3))
                            .toUtf8());
         }
+        // Core's copies of the settings, taken an hour ago; since then the
+        // screen's scale, a shortcut and a widget changed.
+        QTemporaryDir configDir;
+        QTemporaryDir historyDir;
+        const auto setting = [&configDir](const QString &file, const QByteArray &text) {
+            QFile out(configDir.filePath(file));
+            QVERIFY(out.open(QIODevice::WriteOnly | QIODevice::Truncate));
+            out.write(text);
+        };
+        const QByteArray outputs = R"([{"name":"outputs","data":[{"connectorName":"eDP-1","scale":1.75,"transform":"Normal"}]}])";
+        const QString applets = QStringLiteral("plasma-org.kde.plasma.desktop-appletsrc");
+        setting(QStringLiteral("kwinoutputconfig.json"), outputs);
+        setting(QStringLiteral("kglobalshortcutsrc"), "[kwin]\nTile windows=Meta+T,Meta+T,Tile windows\n");
+        setting(applets, "[Containments][1]\nplugin=org.kde.panel\n");
+        const QDateTime changedAt = QDateTime::currentDateTime().addSecs(-1800);
+        {
+            SettingsHistory history(historyDir.path(), configDir.path());
+            history.look(QDateTime::currentDateTime().addSecs(-3600));
+            QByteArray scaled = outputs;
+            scaled.replace("1.75", "1.5");
+            setting(QStringLiteral("kwinoutputconfig.json"), scaled);
+            setting(QStringLiteral("kglobalshortcutsrc"), "[kwin]\nTile windows=none,Meta+T,Tile windows\n");
+            setting(applets, "[Containments][1]\nplugin=org.kde.panel\n\n[Containments][1][Applets][7]\n"
+                             "plugin=org.kde.plasma.digitalclock\n");
+            QCOMPARE(history.look(changedAt).size(), 3);
+        }
         RecentChanges *recent = c.recentChanges();
+        recent->setSettingsHistory(historyDir.path(), configDir.path());
+        recent->setProgram(QStringLiteral("/usr/bin/split-rock"));
         recent->setLookScript(QStringLiteral("cat '") + changesDir.filePath(QStringLiteral("look.txt")) + QLatin1Char('\''));
         recent->setRecords([] {
             ChangeRunner::Record pointer;
@@ -489,15 +519,55 @@ private Q_SLOTS:
         QVERIFY(opens(QStringLiteral("changes")));
         QTRY_COMPARE(recent->stage(), QStringLiteral("ready"));
         shows(QStringLiteral("changesCard"), QStringLiteral("42-changes-ready"));
-        // A change with no way back is copied, to ask someone about.
+        QQuickItem *changes = find(full, QStringLiteral("changesCard"));
+        QVERIFY(changes);
+        changes->setProperty("all", true);
+
+        // Each row says what changed, with its way back on it.
+        const QString secs = QString::number(changedAt.toSecsSinceEpoch());
+        QQuickItem *scale = find(full, QStringLiteral("change-setting-kwinoutputconfig.json-%1-eDP-1").arg(secs));
+        QVERIFY(scale);
+        QCOMPARE(scale->property("title").toString(), QStringLiteral("Built-in screen: scale 175% to 150%"));
+        QCOMPARE(scale->property("button").toString(), QStringLiteral("Put back"));
+        QQuickItem *keys = find(full, QStringLiteral("change-setting-kglobalshortcutsrc-%1").arg(secs));
+        QVERIFY(keys);
+        QCOMPARE(keys->property("title").toString(), QStringLiteral("Shortcut for Tile windows removed"));
+        QCOMPARE(keys->property("button").toString(), QStringLiteral("Put back"));
+        // Put back asks first, as a change from a card.
+        QMetaObject::invokeMethod(scale, "clicked");
+        QTRY_VERIFY(changes->property("asking").toBool());
+        QQuickItem *heading = find(full, QStringLiteral("changesHeading"));
+        QVERIFY(heading);
+        QCOMPARE(heading->property("text").toString(), QStringLiteral("Put it back as it was?"));
+        QVERIFY(find(full, QStringLiteral("changesShowMe"))->isVisible());
+        shows(QStringLiteral("changesCard"), QStringLiteral("42a-changes-put-back"));
+        QMetaObject::invokeMethod(find(full, QStringLiteral("changesNotNow")), "clicked");
+        QTRY_VERIFY(!changes->property("asking").toBool());
+
+        // A service that stopped working starts again, with what it said.
         QQuickItem *stopped = find(full, QStringLiteral("change-service-bluetooth.service"));
         QVERIFY(stopped);
-        QCOMPARE(stopped->property("trailing").toString(), QStringLiteral("Copy for help"));
+        QCOMPARE(stopped->property("button").toString(), QStringLiteral("Start it again"));
+        QVERIFY(stopped->property("detail").toString().startsWith(QStringLiteral("Said \"Failed to set mode")));
         QMetaObject::invokeMethod(stopped, "clicked");
-        QTRY_COMPARE(stopped->property("trailing").toString(), QStringLiteral("Copied"));
-        QVERIFY(QGuiApplication::clipboard()->text().contains(QStringLiteral("bluetooth.service")));
-        QVERIFY(QGuiApplication::clipboard()->text().contains(QStringLiteral("About my computer:")));
-        shows(QStringLiteral("changesCard"), QStringLiteral("42b-changes-copied"));
+        QTRY_VERIFY(changes->property("asking").toBool());
+        QCOMPARE(heading->property("text").toString(), QStringLiteral("Start Bluetooth service again?"));
+        shows(QStringLiteral("changesCard"), QStringLiteral("42b-changes-start-again"));
+        QMetaObject::invokeMethod(find(full, QStringLiteral("changesNotNow")), "clicked");
+        QTRY_VERIFY(!changes->property("asking").toBool());
+
+        // A widget has no safe way back yet: copied for help, exactly.
+        QQuickItem *widget = find(full, QStringLiteral("change-setting-%1-%2").arg(applets, secs));
+        QVERIFY(widget);
+        QCOMPARE(widget->property("title").toString(), QStringLiteral("Added the Digital clock widget"));
+        QCOMPARE(widget->property("button").toString(), QStringLiteral("Copy for help"));
+        QMetaObject::invokeMethod(widget, "clicked");
+        QTRY_COMPARE(widget->property("button").toString(), QStringLiteral("Copied"));
+        const QString copied = QGuiApplication::clipboard()->text();
+        QVERIFY2(copied.contains(QStringLiteral("Exactly, in ~/.config:")), qPrintable(copied));
+        QVERIFY(copied.contains(QStringLiteral("plugin: not set to org.kde.plasma.digitalclock")));
+        QVERIFY(copied.contains(QStringLiteral("About my computer:")));
+        shows(QStringLiteral("changesCard"), QStringLiteral("42c-changes-copied"));
         // The whole card at once, for the screens.
         full->setGeometry(0, 0, 560, 1500);
         shows(QStringLiteral("changesCard"), QStringLiteral("45-changes-whole"));

@@ -8,6 +8,7 @@ on its own, in an ordinary window, from Core or Search (`DESKTOP.md`).
 | Open a Helper | Tap it in Search | None yet |
 | Act on a Helper | Tap its button | None yet |
 | Undo a past change | Tap Undo beside a change on What changed | None yet |
+| Put a change back | Tap Put back on a settings row | None yet |
 | Scroll | Drag the Helper | None yet |
 | Close | Tap Close or Not now, or close the window | The window's own |
 
@@ -41,3 +42,13 @@ on its own, in an ordinary window, from Core or Search (`DESKTOP.md`).
 | Input | What happens |
 | --- | --- |
 | Tap or click Undo beside a change, or Undo it, on What changed | Split Rock puts that change back, as its card promised, and marks its line in This computer.md as undone. If a file has changed since, Split Rock leaves it as it is and puts nothing back. Before Undo replaces or removes a file, it keeps a copy in the change's own folder. Undo is offered only while nothing else is being changed. |
+
+## Put a change back
+
+| Input | What happens |
+| --- | --- |
+| Tap or click Put back on a settings row | The card asks first: what goes back, that What changed keeps it with Undo, and Show details with the exact values. Do it sets the values from before and tells the desktop; Show me how instead opens KDE's page for it; Not now goes back to the list. |
+| Tap or click Start it again on a stopped service | The card asks first, with what the service said last. Do it starts it again, with the system's password prompt for one of the system's own, and says whether it is running. |
+| Tap or click Go back on a Flathub app | The card asks first. Do it takes the app back to the version it had before that update, with the system's password prompt for an app installed for everyone. |
+| Tap or click Open in Settings | KDE's page for that setting opens. |
+| Tap or click Copy for help | What changed, exactly, with what the computer is, is copied to paste where you ask. The button says Copied for a moment. |

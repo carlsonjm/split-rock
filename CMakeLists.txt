@@ -12,6 +12,13 @@ include(GNUInstallDirs)
 
 # The Helpers and what they write in, without a window, so the tests can drive
 # all of it.
+# The copies Core keeps of the desktop's settings, and what changed in them,
+# which What changed reads (src/settings/SettingsHistory.h).
+add_library(splitrock_settings STATIC src/settings/SettingsHistory.cpp)
+target_include_directories(splitrock_settings PUBLIC src)
+target_link_libraries(splitrock_settings PUBLIC Qt6::Core)
+target_compile_options(splitrock_settings PRIVATE -Wall -Wextra)
+
 add_library(splitrock_core STATIC
     src/app/Admin.cpp
     src/app/Appearance.cpp
@@ -28,13 +35,14 @@ add_library(splitrock_core STATIC
     src/app/AppInstall.cpp
     src/app/RestorePoints.cpp
     src/app/RecentChanges.cpp
+    src/app/SettingRows.cpp
     src/app/HealthCheck.cpp
     src/app/CommunityApps.cpp
     src/guide/GuideLibrary.cpp
     src/app/Product.cpp
 )
 target_include_directories(splitrock_core PUBLIC src)
-target_link_libraries(splitrock_core PUBLIC Qt6::Core)
+target_link_libraries(splitrock_core PUBLIC Qt6::Core splitrock_settings)
 target_compile_options(splitrock_core PRIVATE -Wall -Wextra)
 target_compile_definitions(splitrock_core PUBLIC PROJECT_VERSION="${PROJECT_VERSION}"
     # The only program Split Rock runs as the administrator.
@@ -107,7 +115,7 @@ add_library(splitrock_core_watch STATIC
     src/core/Windows.cpp
 )
 target_include_directories(splitrock_core_watch PUBLIC src)
-target_link_libraries(splitrock_core_watch PUBLIC Qt6::Core Qt6::DBus)
+target_link_libraries(splitrock_core_watch PUBLIC Qt6::Core Qt6::DBus splitrock_settings)
 target_compile_options(splitrock_core_watch PRIVATE -Wall -Wextra)
 qt_add_executable(split-rock-core src/core/main.cpp)
 target_link_libraries(split-rock-core PRIVATE splitrock_core_watch)

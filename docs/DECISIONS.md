@@ -1125,3 +1125,30 @@ would put other apps' messages in front of a program that needs only their
 number; focus hours that switch Do Not Disturb on by themselves, which need
 a setting of their own; and a summary at the end of every day, a reminder
 about nothing being wrong.
+
+## What changed says each change, and puts it back right there
+
+What changed says what changed, old to new, and offers the way back on the
+row. A settings change is said as it was made, from Core's own copies of the
+settings files (CORE.md, Settings copies), and Put back sets the values from
+before as a change of Split Rock's own, after a yes, with Undo; only where that
+is proven to take effect at once, and the rest open KDE's own page for it. A
+background service that stopped working says what it said last and offers
+Start it again; a Flathub app updated from a commit Flathub still keeps offers
+Go back; a system update with no restore point copies every version, old to
+new, where the old ones still are, and the errors since. The administrator's
+part of starting a service or taking a system app back is two jobs of
+`split-rock-admin`, each taking only a checked name: `start-service` starts
+only a service that stopped working, and `flatpak-back` takes only a full
+commit.
+
+Why: on the tablet, What changed named settings files and copied only their
+names, which nobody can act on. The product owner asked what a person needs to
+solve the problem in front of them, and chose putting back right there over
+copying the exact change for help alone.
+
+Rejected: copying the exact change only, which still leaves the person to do
+it by hand; putting back the look and panels live before it is proven, since
+writing Plasma's panel file while Plasma runs is overwritten or breaks the
+panel; and reading the settings' history from a backup tool, which most
+computers don't have.

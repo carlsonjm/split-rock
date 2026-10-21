@@ -16,6 +16,9 @@ vlc
 Oct  9 12:01:02  deploy update  org.mozilla.firefox
 Oct  9 12:01:03  deploy update  org.freedesktop.Platform.GL.default
 Oct  7 12:00:00  deploy install  com.spotify.Client
+@@ flatpak-commits
+Oct  9 12:01:02  deploy update  org.mozilla.firefox  system  aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa  bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb
+Oct  9 12:01:03  deploy update  org.freedesktop.Platform.GL.default  system  aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa  bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb
 @@ settings
 1791558000.4200000000 kwinrc
 1791558000.1000000000 kdeglobals
@@ -23,11 +26,17 @@ Oct  7 12:00:00  deploy install  com.spotify.Client
 1791471600.0000000000 kcminputrc
 1791471600.0000000000 kscreen/outputs/abc
 @@ failed
-system|bluetooth.service|1791554400|Bluetooth service
-user|syncthing.service||Syncthing - Open Source Continuous File Synchronization
+system|bluetooth.service|1791554400|Starting Bluetooth service...Failed to set mode: Blocked through rfkill (0x12)|Bluetooth service
+user|syncthing.service|||Syncthing - Open Source Continuous File Synchronization
 @@ kernel
 6.17.1-2-cachyos
 missing
+@@ cache
+plasma-workspace-6.7.3-1-x86_64.pkg.tar.zst
+plasma-workspace-6.7.4-1-x86_64.pkg.tar.zst
+mesa-1:25.2.3-1-x86_64.pkg.tar.zst
+@@ errors
+1791472000.000000 tablet kwin_wayland[1200]: Failed to load the screen's colour profile
 @@ snapper
 yes
 @@ end

@@ -5,6 +5,7 @@
 //   split-rock --card NAME [--query TEXT] [--notebook DIR]
 //   split-rock --health-report
 //   split-rock --health-facts
+//   split-rock --set-shortcut COMPONENT ACTION KEYS NAME
 //
 // --card opens one Helper, such as space, in an ordinary window: Core and
 // Search open Free up space and the others this way (docs/CORE.md). Split Rock
@@ -19,6 +20,12 @@
 // the look could not run to its end. --health-facts is the same look for
 // Core, one line per item: its state (good, look or problem), id, title and
 // detail, separated by tabs.
+//
+// --set-shortcut sets one of the desktop's keyboard shortcuts, as What changed
+// puts one back: COMPONENT and ACTION as the shortcuts file names them, KEYS
+// as it writes them, several apart by tabs, or empty for none. The running
+// desktop holds the shortcuts and writes their file itself, so it is asked on
+// the bus. It ends with 1 when the desktop didn't take it.
 
 #include "app/HealthCheck.h"
 #include "app/Helpers.h"
@@ -28,9 +35,12 @@
 
 #include <QCommandLineParser>
 #include <QCoreApplication>
+#include <QDBusArgument>
 #include <QDBusConnection>
 #include <QDBusConnectionInterface>
 #include <QDBusMessage>
+#include <QDBusMetaType>
+#include <QKeySequence>
 #include <QGuiApplication>
 #include <QQmlApplicationEngine>
 #include <QQmlComponent>
@@ -104,14 +114,97 @@ int healthReport(int argc, char **argv, bool facts)
     return 0;
 }
 
+// One shortcut's keys as KDE's shortcuts service takes them on the bus: up
+// to four key presses, each a key with its modifiers.
+struct Keys {
+    QList<int> presses;
+};
+
+QDBusArgument &operator<<(QDBusArgument &argument, const Keys &keys)
+{
+    argument.beginStructure();
+    argument << keys.presses;
+    argument.endStructure();
+    return argument;
+}
+
+const QDBusArgument &operator>>(const QDBusArgument &argument, Keys &keys)
+{
+    argument.beginStructure();
+    argument >> keys.presses;
+    argument.endStructure();
+    return argument;
+}
+
+} // namespace
+
+Q_DECLARE_METATYPE(Keys)
+
+namespace {
+
+int setShortcut(int argc, char **argv)
+{
+    QGuiApplication app(argc, argv);
+    const QStringList arguments = app.arguments();
+    const qsizetype at = arguments.indexOf(QStringLiteral("--set-shortcut"));
+    if (at < 0 || arguments.size() < at + 4) {
+        std::fputs("split-rock --set-shortcut COMPONENT ACTION KEYS [NAME]\n", stderr);
+        return 2;
+    }
+    const QString component = arguments.at(at + 1);
+    const QString action = arguments.at(at + 2);
+    const QString name = arguments.value(at + 4, action);
+    QList<Keys> keys;
+    for (const QString &each : arguments.at(at + 3).split(QLatin1Char('\t'), Qt::SkipEmptyParts)) {
+        const QKeySequence sequence = QKeySequence::fromString(each, QKeySequence::PortableText);
+        if (sequence.isEmpty()) {
+            std::fprintf(stderr, "Split Rock: \"%s\" is not a shortcut.\n", qPrintable(each));
+            return 1;
+        }
+        Keys pressed;
+        for (int i = 0; i < sequence.count(); ++i)
+            pressed.presses.append(sequence[i].toCombined());
+        keys.append(pressed);
+    }
+    qDBusRegisterMetaType<Keys>();
+    qDBusRegisterMetaType<QList<Keys>>();
+
+    // The action as the service knows it: its component and its own name,
+    // then the names a person reads.
+    const QStringList actionId{component, action, component, name};
+    QDBusMessage call = QDBusMessage::createMethodCall(QStringLiteral("org.kde.kglobalaccel"), QStringLiteral("/kglobalaccel"),
+                                                       QStringLiteral("org.kde.KGlobalAccel"),
+                                                       QStringLiteral("setForeignShortcutKeys"));
+    call.setArguments({actionId, QVariant::fromValue(keys)});
+    QDBusMessage reply = QDBusConnection::sessionBus().call(call, QDBus::Block, 5000);
+    if (reply.type() == QDBusMessage::ErrorMessage && reply.errorName() == QLatin1String("org.freedesktop.DBus.Error.UnknownMethod")) {
+        // An older service takes one key press each.
+        QList<int> presses;
+        for (const Keys &k : std::as_const(keys))
+            presses.append(k.presses.value(0));
+        call = QDBusMessage::createMethodCall(QStringLiteral("org.kde.kglobalaccel"), QStringLiteral("/kglobalaccel"),
+                                              QStringLiteral("org.kde.KGlobalAccel"), QStringLiteral("setForeignShortcut"));
+        call.setArguments({actionId, QVariant::fromValue(presses)});
+        reply = QDBusConnection::sessionBus().call(call, QDBus::Block, 5000);
+    }
+    if (reply.type() == QDBusMessage::ErrorMessage) {
+        std::fprintf(stderr, "Split Rock: the desktop didn't take the shortcut: %s\n", qPrintable(reply.errorMessage()));
+        return 1;
+    }
+    return 0;
+}
+
 } // namespace
 
 int main(int argc, char **argv)
 {
     // Before the desktop's own start, so it runs where there is no desktop.
-    for (int i = 1; i < argc; ++i)
+    for (int i = 1; i < argc; ++i) {
         if (std::strcmp(argv[i], "--health-report") == 0 || std::strcmp(argv[i], "--health-facts") == 0)
             return healthReport(argc, argv, std::strcmp(argv[i], "--health-facts") == 0);
+        if (std::strcmp(argv[i], "--set-shortcut") == 0)
+            return setShortcut(argc, argv);
+    }
 
     QGuiApplication app(argc, argv);
     QGuiApplication::setApplicationName(QStringLiteral("split-rock"));

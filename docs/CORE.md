@@ -28,6 +28,8 @@ Core watches, the card it can open and the words it uses.
   - `attention.ini`: what it has said, so it doesn't say it twice, and its
     last looks for updates and at the computer's health, and the devices
     it knows
+  - `settings/`: its copies of the desktop's settings files and what changed
+    in them, kept 30 days (Settings copies, below)
 - `split-rock-corerc` in the person's settings folder switches off Core as a
   whole (`[General] Enabled=false`) or one topic (`[Storage] Enabled=false`,
   `[Updates] Enabled=false`, `[Health] Enabled=false`, `[Windows] Enabled=false`,
@@ -172,6 +174,38 @@ With no notifications counted, the tap opens the card of the first topic
 held instead. Each time Do Not Disturb ends is news once; the island's daily
 allowance leaves a second time the same day to the ticker. Once answered, it
 is no longer a fact.
+
+## Settings copies
+
+What changed says a settings change as it was made, "Built-in screen: scale
+175% to 150%", and puts it back, so Core keeps its own copy of each settings
+file What changed reads: the screens, keyboard shortcuts, windows and effects,
+window rules, the look, panels and widgets, pointer and touchpad, keyboard
+layouts, power, screen lock, Bluetooth, notifications, default apps, fonts,
+file search, accessibility, the clock and the language. It looks at them when
+one is written, five seconds after the last write, and on its usual schedule.
+
+- A key whose value differs from the copy is one change, kept with the time
+  and its value before and after in `settings/changes.jsonl`; then the copy is
+  brought up to date. The first look only takes the copies, so a change made
+  before Core began keeping them can only be named by its file, as before.
+- The desktop's own keeping is left out: a file written again with the same
+  values, window sizes and places, recent lists, a shortcut's name written
+  again, and a panel's every size and place. For panels, adding or removing a
+  widget or a panel, and the wallpaper, are changes.
+- It reads the settings and writes only its own folder. With Core off as a
+  whole, it keeps no copies.
+
+What changed makes one row of the changes in one place within two minutes of
+each other, and each row has the way back that is known to work on it:
+
+| Way back | For | What it does |
+| --- | --- | --- |
+| Put back | A screen's scale, resolution and turn; keyboard shortcuts; windows and effects; window rules; keyboard layouts; power; screen lock; notifications; default apps; the wallpaper | A change from a card of Split Rock's own, after the person's yes, with Undo: KDE's own tools set the values from before and the desktop is told |
+| Open in Settings | The look, pointer and touchpad, Bluetooth and the rest | KDE's page for it opens; the row says what it was |
+| Copy for help | Panels and widgets | Everything that changed, exactly, with what the computer is |
+
+A setting already back as it was says so on its row and offers nothing.
 
 ## Notice
 

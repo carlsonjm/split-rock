@@ -21,6 +21,10 @@ Rectangle {
     property bool opens: false
     // Does something in place, as its trailing words say, with no chevron.
     property bool acts: false
+    // What a tap does, as a button at its end, such as Put back; outlined
+    // when quiet, for one that only copies.
+    property string button
+    property bool buttonQuiet: false
     // good, warn or bad: a dot instead of the icon.
     property string standing
     // What it holds, folded under it.
@@ -28,7 +32,7 @@ Rectangle {
     property string listTitle: "Show which"
     signal clicked()
 
-    readonly property bool tappable: checkable || opens || acts
+    readonly property bool tappable: checkable || opens || acts || button !== ""
     readonly property color dot: standing === "bad" ? theme.bad : standing === "warn" ? theme.warn : theme.good
     width: parent ? parent.width : 0
     height: Math.max(56, rowColumn.implicitHeight + 24)
@@ -101,9 +105,10 @@ Rectangle {
 
     Column {
         id: rowColumn
-        x: 56
+        x: row.checkable || row.standing !== "" || row.icon !== "" ? 56 : 12
         y: 12
         width: parent.width - x - 12 - (trailingRow.implicitWidth > 0 ? trailingRow.implicitWidth + 12 : 0) - (row.opens ? 24 : 0)
+               - (rowButton.visible ? rowButton.width + 12 : 0)
         spacing: 3
         Text {
             width: parent.width
@@ -149,6 +154,29 @@ Rectangle {
             text: row.action
             color: theme.quiet
             font.pixelSize: 13
+        }
+    }
+
+    // The button, 32 tall, at the end: the whole row is its tap.
+    Rectangle {
+        id: rowButton
+        visible: row.button !== ""
+        anchors.right: parent.right
+        anchors.rightMargin: 12
+        y: 12
+        width: buttonText.implicitWidth + 28
+        height: 32
+        radius: height / 2
+        color: row.buttonQuiet ? "transparent" : area.pressed ? theme.edge : theme.tint(0.16)
+        border.width: row.buttonQuiet ? 1 : 0
+        border.color: theme.tint(0.35)
+        Text {
+            id: buttonText
+            anchors.centerIn: parent
+            text: row.button
+            color: theme.text
+            font.pixelSize: 13
+            font.weight: Font.Medium
         }
     }
 
