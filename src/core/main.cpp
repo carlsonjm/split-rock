@@ -151,8 +151,10 @@ private:
 };
 
 // Looks for updates without holding Core up: checkupdates fetches the lists
-// into a folder of its own and may wait on the network, then Flatpak's apps,
-// then pacman's log for the last full update. One look at a time.
+// into the folder the Check for updates Helper fetches into too, so the
+// Helper opens on lists already fresh, and may wait on the network; then
+// Flatpak's apps, then pacman's log for the last full update. One look at a
+// time.
 class UpdatesLooker : public QObject
 {
 public:
@@ -198,6 +200,9 @@ private:
     {
         auto *process = new QProcess(this);
         process->setProcessChannelMode(QProcess::SeparateChannels);
+        QProcessEnvironment environment = QProcessEnvironment::systemEnvironment();
+        environment.insert(QStringLiteral("CHECKUPDATES_DB"), updatesListsFolder());
+        process->setProcessEnvironment(environment);
         auto *limit = new QTimer(process);
         limit->setSingleShot(true);
         QObject::connect(limit, &QTimer::timeout, process, &QProcess::kill);

@@ -74,8 +74,13 @@ that. It also looks two minutes after pacman's log stops changing, or after the
 mark a Flatpak installation (the system's or the person's own) sets on each
 install and update stops changing, so it sees a finished update at once. It
 counts the system's updates with `checkupdates`, which fetches the package
-lists into a folder of its own, adds Flatpak apps with updates, and reads the
-time of the last full update from pacman's log. A computer without
+lists into a folder of its own, `split-rock/checkup-db` in the person's cache
+folder, adds Flatpak apps with updates, and reads the time of the last full
+update from pacman's log. The Check for updates Helper fetches into the same
+folder, so each fetch leaves the other only what changed since, and the
+Helper opens on the list the last fetch left at once, fetching nothing, then
+puts it right in place when its own fresh look comes back. Update always
+waits for that fresh look before it installs anything. A computer without
 `checkupdates` has no Updates fact. A look that fails, such as with no
 network, leaves the last fact standing.
 
