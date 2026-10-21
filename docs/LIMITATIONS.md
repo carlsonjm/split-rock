@@ -4,9 +4,12 @@ What Split Rock does not do yet, and what it will not do.
 
 ## Not yet
 
-- Split Rock's package is built only inside Shuffle's own package source. On
-  its own, the only install is the developer install for the maintainer's own
-  computer (`install.sh`), which is not for handing to anyone else.
+- Split Rock has no package of its own; Shuffle builds one inside its own
+  package source. On its own, the only install is the developer install
+  (`install.sh`), which is not for handing to anyone else.
+- The troubleshooting guide and the tour are installed, but no Helper shows
+  them since Split Rock stopped holding a conversation (`DECISIONS.md`,
+  Genie's chat is gone).
 - The Helpers have been run in test sessions and on the maintainer's computer,
   not yet on a freshly installed one.
 - English only.
@@ -16,4 +19,4 @@ What Split Rock does not do yet, and what it will not do.
 ## Not planned
 
 - Handling anyone's account, payment or password.
-- Acting without a card.
+- Changing the computer without the person's yes on a Helper.

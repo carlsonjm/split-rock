@@ -12,7 +12,7 @@ format: 1
 
 ## What you see
 
-After an update, the health check or the Update card says some settings files
+After an update, Health check or Check for updates says some settings files
 have a new version beside yours. Their names end in .pacnew, such as
 mirrorlist.pacnew or resolv.conf.pacnew.
 
@@ -35,4 +35,4 @@ is swapped, because a wrong swap can stop updates, the internet or printing.
 
 1. Carry on. Nothing needs doing today.
 2. Don't delete them or swap one for yours by hand.
-3. To tidy them up, ask someone who knows Arch Linux to compare each new file with yours before anything is swapped. Copy for help on the health check gives them the list.
+3. To tidy them up, ask someone who knows Arch Linux to compare each new file with yours before anything is swapped. Copy for help on Health check gives them the list.

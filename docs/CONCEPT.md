@@ -1,194 +1,89 @@
 # Concept
 
-> Genie's chat is gone (`DECISIONS.md`, Genie's chat is gone). What follows
-> about the conversation, the assistants and the notebook's part in them is
-> the record of what was built; the Helpers and Core are what remain.
-
 What Split Rock is for, who it is for, and the rules it keeps. What it does not
 do yet is in `LIMITATIONS.md`; settled rulings and what they rejected are in
 `DECISIONS.md`.
 
 ## The person
 
-Pat has used Windows for decades, at work and at home, and has just left it for
-Linux with a friendly desktop. Pat knows how to use a computer. What Pat does not
+Pat has used Windows for decades, at work and at home, and has just moved to a
+KDE Plasma desktop on Linux. Pat knows how to use a computer. What Pat does not
 know is this one: where the settings are, what the Windows habits turn into
-here, and what to do when something breaks. Pat has never needed a terminal and
-should not need one now.
-
-Pat already pays for a chatbot in daily life, most often ChatGPT. An assistant
-on the desktop that answers anything and fixes things, with that same account,
-is a reason to switch. Without one, Split Rock still answers and does the
-everyday jobs on the computer itself.
-
-Pat's first question is "where did everything go?" Split Rock is where Pat asks
-it.
+here, and how to keep it running. Pat has never needed a terminal and should
+not need one now.
 
 Every decision here is tested against Pat first. A feature that only works for
 someone who already understands Linux is not a Split Rock feature.
 
 ## What it is
 
-A panel widget that opens a small, calm window. Pat types or taps a question in
-their own words, and Split Rock does one of three things:
+Split Rock is two things:
 
-1. **Answers.** It explains in plain words, one step at a time, and can point at
-   the thing on screen.
-2. **Does it, with permission.** It shows a card saying what will change, and
-   changes it only when Pat taps Do it.
-3. **Remembers.** What it changes, and what Pat asks it to keep, goes into Pat's
-   notebook, so the next problem starts from what is already known.
+- **The Helpers.** Small windows that each do one upkeep job: Check for
+  updates, Free up space, Tidy up Downloads, Install an app (or remove one),
+  Your apps, Health check, What changed, Restore points and Community apps.
+  A Helper looks first, says in plain words what it found and what it would
+  change, and changes nothing until Pat taps its button. Its window closes
+  when it is done.
+- **Core.** A background program with no window. It notices when space runs
+  low, updates have waited too long, the Health check finds a problem, a
+  Windows installer lands in Downloads, or a new printer, drive or Bluetooth
+  device appears, and says so once, without nagging. Tapping what it says
+  opens the Helper that fits. How Core decides when to speak is in `CORE.md`.
 
-The gap it fills: Linux already has nearly every capability a person needs.
-What it has never had is someone to ask.
+A Helper opens from Search, by its name or by the Windows words Pat already
+knows (Add or remove programs, Disk Cleanup, Windows Update, System Restore),
+or from one of Core's notices. How a Helper's window meets the desktop is in
+`DESKTOP.md`.
 
-## Two layers
-
-Split Rock comes in two layers.
-
-- **In the box, with no account.** Split Rock on this computer: an open model
-  that runs on the computer itself after a one-time download, so nothing Pat
-  asks leaves it. It answers, answers from the troubleshooting guide where an
-  entry fits, and makes everyday changes through the Do it card and the upkeep
-  cards. The guide holds known problems in the words a person would use, each
-  with its fix. It is written ahead of time, ships with Split Rock and is
-  updated with each release. A desktop that installs Split Rock's extras adds
-  entries of its own. Where the model can't run, the guide and a tour of
-  the desktop work on their own, with no account and no network.
-- **Unlocked by Pat's own assistant account.** Pat signs in to Codex with the
-  ChatGPT plan they already pay for, and Split Rock becomes a butler on the
-  desktop: it answers anything, troubleshoots what the guide does not cover,
-  and makes bigger changes through the Do it card. Pat's own account pays for
-  the use, at Pat's choice; Split Rock sells no account and pays for nothing.
-
-How the guide's entries are kept, and how a desktop adds its own, is in
-`DECISIONS.md`.
-
-## Keeping this computer working
-
-Keeping an unusual device working is one of Split Rock's main jobs. People leave
-Windows on the hardware they own, and some of it is unusual: a tablet such as
-the ASUS ROG Flow Z13, with its own power firmware and kernel quirks, breaks in
-ways a plain laptop never does, and Windows used to hide that behind the maker's
-own software.
-
-So Split Rock learns the computer it is on. It starts fresh on every computer,
-reads what the hardware reports at setup, and keeps what it learns about the
-device in the notebook's `Device/` folder, which grows with use. With an
-account, the assistant troubleshoots what the guide does not cover and finds the
-maker's documentation for that hardware; every fix lands in `This computer.md`
-and the device's folder, so the next time starts from what worked. Nothing
-learned on one computer reaches another.
-
-## The first five minutes
-
-1. Split Rock opens on its own once, after installation.
-2. It says hello and offers Split Rock on this computer, which needs no
-   account, only a one-time download. Where that can't run, it offers a short
-   tour of the desktop and the troubleshooting guide, which need neither.
-3. It offers to unlock bigger fixes with an assistant account Pat already has.
-   Pat can choose one, or Not now.
-4. Pat's first real question gets an answer, a guide entry, or a Do it card.
-
-Split Rock must be useful at step 2. An assistant that is a blank box until Pat
-signs up for something has failed Pat.
+Linux already has nearly every tool a person needs to keep a computer healthy.
+What it lacks is a way in for someone who has never used them.
 
 ## Rules
 
-- **No terminal.** If Split Rock runs a command, Pat sees what it does in plain
-  words. The command sits behind a "Show details" fold.
-- **Ask before doing.** Nothing changes without a Do it card. Pat can choose
-  "Show me how" instead, to learn rather than delegate.
-- **Every change can be undone.** Before changing the system, Split Rock records
-  what it will change and how to put it back, and takes a snapshot where the
-  computer supports one.
-- **Never holds a password.** Anything that needs administrator rights uses the
-  system's own password prompt.
-- **Never asks for money or card details, and warns when something else does.**
-  Decades of Windows taught Pat that a warning in a window can be real, that
-  support may phone, and that a fix is a program to download. On this computer
-  those are how scams arrive. "Is this email real?" and "a window says my
-  computer is infected" are first-class questions, answered firmly.
-- **Says "I don't know."** When unsure, it says so and offers to write the
-  problem up for a person who can help.
-- **Plain words by default.** Jargon only on request, and defined when used.
-- **Big and touchable.** 44 px touch targets, large readable text, one question
-  at a time, so it works on a tablet as well as with a mouse.
+- **No terminal.** When a Helper runs a command, Pat sees what it does in plain
+  words. The command itself sits behind a "Show details" fold.
+- **Ask before doing.** Nothing changes until Pat taps the Helper's button.
+  Not now leaves everything as it was.
+- **Every change can be undone.** Before a change, Split Rock writes what it
+  will change and how to put it back. A system change takes a restore point
+  first, where the disk supports one, and a personal settings file is copied
+  aside. What changed lists the last two weeks, with Undo beside each change.
+- **Never holds a password.** Anything that needs administrator rights uses
+  the system's own password prompt, one action at a time.
+- **Never asks for money or card details.** On Windows, a window asking to be
+  paid to fix the computer was often how a scam arrived. Nothing Split Rock
+  shows ever asks.
+- **Plain words by default.** Jargon only where there is no plainer word, and
+  explained when used.
+- **Big and touchable.** Large text and touch targets, one job at a time, so a
+  Helper works on a tablet as well as with a mouse.
 
-## The Do it card
+## Keeping this computer working
 
-The card is the product. Changes Split Rock knows have a tested Undo. Split
-Rock makes any other change only after a snapshot or a copy of what it
-touches, or with the card saying plainly that it can't be undone. Each card
-says in one sentence what will change, why Split Rock suggests it, whether and
-how it can be undone, and whether it needs Pat's password.
-
-Buttons: **Do it**, **Show me how instead**, **Not now**. A "Show details" fold
-holds the exact command or setting.
+People leave Windows on the hardware they own, and some of it is unusual: a
+tablet such as the ASUS ROG Flow Z13, with its own power firmware and kernel
+quirks, breaks in ways a plain laptop never does, and Windows used to hide
+that behind the maker's own software. Split Rock reads what the hardware
+reports into the notebook at its first start, and the Health check's "Copy for
+help" hands that description, with the problem, to whoever Pat asks for help.
+Nothing is sent anywhere by Split Rock itself.
 
 ## What Split Rock relies on
 
-| Need | Approach | Notes |
-| --- | --- | --- |
-| An assistant account | Pat signs in with an account they already pay for, through that assistant's own sign-in | Or skips it and keeps Split Rock on this computer |
-| The assistant program | Split Rock on this computer, or Codex, each speaking the Agent Client Protocol | Each agent handles its own sign-in and billing |
-| A model on the computer | Qwen3 4B, an open model, downloaded once and run by llama.cpp | About 2.5 GB, the same for every computer (`ASSISTANTS.md`) |
-| What the assistant needs to run | Installed silently with Split Rock | Codex runs on Node.js; Pat never sees that |
-| Known problems and their fixes | The troubleshooting guide, shipped with Split Rock and updated with each release | A desktop adds its own entries |
-| A place to remember | A plain folder of notes that Split Rock shows itself; kept answers go to Gooseberry where it is installed | Any plain-notes app can open it too |
-| A way to undo system changes | A snapshot before every system change, where the disk supports it, and a copy of any personal settings file it changes | Btrfs supports snapshots; snapshots usually leave personal settings out |
-| Administrator rights | KDE's own password prompt, per action | Split Rock never holds the password |
-| Acting on the desktop | Split Rock's own tools, which the agent finds inside its fence: a change proposed for a card, a settings skill, an upkeep card | Desktop-specific tools switch on only where that desktop is installed |
-| Help from a person | "Send this to someone": a plain summary of the problem and what was tried | For whoever Pat turns to |
-
-### The account
-
-Split Rock on this computer needs no account. For bigger fixes, setup offers
-only assistants Pat can sign in to without a terminal: ChatGPT, through Codex,
-the easiest sign-in to an account Pat most likely already pays for. Split Rock
-says plainly that the assistant's use is billed to Pat's account, reads what
-each one offers at setup rather than promising it in advance, and never signs
-Pat up for anything. Not now keeps Split Rock on this computer. What each
-assistant offers is in `ASSISTANTS.md`.
-
-### The notebook
-
-No notes app is required. The notebook is a plain folder, chosen at setup and
-`~/Documents/Notebook` by default, that Split Rock shows in its own This Device
-drawer, beside the conversation. KDE's Marknote or Obsidian can open the same
-folder for anyone who wants more; apps that keep notes in a database or online
-are not supported, because the assistant cannot read them as plain files.
-
-Inside it:
-
-- `This computer.md`: the hardware, what has been fixed, and every change made,
-  with how to undo it. Split Rock writes it itself.
-- `Device/`: what this computer is and what has been learned about it, starting
-  from what Split Rock reads on the computer and growing with use.
-- `About me.md`: how Pat likes to be helped and who helps Pat, written only
-  after Pat says yes.
-- `Notes/`: every answer Pat kept, filed by topic without Pat filing anything.
-  Where Gooseberry is installed, kept answers are to become Gooseberry notes
-  instead.
-- `ASSISTANT.md`: the rules the assistant follows in this notebook, written at
-  setup.
-
-Conversations are not saved. How memory works is in `MEMORY.md`.
+| Need | Approach |
+| --- | --- |
+| Updates and apps | pacman and Flatpak; the AUR for Community apps |
+| A way to undo system changes | snapper restore points, where the disk is Btrfs and set up for them |
+| Administrator rights | The system's own password prompt, through `split-rock-admin`, which runs only Split Rock's named jobs |
+| A record of what changed | `This computer.md` in the notebook, and each change's own folder (`MEMORY.md`) |
+| Notices | The desktop's ordinary notifications, and Search's island where Tettegouche's launcher is installed |
 
 ## Risks
 
-- **The box has to stand on its own.** Without an account, Pat has Split Rock
-  on this computer, a small model that can be wrong, so the guide it answers
-  from and the cards it opens are checked ahead of time. A thin guide, or one
-  that falls behind a release, leaves Pat with little, so the guide is written
-  and checked with every release.
-  Whether to unlock the rest, and what it costs, is Pat's choice, not a risk.
-- **The Agent Client Protocol is young.** Agents and their sign-in methods will
-  change under Split Rock.
+- **Rolling-release systems break things.** Restore points before every
+  update let Pat go back to the computer as it was.
 - **Unusual hardware breaks in new ways.** A kernel or firmware update can
-  change how a device such as the Z13 behaves overnight. Snapshots before
-  updates are the safety net, and the device's folder has to keep up.
-- **Rolling-release systems break things.** The same snapshots let Pat undo
-  any update Split Rock runs.
-- **Trust.** One bad change, or one confident wrong answer about a scam, loses
-  Pat for good. Asking first, undo and "I don't know" are the product itself.
+  change how a device such as the Z13 behaves overnight.
+- **Trust.** One bad change loses Pat for good. Looking first, asking first
+  and Undo are what Split Rock is for.

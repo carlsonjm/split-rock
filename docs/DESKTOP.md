@@ -8,18 +8,21 @@ desktop, a Helper's window is placed like any other window.
 ## The entry
 
 The desktop file id is `io.github.carlsonjm.SplitRock`, and it is every window's
-application id, so a card workspace knows a Helper's window as Split Rock's.
+application id, so a window tool such as Kadunce knows a Helper's window as
+Split Rock's.
 The desktop file is `data/io.github.carlsonjm.SplitRock.desktop.in`. It names
 the program and its icon for the windows and Core's notices. It is hidden from
-the launcher, because without a Helper there is nothing to open. Until
-Milestone 3's package, `install.sh` installs it, with the program, its icon,
-Core, the guide and the tour, for every account; `uninstall.sh` removes them.
-That is a developer install for the maintainer's own computer, not the package.
+the launcher, because without a Helper there is nothing to open. `install.sh`
+installs it, with the program, its icon, Core, the guide and the tour, for
+every account; `uninstall.sh` removes them. That is a developer install, not a
+package.
 
 | Start | What opens |
 | --- | --- |
-| `--card NAME` | One Helper in a window of its own: `update`, `space`, `install`, `uninstall`, `apps` (Your apps), `health`, `changes`, `restore` or `community`. `--query` gives Install an app what to look for, or Remove an app the desktop file id of the app to remove |
-| `--health-report` | No window: it looks the computer over as Health check does, prints what it finds, and ends. It needs no desktop, no assistant and no language model, and changes nothing, not even the last look Health check keeps. It ends with 1 only when the look could not run to its end. Shuffle's package checks run it on a freshly installed system |
+| `--card NAME` | One Helper in a window of its own: `update`, `space`, `tidy`, `install`, `uninstall`, `apps` (Your apps), `health`, `changes`, `restore` or `community`. `--query` gives Install an app what to look for, or Remove an app the desktop file id of the app to remove |
+| `--notebook DIR` | With `--card`: the notebook folder, `~/Documents/Notebook` by default (`MEMORY.md`) |
+| `--health-report` | No window: it looks the computer over as Health check does, prints what it finds, and ends. It needs no desktop and changes nothing, not even the last look Health check keeps. It ends with 1 only when the look could not run to its end. Shuffle's install checks run it on a freshly installed system |
+| `--health-facts` | The same look for Core, one line per item: its state (`good`, `look` or `problem`), id, title and detail, separated by tabs |
 | No `--card` | Nothing: it says how to start a Helper, and ends |
 
 Only one Split Rock runs at a time. A second start hands its arguments to the
@@ -31,7 +34,3 @@ second start's arguments, it holds `io.github.carlsonjm.splitrock` on the
 session bus while it runs, with `/Application` and
 `io.github.carlsonjm.SplitRock.Application`'s `CommandLine(as)`. That name is
 internal to Split Rock and starts nothing.
-
-The Helpers once sat beside a conversation with an assistant, which Search
-hosted on this bus. That conversation is gone (`DECISIONS.md`, Genie's chat is
-gone).
