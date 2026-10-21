@@ -238,6 +238,7 @@ class Reply(http.server.BaseHTTPRequestHandler):
         home = os.path.expanduser("~")
         seen = [os.path.join(d, f)[len(home):] for d, _, fs in os.walk(home) for f in fs]
         text = ("key " if self.headers.get("Authorization") == "Bearer " + key else "no key ") + " ".join(sorted(seen))
+        text += " cache-ram=" + os.environ.get("LLAMA_ARG_CACHE_RAM", "unset")
         body = "data: " + json.dumps({"choices": [{"delta": {"content": text}}]}) + "\n\ndata: [DONE]\n\n"
         self.send_response(200); self.send_header("Content-Type", "text/event-stream"); self.end_headers()
         self.wfile.write(body.encode())
@@ -271,6 +272,8 @@ http.server.HTTPServer(("127.0.0.1", port), Reply).serve_forever()
         QVERIFY2(text.startsWith(QStringLiteral("key ")), qPrintable(text));
         QVERIFY2(text.contains(QStringLiteral("/small.gguf")), qPrintable(text));
         QVERIFY2(!text.contains(QStringLiteral("private.txt")), qPrintable(text));
+        // Each slot keeps only its own memory, with no second cache.
+        QVERIFY2(text.contains(QStringLiteral("cache-ram=0")), qPrintable(text));
         QFile::remove(secret.fileName());
     }
 

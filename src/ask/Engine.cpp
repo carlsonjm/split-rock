@@ -88,7 +88,15 @@ void Engine::start(const QString &engine, const QString &model, const QString &l
     room.readable = {QFileInfo(model).absoluteFilePath(), QFileInfo(engine).absolutePath()};
     // The graphics chip, for the model to run on.
     room.devices = {QStringLiteral("/dev/dri"), QStringLiteral("/dev/kfd")};
-    m_process->setProcessEnvironment(fencedEnvironment(QProcessEnvironment::systemEnvironment()));
+    QProcessEnvironment environment = fencedEnvironment(QProcessEnvironment::systemEnvironment());
+    // Newer llama-servers keep each slot's memory in a second cache of their
+    // own and copy it back in between requests: on the Mac mini's soak that
+    // carried one question's answer into the next. Each slot keeps only its
+    // own memory. As settings by name, a server too old to know them still
+    // starts.
+    environment.insert(QStringLiteral("LLAMA_ARG_CACHE_RAM"), QStringLiteral("0"));
+    environment.insert(QStringLiteral("LLAMA_ARG_CTX_CHECKPOINTS"), QStringLiteral("0"));
+    m_process->setProcessEnvironment(environment);
     m_process->start(fence, fenced(engine,
                                    {QStringLiteral("--model"), model,
                                     QStringLiteral("--host"), QStringLiteral("127.0.0.1"),
