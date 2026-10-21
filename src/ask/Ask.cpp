@@ -38,34 +38,40 @@ const QList<std::pair<QString, QString>> &upkeep()
 // them to a menu that isn't there.
 QString places()
 {
-    // KDE's System Settings pages, as Plasma 6 names them.
-    const QString pages = QStringLiteral(
-        "System Settings has pages named Wi-Fi & Networking, Bluetooth, Sound, Display & Monitor (the screen's size, "
-        "text scale and night light), Printers, Users (passwords and the account picture), Power Management, Mouse & "
-        "Touchpad, Keyboard, Autostart and Default Applications. No page shows what fills the disk: the Free up space "
-        "Helper does. Updates come from the Check for updates Helper, or Discover. Apps are installed and removed "
-        "with the Install an app Helper: the person tells it the app's name. Never name a part, page or button of "
-        "a Helper. Windows programs, Microsoft Word "
-        "and Office among them, don't run here: Word and Excel files open in ONLYOFFICE or LibreOffice, which "
-        "Install an app finds, and Microsoft 365 works in the web browser: say both. Name no keyboard shortcut but those "
-        "written here.");
+    // One place for each job, so an answer's steps stay in one place, and
+    // what isn't there, which a small model otherwise makes up.
+    const QString common = QStringLiteral(
+        "- Printers, displays (size, text scale, night light), users (passwords, the account picture), the mouse, "
+        "the keyboard and apps that start at sign-in: System Settings, on its pages Printers, Display & Monitor, "
+        "Users, Mouse & Touchpad, Keyboard and Autostart.\n"
+        "- Updates: the Check for updates Helper. System Settings has no Update page.\n"
+        "- Disk space: the Free up space Helper. No settings page shows it.\n"
+        "- Installing or removing an app: the Install an app Helper, told the app's name.\n"
+        "- A frozen app: its window's close button, then Close when asked. There is no shortcut for it.\n"
+        "- PDFs: open them from Files; the web browser opens them too.\n"
+        "- Only when the person asks about Word, Excel or Office: Windows programs don't run here; their files open "
+        "in ONLYOFFICE or LibreOffice, which Install an app finds, and Microsoft 365 works in the web browser.\n"
+        "- A problem that stays: the Health check and What changed Helpers, and Codex once signed in under Ask Your "
+        "Computer in Settings. There is no support line or helpdesk to contact.\n"
+        "Name no keyboard shortcut, menu, page or button that isn't written here, and nothing inside a Helper.");
     if (!QStandardPaths::findExecutable(QStringLiteral("shuffle-settings")).isEmpty())
         return QStringLiteral(
-            "Shuffle is this computer's desktop, on KDE Plasma. Use its names. Search opens with a tap on the dot at the "
-            "bottom of the screen, or the Meta key (the Windows key); it finds apps, files and settings by name, and "
-            "Apps and Files are in it (Files is like File Explorer, with Downloads, Documents and Pictures). Control "
-            "Center opens with a tap on the network icon at the top right of the screen. It has the Wi-Fi list, "
-            "where a network, or a phone's hotspot once it is switched on on the phone, is joined by tapping its "
-            "name; the Bluetooth page, with Add new device for a mouse or headphones; the volume slider; and the "
-            "brightness slider, which makes the screen brighter or dimmer. It has nothing else: every page named "
-            "below is in System Settings, and each step names one place or the other. Shuffle's own Settings open with Meta+I. KDE's "
-            "System Settings opens from Search by its name. The Helpers are listed in Search, under the answer. "
-            "There is no taskbar or Start menu: the dock along the bottom holds apps, and Search opens the rest. ")
-            + pages;
+            "Shuffle is this computer's desktop, on KDE Plasma. Where things are, one place for each:\n"
+            "- Apps and files: Search, opened with a tap on the dot at the bottom of the screen or the Meta key (the "
+            "Windows key). Apps and Files are in it; Files is like File Explorer, with Downloads, Documents and "
+            "Pictures. The dock along the bottom holds apps; there is no taskbar or Start menu.\n"
+            "- Wi-Fi, and a phone's hotspot: Control Center, opened with a tap on the network icon at the top right. "
+            "Tap a network's name in its list to join; a hotspot shows there by name once it's switched on on the "
+            "phone. There is no Add network button.\n"
+            "- Bluetooth, headphones, a mouse, AirPods: Control Center's Bluetooth page, with Add new device.\n"
+            "- Volume and brightness: the sliders in Control Center. Control Center has nothing else.\n"
+            "- Fans and power: there is no page for them; ask here, and a card can change the power profile.\n"
+            "- Shuffle's own Settings: Meta+I. KDE's System Settings: type its name in Search.\n") + common;
     return QStringLiteral(
-        "Apps, files and settings open from the application launcher at the bottom left of the screen, by typing "
-        "their name. Wi-Fi, Bluetooth, sound and brightness are in the icons at the bottom right. Files are in "
-        "Dolphin, like File Explorer. ") + pages;
+        "Where things are, one place for each:\n"
+        "- Apps, files and settings: the application launcher at the bottom left, by typing their name. Files are "
+        "in Dolphin, like File Explorer.\n"
+        "- Wi-Fi, Bluetooth, volume and brightness: the icons at the bottom right.\n") + common;
 }
 
 // What this computer runs, from os-release, and where things are.

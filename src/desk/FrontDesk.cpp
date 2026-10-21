@@ -213,7 +213,9 @@ bool claimsToKnow(const QString &answer)
     static const QRegularExpression knows(QStringLiteral(
         "\\b(your|the|this) (computer|system|laptop|tablet|pc|disk|drive|software|apps?)\\b.{0,20}\\b(is|are) (already |fully )?"
         "(up to date|up-to-date|safe|secure|fine|healthy|working (fine|properly|correctly)|not full|virus.free)\\b|"
-        "\\byou (don'?t|do not) have any updates\\b|\\bno updates (are )?(waiting|available|needed)\\b"),
+        "\\byou (don'?t|do not) have any updates\\b|\\bno updates (are )?(waiting|available|needed)\\b|"
+        "\\b(health check|free up space|check for updates|what changed|install an app)\\b.{0,20}\\b(is|has|was|shows?|showing|found|"
+        "finds) (now )?(running|checking|showing|found|finished|done|no )"),
         QRegularExpression::CaseInsensitiveOption);
     return knows.match(answer).hasMatch();
 }
@@ -461,7 +463,8 @@ QString FrontDesk::answerWords() const
         "In this reply you cannot look at or change the computer, and nothing happens because of what you write, so "
         "never say that something was changed, opened, checked or fixed, and never promise to do it. You can't see "
         "whether updates are waiting, how full the disk is or whether something is working, so never say that the "
-        "computer is up to date, fine, safe or full; a Helper finds out. Never tell the person to open a terminal "
+        "computer is up to date, fine, safe or full; a Helper finds out, and you never see what it finds or whether "
+        "it is running, so never say. Never tell the person to open a terminal "
         "or type a command. Name only the places described below, with the names written there, and never make up "
         "a menu, a page or an app. When the person wants something changed that you can't do here, say plainly "
         "that you can't do that one from here. Never ask for a password, a card number, bank details or a code "
@@ -654,22 +657,14 @@ QString FrontDesk::cardFor(const QString &question) const
 void FrontDesk::answer(const QString &question, const QString &helper, const QString &how)
 {
     Q_EMIT routed(how);
-    QString system = answerWords();
-    // The Helper that fits goes under the answer, and the answer points to it
-    // rather than guessing what it would find.
+    const QString system = answerWords();
+    // The Helper that fits goes under the answer.
     QString pointer;
     if (!helper.isEmpty() && m_tools->propose(QJsonObject{{QStringLiteral("title"), cardTitle(helper)},
                                                           {QStringLiteral("card"), helper},
                                                           {QStringLiteral("query"), helper == QLatin1String("install") ? question.left(80) : QString()}})) {
-        QString what;
-        for (const auto &[name, words] : m_context.cards) {
-            if (name == helper)
-                what = words;
-        }
-        // The desk names it itself, so the model need not, and can't get it
-        // wrong.
-        system += QStringLiteral("The person also sees the Helper %1 just below, for this: %2. Don't describe it or "
-                                 "name its parts; a line about it follows your answer.\n").arg(cardTitle(helper), what);
+        // The desk names it itself, after the answer. The model isn't told of
+        // it, so it can't say what the Helper found or is doing.
         pointer = QStringLiteral("\n\n%1, just below, %2. It changes nothing until you choose.")
                       .arg(cardTitle(helper), helperDoes(helper));
     }

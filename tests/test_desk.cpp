@@ -546,6 +546,10 @@ private Q_SLOTS:
         run = ask(desk, date);
         QVERIFY(run.said.contains(QLatin1String("I can't see that from here")));
         QCOMPARE(tools.proposals.last().value(QStringLiteral("card")).toString(), QStringLiteral("update"));
+        // Nor does it say what a Helper found, or that one is running.
+        QVERIFY(claimsToKnow(QStringLiteral("The Health check is running in the background.")));
+        QVERIFY(claimsToKnow(QStringLiteral("Health check is showing no errors, but the restarts continue.")));
+        QVERIFY(!claimsToKnow(QStringLiteral("Open the Health check below.")));
     }
 
     // "help" and a row of keys get the desk's own words, with no model.
