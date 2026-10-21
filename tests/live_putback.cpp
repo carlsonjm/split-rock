@@ -214,7 +214,7 @@ private Q_SLOTS:
         const QString was = valueOf(QStringLiteral("kwinrc"), QStringLiteral("Plugins"), QStringLiteral("blurEnabled"), &set);
         const bool on = !set || was != QLatin1String("false");
         const auto write = [](bool value) {
-            return QStringLiteral("kwriteconfig6 --file kwinrc --group Plugins --key blurEnabled --notify %1 && "
+            return QStringLiteral("kwriteconfig6 --file kwinrc --group Plugins --key blurEnabled --notify -- %1 && "
                                   "{ qdbus6 org.kde.KWin /KWin reconfigure || qdbus org.kde.KWin /KWin reconfigure; }")
                 .arg(value ? QStringLiteral("true") : QStringLiteral("false"));
         };
@@ -251,7 +251,7 @@ private Q_SLOTS:
         const QString was = valueOf(QStringLiteral("kxkbrc"), QStringLiteral("Layout"), QStringLiteral("ShowSingle"), &set);
         const bool on = set && was == QLatin1String("true");
         const auto write = [](const QString &value) {
-            return QStringLiteral("kwriteconfig6 --file kxkbrc --group Layout --key ShowSingle --notify %1 && "
+            return QStringLiteral("kwriteconfig6 --file kxkbrc --group Layout --key ShowSingle --notify -- %1 && "
                                   "dbus-send --session --type=signal /Layouts org.kde.keyboard.reloadConfig")
                 .arg(value);
         };
@@ -269,7 +269,7 @@ private Q_SLOTS:
         const QString was = valueOf(QStringLiteral("powerdevilrc"), group, key, &set);
         const auto write = [](const QString &value) {
             return QStringLiteral("kwriteconfig6 --file powerdevilrc --group AC --group Display --key TurnOffDisplayIdleTimeoutSec "
-                                  "--notify %1 && qdbus6 org.kde.Solid.PowerManagement /org/kde/Solid/PowerManagement "
+                                  "--notify -- %1 && qdbus6 org.kde.Solid.PowerManagement /org/kde/Solid/PowerManagement "
                                   "org.kde.Solid.PowerManagement.reparseConfiguration")
                 .arg(value);
         };
@@ -287,7 +287,7 @@ private Q_SLOTS:
         bool set = false;
         const QString was = valueOf(QStringLiteral("kscreenlockerrc"), QStringLiteral("Daemon"), QStringLiteral("Timeout"), &set);
         const auto write = [](const QString &value) {
-            return QStringLiteral("kwriteconfig6 --file kscreenlockerrc --group Daemon --key Timeout --notify %1 && "
+            return QStringLiteral("kwriteconfig6 --file kscreenlockerrc --group Daemon --key Timeout --notify -- %1 && "
                                   "qdbus6 org.freedesktop.ScreenSaver /ScreenSaver configure")
                 .arg(value);
         };
@@ -314,7 +314,7 @@ private Q_SLOTS:
         if (other.isEmpty())
             QSKIP("No second app here to make the default for text files.");
         const auto write = [&](const QString &value) {
-            return QStringLiteral("kwriteconfig6 --file mimeapps.list --group 'Default Applications' --key text/plain --notify '%1'")
+            return QStringLiteral("kwriteconfig6 --file mimeapps.list --group 'Default Applications' --key text/plain --notify -- '%1'")
                 .arg(value);
         };
         roundTrip(QStringLiteral("mimeapps.list"), group, key, write(other),

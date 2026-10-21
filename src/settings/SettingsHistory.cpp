@@ -278,7 +278,9 @@ QList<SettingsChange> SettingsHistory::look(const QDateTime &now)
         const QByteArray kept = readFile(copy, &hadCopy);
         if (hadCopy && kept == current)
             continue;
-        if (hadCopy && !first)
+        // A file made since is compared with nothing, so what it was made
+        // with is a change too.
+        if (!first && (hadCopy || exists))
             found += compare(file, kept, current, now);
         if (!exists) {
             QFile::remove(copy);

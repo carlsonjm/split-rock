@@ -1095,6 +1095,19 @@ private Q_SLOTS:
         const QDateTime at(QDate(2026, 10, 21), QTime(9, 14));
         QCOMPARE(history.look(at).size(), 4);
         QCOMPARE(history.changes().size(), 4);
+        // A settings file made since the copies were taken: what it was made
+        // with is a change too.
+        {
+            SettingsHistory fresh(folder.path() + QStringLiteral("/fresh"), config.path());
+            QVERIFY(fresh.look(morning).isEmpty());
+            QVERIFY(!QFile::exists(config.filePath(QStringLiteral("kxkbrc"))));
+            write(QStringLiteral("kxkbrc"), "[Layout]\nShowSingle=true\n");
+            const QList<SettingsChange> made = fresh.look(at);
+            QCOMPARE(made.size(), 1);
+            QCOMPARE(made.first().key, QStringLiteral("ShowSingle"));
+            QVERIFY(!made.first().wasSet);
+            QFile::remove(config.filePath(QStringLiteral("kxkbrc")));
+        }
 
         const QString program = QStringLiteral("/usr/bin/split-rock");
         QMap<QString, SettingRow> byArea;
@@ -1123,7 +1136,8 @@ private Q_SLOTS:
         const SettingRow effects = byArea.value(QStringLiteral("Windows and effects"));
         QCOMPARE(effects.title, QStringLiteral("Blur effect turned off"));
         QCOMPARE(effects.putBack.command,
-                 QStringLiteral("kwriteconfig6 --file 'kwinrc' --group 'Plugins' --key 'blurEnabled' --notify 'true'"));
+                 QStringLiteral("kwriteconfig6 --file 'kwinrc' --group 'Plugins' --key 'blurEnabled' --notify -- 'true' && "
+                                "[ \"$(kreadconfig6 --file 'kwinrc' --group 'Plugins' --key 'blurEnabled')\" = 'true' ]"));
         QCOMPARE(effects.page, QStringLiteral("kcm_kwin_effects"));
         QCOMPARE(effects.putBack.files.size(), 1);
 
@@ -1134,6 +1148,19 @@ private Q_SLOTS:
         QCOMPARE(look.way, QStringLiteral("settings"));
         QCOMPARE(look.page, QStringLiteral("kcm_colors"));
         QVERIFY(look.question.contains(QLatin1String("Colours: BreezeDark to BreezeLight")));
+
+        // A value such as -1 is written as a value, never read as an option;
+        // a key that wasn't there before goes again.
+        SettingsChange never{at, QStringLiteral("powerdevilrc"), QStringLiteral("AC][Display"),
+                             QStringLiteral("TurnOffDisplayIdleTimeoutSec"), QStringLiteral("-1"), QStringLiteral("900"), true, true};
+        QVERIFY2(SettingRows::command(never, true, program)
+                     .startsWith(QStringLiteral("kwriteconfig6 --file 'powerdevilrc' --group 'AC' --group 'Display' "
+                                                "--key 'TurnOffDisplayIdleTimeoutSec' --notify -- '-1' && ")),
+                 qPrintable(SettingRows::command(never, true, program)));
+        never.wasSet = false;
+        QCOMPARE(SettingRows::command(never, true, program),
+                 QStringLiteral("kwriteconfig6 --file 'powerdevilrc' --group 'AC' --group 'Display' "
+                                "--key 'TurnOffDisplayIdleTimeoutSec' --notify --delete"));
 
         // A second screen KWin knew on the same connector is put back on the
         // screen in that connector now.

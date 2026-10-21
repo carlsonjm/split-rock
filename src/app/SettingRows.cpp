@@ -202,15 +202,6 @@ QString valueOr(const QString &value, bool set)
     return !set ? QStringLiteral("not set") : value.isEmpty() ? QStringLiteral("empty") : value;
 }
 
-// KDE's own spelling of a group as kwriteconfig6's --group words.
-QStringList groupWords(const QString &group)
-{
-    QStringList words;
-    for (const QString &part : group.split(QStringLiteral("][")))
-        words << QStringLiteral("--group") << SettingRows::quoted(part);
-    return words;
-}
-
 } // namespace
 
 QString SettingRows::quoted(const QString &word)
@@ -537,14 +528,17 @@ QString SettingRows::command(const SettingsChange &c, bool before, const QString
     if (c.group.contains(QLatin1Char('\\')) || c.key.contains(QLatin1Char('\\')) || value.contains(QLatin1Char('\\'))
         || localised.match(c.key).hasMatch())
         return {};
-    QStringList words{QStringLiteral("kwriteconfig6"), QStringLiteral("--file"), quoted(c.file)};
-    words += groupWords(c.group);
-    words << QStringLiteral("--key") << quoted(c.key);
+    QStringList where{quoted(c.file)};
+    for (const QString &part : c.group.split(QStringLiteral("][")))
+        where << QStringLiteral("--group") << quoted(part);
+    where << QStringLiteral("--key") << quoted(c.key);
+    const QString at = where.join(QLatin1Char(' '));
+    // The value after --, so one such as -1 isn't read as an option; then
+    // read back, since kwriteconfig6 ends well even when it wrote nothing.
     if (set)
-        words << QStringLiteral("--notify") << quoted(value);
-    else
-        words << QStringLiteral("--notify") << QStringLiteral("--delete");
-    return words.join(QLatin1Char(' '));
+        return QStringLiteral("kwriteconfig6 --file %1 --notify -- %2 && [ \"$(kreadconfig6 --file %1)\" = %2 ]").arg(at, quoted(value));
+    // Gone, it may read as the system's own default, so it isn't read back.
+    return QStringLiteral("kwriteconfig6 --file %1 --notify --delete").arg(at);
 }
 
 QList<SettingRow> SettingRows::rows(const QList<SettingsChange> &changes, const QString &program, const Current &current)
