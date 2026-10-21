@@ -283,6 +283,67 @@ private Q_SLOTS:
         QVERIFY(updated.exists());
     }
 
+    // The card opens on the list the last fetch left, and the fresh look puts
+    // it right in place; Update tapped meanwhile is answered by that look.
+    void theListShowsAtOnceThenFreshens()
+    {
+        const QString quick = SystemUpdate::quickLook();
+        QVERIFY(quick.contains(QStringLiteral("pacman -Qu --dbpath \"$CHECKUPDATES_DB\"")));
+        QVERIFY(quick.contains(QStringLiteral("flatpak remote-ls --updates --cached")));
+        QVERIFY(quick.contains(QStringLiteral("@@ stale")));
+        QVERIFY(!quick.contains(QStringLiteral("checkupdates 2>")));
+        QVERIFY(!quick.contains(QStringLiteral("curl")));
+        QVERIFY(!quick.contains(QStringLiteral("paru -Qua")));
+
+        const QString look = fixture(QStringLiteral("look.txt"));
+        const QString fresh = QString(look).replace(QStringLiteral("python 3.13.7-1 -> 3.13.8-1"),
+                                                    QStringLiteral("python 3.13.7-1 -> 3.13.8-1\nqt6-base 6.9.3-1 -> 6.10.0-1"));
+        QTemporaryDir dir;
+        QFile updated(dir.filePath(QStringLiteral("updated")));
+        SystemUpdate update;
+        update.setElevate({});
+        // The fresh look takes a moment, as a fetch does.
+        update.setLookScript(QStringLiteral("sleep 1; cat <<'LOOK'\n") + fresh + QStringLiteral("\nLOOK"));
+        update.setQuickLookScript(QStringLiteral("cat <<'LOOK'\n") + look + QStringLiteral("\nLOOK"));
+        update.setAdmin(adminStandIn(QStringLiteral("touch '%1'").arg(updated.fileName())));
+        update.setAppsScript(QStringLiteral("true"));
+        update.setAfterScript(QStringLiteral("echo '@@ end'"));
+        update.check();
+        QTRY_COMPARE_WITH_TIMEOUT(update.stage(), QStringLiteral("ready"), 500);
+        QCOMPARE(update.plan().system, 6);
+        // In place, with no "the list changed" for a list the person had
+        // only just been shown.
+        QTRY_COMPARE_WITH_TIMEOUT(update.plan().system, 7, 5000);
+        QCOMPARE(update.stage(), QStringLiteral("ready"));
+        QVERIFY(!update.plan().changed);
+
+        // Tapped while the fresh look runs: that look answers, and the same
+        // list updates.
+        SystemUpdate again;
+        again.setElevate({});
+        again.setLookScript(QStringLiteral("sleep 1; cat <<'LOOK'\n") + look + QStringLiteral("\nLOOK"));
+        again.setQuickLookScript(QStringLiteral("cat <<'LOOK'\n") + look + QStringLiteral("\nLOOK"));
+        again.setAdmin(adminStandIn(QStringLiteral("touch '%1'").arg(updated.fileName())));
+        again.setAppsScript(QStringLiteral("true"));
+        again.setAfterScript(QStringLiteral("echo '@@ end'"));
+        again.check();
+        QTRY_COMPARE_WITH_TIMEOUT(again.stage(), QStringLiteral("ready"), 500);
+        again.start();
+        again.confirm();
+        QCOMPARE(again.stage(), QStringLiteral("rechecking"));
+        QTRY_COMPARE_WITH_TIMEOUT(again.stage(), QStringLiteral("done"), 10000);
+        QVERIFY(updated.exists());
+
+        // No lists fetched yet: the card looks the long way, as before.
+        SystemUpdate first;
+        first.setElevate({});
+        first.setLookScript(QStringLiteral("cat <<'LOOK'\n") + fresh + QStringLiteral("\nLOOK"));
+        first.setQuickLookScript(QStringLiteral("echo '@@ stale'"));
+        first.check();
+        QTRY_COMPARE(first.stage(), QStringLiteral("ready"));
+        QCOMPARE(first.plan().system, 7);
+    }
+
     void aBlockedUpdateDoesNotStart()
     {
         QString look = fixture(QStringLiteral("look.txt")).replace(QStringLiteral("battery 72"), QStringLiteral("battery 20"));

@@ -19,6 +19,7 @@
 #include <QDBusMetaType>
 #include <QDBusReply>
 #include <QFile>
+#include <QStandardPaths>
 #include <QSettings>
 #include <QSignalSpy>
 #include <QTemporaryDir>
@@ -137,6 +138,17 @@ class TestCore : public QObject
     Q_OBJECT
 
 private Q_SLOTS:
+    // Core's look and the Check for updates Helper fetch the package lists
+    // into one folder, which outlives a restart.
+    void updatesShareOneListsFolder()
+    {
+        QCOMPARE(updatesListsFolder(),
+                 QStandardPaths::writableLocation(QStandardPaths::GenericCacheLocation) + QStringLiteral("/split-rock/checkup-db"));
+        QFile script(QStringLiteral(PROJECT_DIR "/src/app/SystemUpdate.cpp"));
+        QVERIFY(script.open(QIODevice::ReadOnly));
+        QVERIFY(script.readAll().contains(R"(CHECKUPDATES_DB="${XDG_CACHE_HOME:-$HOME/.cache}/split-rock/checkup-db")"));
+    }
+
     void theDriveIsJudgedByHowFullAndHowFast()
     {
         StorageFact fact = judge({at(Start, 70)});
