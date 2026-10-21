@@ -264,7 +264,7 @@ QString AnswerLines::line(const QString &text)
         return {};
     QString kept = text;
     // Adobe's reader isn't made for Linux.
-    static const QRegularExpression adobe = words(",?\\s+(or|and)\\s+adobe( acrobat)? reader\\b");
+    static const QRegularExpression adobe = words(",?\\s+(or|and|like|such as)\\s+adobe( acrobat)? reader\\b");
     kept.remove(adobe);
     static const QRegularExpression step(QStringLiteral("^(\\s*)\\d+([.)]\\s)"));
     if (const QRegularExpressionMatch numbered = step.match(kept); numbered.hasMatch())
@@ -752,7 +752,9 @@ void FrontDesk::route(const QString &question)
             handOff(QStringLiteral("no skill or card covers it"));
             return;
         }
-        answer(question, picked ? target : cardFor(question),
+        // For an ask that only wants to know, the model's pick is a guess: the
+        // Helper goes under the answer only when the words name it.
+        answer(question, picked && kind == QLatin1String("change") ? target : cardFor(question),
                kind == QLatin1String("change") ? QStringLiteral("answer: no skill or card covers it") : QStringLiteral("answer"));
     });
 }

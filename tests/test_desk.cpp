@@ -717,6 +717,14 @@ private Q_SLOTS:
         tools.proposals.clear();
         run = ask(desk, add);
         QVERIFY2(tools.proposals.isEmpty(), qPrintable(run.said));
+        // An ask that only wants to know gets the model's pick only when its
+        // words name it.
+        const QString pdf = QStringLiteral("how do I open a pdf");
+        model.routes.insert(pdf, sorted(QStringLiteral("answer"), QStringLiteral("install")));
+        model.answers.insert(pdf, QStringLiteral("Double-click it in Files.\nIt opens in a reader, like Adobe Reader."));
+        run = ask(desk, pdf);
+        QVERIFY2(tools.proposals.isEmpty(), qPrintable(run.said));
+        QVERIFY2(!run.said.contains(QLatin1String("Adobe")), qPrintable(run.said));
     }
 
     // Emoji never reach the person.
