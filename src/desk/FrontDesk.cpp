@@ -110,6 +110,26 @@ QString cardTitle(const QString &card)
     return card;
 }
 
+// What each Helper does, in a few words after its name.
+QString helperDoes(const QString &card)
+{
+    static const QList<std::pair<QString, QString>> does{
+        {QStringLiteral("update"), QStringLiteral("looks for updates and installs them in one go")},
+        {QStringLiteral("space"), QStringLiteral("shows what fills the disk and what can go")},
+        {QStringLiteral("tidy"), QStringLiteral("finds old downloads and leftover copies")},
+        {QStringLiteral("install"), QStringLiteral("finds an app by name or by job, installs it, or removes one")},
+        {QStringLiteral("health"), QStringLiteral("looks the computer over and says what needs a look")},
+        {QStringLiteral("changes"), QStringLiteral("shows what changed lately, each with Undo")},
+        {QStringLiteral("restore"), QStringLiteral("lists the restore points to go back to")},
+        {QStringLiteral("community"), QStringLiteral("updates the community's own apps")},
+    };
+    for (const auto &[name, words] : does) {
+        if (name == card)
+            return words;
+    }
+    return QStringLiteral("can help with this");
+}
+
 } // namespace
 
 QString helperFor(const QString &question, const QList<std::pair<QString, QString>> &cards)
@@ -132,7 +152,10 @@ QString helperFor(const QString &question, const QList<std::pair<QString, QStrin
              "\\b(so |really |very )?slow(er|ly)?\\b|health check|check (the |my |this )?(computer|system|tablet|laptop)|"
              "something (is |seems )?wrong with (the |my |this )?(computer|system)|frozen|freez(e|es|ing)|"
              "not responding|\\bhang(s|ing)?\\b|crash(es|ed|ing)?\\b|keeps (closing|crashing|restarting|rebooting)|"
-             "restart(s|ing)? (by )?itself|\\b(hot|overheat(s|ing)?)\\b|\\bfans?\\b|stopped working|won'?t start")},
+             "restart(s|ing)? (by )?itself|no sound|sound (isn'?t|is not|doesn'?t|won'?t|stopped)|"
+             "(speakers?|headphones|earbuds|airpods|microphone|mic)\\b.{0,30}(\\bnot\\b|n'?t\\b|\\bstopped\\b|\\bno\\b)|"
+             "(bluetooth|wi-?fi|internet)\\b.{0,30}(\\bnot\\b|n'?t\\b|\\bstopped\\b|\\bkeeps\\b|\\bdrop|disconnect)|"
+             "won'?t (pair|connect)|\\b(hot|overheat(s|ing)?)\\b|\\bfans?\\b|stopped working|won'?t start")},
         {QStringLiteral("install"), pattern(
              "\\b(uninstall|deinstall|get rid of)\\b|\\b(remove|delete)\\b.{0,40}\\b(app|program|game|browser|keyboard|player|editor)\\b|"
              "^\\s*(please\\s+)?(remove|delete)\\s+\\S+\\s*$|\\binstall(ing)?\\b|"
@@ -634,6 +657,7 @@ void FrontDesk::answer(const QString &question, const QString &helper, const QSt
     QString system = answerWords();
     // The Helper that fits goes under the answer, and the answer points to it
     // rather than guessing what it would find.
+    QString pointer;
     if (!helper.isEmpty() && m_tools->propose(QJsonObject{{QStringLiteral("title"), cardTitle(helper)},
                                                           {QStringLiteral("card"), helper},
                                                           {QStringLiteral("query"), helper == QLatin1String("install") ? question.left(80) : QString()}})) {
@@ -642,9 +666,12 @@ void FrontDesk::answer(const QString &question, const QString &helper, const QSt
             if (name == helper)
                 what = words;
         }
-        system += QStringLiteral("Just below your answer the person sees the Helper %1, for this: %2. It looks first and "
-                                 "changes nothing until they choose. End with one short sentence pointing to %1 by "
-                                 "name, and don't guess what it will find.\n").arg(cardTitle(helper), what);
+        // The desk names it itself, so the model need not, and can't get it
+        // wrong.
+        system += QStringLiteral("The person also sees the Helper %1 just below, for this: %2. Don't describe it or "
+                                 "name its parts; a line about it follows your answer.\n").arg(cardTitle(helper), what);
+        pointer = QStringLiteral("\n\n%1, just below, %2. It changes nothing until you choose.")
+                      .arg(cardTitle(helper), helperDoes(helper));
     }
     const int generation = m_generation;
     m_model->complete(withHistory(system, question, HistoryTurns), {}, AnswerSlot, AnswerTokens,
@@ -652,11 +679,12 @@ void FrontDesk::answer(const QString &question, const QString &helper, const QSt
                           if (generation == m_generation)
                               say(withoutEmoji(chunk));
                       },
-                      [this, generation](const QString &text, const QString &error) {
+                      [this, generation, pointer](const QString &text, const QString &error) {
         if (generation != m_generation)
             return;
         if (!error.isEmpty() && text.isEmpty()) {
             say(QStringLiteral("I couldn't answer that just now. Try asking again in other words."));
+            say(pointer);
             finish(false);
             return;
         }
@@ -673,9 +701,12 @@ void FrontDesk::answer(const QString &question, const QString &helper, const QSt
         else if (sendsToTerminal(text))
             say(QStringLiteral("\n\nYou won't need a terminal for this: ask me, and I'll do what I can with a card "
                                "you approve."));
-        else if (claimsToKnow(text))
+        else if (claimsToKnow(text) && pointer.isEmpty())
             say(QStringLiteral("\n\nI can't see that from here, so don't take my word for it: a Helper below can "
                                "look for you."));
+        else if (claimsToKnow(text))
+            say(QStringLiteral("\n\nI can't see that from here, so don't take my word for it."));
+        say(pointer);
         finish(false);
     }, AnswerTime);
 }

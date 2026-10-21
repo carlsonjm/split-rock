@@ -292,7 +292,10 @@ private Q_SLOTS:
         QVERIFY(!run.handOff);
         QCOMPARE(doItCards(tools.proposals), 1);
         QVERIFY2(run.routes.last().startsWith(QLatin1String("answer: the card failed")), qPrintable(run.routes.join(QLatin1Char(','))));
-        QCOMPARE(run.said, model.answers.value(turbo));
+        QVERIFY(run.said.startsWith(model.answers.value(turbo)));
+        // The desk names the Helper itself, after the model's words.
+        QVERIFY(run.said.endsWith(QLatin1String("\n\nHealth check, just below, looks the computer over and says what "
+                                                "needs a look. It changes nothing until you choose.")));
         QCOMPARE(tools.proposals.last().value(QStringLiteral("card")).toString(), QStringLiteral("health"));
 
         // A card that passes the check but doesn't do what was asked, as 4B's
@@ -533,6 +536,10 @@ private Q_SLOTS:
         for (qsizetype i = 0; i < cases.size(); ++i)
             QCOMPARE(helperFor(cases.at(i), context().cards), cards.at(i));
         QCOMPARE(helperFor(QStringLiteral("what time is it in tokyo"), context().cards), QString());
+        for (const QString &trouble : {QStringLiteral("no sound from my speakers"), QStringLiteral("my headphones aren't working"),
+                                       QStringLiteral("my airpods won't pair"), QStringLiteral("my wifi keeps dropping")})
+            QCOMPARE(helperFor(trouble, context().cards), QStringLiteral("health"));
+        QCOMPARE(helperFor(QStringLiteral("how do I turn up the volume"), context().cards), QString());
         // An answer that says what it can't see is put right beneath.
         const QString date = QStringLiteral("is my computer up to date");
         model.answers.insert(date, QStringLiteral("Yes, your computer is up to date."));

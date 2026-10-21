@@ -43,18 +43,22 @@ QString places()
         "System Settings has pages named Wi-Fi & Networking, Bluetooth, Sound, Display & Monitor (the screen's size, "
         "text scale and night light), Printers, Users (passwords and the account picture), Power Management, Mouse & "
         "Touchpad, Keyboard, Autostart and Default Applications. No page shows what fills the disk: the Free up space "
-        "Helper does. Updates come from the Check for updates Helper, or Discover. Windows programs, Microsoft Word "
+        "Helper does. Updates come from the Check for updates Helper, or Discover. Apps are installed and removed "
+        "with the Install an app Helper: the person tells it the app's name. Never name a part, page or button of "
+        "a Helper. Windows programs, Microsoft Word "
         "and Office among them, don't run here: Word and Excel files open in ONLYOFFICE or LibreOffice, which "
-        "Install an app finds, and Microsoft 365 works in the web browser. Name no keyboard shortcut but those "
+        "Install an app finds, and Microsoft 365 works in the web browser: say both. Name no keyboard shortcut but those "
         "written here.");
     if (!QStandardPaths::findExecutable(QStringLiteral("shuffle-settings")).isEmpty())
         return QStringLiteral(
             "Shuffle is this computer's desktop, on KDE Plasma. Use its names. Search opens with a tap on the dot at the "
             "bottom of the screen, or the Meta key (the Windows key); it finds apps, files and settings by name, and "
-            "Apps and Files are in it (Files is like File Explorer, with Downloads, Documents and Pictures). Wi-Fi, "
-            "Bluetooth, sound and brightness are in Control Center: tap the network icon at the top right of the "
-            "screen; its Bluetooth page has Add new device, for a mouse or headphones. Control Center has only "
-            "those; every page named below is in System Settings. Shuffle's own Settings open with Meta+I. KDE's "
+            "Apps and Files are in it (Files is like File Explorer, with Downloads, Documents and Pictures). Control "
+            "Center opens with a tap on the network icon at the top right of the screen. It has the Wi-Fi list, "
+            "where a network, or a phone's hotspot once it is switched on on the phone, is joined by tapping its "
+            "name; the Bluetooth page, with Add new device for a mouse or headphones; the volume slider; and the "
+            "brightness slider, which makes the screen brighter or dimmer. It has nothing else: every page named "
+            "below is in System Settings, and each step names one place or the other. Shuffle's own Settings open with Meta+I. KDE's "
             "System Settings opens from Search by its name. The Helpers are listed in Search, under the answer. "
             "There is no taskbar or Start menu: the dock along the bottom holds apps, and Search opens the rest. ")
             + pages;

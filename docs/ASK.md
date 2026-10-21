@@ -39,7 +39,7 @@ The desk decides, not the model alone (`DECISIONS.md`, Ask on this computer):
    claim that something was changed, advice to use a terminal, or a claim
    about what it can't see, such as "your computer is up to date", is put
    right beneath it. The Helper its words plainly need goes under it, and the
-   answer points to it. It names only the places Ask describes to the model:
+   desk's own last line names it and what it does. It names only the places Ask describes to the model:
    Shuffle's own where Shuffle is installed, and System Settings' real pages.
    Words that go round in circles are cut where the circling began, and
    never shown.
