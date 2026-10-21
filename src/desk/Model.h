@@ -57,6 +57,9 @@ private:
     int m_timeLimit = 180000;
 };
 
+// What a model wrote, without its first word said twice over at the start.
+QString withoutStutter(const QString &text);
+
 // Where the end of what a model wrote starts going round in circles, or -1.
 qsizetype loopStart(const QString &text);
 

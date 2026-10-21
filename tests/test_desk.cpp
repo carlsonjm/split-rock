@@ -585,6 +585,18 @@ private Q_SLOTS:
         QVERIFY(run.said.contains(QLatin1String("cut it short")));
     }
 
+    // The first word said twice over, as llama-server's stream sometimes
+    // sends it, is said once.
+    void theFirstWordIsSaidOnce()
+    {
+        QCOMPARE(withoutStutter(QStringLiteral("YourYour disk is almost full")), QStringLiteral("Your disk is almost full"));
+        QCOMPARE(withoutStutter(QStringLiteral("YesYesYes, your")), QStringLiteral("Yes, your"));
+        QCOMPARE(withoutStutter(QStringLiteral("YourYourIt's common")), QStringLiteral("It's common"));
+        QCOMPARE(withoutStutter(QStringLiteral("11. Go to Settings")), QStringLiteral("1. Go to Settings"));
+        QCOMPARE(withoutStutter(QStringLiteral("You can free up space")), QStringLiteral("You can free up space"));
+        QCOMPARE(withoutStutter(QStringLiteral("100 apps")), QStringLiteral("100 apps"));
+    }
+
     // Emoji never reach the person.
     void answersCarryNoEmoji()
     {

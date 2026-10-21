@@ -37,6 +37,21 @@ constexpr qsizetype HeldBack = 48;
 
 } // namespace
 
+QString withoutStutter(const QString &text)
+{
+    // "YourYour disk", "YesYesYes,", "11. Go to": the first word said again
+    // with no space. Before a capital, as in "YourYourIt's", the stutter
+    // was never the answer's at all.
+    static const QRegularExpression stutter(QStringLiteral("^(\\s*)([A-Za-z]{1,10}|\\d)\\2+"));
+    const QRegularExpressionMatch match = stutter.match(text);
+    if (!match.hasMatch())
+        return text;
+    const QString rest = text.mid(match.capturedEnd());
+    if (!rest.isEmpty() && rest.at(0).isUpper() && match.captured(2).at(0).isLetter())
+        return match.captured(1) + rest;
+    return match.captured(1) + match.captured(2) + rest;
+}
+
 qsizetype loopStart(const QString &text)
 {
     // A short piece said eight times over, such as "a a a a" or "1111", or a
@@ -66,41 +81,24 @@ void Model::complete(const QJsonArray &messages, const QJsonObject &schema, int 
     // Qwen3's own switch: answer straight away rather than think first.
     const QJsonObject noThinking{{QStringLiteral("enable_thinking"), false}};
     if (schema.isEmpty()) {
-        // Words as they are written come from the plain completion, with the
-        // chat laid out by the server's own template first: the chat endpoint
-        // reads its partial words as a message and may send one twice.
-        post(QStringLiteral("/apply-template"),
-             QJsonObject{{QStringLiteral("messages"), messages}, {QStringLiteral("chat_template_kwargs"), noThinking}},
-             [this, slot, maxTokens, chunk, done, timeLimit](const QByteArray &body, const QString &error) {
-            const QString prompt = QJsonDocument::fromJson(body).object().value(QStringLiteral("prompt")).toString();
-            if (!error.isEmpty() || prompt.isEmpty()) {
-                done({}, error.isEmpty() ? QStringLiteral("The model couldn't read the question.") : error);
-                return;
-            }
-            stream(QJsonObject{
-                       {QStringLiteral("prompt"), prompt},
-                       // Qwen3's settings for answers without thinking; a
-                       // lower temperature talks in circles.
-                       {QStringLiteral("temperature"), 0.7},
-                       {QStringLiteral("top_p"), 0.8},
-                       {QStringLiteral("top_k"), 20},
-                       {QStringLiteral("min_p"), 0.0},
-                       {QStringLiteral("presence_penalty"), 1.0},
-                       {QStringLiteral("seed"), 7},
-                       {QStringLiteral("n_predict"), maxTokens},
-                       {QStringLiteral("stream"), true},
-                       {QStringLiteral("cache_prompt"), true},
-                       {QStringLiteral("id_slot"), slot},
-                   },
-                   chunk, done, timeLimit);
-        });
+        stream(QJsonObject{
+                   {QStringLiteral("messages"), messages},
+                   // Low: on a 2018 Mac mini, at 0.7 with Qwen3's own settings, the words
+                   // came out as soup.
+                   {QStringLiteral("temperature"), 0.2},
+                   {QStringLiteral("seed"), 7},
+                   {QStringLiteral("max_tokens"), maxTokens},
+                   {QStringLiteral("stream"), true},
+                   {QStringLiteral("cache_prompt"), true},
+                   {QStringLiteral("id_slot"), slot},
+                   {QStringLiteral("chat_template_kwargs"), noThinking},
+               },
+               chunk, done, timeLimit);
         return;
     }
     const QJsonObject body{
         {QStringLiteral("messages"), messages},
         {QStringLiteral("temperature"), 0.2},
-        {QStringLiteral("top_p"), 0.8},
-        {QStringLiteral("top_k"), 20},
         {QStringLiteral("seed"), 7},
         {QStringLiteral("max_tokens"), maxTokens},
         {QStringLiteral("stream"), false},
@@ -171,7 +169,7 @@ void Model::post(const QString &path, const QJsonObject &body,
 
 void Model::stream(const QJsonObject &body, const Chunk &chunk, const Done &done, int timeLimit)
 {
-    QNetworkReply *reply = send(QStringLiteral("/completion"), body, timeLimit);
+    QNetworkReply *reply = send(QStringLiteral("/v1/chat/completions"), body, timeLimit);
     // The words written so far, what of the stream is not yet a line, and how
     // much has been shown.
     auto written = std::make_shared<QString>();
@@ -180,7 +178,7 @@ void Model::stream(const QJsonObject &body, const Chunk &chunk, const Done &done
     // What may be shown of the words: no thinking block, and nothing from
     // where they began to go round in circles.
     auto sayable = [written]() {
-        QString clean = withoutThinking(*written);
+        QString clean = withoutStutter(withoutThinking(*written));
         const qsizetype loop = loopStart(clean);
         if (loop >= 0)
             clean.truncate(loop);
@@ -194,8 +192,11 @@ void Model::stream(const QJsonObject &body, const Chunk &chunk, const Done &done
             pending->remove(0, end + 1);
             if (!line.startsWith("data:"))
                 continue;
-            const QJsonObject event = QJsonDocument::fromJson(line.mid(5).trimmed()).object();
-            written->append(event.value(QStringLiteral("content")).toString());
+            const QJsonArray choices = QJsonDocument::fromJson(line.mid(5).trimmed()).object()
+                                           .value(QStringLiteral("choices")).toArray();
+            if (!choices.isEmpty())
+                written->append(choices.first().toObject().value(QStringLiteral("delta")).toObject()
+                                    .value(QStringLiteral("content")).toString());
         }
         if (loopStart(withoutThinking(*written)) >= 0) {
             reply->setProperty("looping", true);

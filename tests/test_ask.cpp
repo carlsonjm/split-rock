@@ -235,14 +235,10 @@ class Reply(http.server.BaseHTTPRequestHandler):
         self.send_response(200); self.end_headers(); self.wfile.write(b'{"status":"ok"}')
     def do_POST(self):
         self.rfile.read(int(self.headers["Content-Length"]))
-        if self.path == "/apply-template":
-            self.send_response(200); self.send_header("Content-Type", "application/json"); self.end_headers()
-            self.wfile.write(b'{"prompt":"the question"}')
-            return
         home = os.path.expanduser("~")
         seen = [os.path.join(d, f)[len(home):] for d, _, fs in os.walk(home) for f in fs]
         text = ("key " if self.headers.get("Authorization") == "Bearer " + key else "no key ") + " ".join(sorted(seen))
-        body = "data: " + json.dumps({"content": text, "stop": True}) + "\n\n"
+        body = "data: " + json.dumps({"choices": [{"delta": {"content": text}}]}) + "\n\ndata: [DONE]\n\n"
         self.send_response(200); self.send_header("Content-Type", "text/event-stream"); self.end_headers()
         self.wfile.write(body.encode())
     def log_message(self, *args): pass

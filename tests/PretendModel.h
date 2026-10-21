@@ -13,8 +13,7 @@
 
 // A pretend llama-server. What it answers is chosen by the person's last
 // message: routes[ask] is the sorting, cards[ask] the card, fits[ask] the
-// yes or no, answers[ask] the words, sent a few at a time through the plain
-// completion, as llama-server sends them.
+// yes or no, answers[ask] the words, sent a few at a time.
 class PretendModel : public QObject
 {
 public:
@@ -57,25 +56,6 @@ private:
             socket->disconnectFromHost();
             return;
         }
-        // The words of an answer come from the plain completion, after the
-        // server lays out the chat: here the layout is the messages as JSON.
-        if (header.startsWith("post /apply-template")) {
-            const QJsonObject laidOut{{QStringLiteral("prompt"),
-                                       QString::fromUtf8(QJsonDocument(body.value(QStringLiteral("messages")).toArray())
-                                                             .toJson(QJsonDocument::Compact))}};
-            const QByteArray json = QJsonDocument(laidOut).toJson(QJsonDocument::Compact);
-            socket->write("HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nConnection: close\r\nContent-Length: "
-                          + QByteArray::number(json.size()) + "\r\n\r\n" + json);
-            socket->disconnectFromHost();
-            return;
-        }
-        if (header.startsWith("post /completion")) {
-            QJsonObject chat = body;
-            chat.insert(QStringLiteral("messages"),
-                        QJsonDocument::fromJson(body.value(QStringLiteral("prompt")).toString().toUtf8()).array());
-            reply(socket, chat);
-            return;
-        }
         reply(socket, body);
     }
 
@@ -113,10 +93,11 @@ private:
             const QString text = answers.value(last, QStringLiteral("I don't know."));
             QByteArray out = "HTTP/1.1 200 OK\r\nContent-Type: text/event-stream\r\nConnection: close\r\n\r\n";
             for (qsizetype i = 0; i < text.size(); i += 7) {
-                const QJsonObject event{{QStringLiteral("content"), text.mid(i, 7)}, {QStringLiteral("stop"), false}};
+                const QJsonObject event{{QStringLiteral("choices"), QJsonArray{QJsonObject{
+                    {QStringLiteral("delta"), QJsonObject{{QStringLiteral("content"), text.mid(i, 7)}}}}}}};
                 out += "data: " + QJsonDocument(event).toJson(QJsonDocument::Compact) + "\n\n";
             }
-            out += "data: {\"content\":\"\",\"stop\":true}\n\n";
+            out += "data: [DONE]\n\n";
             socket->write(out);
             socket->disconnectFromHost();
             return;
