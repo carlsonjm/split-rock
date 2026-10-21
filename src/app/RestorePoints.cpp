@@ -89,8 +89,8 @@ QString RestorePoints::describe(const QString &description, const QString &clean
     if (d == QLatin1String("boot"))
         return said(QStringLiteral("boot"), QStringLiteral("When the computer started"));
 
-    // Split Rock's own, under either of its names: "Genie: Install firefox".
-    static const QRegularExpression own(QStringLiteral(R"(^(Split Rock|Genie): (.+)$)"));
+    // Split Rock's own, under any of its names: "Shuffle Core: Install firefox".
+    static const QRegularExpression own(QStringLiteral(R"(^(Split Rock|Shuffle Core|Genie): (.+)$)"));
     if (const QRegularExpressionMatch m = own.match(d); m.hasMatch()) {
         const QString job = m.captured(2);
         if (job == QLatin1String("Update"))
@@ -153,7 +153,7 @@ QString RestorePoints::describe(const QString &description, const QString &clean
 
 bool RestorePoints::isOwn(const QString &description)
 {
-    static const QRegularExpression own(QStringLiteral(R"(^\s*(Split Rock|Genie): )"));
+    static const QRegularExpression own(QStringLiteral(R"(^\s*(Split Rock|Shuffle Core|Genie): )"));
     return own.match(description).hasMatch();
 }
 

@@ -1,0 +1,17 @@
+{
+  "format": 1,
+  "about": "The models Ask on this computer can run, larger first; today one, the same for every computer. Only the first one a computer meets the needs of is downloaded. A model is downloaded only with its exact size and SHA-256, which are taken from the file itself before a release.",
+  "models": [
+    {
+      "id": "qwen3-4b",
+      "name": "Qwen3 4B",
+      "file": "Qwen3-4B-Instruct-2507-Q4_K_M.gguf",
+      "bytes": 2497281120,
+      "sha256": "3605803b982cb64aead44f6c1b2ae36e3acdb41d8e46c8a94c6533bc4c67e597",
+      "licence": "Apache-2.0",
+      "credit": "Qwen3 4B by the Qwen team, an open model under the Apache 2.0 licence",
+      "needs": { "memoryGiB": 0, "graphics": false },
+      "urls": ["https://huggingface.co/unsloth/Qwen3-4B-Instruct-2507-GGUF/resolve/main/Qwen3-4B-Instruct-2507-Q4_K_M.gguf"]
+    }
+  ]
+}

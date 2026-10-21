@@ -9,7 +9,7 @@ Rectangle {
     property int fontSize: 14
     property int padding: 16
     property string iconPath
-    // A small dot before the words: something Genie noticed, in its colour.
+    // A small dot before the words: something Core noticed, in its colour.
     property color dot: "transparent"
     // A filled pill's colour, and its ink: the accent unless a card has its
     // own.

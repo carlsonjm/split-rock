@@ -35,6 +35,50 @@ split_rock_test(test_chores)
 split_rock_test(test_notebook)
 split_rock_test(test_guide)
 
+# Ask on this computer: the front desk, the model's download and the skills,
+# against a pretend model server.
+split_rock_test(test_desk PretendModel.h)
+target_link_libraries(test_desk PRIVATE splitrock_ask)
+split_rock_test(test_local_model)
+target_link_libraries(test_local_model PRIVATE splitrock_ask)
+split_rock_test(test_skills)
+target_link_libraries(test_skills PRIVATE splitrock_ask)
+
+# Codex, for the bigger questions: its protocol, its window's conversation and
+# the fence, against the pretend assistant only, so no test reaches an account
+# or the network.
+add_executable(split-rock-pretend-assistant ${PROJECT_SOURCE_DIR}/src/pretend/main.cpp)
+target_link_libraries(split-rock-pretend-assistant PRIVATE Qt6::Core)
+foreach(name test_protocol test_codex)
+    split_rock_test(${name} PretendFixture.h)
+    target_link_libraries(${name} PRIVATE splitrock_codex)
+    target_compile_definitions(${name} PRIVATE
+        PRETEND_PROGRAM="$<TARGET_FILE:split-rock-pretend-assistant>"
+        SCRIPTS_DIR="${CMAKE_CURRENT_SOURCE_DIR}/pretend-scripts")
+    add_dependencies(${name} split-rock-pretend-assistant)
+endforeach()
+split_rock_test(test_codex_window PretendFixture.h)
+target_link_libraries(test_codex_window PRIVATE splitrock_codex Qt6::Gui Qt6::Quick)
+target_compile_definitions(test_codex_window PRIVATE
+    PRETEND_PROGRAM="$<TARGET_FILE:split-rock-pretend-assistant>"
+    SCRIPTS_DIR="${CMAKE_CURRENT_SOURCE_DIR}/pretend-scripts")
+add_dependencies(test_codex_window split-rock-pretend-assistant)
+qt_add_resources(test_codex_window "codex_window_for_test"
+    PREFIX "/"
+    BASE "${PROJECT_SOURCE_DIR}"
+    FILES
+        ${PROJECT_SOURCE_DIR}/qml/CodexWindow.qml
+        ${PROJECT_SOURCE_DIR}/qml/Theme.qml
+        ${PROJECT_SOURCE_DIR}/qml/Icon.qml
+        ${PROJECT_SOURCE_DIR}/qml/Icons.js
+        ${PROJECT_SOURCE_DIR}/qml/Pill.qml
+        ${PROJECT_SOURCE_DIR}/qml/Fold.qml
+        ${PROJECT_SOURCE_DIR}/qml/CardFrame.qml
+        ${PROJECT_SOURCE_DIR}/qml/CardHead.qml
+        ${PROJECT_SOURCE_DIR}/qml/CardRow.qml
+        ${PROJECT_SOURCE_DIR}/qml/WheelScroll.qml
+)
+
 # Core, the front desk: its judgement, when it speaks, its files and its bus
 # interface, with looks and a clock of the test's own.
 # On a bus of its own, so the bus interface is tested too.
@@ -46,6 +90,12 @@ add_test(NAME test_core COMMAND ${DBUS_RUN_SESSION}
 set(TEST_CORE_ENVIRONMENT ${TEST_ENVIRONMENT})
 list(FILTER TEST_CORE_ENVIRONMENT EXCLUDE REGEX "^DBUS_SESSION_BUS_ADDRESS=")
 set_tests_properties(test_core PROPERTIES ENVIRONMENT "${TEST_CORE_ENVIRONMENT}" TIMEOUT 60)
+add_executable(test_ask test_ask.cpp PretendModel.h)
+target_link_libraries(test_ask PRIVATE splitrock_ask Qt6::Test)
+target_compile_definitions(test_ask PRIVATE PROJECT_DIR="${PROJECT_SOURCE_DIR}")
+add_test(NAME test_ask COMMAND ${DBUS_RUN_SESSION}
+    --config-file=${CMAKE_CURRENT_SOURCE_DIR}/bus/private-bus.conf -- $<TARGET_FILE:test_ask>)
+set_tests_properties(test_ask PROPERTIES ENVIRONMENT "${TEST_CORE_ENVIRONMENT}" TIMEOUT 60)
 
 # The Helpers' window and its cards.
 split_rock_test(test_sheet)

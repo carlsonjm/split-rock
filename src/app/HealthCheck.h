@@ -73,7 +73,7 @@ public:
     // Looks without opening the card, now.
     void lookQuietly() { look(false); }
 
-    // A few words for one of Genie's tiles saying what the check noticed,
+    // A few words for one of Core's tiles saying what the check noticed,
     // or empty when the item needs nothing.
     static QString tile(const Item &item);
 

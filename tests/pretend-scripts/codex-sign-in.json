@@ -1,0 +1,13 @@
+{
+  "agent": {"name": "pretend", "title": "Pretend assistant", "version": "1"},
+  "signedIn": false,
+  "authMethods": [
+    {"id": "pretend-key", "name": "A key", "description": "Hidden by Split Rock"},
+    {"id": "pretend-terminal", "name": "Sign in with the program", "type": "terminal", "args": ["--sign-in", "ok"]},
+    {"id": "pretend-meta-key", "name": "Another key", "_meta": {"api-key": {"provider": "pretend"}}},
+    {"id": "chatgpt", "name": "Login with ChatGPT", "description": "Opens the pretend sign-in page"}
+  ],
+  "authenticate": {"chatgpt": "ok"},
+  "authenticateOpens": {"chatgpt": "https://sign-in.example/start"},
+  "turns": [{"expectPrompt": "after signing in", "steps": [{"say": "Hello after signing in."}]}]
+}
