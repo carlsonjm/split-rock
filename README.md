@@ -13,7 +13,7 @@
 </p>
 
 <p align="center">
-  <a href="#install">Install</a> · <a href="#controls">Controls</a> · <a href="docs/README.md">Docs</a> · <a href="https://shuffleplasma.com">Part of Shuffle</a>
+  <a href="#install">Install</a> · <a href="#controls">Controls</a> · <a href="docs/README.md">Docs</a> · <a href="#used-in-shuffle">Used in Shuffle</a>
 </p>
 
 <p align="center">
@@ -28,13 +28,13 @@ Helpers that look after a KDE Plasma computer, built for people leaving decades 
 <table>
 <tr>
 <td width="33%" valign="top"><b>Update</b><br>Lists every update before it starts, then runs it with a restore point first.</td>
-<td width="33%" valign="top"><b>Free up space</b><br>Names everything it would remove before it removes any of it.</td>
-<td width="33%" valign="top"><b>Install or remove an app</b><br>Finds the app for what you need, or removes the one you name.</td>
+<td width="33%" valign="top"><b>Free up space</b><br>Names everything it would remove before it removes any of it. Tidy up Downloads moves old downloads to the Trash.</td>
+<td width="33%" valign="top"><b>Install or remove an app</b><br>Finds the app for what you need, or removes the one you name. Your apps lists what you added, biggest first.</td>
 </tr>
 <tr>
 <td width="33%" valign="top"><b>Health check</b><br>Looks the computer over and says what is fine and what needs a look.</td>
 <td width="33%" valign="top"><b>What changed</b><br>The last two weeks, with a way to undo a change or go back to before. Restore points and community apps have Helpers too.</td>
-<td width="33%" valign="top"><b>Core</b><br>A background program with no window. It notices when space runs low or updates have waited too long, and says so without nagging.</td>
+<td width="33%" valign="top"><b>Core</b><br>A background program with no window. It notices when space runs low, updates have waited too long, a problem turns up, a Windows program lands in Downloads or a new device is plugged in, and says so without nagging.</td>
 </tr>
 </table>
 
@@ -73,8 +73,7 @@ Every input, with what you see happen, is in [docs/INPUT.md](docs/INPUT.md).
 
 This builds Split Rock, runs every check, and installs it for every account on
 this computer: the Helpers' program, Core, the guide and the tour. It is a
-developer install for the maintainer's own computer, not a package to hand to
-anyone else.
+developer install, not a package to hand to anyone else.
 
 <details>
 <summary>What it needs</summary>
@@ -90,8 +89,8 @@ and restore points through snapper where the disk supports them.
 
 Running `./install.sh` again first removes what the earlier install placed,
 and replaces Core if it is running. It asks for the administrator
-password once, to write under `/usr`; where Shuffle's install key is set up,
-it needs no password.
+password once, to write under `/usr`. On a computer where Shuffle has set up
+its own install step, it needs no password.
 
 `./uninstall.sh` removes what the install placed and leaves the notebook in
 place.
@@ -101,8 +100,8 @@ place.
 <details>
 <summary>With Shuffle</summary>
 
-Split Rock works on a KDE Plasma desktop with or without Shuffle. Inside
-Shuffle its Helpers open from Search and from Core's notices.
+Split Rock works on any KDE Plasma desktop. Its Helpers open from Core's
+notices, and from Search where Tettegouche is installed, as it is in Shuffle.
 
 </details>
 
@@ -117,21 +116,21 @@ change: it checks the public text and the guide, builds Split Rock and runs
 every test.
 
 `./run.sh space` builds Split Rock and opens Free up space from this checkout;
-any other Helper's name works the same way: `update`, `install`, `health`,
-`changes`, `restore` or `community`.
+any other Helper's name works the same way: `update`, `tidy`, `install`,
+`apps`, `health`, `changes`, `restore` or `community`.
 
 </details>
 
-## Part of Shuffle
+## Used in Shuffle
 
-Split Rock is one of the open-source pieces of Shuffle, a touch-first desktop
-for KDE Plasma. The others are
+Shuffle, a touch-first desktop built on KDE Plasma, uses Split Rock for its
+Helpers. The other open-source projects it uses are
 [Kadunce](https://github.com/carlsonjm/kadunce),
 [Tettegouche](https://github.com/carlsonjm/tettegouche),
-[Temperance](https://github.com/carlsonjm/temperance) and
-[Gooseberry](https://github.com/carlsonjm/gooseberry), with
-[Split Rock](https://github.com/carlsonjm/split-rock) here. Get the whole thing
-at [shuffleplasma.com](https://shuffleplasma.com).
+[Temperance](https://github.com/carlsonjm/temperance),
+[Gooseberry](https://github.com/carlsonjm/gooseberry) and
+[Shuffle Keyboard](https://github.com/carlsonjm/shuffle-keyboard). Shuffle's own
+site is [shuffleplasma.com](https://shuffleplasma.com).
 
 ## License
 

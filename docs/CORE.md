@@ -2,23 +2,30 @@
 
 Core is Split Rock's front desk: a small background program with no window,
 `split-rock-core`, one for each person. It looks at the computer on a schedule,
-writes what it saw in a logbook the person can read, and tells the desktop's
-surfaces when a fact deserves attention. Search, the island and the ticker show
-what it says; the upkeep cards do the work, after the person's yes. Core works
-without the conversation.
+writes what it saw in a logbook the person can read, and tells the desktop when
+a fact deserves attention. The Helpers do the work, after the person's yes.
 
-Core watches three topics, Storage, Updates and Health, the Downloads
-folder for a Windows program and for how much has piled up there, new
-devices, and what came in during Do Not Disturb. Each section below gives what
-Core watches, the card it can open and the words it uses.
+Core speaks in two ways:
+
+- **The ticker:** an ordinary desktop notification. Tapping it opens the
+  Helper that fits.
+- **The island:** a notice beside Search, the launcher from Tettegouche, which
+  reads Core's facts over the session bus. It is for what should not wait.
+  Without that launcher, only the ticker is seen.
+
+Core has seven topics, each switched on and off on its own: Storage, Updates,
+Health, Windows programs (an installer arriving in Downloads), Tidy up
+Downloads (how much has piled up there), Devices and Focus (what came in
+during Do Not Disturb). Each section below gives what Core watches, the
+Helper it can open and the words it uses.
 
 ## What holds
 
 - It runs as the person, never as the administrator.
 - It calls no language model and works with none installed. What it says is
   fixed wording ("Storage · 91% full").
-- It changes nothing on the computer. The most it does is open an upkeep card,
-  where the person decides.
+- It changes nothing on the computer. The most it does is open a Helper, where
+  the person decides.
 - Everything it keeps is a plain file in `split-rock/core` in the person's data
   folder, cut back to the last 90 days:
   - `logbook.txt`: what it saw and said, and what the person did, one line each,
@@ -32,19 +39,20 @@ Core watches, the card it can open and the words it uses.
     in them, kept 30 days (Settings copies, below)
 - `split-rock-corerc` in the person's settings folder switches off Core as a
   whole (`[General] Enabled=false`) or one topic (`[Storage] Enabled=false`,
-  `[Updates] Enabled=false`, `[Health] Enabled=false`, `[Windows] Enabled=false`,
-  `[Tidy] Enabled=false`, `[Devices] Enabled=false`, `[Focus] Enabled=false`). Core neither watches nor offers a topic that is
-  switched off.
+  `[Updates] Enabled=false`, `[Health] Enabled=false`,
+  `[Windows] Enabled=false`, `[Tidy] Enabled=false`,
+  `[Devices] Enabled=false`, `[Focus] Enabled=false`). Core neither watches
+  nor offers a topic that is switched off.
 - Core starts at sign-in, from `io.github.carlsonjm.splitrock.Core.desktop` in
-  the system's autostart folder, so it keeps its schedule whether or not a
-  surface has asked for it yet. A second start ends at once.
+  the system's autostart folder, so it keeps its schedule whether or not
+  anything has asked for it yet. A second start ends at once.
 - Where systemd runs the person's services, Core runs as
   `split-rock-core.service` inside the signed-in desktop, whether sign-in or
   the session bus started it. Signing out stops it, so the next sign-in starts
   whichever version is installed then. `install.sh` also replaces a running Core
   with the one it just installed.
-- Every surface works without Core. A surface looks for Core on the session bus
-  and carries on if it isn't there.
+- Nothing that shows Core's notices depends on it: a program looks for Core on
+  the session bus and carries on if it isn't there.
 
 ## Storage
 
@@ -85,8 +93,8 @@ of the last update, the days count from when Core first saw updates waiting.
 Core looks over the computer once a week, counted from its last look, so a
 computer that was off or asleep looks ten minutes after Core starts. It runs
 `split-rock --health-facts`, the Health check's own look, which only reads and
-changes nothing, not even the last look the card keeps. Of what it finds, Core
-keeps only the problems; space, updates and old copies of updates are left to
+changes nothing, not even the last look the Health check keeps. Of what it
+finds, Core keeps only the problems; space, updates and old copies of updates are left to
 Storage and Updates. A look that fails leaves the last fact standing.
 
 | Level | When | Where it shows |
@@ -99,10 +107,10 @@ The step is one problem: Health speaks again only when there is a problem
 more, and Not now quiets it until then. No problems counts as settled. The
 Notice setting does not move Health: a problem is a problem.
 
-A problem no Helper fixes says "Copy for help" on the card. A tap copies the
-problem, written as a question, with the computer's maker and model, its
-system, its Linux kernel and Plasma's version, to paste in a forum or send to
-someone. Nothing is sent anywhere.
+A problem no Helper fixes says "Copy for help" on the Health check. A tap
+copies the problem, written as a question, with the computer's maker and
+model, its system, its Linux kernel and Plasma's version, to paste in a forum
+or send to someone. Nothing is sent anywhere.
 
 ## Windows programs
 
@@ -129,11 +137,11 @@ It speaks again only 5 GB later; when the folders are tidied, the next mark is
 5 GB above what is left. During Do Not Disturb it waits. Tapping it opens Tidy
 up Downloads. Core reads only the sizes of the files there.
 
-The card groups the files directly in those two folders: installers of apps
+The Helper groups the files directly in those two folders: installers of apps
 already installed and Windows programs, copies the same as their original,
 files not opened in 30 days, screenshots, and the folders there, each whole
-with its size. Only the first two are ticked;
-an AppImage opened in the last month never is. What is ticked goes to the
+with its size. Only the first two are ticked; an AppImage opened in the last
+month never is. What is ticked goes to the
 Trash, where it can be put back, with no password. Free up space ends with a
 row that opens it, never ticked.
 
@@ -246,11 +254,11 @@ days).
 - An island nobody touches closes after a day, and the logbook says it went
   unanswered.
 - When the drive falls 2 points under the ticker's mark, nothing is left to
-  update, or no problem is left, the fact has settled: what was said is forgotten, so the next time it
-  gets worse, Core speaks again.
+  update, or no problem is left, the fact has settled: what was said is
+  forgotten, so the next time it gets worse, Core speaks again.
 
 The logbook records Core's first look after each start, every time it spoke,
-and whether the person opened the card, said not now, or left it, so real use
+and whether the person opened the Helper, said not now, or left it, so real use
 can set these limits. Below the ticker's mark it writes nothing more.
 
 ## On the bus
@@ -266,9 +274,9 @@ can set these limits. Below the ticker's mark it writes nothing more.
 | --- | --- |
 | `ProtocolVersion() → u` | The version, `1` |
 | `Facts() → aa{sv}` | Every fact Core has now; none for a topic switched off |
-| `Act(s topic, s action) → b` | The person answered a fact: `open` opens its card, `not-now` and `dismiss` quiet it, and `never`, for Windows programs, stops it for good. False for any other topic or action |
-| `Actions() → aa{sv}` | The upkeep cards Search can open by their words: `id`, `title`, `sub`, `icon` and `keywords` (`as`) each |
-| `OpenAction(s id, s query) → b` | Opens that card on its own. `query` goes only to Install an app, which searches for it, or removes an app when it starts with "uninstall" or "remove". False for an id not listed |
+| `Act(s topic, s action) → b` | The person answered a fact: `open` opens its Helper, `not-now` and `dismiss` quiet it, and `never`, for Windows programs, stops it for good. False for any other topic or action |
+| `Actions() → aa{sv}` | The Helpers Search can open by their words: `id`, `title`, `sub`, `icon` and `keywords` (`as`) each |
+| `OpenAction(s id, s query) → b` | Opens that Helper on its own. `query` goes only to Install an app, which searches for it, or removes an app when it starts with "uninstall" or "remove". False for an id not listed |
 | `RemoveApp(s desktopId) → b` | Opens Install an app straight to removing the app with that desktop file id, such as `org.videolan.vlc.desktop`: it finds the package or Flatpak that owns it and waits for the person's yes. False for anything not shaped like a desktop file id |
 | `FocusEnded(u notifications)` | Do Not Disturb ended, and this many notifications came in meanwhile; whatever shows the notifications calls it |
 | `FocusEndedInView(u notifications)` | The same, ended inside the notifications themselves, where the person already sees what came in: logged, and nothing goes on the island |
@@ -295,22 +303,23 @@ Each fact is a dictionary of strings to variants:
 | `level` | `s` | `quiet`, `ticker` or `island` |
 | `attention` | `s` | `island` while the island should show it, `none` otherwise |
 | `icon` | `s` | An icon name from the icon theme |
-| `actionText` | `s` | What the card is called: `Free up space`, `Check for updates`, `Health check` |
+| `actionText` | `s` | What the Helper is called: `Free up space`, `Check for updates`, `Health check` |
 | `keywords` | `as` | The words Search finds it by |
 
 ## Actions from Search
 
-Every upkeep card opens from Search on its own, with no conversation: Check
-for updates, Free up space, Tidy up Downloads, Install an app, Your apps,
-Health check, What changed, Restore points and Community apps. Core lists them with the words each is found by,
-and Search matches what is typed against them without asking Core anything.
+Every Helper opens from Search on its own: Check for updates, Free up space,
+Tidy up Downloads, Install an app, Your apps, Health check, What changed,
+Restore points and Community apps. Core lists them with the words each is
+found by, and Search matches what is typed against them without asking Core
+anything.
 Windows's own words find them too: Add or remove programs opens Install an
 app, Disk Cleanup Free up space, Windows Update Check for updates and System
 Restore Restore points.
 Enter on one asks Core to open it. Install an app searches for what was
 typed; a Windows installer's name typed in full, such as ZoomInstaller.exe,
-searches for its program, Zoom. Each card looks first and changes nothing
-until the person says yes. The logbook records each card opened.
+searches for its program, Zoom. Each Helper looks first and changes nothing
+until the person says yes. The logbook records each Helper opened.
 
 Your apps lists the apps the person added themselves, biggest first with the
 room each takes: apps in the app menu whose package was installed on purpose,
@@ -320,12 +329,11 @@ at a time. It never opens on its own: Search finds it, and Free up space ends
 with a row that opens it, never ticked, so freeing up space never removes an
 app.
 
-## Opening a card
+## Opening a Helper
 
-Core opens a card by starting `split-rock --card space`, or
-`split-rock --card install --query "pdf editor"` for the card that takes words. Split Rock then
-opens that one upkeep card on its own, in an ordinary window titled after the
-card, with no conversation and no assistant started. The window closes when the
-card does, and can't be closed while the card is busy. A card that hands over to
-another, as Health check does to Free up space, keeps the window: the next card
-opens in it.
+Core opens a Helper by starting `split-rock --card space`, or
+`split-rock --card install --query "pdf editor"` for the one that takes words.
+Split Rock then opens that one Helper in an ordinary window titled after it.
+The window closes when the Helper does, and can't be closed while the Helper is
+busy. A Helper that hands over to another, as Health check does to Free up
+space, keeps the window: the next Helper opens in it.

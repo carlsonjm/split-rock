@@ -8,15 +8,16 @@ redistribute the source under its terms.
 
 ## The names and marks are not part of that licence
 
-The following are not licensed under the GPL and remain the property of the
-copyright holder, Jared Carlson:
+The following are not licensed under the GPL and belong to the copyright
+holder, Jared Carlson:
 
-- The publisher name **Good Input** and the product name **Shuffle for Plasma**
-- The names **Split Rock**, **Kadunce**, **Tettegouche** and **Temperance**
-- The Split Rock logo, once there is one
+- The publisher name **Good Input** and the name **Shuffle for Plasma**
+- The names **Kadunce**, **Tettegouche**, **Temperance**, **Gooseberry**,
+  **Split Rock** and **Shuffle Keyboard**
+- The Split Rock logo and its lighthouse mark
 
-This is the ordinary arrangement for free software: the code is free to
-redistribute, the identity is not free to reuse.
+This is the ordinary arrangement for free software: you can redistribute the
+code, but not reuse its identity.
 
 ## What this means in practice
 

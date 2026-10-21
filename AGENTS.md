@@ -29,7 +29,7 @@ These hold in every Shuffle repository.
 - One implementation owner per repository. A second worker is read-only review or
   a disjoint file set.
 - Reproduce a defect and measure the property controlling it before changing it.
-- Components never depend on private product features. Split Rock works on any
+- Components never depend on private Shuffle features. Split Rock works on any
   KDE Plasma desktop; what Shuffle adds switches on only when Shuffle is present.
 
 These hold here, because this program acts on a person's computer.

@@ -2,13 +2,19 @@
 
 Each settled ruling: the rule, why it holds, and what was rejected.
 
+Many rulings below concern the conversation with an assistant, its windows,
+the troubleshooting guide's part in it and the mock-up drawn for it. They
+record what Split Rock built before "Genie's chat is gone" removed it, and stay
+as history; the mock-up itself is in git history. Where an earlier ruling
+disagrees with a later one, the later one holds.
+
 ## Split Rock is an Agent Client Protocol client
 
 Split Rock talks to the assistant through the Agent Client Protocol, so any
 agent that speaks it can be the assistant, and the person chooses.
 
-Rejected: driving one assistant's command-line program directly, which ties the
-product to a single assistant; and calling a model's API directly, which bills
+Rejected: driving one assistant's command-line program directly, which ties Split
+Rock to a single assistant; and calling a model's API directly, which bills
 per use and would make Split Rock responsible for accounts and payment.
 
 ## Each agent owns its sign-in and billing
@@ -18,7 +24,8 @@ and never pays for anyone's use. The agent signs the person in through its own
 window, and Split Rock shows whatever sign-in methods that agent supports.
 
 Rejected: Split Rock managing accounts or keys for the person. Some providers
-also do not allow a third-party product to offer their consumer sign-in.
+also do not allow a third-party program to offer their personal-account
+sign-in.
 
 ## The notebook is a plain folder
 
@@ -119,11 +126,11 @@ see, and the one thing Split Rock promises Pat never has to see.
 Claude is not offered (Two assistants: on this computer, and Codex); this holds
 for when it is offered again. Split Rock starts Claude's adapter with
 subscription sign-in hidden. This holds
-on the maintainer's machine too, because it is a rule about the product, not
+on the maintainer's machine too, because it is a rule about Split Rock, not
 about who uses it.
 
 Rejected: offering sign-in with a Claude subscription. Anthropic does not allow
-it in a third-party product without its approval. If Anthropic approves Split
+it in a third-party program without its approval. If Anthropic approves Split
 Rock, this ruling changes.
 
 ## Written in C++ and Qt, like the rest of the suite
@@ -147,7 +154,7 @@ none of these says it can't be undone automatically before the person taps.
 Nothing runs without the tap.
 
 Why: a fixed set that grows one change at a time leaves most everyday problems
-going elsewhere for a fix, which is the opposite of the product, and real use is
+going elsewhere for a fix, which is the opposite of what Split Rock is for, and real use is
 the only test that finds which changes matter.
 
 Rejected: a fixed set only, which was the earlier ruling; and making any change
@@ -168,7 +175,7 @@ use; and waiting for Anthropic to approve subscription sign-in before building.
 
 A conversation lasts until the person starts a new one, logs out or restarts,
 and is never written to disk. What is worth remembering is written into the
-notebook as `MEMORY.md` describes.
+notebook as `MEMORY.md` then described.
 
 Rejected: saving every conversation, which fills the notebook with what nobody
 chose to keep and makes it harder for the assistant to find what matters.
@@ -275,8 +282,9 @@ assistants and is the assistant's to switch off.
 Keep this files the answer in `Notes/`, in a topic folder Split Rock chooses
 from the question's words, and every write is checked for what is never written
 down. Having the assistant choose the topic, and filing into Gooseberry where it
-is installed (`MEMORY.md`), come later: Gooseberry offers no way yet for another
-program to add a note, and its quick note is Search's own session.
+is installed (as `MEMORY.md` then described), come later: Gooseberry offers no
+way yet for another program to add a note, and its quick note is Search's own
+session.
 
 Rejected: a turn in the conversation asking the assistant for a topic, which
 the person would see and pay for.
@@ -289,10 +297,11 @@ resized, and a card workspace can place it beside another window. The card in
 Search's shape stays, as Ask in the icon's menu, and in Spread it holds the
 centre as before. Inside Shuffle, Search hosts the conversation as one of its
 modes, drawn in Search's own window, as it hosts Gooseberry's quick note:
-Split Rock keeps the conversation and offers it on the session bus
-(`DESKTOP.md` § The conversation in Search), and Search keeps nothing. So that
-the conversation is there when Search asks, Split Rock runs once, keeps running
-after its windows close, and is started by Search's first call. Gooseberry
+Split Rock keeps the conversation and offers it on the session bus (as
+`DESKTOP.md` described until the conversation was removed), and Search keeps
+nothing. So that the conversation is there when Search asks, Split Rock runs
+once, keeps running after its windows close, and is started by Search's first
+call. Gooseberry
 works the same way.
 
 Rejected: the card as what the icon opens, which cannot be resized or placed
@@ -336,12 +345,12 @@ covered.
 
 ## Shuffle Genie inside Shuffle, Split Rock on its own
 
-Inside Shuffle the product is Shuffle Genie, and Search's pill
+Inside Shuffle it was called Shuffle Genie, and Search's pill
 and the window's header say Genie. On its own, on any Plasma desktop, the
-application is Split Rock. The repository stays Split Rock. Its mark is a genie
-lamp in the suite's line style, kept as one file, `assets/mark.svg`, which every
-surface that draws the assistant uses, so that it is swapped in one place. Genie
-waits on a registered trademark search, as Shuffle Ace does: other AI
+application is Split Rock. The repository stays Split Rock. Its mark, first a
+genie lamp and now a lighthouse, is kept as one file, `assets/mark.svg`, which
+every surface that draws the assistant uses, so that it is swapped in one
+place. Genie waits on a registered trademark search, as Shuffle Ace does: other AI
 assistants are already called Genie.
 
 Rejected: the earlier working name.
@@ -360,7 +369,7 @@ by what decades of Windows taught: that a warning in a window can be real, that
 support may phone, and that a fix is a program to download.
 
 Rejected: a senior in their seventies, set up by a relative, as the person
-tested against. It framed the product by frailty rather than by the switch, and
+tested against. It framed Split Rock by frailty rather than by the switch, and
 missed what the person brings: decades of habits from another system.
 
 ## Keeping an unusual device working is a core job
@@ -852,7 +861,7 @@ guide itself, as written, whenever an entry fits the question, so the guide is
 no longer a choice of its own there; it stays one only where Split Rock on this
 computer can't run. Split Rock on this computer never offers to remember
 something about the person, since what a small model would keep can't be
-trusted to be right. Other paid assistants may be looked at later.
+trusted to be right. Other assistants may be looked at later.
 
 Rejected: keeping Claude Agent and Gemini CLI, never tested to ship; the guide
 as a separate choice beside an assistant that already knows it; and the small
@@ -981,15 +990,15 @@ file changed since the change is left as it is, with nothing put back; any file
 Undo replaces or removes is kept aside in the change's folder first; and a
 change is never made unless its record, with its way back, was written whole.
 
-Why: the product owner ruled that Genie is not a chat. Core makes faceless,
-temporary Helpers, and an assistant that could be asked anything was the part
-with the open findings: reading beyond the home folder (GN-2), an undo that
-could lose a file (GN-3) and tokens in the environment passing to the assistant
-(GN-4). With the conversation gone, GN-2 and GN-4 have nothing left to reach;
-GN-3 is fixed where Undo still runs.
+Why: it was ruled that Genie is not a chat. Core makes faceless, temporary
+Helpers, and an assistant that could be asked anything was the part with the
+open problems: reading beyond the home folder, an undo that could
+lose a file, and tokens in the environment passing to the assistant. With the
+conversation gone, the first and last have nothing left to reach; the undo is
+fixed where Undo still runs.
 
 Rejected: keeping the conversation behind a switch, which keeps every finding
-open for a feature the product does not offer; and dropping Undo with it, which
+open for a feature Split Rock no longer offers; and dropping Undo with it, which
 would leave the changes already made from cards without their way back.
 
 ## The Helpers follow the Visual sheet
@@ -1004,9 +1013,9 @@ text colour. Colour is kept for state: amber for worth a look, warm red for a
 problem and teal for good. A Helper's colour name still says which it is, and
 draws nothing.
 
-Why: the product owner approved the Helpers moving onto the Visual sheet, so a
-Helper reads like every other Shuffle surface, and the Helpers still to come
-match the seven already here.
+Why: the Helpers' move onto the Visual sheet was approved, so a Helper reads
+like every other Shuffle surface, and the Helpers still to come match the seven
+already here.
 
 Rejected: keeping each Helper's own hue and larger corners, which made the
 Helpers the one place in Shuffle that did not match; and redrawing only the
@@ -1018,14 +1027,13 @@ Your apps lists the apps the person installed on purpose, from the system's
 shelf or Flathub, by the room each takes, and removes one with Install an
 app's own yes and restore point. Shelf apps ask for the password once each.
 
-Why: the product owner chose the simple version for 1.1: what the person
-added and how big it is can be read plainly, and removing reuses a path
-already proved.
+Why: the simple version was chosen for 1.1: what the person added and how big
+it is can be read plainly, and removing reuses a path already proved.
 
 Rejected for now: when each app was last used, which would mean reading
 Plasma's private record of app use; and removing several at once with one
 password, which would change the administrator's helper. Both are kept for
-after launch.
+later.
 
 ## Health is Core's third topic, and a problem is copied for help
 
@@ -1042,8 +1050,8 @@ saved, a service that stopped or Flathub's apps: its row offers "Copy for help"
 with the change as a question.
 
 Why: the card said it ran by itself once a week, and nothing ran it once the
-conversation was gone; its questions had nowhere to go. The product owner
-chose copying over a web search, because it works without a network and sends
+conversation was gone; its questions had nowhere to go. Copying was
+chosen over a web search, because it works without a network and sends
 nothing on its own.
 
 Rejected: a web search for the problem, whose results are often old threads
@@ -1060,8 +1068,8 @@ for good. The Helpers also answer to Windows's own words: Add or remove
 programs, Disk Cleanup, Windows Update, System Restore.
 
 Why: Split Rock is for someone who has used Windows for decades, and a
-downloaded installer that does nothing is where they get stuck. The product
-owner chose the island at that moment over a line in Search they would have
+downloaded installer that does nothing is where they get stuck. The island at
+that moment was chosen over a line in Search they would have
 to think to look for.
 
 Rejected: a line in Search and the Health check only, which waits for the
@@ -1081,8 +1089,8 @@ the ticker when the two folders pass 5 GB, and again only 5 GB later; Free up
 space ends with a row for it, never ticked.
 
 Why: Downloads is where a Windows user's leftovers pile up, and the person
-can't tell an installer they used from a document they need. The product
-owner approved the mock-up that ticks only what is plainly safe and keeps the
+can't tell an installer they used from a document they need. The approved
+mock-up ticks only what is plainly safe and keeps the
 rest for the person to look at.
 
 Rejected: deleting for good, which can't be undone; ticking old files, which
@@ -1101,7 +1109,7 @@ reads only what UDisks2, BlueZ and systemd already publish on the system bus.
 
 Why: on Windows a new device announces itself and offers its setup; here the
 setup page exists but has to be found. A ticker line is enough for news that
-asks for nothing, and the product owner chose the three kinds first.
+asks for nothing, and these three kinds were chosen to come first.
 
 Rejected: every kind of device at once, with more to test on hardware nobody
 here has; the island, which is for what can't wait; and a note in the
