@@ -13,10 +13,11 @@ Core speaks in two ways:
   reads Core's facts over the session bus. It is for what should not wait.
   Without that launcher, only the ticker is seen.
 
-Core has six topics, each switched on and off on its own: Storage, Updates,
+Core has seven topics, each switched on and off on its own: Storage, Updates,
 Health, Windows programs (an installer arriving in Downloads), Tidy up
-Downloads (how much has piled up there) and Devices. Each section below gives
-what Core watches, the Helper it can open and the words it uses.
+Downloads (how much has piled up there), Devices and Focus (what came in
+during Do Not Disturb). Each section below gives what Core watches, the
+Helper it can open and the words it uses.
 
 ## What holds
 
@@ -34,12 +35,14 @@ what Core watches, the Helper it can open and the words it uses.
   - `attention.ini`: what it has said, so it doesn't say it twice, and its
     last looks for updates and at the computer's health, and the devices
     it knows
+  - `settings/`: its copies of the desktop's settings files and what changed
+    in them, kept 30 days (Settings copies, below)
 - `split-rock-corerc` in the person's settings folder switches off Core as a
   whole (`[General] Enabled=false`) or one topic (`[Storage] Enabled=false`,
   `[Updates] Enabled=false`, `[Health] Enabled=false`,
   `[Windows] Enabled=false`, `[Tidy] Enabled=false`,
-  `[Devices] Enabled=false`). Core neither watches nor offers a topic that is
-  switched off.
+  `[Devices] Enabled=false`, `[Focus] Enabled=false`). Core neither watches
+  nor offers a topic that is switched off.
 - Core starts at sign-in, from `io.github.carlsonjm.splitrock.Core.desktop` in
   the system's autostart folder, so it keeps its schedule whether or not
   anything has asked for it yet. A second start ends at once.
@@ -162,6 +165,65 @@ by its address and a printer by its model; Core keeps the last 200 of each.
 Where a kind's settings page isn't installed, as on a desktop without Plasma's
 printer settings, the logbook alone records the new device.
 
+## Focus
+
+When Do Not Disturb ends, Core says once on Search's island what came in
+meanwhile: "While you were focused", "7 notifications · Updates waiting". The
+count comes from whatever shows the desktop's notifications, which calls
+`FocusEnded` with it; Status does, and on a desktop where nothing calls it
+Focus never speaks. "Waiting" names each topic that wanted the island while
+Do Not Disturb kept it to the ticker, held for a day at most, and said once.
+When nothing came in and nothing was held, Core writes it in the logbook and
+says nothing.
+
+When Do Not Disturb ends inside the notifications themselves, as with its
+switch in Status, the person is already looking at what came in: Status
+calls `FocusEndedInView`, Core writes it in the logbook, and there is no
+island. Status marks what came in there instead. Whatever Core held went to
+the ticker, so it is among them. The island shows only when Do Not Disturb
+ends somewhere else, by a shortcut or its timer, and opening the
+notifications any way at all counts as seeing them: Status calls
+`NotificationsSeen` and the island goes.
+
+Tapping it, See them, asks to show the notifications: Core sends
+`OpenNotifications` on the bus, and Status opens its notification history.
+With no notifications counted, the tap opens the card of the first topic
+held instead. Each time Do Not Disturb ends is news once; the island's daily
+allowance leaves a second time the same day to the ticker. Once answered, it
+is no longer a fact.
+
+## Settings copies
+
+What changed says a settings change as it was made, "Built-in screen: scale
+175% to 150%", and puts it back, so Core keeps its own copy of each settings
+file What changed reads: the screens, keyboard shortcuts, windows and effects,
+window rules, the look, panels and widgets, pointer and touchpad, keyboard
+layouts, power, screen lock, Bluetooth, notifications, default apps, fonts,
+file search, accessibility, the clock and the language. It looks at them when
+one is written, five seconds after the last write, and on its usual schedule.
+
+- A key whose value differs from the copy is one change, kept with the time
+  and its value before and after in `settings/changes.jsonl`; then the copy is
+  brought up to date. The first look only takes the copies, so a change made
+  before Core began keeping them can only be named by its file, as before.
+- The desktop's own keeping is left out: a file written again with the same
+  values, window sizes and places, recent lists, a shortcut's name written
+  again, and a panel's every size and place. For panels, adding or removing a
+  widget or a panel, and the wallpaper, are changes.
+- It reads the settings and writes only its own folder. With Core off as a
+  whole, it keeps no copies.
+
+What changed makes one row of the changes in one place within two minutes of
+each other, and each row has the way back that is known to work on it:
+
+| Way back | For | What it does |
+| --- | --- | --- |
+| Put back | A screen's scale, resolution and turn; keyboard shortcuts; windows and effects; window rules; keyboard layouts; power; screen lock; notifications; default apps; the wallpaper | A change from a card of Split Rock's own, after the person's yes, with Undo: KDE's own tools set the values from before and the desktop is told |
+| Open in Settings | The look, pointer and touchpad, Bluetooth and the rest | KDE's page for it opens; the row says what it was |
+| Copy for help | Panels and widgets | Everything that changed, exactly, with what the computer is |
+
+A setting already back as it was says so on its row and offers nothing.
+
 ## Notice
 
 One setting moves Storage's and Updates' marks together: `[General] Notice` in
@@ -216,7 +278,11 @@ can set these limits. Below the ticker's mark it writes nothing more.
 | `Actions() → aa{sv}` | The Helpers Search can open by their words: `id`, `title`, `sub`, `icon` and `keywords` (`as`) each |
 | `OpenAction(s id, s query) → b` | Opens that Helper on its own. `query` goes only to Install an app, which searches for it, or removes an app when it starts with "uninstall" or "remove". False for an id not listed |
 | `RemoveApp(s desktopId) → b` | Opens Install an app straight to removing the app with that desktop file id, such as `org.videolan.vlc.desktop`: it finds the package or Flatpak that owns it and waits for the person's yes. False for anything not shaped like a desktop file id |
+| `FocusEnded(u notifications)` | Do Not Disturb ended, and this many notifications came in meanwhile; whatever shows the notifications calls it |
+| `FocusEndedInView(u notifications)` | The same, ended inside the notifications themselves, where the person already sees what came in: logged, and nothing goes on the island |
+| `NotificationsSeen()` | The person opened the notifications, so the island about what came in goes |
 | `FactChanged(a{sv})` | A fact changed: its words, its level or whether it wants the island |
+| `OpenNotifications()` | The person asked to see what came in during Do Not Disturb; whatever keeps the notifications opens them |
 
 `Act("devices", "open")` opens the settings page for the kind of device Core
 spoke of last, as a tap on its ticker line does.
@@ -225,13 +291,14 @@ Each fact is a dictionary of strings to variants:
 
 | Key | Type | What it is |
 | --- | --- | --- |
-| `topic` | `s` | `storage`, `updates`, `health` or `windows` (`tidy` speaks only on the ticker and has no fact) |
+| `topic` | `s` | `storage`, `updates`, `health`, `windows` or `focus` (`tidy` speaks only on the ticker and has no fact) |
 | `title` | `s` | `Storage`, `Updates`, `Health`, `Windows programs` |
 | `line` | `s` | `91% full`, `12 waiting`, `Up to date`, `1 problem`, `All good` |
 | `detail` | `s` | `45 GB free · filling about 2 GB a day` (the rate only when it is at least 100 MB a day), `Last updated 9 days ago` |
 | `percent` | `i` | Storage only: how full, in whole points |
 | `waiting`, `daysBehind` | `i` | Updates only: how many, and days since the last full update |
 | `problems` | `i` | Health only: how many problems |
+| `notifications` | `i` | Focus only: how many notifications came in during Do Not Disturb |
 | `program` | `s` | Windows programs only: the program the installer is for, such as `Zoom`; empty when its name gives none |
 | `level` | `s` | `quiet`, `ticker` or `island` |
 | `attention` | `s` | `island` while the island should show it, `none` otherwise |

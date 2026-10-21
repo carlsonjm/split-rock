@@ -1045,6 +1045,9 @@ are left to their own topics. A problem no Helper fixes, which once offered
 question, with what the computer is, for the person to paste where they ask.
 The Health check says it runs by itself once a week only while Core's Health
 topic is on.
+What changed does the same for a change with no way back, such as settings
+saved, a service that stopped or Flathub's apps: its row offers "Copy for help"
+with the change as a question.
 
 Why: the card said it ran by itself once a week, and nothing ran it once the
 conversation was gone; its questions had nowhere to go. Copying was
@@ -1112,3 +1115,54 @@ Rejected: every kind of device at once, with more to test on hardware nobody
 here has; the island, which is for what can't wait; and a note in the
 notebook's `Device/` folder for each one, which describes the computer
 itself, not what was plugged into it. The logbook keeps each device instead.
+
+## When Do Not Disturb ends, Focus says once what came in
+
+Core's Focus topic speaks once, on the island, when Do Not Disturb ends: how
+many notifications came in and which of Core's own facts it held back. The
+desktop's notification surface counts the notifications, since only it sees
+them, and tells Core over the bus; a tap asks that surface to open its
+history.
+
+Why: Do Not Disturb already holds Core's islands back, so the moment it ends
+is when the person is ready to hear what waited. One moment and one island
+build on a switch people already use.
+
+Rejected: Core reading every notification on the bus to count them, which
+would put other apps' messages in front of a program that needs only their
+number; focus hours that switch Do Not Disturb on by themselves, which need
+a setting of their own; and a summary at the end of every day, a reminder
+about nothing being wrong.
+
+Since then, Do Not Disturb turned off inside the notifications raises no
+island: the notifications mark what came in, where the person is looking, and
+opening them takes down an island already up. On the tablet the island came
+up over the open notifications, and its See them asked to open what was
+already open, so the tap did nothing anyone could see.
+
+## What changed says each change, and puts it back right there
+
+What changed says what changed, old to new, and offers the way back on the
+row. A settings change is said as it was made, from Core's own copies of the
+settings files (CORE.md, Settings copies), and Put back sets the values from
+before as a change of Split Rock's own, after a yes, with Undo; only where that
+is proven to take effect at once, and the rest open KDE's own page for it. A
+background service that stopped working says what it said last and offers
+Start it again; a Flathub app updated from a commit Flathub still keeps offers
+Go back; a system update with no restore point copies every version, old to
+new, where the old ones still are, and the errors since. The administrator's
+part of starting a service or taking a system app back is two jobs of
+`split-rock-admin`, each taking only a checked name: `start-service` starts
+only a service that stopped working, and `flatpak-back` takes only a full
+commit.
+
+Why: on the tablet, What changed named settings files and copied only their
+names, which nobody can act on. The product owner asked what a person needs to
+solve the problem in front of them, and chose putting back right there over
+copying the exact change for help alone.
+
+Rejected: copying the exact change only, which still leaves the person to do
+it by hand; putting back the look and panels live before it is proven, since
+writing Plasma's panel file while Plasma runs is overwritten or breaks the
+panel; and reading the settings' history from a backup tool, which most
+computers don't have.

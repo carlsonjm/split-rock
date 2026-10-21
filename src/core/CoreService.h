@@ -35,9 +35,21 @@ public Q_SLOTS:
     Q_SCRIPTABLE QList<QVariantMap> Actions() const;
     Q_SCRIPTABLE bool OpenAction(const QString &id, const QString &query);
     Q_SCRIPTABLE bool RemoveApp(const QString &desktopId);
+    // The desktop's notifications say Do Not Disturb ended, and how many
+    // notifications came in meanwhile.
+    Q_SCRIPTABLE void FocusEnded(uint notifications);
+    // The same, ended inside the notifications, where the person already
+    // sees what came in: nothing goes on the island.
+    Q_SCRIPTABLE void FocusEndedInView(uint notifications);
+    // The person opened the notifications; the island about what came in
+    // goes.
+    Q_SCRIPTABLE void NotificationsSeen();
 
 Q_SIGNALS:
     Q_SCRIPTABLE void FactChanged(const QVariantMap &fact);
+    // The person asked to see the notifications that came in during Do Not
+    // Disturb; whatever keeps them opens them.
+    Q_SCRIPTABLE void OpenNotifications();
 
 private:
     Core *m_core;

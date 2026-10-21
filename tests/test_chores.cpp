@@ -10,8 +10,10 @@
 #include "app/HealthCheck.h"
 #include "app/RecentChanges.h"
 #include "app/RestorePoints.h"
+#include "app/SettingRows.h"
 #include "app/SpaceCleanup.h"
 #include "app/TidyUp.h"
+#include "settings/SettingsHistory.h"
 
 #include <QDir>
 #include <QFile>
@@ -279,7 +281,7 @@ private Q_SLOTS:
     {
         StandIns standIns;
         const QString ran = standIns.path() + QStringLiteral("/ran");
-        for (const char *tool : {"pacman", "snapper", "paccache", "journalctl", "find", "makepkg", "git"})
+        for (const char *tool : {"pacman", "snapper", "paccache", "journalctl", "find", "makepkg", "git", "systemctl", "flatpak", "sleep"})
             QVERIFY(standIns.add(QString::fromLatin1(tool), QStringLiteral("echo \"$0 $*\" >> '%1'\n").arg(ran)));
         QTemporaryDir logs;
         const auto job = [&logs](const QStringList &arguments) {
@@ -329,6 +331,18 @@ private Q_SLOTS:
             {QStringLiteral("community"), name, QStringLiteral("1"), logs.path(), head, QStringLiteral("--")},
             {QStringLiteral("community"), name, QStringLiteral("1"), logs.path(), head, QStringLiteral("x;y"),
              QStringLiteral("--"), QStringLiteral("demo")},
+            {QStringLiteral("start-service")},
+            {QStringLiteral("start-service"), QStringLiteral("bluetooth")},
+            {QStringLiteral("start-service"), QStringLiteral("--all")},
+            {QStringLiteral("start-service"), QStringLiteral("-x.service")},
+            {QStringLiteral("start-service"), QStringLiteral("x;id.service")},
+            {QStringLiteral("start-service"), QStringLiteral("a.service"), QStringLiteral("b.service")},
+            {QStringLiteral("flatpak-back"), QStringLiteral("org.mozilla.firefox")},
+            {QStringLiteral("flatpak-back"), QStringLiteral("org.mozilla.firefox"), QStringLiteral("abc")},
+            {QStringLiteral("flatpak-back"), QStringLiteral("org.mozilla.firefox"), head},
+            {QStringLiteral("flatpak-back"), QStringLiteral("--system"), head + head.left(24)},
+            {QStringLiteral("flatpak-back"), QStringLiteral("firefox"), head + head.left(24)},
+            {QStringLiteral("flatpak-back"), QStringLiteral("org..x.y"), head + head.left(24)},
         };
         for (const QStringList &arguments : refused)
             QVERIFY2(job(arguments) == 2, qPrintable(arguments.join(QLatin1Char('|'))));
@@ -337,12 +351,18 @@ private Q_SLOTS:
         // The ones it was made for do run.
         QCOMPARE(job({QStringLiteral("install"), name, QStringLiteral("0"), QStringLiteral("lib32-gcc-libs")}), 0);
         QCOMPARE(job({QStringLiteral("restore-undo"), QStringLiteral("7"), QStringLiteral("8")}), 0);
+        QCOMPARE(job({QStringLiteral("start-service"), QStringLiteral("bluetooth.service")}), 0);
+        QCOMPARE(job({QStringLiteral("flatpak-back"), QStringLiteral("org.mozilla.firefox"), head + head.left(24)}), 0);
         QFile file(ran);
         QVERIFY(file.open(QIODevice::ReadOnly));
         const QString said = QString::fromUtf8(file.readAll());
         QVERIFY2(said.contains(QStringLiteral("pacman -S --needed --noconfirm --noprogressbar --color never -- lib32-gcc-libs")),
                  qPrintable(said));
         QVERIFY(said.contains(QStringLiteral("snapper -c root undochange 7..8")));
+        QVERIFY2(said.contains(QStringLiteral("systemctl is-failed --quiet -- bluetooth.service")), qPrintable(said));
+        QVERIFY(said.contains(QStringLiteral("systemctl restart -- bluetooth.service")));
+        QVERIFY(said.contains(QStringLiteral("flatpak update --system -y --noninteractive --commit=%1 -- org.mozilla.firefox")
+                                  .arg(head + head.left(24))));
     }
 
     // What building software needs is never a part nothing uses: not listed,
@@ -973,25 +993,48 @@ private Q_SLOTS:
         QVERIFY(update.detail.contains(QLatin1String("the graphics drivers")));
         QCOMPARE(update.action, QStringLiteral("restore"));
         QVERIFY(update.question.contains(QLatin1String("parts of the system yesterday, including")));
-        QCOMPARE(byId.value(QStringLiteral("update-2026-10-01")).detail, QStringLiteral("Nothing a person would notice by name"));
+        QVERIFY(byId.value(QStringLiteral("update-2026-10-01")).detail.startsWith(QStringLiteral("Nothing a person would notice by name · ")));
+        // What a helper needs to act: every version, old to new, where the old
+        // ones are, and what went wrong since.
+        QVERIFY2(update.help.contains(QLatin1String("- plasma-workspace 6.7.3-1 to 6.7.4-1")), qPrintable(update.help));
+        QVERIFY(update.help.contains(QLatin1String("- mesa 1:25.2.3-1 to 1:25.2.4-1")));
+        QVERIFY2(update.help.contains(QLatin1String("2 of 5 are still in the package cache")), qPrintable(update.help));
+        QVERIFY(update.help.contains(QLatin1String("restore point from before can put it all back")));
+        QVERIFY(update.help.contains(QLatin1String("- kwin_wayland: Failed to load the screen's colour profile")));
 
         // Only what the person installed is named.
         QCOMPARE(byId.value(QStringLiteral("install-2026-10-09")).title, QStringLiteral("Installed vlc"));
-        QCOMPARE(byId.value(QStringLiteral("install-2026-10-09")).detail, QStringLiteral("With 1 part it needs"));
+        QVERIFY2(byId.value(QStringLiteral("install-2026-10-09")).detail.startsWith(QStringLiteral("With 1 part it needs") + QStringLiteral(" · ")), qPrintable(byId.value(QStringLiteral("install-2026-10-09")).detail));
         QCOMPARE(byId.value(QStringLiteral("remove-2026-10-09")).title, QStringLiteral("Removed okular"));
 
         // Flathub apps, without the parts that come with them.
-        QCOMPARE(byId.value(QStringLiteral("apps-2026-10-09")).detail, QStringLiteral("Updated Firefox"));
-        QCOMPARE(byId.value(QStringLiteral("apps-2026-10-07")).detail, QStringLiteral("Installed Spotify"));
+        // One updated from a commit Flathub keeps goes back to it on its own row.
+        const RecentChanges::Item firefox = byId.value(byId.keys().filter(QStringLiteral("app-org.mozilla.firefox-")).value(0));
+        QCOMPARE(firefox.title, QStringLiteral("Firefox updated"));
+        QCOMPARE(firefox.action, QStringLiteral("goback"));
+        QCOMPARE(firefox.installation, QStringLiteral("system"));
+        QCOMPARE(firefox.commit, QString(64, QLatin1Char('b')));
+        QVERIFY(firefox.password);
+        QVERIFY(!byId.contains(QStringLiteral("apps-2026-10-09")));
+        QVERIFY2(byId.value(QStringLiteral("apps-2026-10-07")).detail.startsWith(QStringLiteral("Installed Spotify") + QStringLiteral(" · ")), qPrintable(byId.value(QStringLiteral("apps-2026-10-07")).detail));
 
         // Settings by what they hold; a file a person wouldn't know is left out.
-        QCOMPARE(byId.value(QStringLiteral("settings-2026-10-09")).detail,
-                 QStringLiteral("Look, colours and fonts · Windows and effects"));
-        QCOMPARE(byId.value(QStringLiteral("settings-2026-10-08")).detail,
-                 QStringLiteral("Displays · Mouse, touchpad and pointer"));
+        QCOMPARE(byId.value(QStringLiteral("settings-2026-10-09")).detail, QStringLiteral("Look, colours and fonts · Windows and effects"));
+        QCOMPARE(byId.value(QStringLiteral("settings-2026-10-08")).detail, QStringLiteral("Displays · Mouse, touchpad and pointer"));
 
-        QCOMPARE(byId.value(QStringLiteral("service-bluetooth.service")).title, QStringLiteral("Stopped working: Bluetooth service"));
-        QVERIFY(byId.value(QStringLiteral("service-syncthing.service")).detail.contains(QLatin1String("of yours")));
+        const RecentChanges::Item bluetooth = byId.value(QStringLiteral("service-bluetooth.service"));
+        QCOMPARE(bluetooth.title, QStringLiteral("Stopped working: Bluetooth service"));
+        // What it said last, and the way back on the row.
+        QVERIFY2(bluetooth.detail.startsWith(QLatin1String("Said \"Failed to set mode: Blocked through rfkill (0x12)\"")),
+                 qPrintable(bluetooth.detail));
+        QCOMPARE(bluetooth.action, QStringLiteral("start"));
+        QCOMPARE(bluetooth.actionLabel, QStringLiteral("Start it again"));
+        QVERIFY(bluetooth.systemUnit);
+        QVERIFY(bluetooth.password);
+        QVERIFY(bluetooth.help.contains(QLatin1String("Starting Bluetooth service...\nFailed to set mode")));
+        const RecentChanges::Item syncthing = byId.value(QStringLiteral("service-syncthing.service"));
+        QVERIFY(syncthing.detail.contains(QLatin1String("of yours")));
+        QVERIFY(!syncthing.password);
         QCOMPARE(byId.value(QStringLiteral("restart")).action, QStringLiteral("restart"));
 
         // Without restore points, going back is asked about.
@@ -1004,6 +1047,167 @@ private Q_SLOTS:
         }
         // Nothing at all: nothing to show.
         QVERIFY(RecentChanges::readLook(QStringLiteral("@@ kernel\n6.1\npresent\n@@ end\n"), {}, Now).items.isEmpty());
+    }
+
+    // Core keeps copies of the settings What changed reads, so each row says
+    // the change itself, old to new, with its way back.
+    void whatChangedSaysEachSettingExactly()
+    {
+        QTemporaryDir config;
+        QTemporaryDir folder;
+        const auto write = [&config](const QString &file, const QByteArray &text) {
+            QFile out(config.filePath(file));
+            QVERIFY(out.open(QIODevice::WriteOnly | QIODevice::Truncate));
+            out.write(text);
+        };
+        const QString applets = QStringLiteral("plasma-org.kde.plasma.desktop-appletsrc");
+        const QByteArray outputs = R"([{"name":"outputs","data":[{"connectorName":"eDP-1","edidIdentifier":"ABC 1","scale":1.75,)"
+                                   R"("mode":{"width":2560,"height":1600,"refreshRate":180000},"transform":"Normal"}]},)"
+                                   R"({"name":"setups","data":[{"lidClosed":false,"outputs":[{"enabled":true,"outputIndex":0,)"
+                                   R"("position":{"x":0,"y":0}}]}]}])";
+        write(QStringLiteral("kwinoutputconfig.json"), outputs);
+        write(QStringLiteral("kglobalshortcutsrc"), "[kwin]\n_k_friendly_name=KWin\nTile windows=Meta+T,Meta+T,Tile windows\n");
+        write(QStringLiteral("kwinrc"), "[Plugins]\nblurEnabled=true\n\n[Windows]\nBorderlessMaximizedWindows=false\n");
+        write(applets, "[Containments][1][Applets][5]\nplugin=org.kde.plasma.digitalclock\n\n"
+                       "[Containments][1][Applets][5][Configuration]\npopupWidth=300\n");
+        write(QStringLiteral("kdeglobals"), "[General]\nColorScheme=BreezeDark\n");
+
+        SettingsHistory history(folder.path(), config.path());
+        const QDateTime morning(QDate(2026, 10, 21), QTime(9, 0));
+        // The first look only takes the copies.
+        QVERIFY(history.look(morning).isEmpty());
+        QVERIFY(history.keptSince().isValid());
+        // The desktop writing the same values again, or keeping its own: no
+        // change.
+        write(QStringLiteral("kdeglobals"), "[General]\nColorScheme=BreezeDark\n\n");
+        write(applets, "[Containments][1][Applets][5]\nplugin=org.kde.plasma.digitalclock\n\n"
+                       "[Containments][1][Applets][5][Configuration]\npopupWidth=320\n");
+        write(QStringLiteral("kglobalshortcutsrc"), "[kwin]\n_k_friendly_name=KWin Window Manager\nTile windows=Meta+T,Meta+T,Tile windows\n");
+        QVERIFY(history.look(morning.addSecs(60)).isEmpty());
+
+        // What a person changed.
+        QByteArray scaled = outputs;
+        scaled.replace("\"scale\":1.75", "\"scale\":1.5");
+        write(QStringLiteral("kwinoutputconfig.json"), scaled);
+        write(QStringLiteral("kglobalshortcutsrc"), "[kwin]\n_k_friendly_name=KWin Window Manager\nTile windows=none,Meta+T,Tile windows\n");
+        write(QStringLiteral("kwinrc"), "[Plugins]\nblurEnabled=false\n\n[Windows]\nBorderlessMaximizedWindows=false\n");
+        write(QStringLiteral("kdeglobals"), "[General]\nColorScheme=BreezeLight\n");
+        const QDateTime at(QDate(2026, 10, 21), QTime(9, 14));
+        QCOMPARE(history.look(at).size(), 4);
+        QCOMPARE(history.changes().size(), 4);
+        // A settings file made since the copies were taken: what it was made
+        // with is a change too.
+        {
+            SettingsHistory fresh(folder.path() + QStringLiteral("/fresh"), config.path());
+            QVERIFY(fresh.look(morning).isEmpty());
+            QVERIFY(!QFile::exists(config.filePath(QStringLiteral("kxkbrc"))));
+            write(QStringLiteral("kxkbrc"), "[Layout]\nShowSingle=true\n");
+            const QList<SettingsChange> made = fresh.look(at);
+            QCOMPARE(made.size(), 1);
+            QCOMPARE(made.first().key, QStringLiteral("ShowSingle"));
+            QVERIFY(!made.first().wasSet);
+            QFile::remove(config.filePath(QStringLiteral("kxkbrc")));
+        }
+
+        const QString program = QStringLiteral("/usr/bin/split-rock");
+        QMap<QString, SettingRow> byArea;
+        for (const SettingRow &row : SettingRows::rows(history.changes(), program))
+            byArea.insert(row.area, row);
+        QCOMPARE(byArea.size(), 4);
+
+        const SettingRow screen = byArea.value(QStringLiteral("Displays"));
+        QCOMPARE(screen.title, QStringLiteral("Built-in screen: scale 175% to 150%"));
+        QCOMPARE(screen.detail, QStringLiteral("Displays · ") + SettingRows::timeWords(at));
+        QCOMPARE(screen.way, QStringLiteral("putback"));
+        QCOMPARE(screen.putBack.command, QStringLiteral("kscreen-doctor 'output.eDP-1.scale.1.75'"));
+        QCOMPARE(screen.putBack.undo, QStringLiteral("kscreen-doctor 'output.eDP-1.scale.1.5'"));
+        QVERIFY(screen.putBack.files.isEmpty());
+        QCOMPARE(screen.exact, (QStringList{QStringLiteral("kwinoutputconfig.json [eDP-1] scale: 1.75 to 1.5")}));
+        QVERIFY(screen.putBack.elevation().isEmpty());
+
+        const SettingRow keys = byArea.value(QStringLiteral("Keyboard shortcuts"));
+        QCOMPARE(keys.title, QStringLiteral("Shortcut for Tile windows removed"));
+        QVERIFY2(keys.detail.startsWith(QStringLiteral("Was Meta+T · Keyboard shortcuts · ")), qPrintable(keys.detail));
+        QCOMPARE(keys.way, QStringLiteral("putback"));
+        QCOMPARE(keys.putBack.command,
+                 QStringLiteral("'/usr/bin/split-rock' --set-shortcut 'kwin' 'Tile windows' 'Meta+T' 'Tile windows'"));
+        QCOMPARE(keys.putBack.undo, QStringLiteral("'/usr/bin/split-rock' --set-shortcut 'kwin' 'Tile windows' '' 'Tile windows'"));
+
+        const SettingRow effects = byArea.value(QStringLiteral("Windows and effects"));
+        QCOMPARE(effects.title, QStringLiteral("Blur effect turned off"));
+        QCOMPARE(effects.putBack.command,
+                 QStringLiteral("kwriteconfig6 --file 'kwinrc' --group 'Plugins' --key 'blurEnabled' --notify -- 'true' && "
+                                "[ \"$(kreadconfig6 --file 'kwinrc' --group 'Plugins' --key 'blurEnabled')\" = 'true' ]"));
+        QCOMPARE(effects.page, QStringLiteral("kcm_kwin_effects"));
+        QCOMPARE(effects.putBack.files.size(), 1);
+
+        // The look opens its own page in Settings, until putting it back live
+        // is proven; its help says exactly what changed.
+        const SettingRow look = byArea.value(QStringLiteral("Look, colours and fonts"));
+        QCOMPARE(look.title, QStringLiteral("Colours: BreezeDark to BreezeLight"));
+        QCOMPARE(look.way, QStringLiteral("settings"));
+        QCOMPARE(look.page, QStringLiteral("kcm_colors"));
+        QVERIFY(look.question.contains(QLatin1String("Colours: BreezeDark to BreezeLight")));
+
+        // The screen lock's 0 minutes is never.
+        SettingsChange lock{at, QStringLiteral("kscreenlockerrc"), QStringLiteral("Daemon"), QStringLiteral("Timeout"),
+                            QStringLiteral("0"), QStringLiteral("7"), true, true};
+        QCOMPARE(SettingRows::words(lock).title, QStringLiteral("Screen locks after 7 minutes"));
+        QCOMPARE(SettingRows::words(lock).wasNow, QStringLiteral("Was: never"));
+        std::swap(lock.before, lock.after);
+        QCOMPARE(SettingRows::words(lock).title, QStringLiteral("Screen no longer locks by itself"));
+        QCOMPARE(SettingRows::words(lock).wasNow, QStringLiteral("Was after 7 minutes"));
+
+        // A value such as -1 is written as a value, never read as an option;
+        // a key that wasn't there before goes again.
+        SettingsChange never{at, QStringLiteral("powerdevilrc"), QStringLiteral("AC][Display"),
+                             QStringLiteral("TurnOffDisplayIdleTimeoutSec"), QStringLiteral("-1"), QStringLiteral("900"), true, true};
+        QVERIFY2(SettingRows::command(never, true, program)
+                     .startsWith(QStringLiteral("kwriteconfig6 --file 'powerdevilrc' --group 'AC' --group 'Display' "
+                                                "--key 'TurnOffDisplayIdleTimeoutSec' --notify -- '-1' && ")),
+                 qPrintable(SettingRows::command(never, true, program)));
+        never.wasSet = false;
+        QCOMPARE(SettingRows::command(never, true, program),
+                 QStringLiteral("kwriteconfig6 --file 'powerdevilrc' --group 'AC' --group 'Display' "
+                                "--key 'TurnOffDisplayIdleTimeoutSec' --notify --delete"));
+
+        // A second screen KWin knew on the same connector is put back on the
+        // screen in that connector now.
+        SettingsChange monitor{at, QStringLiteral("kwinoutputconfig.json"), QStringLiteral("DP-1 (DEL A123)"), QStringLiteral("scale"),
+                               QStringLiteral("1.5"), QStringLiteral("1"), true, true};
+        QCOMPARE(SettingRows::command(monitor, true, program), QStringLiteral("kscreen-doctor 'output.DP-1.scale.1.5'"));
+        QCOMPARE(SettingRows::words(monitor).title, QStringLiteral("Screen on DP-1: scale 150% to 100%"));
+
+        // Put back by hand since: the row says so, and offers nothing.
+        const auto before = [](const SettingsChange &change, bool *set) {
+            *set = change.wasSet;
+            return change.before;
+        };
+        for (const SettingRow &row : SettingRows::rows(history.changes(), program, before))
+            QVERIFY2(row.alreadyBack, qPrintable(row.title));
+
+        // Changed and changed back within two minutes: no row.
+        SettingsChange on = history.changes().constFirst();
+        SettingsChange off = on;
+        std::swap(off.before, off.after);
+        off.when = on.when.addSecs(30);
+        QVERIFY(SettingRows::rows({on, off}, program).isEmpty());
+
+        // On the card, after a look: the row, its way back, and what it
+        // copies for help.
+        const QString look2 = QStringLiteral("@@ snapper\n@@ end\n");
+        RecentChanges::Look card = RecentChanges::readLook(look2, {}, at.addSecs(600), SettingRows::rows(history.changes(), program),
+                                                           history.keptSince());
+        QMap<QString, RecentChanges::Item> items;
+        for (const RecentChanges::Item &item : card.items)
+            items.insert(item.title, item);
+        const RecentChanges::Item scaleItem = items.value(QStringLiteral("Built-in screen: scale 175% to 150%"));
+        QCOMPARE(scaleItem.action, QStringLiteral("putback"));
+        QCOMPARE(scaleItem.actionLabel, QStringLiteral("Put back"));
+        QCOMPARE(scaleItem.confirmTitle, QStringLiteral("Put it back as it was?"));
+        QVERIFY(scaleItem.confirmSub.contains(QLatin1String("No password needed")));
+        QVERIFY(scaleItem.help.contains(QLatin1String("kwinoutputconfig.json [eDP-1] scale: 1.75 to 1.5")));
+        QCOMPARE(items.value(QStringLiteral("Colours: BreezeDark to BreezeLight")).action, QStringLiteral("settings"));
     }
 
     void whatChangedOpensByNameAndUndoesFromTheCard()

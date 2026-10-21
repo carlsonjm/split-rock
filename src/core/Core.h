@@ -50,6 +50,8 @@ public:
         // is installed, and opening it.
         std::function<bool(const QString &page)> hasSettings = [](const QString &) { return true; };
         std::function<void(const QString &page)> openSettings;
+        // Opens the notifications that came in, where the desktop keeps them.
+        std::function<void()> openNotifications;
     };
 
     // folder: where its files are kept. settings: the person's settings file,
@@ -90,6 +92,18 @@ public:
     void seeDevices(DeviceKind kind, const QList<Device> &present);
     // Whether the Devices topic is switched on.
     bool watchesDevices() const;
+
+    // Do Not Disturb ended, as the desktop's notifications tell it: how many
+    // notifications came in meanwhile, or -1 when nothing counted them. With
+    // what Core itself held back from the island, it is said once, on the
+    // island; nothing is said when nothing came in. seen: it ended inside
+    // the notifications themselves, where the person is already looking at
+    // what came in, so there is no island.
+    void focusEnded(int notifications, bool seen = false);
+    // The person opened the notifications: what came in is seen, and the
+    // island about it goes.
+    void notificationsSeen();
+    bool watchesFocus() const;
 
     // How readily Core speaks, the person's Notice setting, from 0 (Less) to
     // 100 (More), 50 by default; the words "quiet" and "eager" read as 0 and
@@ -132,6 +146,10 @@ private:
     QVariantMap healthFact() const;
 
     QVariantMap windowsFact() const;
+    QVariantMap focusFact() const;
+    // A fact that wanted the island while Do Not Disturb kept it to the
+    // ticker, for Focus to name when Do Not Disturb ends.
+    void hold(const QString &title, bool doNotDisturb, Level level, const Spoken &spoken);
     // Judges the drive from the looks so far, and speaks if it got worse.
     void judgeStorage(const QDateTime &now);
     // Logbook lines and the ticker for what one decision said.
@@ -176,6 +194,15 @@ private:
     // looked at; the kind it spoke of last, which a tap on the ticker opens.
     QHash<QString, QStringList> m_devicesKnown;
     QString m_deviceSpoken;
+
+    // What Do Not Disturb kept from the island, and since when; what came in
+    // the last time it ended, and how often Focus has spoken.
+    QStringList m_held;
+    QDateTime m_heldSince;
+    int m_focusNotifications = 0;
+    QStringList m_focusHeld;
+    int m_focusTimes = 0;
+    Attention m_focusAttention;
 };
 
 } // namespace splitrock::core

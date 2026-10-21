@@ -41,6 +41,13 @@ Helpers::Helpers(const QString &store, QObject *parent)
         Q_EMIT changesChanged();
         m_recent->refreshOwn();
     });
+    connect(m_runner, &ChangeRunner::made, this, [this](const ChangeRunner::Record &record) {
+        const bool ok = record.status == QLatin1String("done");
+        if (m_notebook)
+            m_notebook->markChange(record.id, ok ? QStringLiteral("Done") : QStringLiteral("Failed"));
+        Q_EMIT changesChanged();
+        m_recent->putBackDone(record);
+    });
 }
 
 Helpers::~Helpers() = default;
@@ -140,6 +147,27 @@ bool Helpers::undoChange(const QString &id)
         qWarning().noquote() << QStringLiteral("%1: couldn't undo %2: %3").arg(productName(), id, error);
         return false;
     }
+    Q_EMIT changesChanged();
+    return true;
+}
+
+bool Helpers::putBack(const QString &id)
+{
+    if (choreBusy() || m_runner->busy())
+        return false;
+    const std::optional<ChangeProposal> change = m_recent->putBack(id);
+    if (!change)
+        return false;
+    const QString made = m_runner->make(*change, [this](const ChangeRunner::Record &record) {
+        if (!m_notebook)
+            return true;
+        return m_notebook->recordChange(record.id, record.proposal.title,
+                                        QStringLiteral("Put back from What changed, on a card of %1's own").arg(productName()),
+                                        record.proposal.undo, QStringLiteral("Making"));
+    });
+    if (made.isEmpty())
+        return false;
+    m_recent->puttingBack(id);
     Q_EMIT changesChanged();
     return true;
 }

@@ -10,7 +10,9 @@
 //
 // It also looks over the computer's health once a week, with Split Rock's own
 // `split-rock --health-facts`, and, on the system bus, for a printer, a drive
-// or a Bluetooth device it hasn't seen before.
+// or a Bluetooth device it hasn't seen before. It keeps a copy of the
+// desktop's settings files, to tell What changed exactly what changed in them
+// and since when (src/settings/SettingsHistory.h).
 //
 // --folder    where its logbook and looks are kept
 //             (default: split-rock/core in the person's data folder)
@@ -31,6 +33,7 @@
 
 #include "core/Core.h"
 #include "core/CoreService.h"
+#include "settings/SettingsHistory.h"
 
 #include <QCommandLineParser>
 #include <QCoreApplication>
@@ -50,6 +53,7 @@
 #include <QHash>
 #include <QSet>
 #include <QProcess>
+#include <QSettings>
 #include <QStandardPaths>
 #include <QTimer>
 
@@ -474,6 +478,7 @@ int main(int argc, char **argv)
     };
 
     Core *core = nullptr;
+    CoreService *offeredService = nullptr;
     Ticker ticker(bus, [&core](const QString &topic) {
         if (core)
             core->act(topic, QStringLiteral("open"));
@@ -485,6 +490,10 @@ int main(int argc, char **argv)
         ticker.send(topic, summary, body);
     };
     hooks.openCard = openCard;
+    hooks.openNotifications = [&offeredService] {
+        if (offeredService)
+            Q_EMIT offeredService->OpenNotifications();
+    };
     // KDE's settings pages are plugins; System Settings opens one by name.
     hooks.hasSettings = [](const QString &page) {
         for (const QString &plugins : QCoreApplication::libraryPaths()) {
@@ -505,6 +514,7 @@ int main(int argc, char **argv)
     core = &desk;
 
     CoreService offered(&desk);
+    offeredService = &offered;
     if (!offered.publish(bus))
         return 1;
     const auto claimed = bus.interface()->registerService(service, QDBusConnectionInterface::DontQueueService,
@@ -621,6 +631,43 @@ int main(int argc, char **argv)
     QTimer::singleShot(std::chrono::minutes(5), &desk, measureTidy);
     QObject::connect(&every, &QTimer::timeout, &desk, measureTidy);
     QObject::connect(&downloadsSettled, &QTimer::timeout, &desk, measureTidy);
+
+    // The desktop's settings: compared with Core's copies a few seconds after
+    // a file stops changing, and with each look at the drive. A settings
+    // file is replaced when written, not edited, so the folder is watched,
+    // and each file again whenever it comes back.
+    const QString settingsFolder = parser.isSet(folderOption) ? parser.value(folderOption) + QStringLiteral("/settings")
+                                                              : splitrock::SettingsHistory::defaultFolder();
+    splitrock::SettingsHistory settingsHistory(settingsFolder,
+                                               QStandardPaths::writableLocation(QStandardPaths::GenericConfigLocation));
+    QFileSystemWatcher desktopWatcher;
+    const QString coreSettings = parser.isSet(settingsOption) ? parser.value(settingsOption) : Core::defaultSettings();
+    QTimer settingsSettled;
+    settingsSettled.setSingleShot(true);
+    settingsSettled.setInterval(std::chrono::seconds(5));
+        const auto watchSettings = [&desktopWatcher, &settingsHistory] {
+        if (!desktopWatcher.directories().contains(settingsHistory.configHome()) && QFileInfo(settingsHistory.configHome()).isDir())
+            desktopWatcher.addPath(settingsHistory.configHome());
+        for (const QString &file : splitrock::SettingsHistory::watched()) {
+            const QString path = settingsHistory.pathOf(file);
+            if (!desktopWatcher.files().contains(path) && QFile::exists(path))
+                desktopWatcher.addPath(path);
+        }
+    };
+    const auto compareSettings = [&settingsHistory, &watchSettings, coreSettings] {
+        // Core switched off as a whole keeps no copies either.
+        if (!QSettings(coreSettings, QSettings::IniFormat).value(QStringLiteral("General/Enabled"), true).toBool())
+            return;
+        const auto changed = settingsHistory.look(QDateTime::currentDateTime());
+        if (!changed.isEmpty())
+            qInfo().noquote() << QStringLiteral("Core: %1 settings changed").arg(changed.size());
+        watchSettings();
+    };
+    QObject::connect(&desktopWatcher, &QFileSystemWatcher::directoryChanged, &desk, [&settingsSettled] { settingsSettled.start(); });
+    QObject::connect(&desktopWatcher, &QFileSystemWatcher::fileChanged, &desk, [&settingsSettled] { settingsSettled.start(); });
+    QObject::connect(&settingsSettled, &QTimer::timeout, &desk, compareSettings);
+    QObject::connect(&every, &QTimer::timeout, &desk, compareSettings);
+    QTimer::singleShot(std::chrono::seconds(15), &desk, compareSettings);
 
     // Devices: a first list of each kind once the session has settled, then
     // whenever the system bus says something about them changed.

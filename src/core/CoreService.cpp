@@ -45,6 +45,21 @@ bool CoreService::OpenAction(const QString &id, const QString &query)
     return m_core->openAction(id, query);
 }
 
+void CoreService::FocusEnded(uint notifications)
+{
+    m_core->focusEnded(int(qMin(notifications, 100000u)));
+}
+
+void CoreService::FocusEndedInView(uint notifications)
+{
+    m_core->focusEnded(int(qMin(notifications, 100000u)), true);
+}
+
+void CoreService::NotificationsSeen()
+{
+    m_core->notificationsSeen();
+}
+
 bool CoreService::RemoveApp(const QString &desktopId)
 {
     return m_core->removeApp(desktopId);

@@ -22,6 +22,7 @@ const QString Health = QStringLiteral("health");
 const QString Windows = QStringLiteral("windows");
 const QString Tidy = QStringLiteral("tidy");
 const QString Devices = QStringLiteral("devices");
+const QString Focus = QStringLiteral("focus");
 
 // How many of each kind of device are kept, the latest first.
 constexpr int DevicesKept = 200;
@@ -159,6 +160,7 @@ void Core::judgeStorage(const QDateTime &now)
         write(QStringLiteral("Storage  First look since starting: %1, %2.").arg(m_storage.line, m_storage.detail));
     m_looked = true;
     tell(Storage, QStringLiteral("Storage"), spoken, m_storage.line, m_storage.detail);
+    hold(QStringLiteral("Storage"), dnd, m_storage.level, spoken);
     if (spoken.ticker || spoken.island || spoken.ignored || spoken.settled || islandBefore != m_attention.islandOpen)
         saveAttention(Storage);
 
@@ -221,6 +223,7 @@ void Core::seeUpdates(const UpdatesLook &look)
         write(QStringLiteral("Updates  First look since starting: %1, %2.").arg(m_updates.line, m_updates.detail));
     m_updatesLooked = true;
     tell(Updates, QStringLiteral("Updates"), spoken, m_updates.line, m_updates.detail);
+    hold(QStringLiteral("Updates"), dnd, m_updates.level, spoken);
     // Updated while Core had said nothing yet: the logbook still records it.
     if (!spoken.settled && before.known && before.waiting > 0 && m_updates.waiting == 0)
         write(QStringLiteral("Updates  Settled at %1, %2.").arg(m_updates.line, m_updates.detail));
@@ -267,6 +270,7 @@ void Core::seeHealth(const HealthLook &look)
         write(QStringLiteral("Health  First look since starting: %1, %2.").arg(m_health.line, m_health.detail));
     m_healthLooked = true;
     tell(Health, QStringLiteral("Health"), spoken, m_health.line, m_health.detail);
+    hold(QStringLiteral("Health"), dnd, m_health.level, spoken);
     saveAttention(Health);
 
     if (!before.known || before.problems != m_health.problems || before.level != m_health.level
@@ -301,6 +305,7 @@ void Core::seeInstaller(const QString &fileName)
     const QVariantMap fact = windowsFact();
     tell(Windows, QStringLiteral("Windows programs"), spoken, fact.value(QStringLiteral("line")).toString(),
          fact.value(QStringLiteral("detail")).toString());
+    hold(QStringLiteral("Windows programs"), dnd, Level::Island, spoken);
     saveAttention(Windows);
     if (spoken.island || islandBefore != m_windowsAttention.islandOpen)
         Q_EMIT factChanged(windowsFact());
@@ -390,6 +395,106 @@ QVariantMap Core::windowsFact() const
     };
 }
 
+bool Core::watchesFocus() const
+{
+    return enabled(Focus);
+}
+
+void Core::hold(const QString &title, bool doNotDisturb, Level level, const Spoken &spoken)
+{
+    if (!doNotDisturb || level != Level::Island || !spoken.ticker || m_held.contains(title))
+        return;
+    // What was held a day ago is no news by the time Do Not Disturb ends.
+    const QDateTime now = m_hooks.now();
+    if (m_heldSince.isValid() && m_heldSince.secsTo(now) > 86400)
+        m_held.clear();
+    if (m_held.isEmpty())
+        m_heldSince = now;
+    m_held.append(title);
+}
+
+void Core::focusEnded(int notifications, bool seen)
+{
+    QStringList held = m_held;
+    const QDateTime now = m_hooks.now();
+    if (m_heldSince.isValid() && m_heldSince.secsTo(now) > 86400)
+        held.clear();
+    m_held.clear();
+    m_heldSince = {};
+    if (!watchesFocus())
+        return;
+    if (notifications <= 0 && held.isEmpty()) {
+        write(QStringLiteral("Focus  Do Not Disturb ended; nothing came in."));
+        return;
+    }
+    // What Core held went to the ticker, so it is in the notifications too.
+    if (seen) {
+        write(notifications > 0
+                  ? QStringLiteral("Focus  Do Not Disturb ended in the notifications; %1 came in, shown there.").arg(notifications)
+                  : QStringLiteral("Focus  Do Not Disturb ended in the notifications."));
+        notificationsSeen();
+        return;
+    }
+    const bool islandBefore = m_focusAttention.islandOpen;
+    m_focusNotifications = qMax(0, notifications);
+    m_focusHeld = held;
+    ++m_focusTimes;
+
+    // Each time Do Not Disturb ends is news once; the island's daily
+    // allowance leaves a second one the same day to the ticker.
+    Measure measure;
+    measure.known = true;
+    measure.level = Level::Island;
+    measure.score = m_focusTimes;
+    measure.step = 1;
+    const Spoken spoken = decide(measure, m_focusAttention, now, false);
+    const QVariantMap fact = focusFact();
+    tell(Focus, QStringLiteral("Focus"), spoken, fact.value(QStringLiteral("line")).toString(),
+         fact.value(QStringLiteral("detail")).toString());
+    saveAttention(Focus);
+    if (spoken.island || islandBefore != m_focusAttention.islandOpen)
+        Q_EMIT factChanged(focusFact());
+}
+
+void Core::notificationsSeen()
+{
+    if (!watchesFocus() || !m_focusAttention.islandOpen)
+        return;
+    m_focusAttention.islandOpen = false;
+    write(QStringLiteral("Focus  You saw them in the notifications."));
+    saveAttention(Focus);
+    Q_EMIT factChanged(focusFact());
+}
+
+QVariantMap Core::focusFact() const
+{
+    QStringList said;
+    if (m_focusNotifications > 0)
+        said.append(m_focusNotifications == 1 ? QStringLiteral("1 notification")
+                                              : QStringLiteral("%1 notifications").arg(m_focusNotifications));
+    if (!m_focusHeld.isEmpty()) {
+        QString names = m_focusHeld.constFirst();
+        if (m_focusHeld.size() > 1)
+            names = QStringList(m_focusHeld.mid(0, m_focusHeld.size() - 1)).join(QStringLiteral(", "))
+                + QStringLiteral(" and ") + m_focusHeld.constLast();
+        said.append(names + QStringLiteral(" waiting"));
+    }
+    return {
+        {QStringLiteral("topic"), Focus},
+        {QStringLiteral("title"), QStringLiteral("Focus")},
+        {QStringLiteral("line"), QStringLiteral("While you were focused")},
+        {QStringLiteral("detail"), said.join(QStringLiteral(" · "))},
+        {QStringLiteral("notifications"), m_focusNotifications},
+        {QStringLiteral("level"), levelName(Level::Island)},
+        {QStringLiteral("attention"), m_focusAttention.islandOpen ? QStringLiteral("island") : QStringLiteral("none")},
+        {QStringLiteral("icon"), QStringLiteral("notifications")},
+        {QStringLiteral("actionText"), m_focusNotifications > 0 || m_focusHeld.isEmpty() ? QStringLiteral("See them")
+                                                                                         : QStringLiteral("Open")},
+        {QStringLiteral("keywords"), QStringList{QStringLiteral("focus"), QStringLiteral("do not disturb"),
+                                                 QStringLiteral("missed notifications")}},
+    };
+}
+
 QList<QVariantMap> Core::facts() const
 {
     QList<QVariantMap> facts;
@@ -402,6 +507,9 @@ QList<QVariantMap> Core::facts() const
     // An installer is news only while its island is up.
     if (watchesDownloads() && m_windowsAttention.islandOpen)
         facts.append(windowsFact());
+    // What came in during Do Not Disturb is news only while its island is up.
+    if (watchesFocus() && m_focusAttention.islandOpen)
+        facts.append(focusFact());
     return facts;
 }
 
@@ -512,6 +620,33 @@ bool Core::act(const QString &topic, const QString &action)
         saveAttention(Windows);
         if (islandBefore != m_windowsAttention.islandOpen)
             Q_EMIT factChanged(windowsFact());
+        return true;
+    }
+    if (topic == Focus) {
+        if (!watchesFocus() || !m_focusAttention.islandOpen)
+            return false;
+        if (!answer(m_focusAttention, action, m_focusTimes, 1))
+            return false;
+        if (action == QLatin1String("open")) {
+            if (m_focusNotifications > 0) {
+                write(QStringLiteral("Focus  You opened the notifications."));
+                if (m_hooks.openNotifications)
+                    m_hooks.openNotifications();
+            } else if (!m_focusHeld.isEmpty()) {
+                write(QStringLiteral("Focus  You opened %1.").arg(m_focusHeld.constFirst()));
+                const QString held = m_focusHeld.constFirst() == QLatin1String("Windows programs")
+                    ? Windows : m_focusHeld.constFirst().toLower();
+                saveAttention(Focus);
+                Q_EMIT factChanged(focusFact());
+                act(held, QStringLiteral("open"));
+                return true;
+            }
+        } else {
+            write(QStringLiteral("Focus  You %1.")
+                      .arg(action == QLatin1String("not-now") ? QStringLiteral("said not now") : QStringLiteral("dismissed it")));
+        }
+        saveAttention(Focus);
+        Q_EMIT factChanged(focusFact());
         return true;
     }
     if (topic == Tidy) {
@@ -775,6 +910,10 @@ void Core::loadAttention()
     m_installers = saved.value(QStringLiteral("Windows/Installers"), 0).toInt();
     m_windowsNever = saved.value(QStringLiteral("Windows/Never"), false).toBool();
     m_tidySpokenKb = saved.value(QStringLiteral("Tidy/SpokenKb"), 0).toLongLong();
+    loadState(saved, QStringLiteral("Focus"), m_focusAttention);
+    m_focusNotifications = saved.value(QStringLiteral("Focus/Notifications"), 0).toInt();
+    m_focusHeld = saved.value(QStringLiteral("Focus/Held")).toStringList();
+    m_focusTimes = saved.value(QStringLiteral("Focus/Times"), 0).toInt();
     saved.beginGroup(QStringLiteral("Devices"));
     for (const QString &kind : {QStringLiteral("printer"), QStringLiteral("drive"), QStringLiteral("bluetooth")}) {
         if (saved.contains(kind))
@@ -829,6 +968,13 @@ void Core::saveAttention(const QString &topic) const
     }
     if (topic == Tidy) {
         saved.setValue(QStringLiteral("Tidy/SpokenKb"), m_tidySpokenKb);
+        return;
+    }
+    if (topic == Focus) {
+        saveState(saved, QStringLiteral("Focus"), m_focusAttention);
+        saved.setValue(QStringLiteral("Focus/Notifications"), m_focusNotifications);
+        saved.setValue(QStringLiteral("Focus/Held"), m_focusHeld);
+        saved.setValue(QStringLiteral("Focus/Times"), m_focusTimes);
         return;
     }
     saveState(saved, QStringLiteral("Storage"), m_attention);

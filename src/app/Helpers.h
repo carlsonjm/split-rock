@@ -81,6 +81,10 @@ public:
     Q_INVOKABLE bool openChore(const QString &name, const QString &query = QString());
     // Undo, from What changed: puts a change back.
     Q_INVOKABLE bool undoChange(const QString &id);
+    // Put back, from What changed: sets a setting that changed back to its
+    // value before, as a change of its own with Undo. False when it didn't
+    // start.
+    Q_INVOKABLE bool putBack(const QString &id);
 
 Q_SIGNALS:
     void choreChanged();
