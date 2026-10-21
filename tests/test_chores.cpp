@@ -1149,6 +1149,15 @@ private Q_SLOTS:
         QCOMPARE(look.page, QStringLiteral("kcm_colors"));
         QVERIFY(look.question.contains(QLatin1String("Colours: BreezeDark to BreezeLight")));
 
+        // The screen lock's 0 minutes is never.
+        SettingsChange lock{at, QStringLiteral("kscreenlockerrc"), QStringLiteral("Daemon"), QStringLiteral("Timeout"),
+                            QStringLiteral("0"), QStringLiteral("7"), true, true};
+        QCOMPARE(SettingRows::words(lock).title, QStringLiteral("Screen locks after 7 minutes"));
+        QCOMPARE(SettingRows::words(lock).wasNow, QStringLiteral("Was: never"));
+        std::swap(lock.before, lock.after);
+        QCOMPARE(SettingRows::words(lock).title, QStringLiteral("Screen no longer locks by itself"));
+        QCOMPARE(SettingRows::words(lock).wasNow, QStringLiteral("Was after 7 minutes"));
+
         // A value such as -1 is written as a value, never read as an option;
         // a key that wasn't there before goes again.
         SettingsChange never{at, QStringLiteral("powerdevilrc"), QStringLiteral("AC][Display"),

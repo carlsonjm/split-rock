@@ -376,8 +376,17 @@ SettingRows::Words SettingRows::words(const SettingsChange &c)
     if (c.file == QLatin1String("kscreenlockerrc") && c.group == QLatin1String("Daemon")) {
         if (c.key == QLatin1String("Autolock"))
             return {QStringLiteral("Locking by itself turned %1").arg(onOff(c.after)), {}};
-        if (c.key == QLatin1String("Timeout"))
-            return {QStringLiteral("Screen locks after %1 minutes").arg(c.after), QStringLiteral("Was %1 minutes").arg(c.before)};
+        if (c.key == QLatin1String("Timeout")) {
+            // 0, or none, is never by itself.
+            const auto minutes = [](const QString &value, bool set) {
+                const int n = set ? value.toInt() : 0;
+                return n <= 0 ? QString() : n == 1 ? QStringLiteral("1 minute") : QStringLiteral("%1 minutes").arg(n);
+            };
+            const QString after = minutes(c.after, c.isSet);
+            const QString before = minutes(c.before, c.wasSet);
+            return {after.isEmpty() ? QStringLiteral("Screen no longer locks by itself") : QStringLiteral("Screen locks after %1").arg(after),
+                    before.isEmpty() ? QStringLiteral("Was: never") : QStringLiteral("Was after %1").arg(before)};
+        }
         if (c.key == QLatin1String("LockOnResume"))
             return {QStringLiteral("Locking after sleep turned %1").arg(onOff(c.after)), {}};
     }
