@@ -1227,3 +1227,23 @@ Rejected: Codex answering inside Search's answer box, which mixes the two
 speakers; Codex taking every bigger question by default, which spends the
 person's plan without a tap; and Codex's own sandbox in place of the fence,
 which differs between versions and is Codex's to switch off.
+
+## What changed names apps, and counts the rest
+
+What changed says an install or removal by the name of the app it brought,
+as its launcher shows it: "Installed Elisa", not the package's name. A
+package with no app of its own, such as a mail server, a library or a
+desktop's own parts, is counted as "parts of the system" on the same row and
+named only in what Copy for help copies, with every version. A removed
+app's name is read from its copy in pacman's cache, while one is kept there.
+Updates stay one row a day, with the parts a person notices by name. Nothing
+is left out: every package change still has its row and its way back.
+
+Why: on a fresh account the list read "Installed elisa, dovecot and
+shuffle-plasma", names only someone who builds the system knows. Whether a
+package was installed by name was the wrong test, since a person asks for a
+service by name too; whether it brings an app is what they would recognise.
+
+Rejected: dropping package changes from the list, which loses "it worked
+yesterday" after an update; and showing changes made in this account only,
+since an update made by anyone changes this person's computer too.

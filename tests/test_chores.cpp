@@ -1003,10 +1003,19 @@ private Q_SLOTS:
         QVERIFY(update.help.contains(QLatin1String("restore point from before can put it all back")));
         QVERIFY(update.help.contains(QLatin1String("- kwin_wayland: Failed to load the screen's colour profile")));
 
-        // Only what the person installed is named.
-        QCOMPARE(byId.value(QStringLiteral("install-2026-10-09")).title, QStringLiteral("Installed vlc"));
-        QVERIFY2(byId.value(QStringLiteral("install-2026-10-09")).detail.startsWith(QStringLiteral("With 1 part it needs") + QStringLiteral(" · ")), qPrintable(byId.value(QStringLiteral("install-2026-10-09")).detail));
-        QCOMPARE(byId.value(QStringLiteral("remove-2026-10-09")).title, QStringLiteral("Removed okular"));
+        // An install or removal is said by the app's name; a package with no
+        // app is only counted, as a part of the system, and named for help.
+        QCOMPARE(byId.value(QStringLiteral("install-2026-10-09")).title, QStringLiteral("Installed VLC media player"));
+        QVERIFY2(byId.value(QStringLiteral("install-2026-10-09")).detail.startsWith(QStringLiteral("And 1 part of the system · ")), qPrintable(byId.value(QStringLiteral("install-2026-10-09")).detail));
+        QCOMPARE(byId.value(QStringLiteral("remove-2026-10-09")).title, QStringLiteral("Removed Okular"));
+        const RecentChanges::Item elisa = byId.value(QStringLiteral("install-2026-10-07"));
+        QCOMPARE(elisa.title, QStringLiteral("Installed Elisa"));
+        QVERIFY2(elisa.detail.startsWith(QStringLiteral("And 3 parts of the system · ")), qPrintable(elisa.detail));
+        QVERIFY2(elisa.help.contains(QLatin1String("- dovecot 2.4.1-1")) && elisa.help.contains(QLatin1String("- shuffle-plasma 1.1.0-1")), qPrintable(elisa.help));
+        QCOMPARE(byId.value(QStringLiteral("install-2026-10-06")).title, QStringLiteral("2 parts of the system installed"));
+        QCOMPARE(byId.value(QStringLiteral("remove-2026-10-07")).title, QStringLiteral("1 part of the system removed"));
+        for (const RecentChanges::Item &item : look.items)
+            QVERIFY2(!item.title.contains(QLatin1String("dovecot")) && !item.title.contains(QLatin1String("shuffle-plasma")), qPrintable(item.title));
 
         // Flathub apps, without the parts that come with them.
         // One updated from a commit Flathub keeps goes back to it on its own row.
