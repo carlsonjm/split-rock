@@ -27,8 +27,38 @@ since=$(date -d "-14 days" +%Y-%m-%d 2>/dev/null)
 echo "@@ pacman"
 [ -r /var/log/pacman.log ] && grep -a '\[ALPM\] \(installed\|upgraded\|removed\|downgraded\|reinstalled\) ' /var/log/pacman.log \
     | awk -v s="[$since" '$1 >= s' | tail -n 4000
-echo "@@ explicit"
-pacman -Qqe 2>/dev/null
+# The app a package brings, by the name its launcher shows, as
+# "package|launcher|Name": for those installed, from what pacman lists; for
+# those removed, from the copy in pacman's cache.
+echo "@@ apps"
+launcher() {
+    awk -F= '/^\[/ { entry = ($0 == "[Desktop Entry]") }
+        entry && $1 == "Name" && name == "" { name = substr($0, 6) }
+        entry && ($1 == "NoDisplay" || $1 == "Hidden") && $2 == "true" { hidden = 1 }
+        entry && $1 == "Type" && $2 != "Application" { hidden = 1 }
+        END { if (name != "" && !hidden) print name }'
+}
+if [ -r /var/log/pacman.log ]; then
+    added=$(grep -a '\[ALPM\] installed ' /var/log/pacman.log | awk -v s="[$since" '$1 >= s { print $4 }' | sort -u | head -n 400)
+    [ -n "$added" ] && pacman -Ql $added 2>/dev/null | while read -r pkg path; do
+        case "$path" in /usr/share/applications/*.desktop) ;; *) continue ;; esac
+        name=$(launcher < "$path")
+        [ -n "$name" ] && echo "$pkg|${path##*/}|$name"
+    done
+    command -v bsdtar >/dev/null 2>&1 && grep -a '\[ALPM\] removed ' /var/log/pacman.log \
+        | awk -v s="[$since" '$1 >= s { v = $5; gsub(/[()]/, "", v); print $4, v }' | sort -u | head -n 40 \
+        | while read -r pkg version; do
+            for file in /var/cache/pacman/pkg/"$pkg-$version"-*.pkg.tar.*; do
+                case "$file" in *.sig) continue ;; esac
+                [ -r "$file" ] || continue
+                bsdtar -tf "$file" 2>/dev/null | grep '^usr/share/applications/[^/]*\.desktop$' | while read -r path; do
+                    name=$(bsdtar -xOf "$file" "$path" 2>/dev/null | launcher)
+                    [ -n "$name" ] && echo "$pkg|${path##*/}|$name"
+                done
+                break
+            done
+        done
+fi
 echo "@@ flatpak"
 command -v flatpak >/dev/null 2>&1 && flatpak history --since="$since 00:00:00" --columns=time,change,application 2>/dev/null \
     | tail -n 400
@@ -141,6 +171,29 @@ QString flatpakName(const QString &id)
     if (!name.isEmpty())
         name[0] = name.at(0).toUpper();
     return name;
+}
+
+// Each package's app by the name its launcher shows, from the look's
+// "package|launcher|Name" lines. Where a package brings several, the launcher
+// named after the package says it best: elisa's org.kde.elisa.desktop.
+QHash<QString, QString> appNames(const QStringList &lines)
+{
+    QHash<QString, QString> names;
+    QSet<QString> matched;
+    for (const QString &line : lines) {
+        const QStringList parts = line.split(QLatin1Char('|'));
+        if (parts.size() < 3 || parts.at(0).isEmpty() || parts.at(2).trimmed().isEmpty())
+            continue;
+        const QString &package = parts.at(0);
+        const QString launcher = parts.at(1).section(QLatin1Char('.'), 0, -2).toLower();
+        const bool own = launcher == package || launcher.endsWith(QLatin1Char('.') + package);
+        if (matched.contains(package) || (names.contains(package) && !own))
+            continue;
+        names.insert(package, parts.mid(2).join(QLatin1Char('|')).trimmed());
+        if (own)
+            matched.insert(package);
+    }
+    return names;
 }
 
 // App parts and runtimes a person never installed by name.
@@ -355,10 +408,23 @@ RecentChanges::Look RecentChanges::readLook(const QString &output, const QList<C
                                                                      "from before can put it all back.")
                                                     : QStringLiteral("This computer has no restore points.");
     {
-        const QSet<QString> explicitly = [&found] {
-            const QStringList names = found.value(QStringLiteral("explicit"));
-            return QSet<QString>(names.cbegin(), names.cend());
-        }();
+        // A package is said by its app's name, "Elisa", or a known one's,
+        // "VLC"; one with no app is a part of the system, named only in the
+        // details for whoever helps.
+        const QHash<QString, QString> apps = appNames(found.value(QStringLiteral("apps")));
+        const auto appName = [&apps](const QString &package) {
+            if (const auto it = apps.constFind(package); it != apps.cend())
+                return it.value();
+            const QString known = noticeable({{package, QString()}}).value(0);
+            return known.startsWith(QLatin1String("the ")) || known == QLatin1String("sound") || known == QLatin1String("printing")
+                    || known == QLatin1String("Bluetooth")
+                ? QString()
+                : known;
+        };
+        const auto partsWords = [](qsizetype n, const QString &done) {
+            return n == 1 ? QStringLiteral("1 part of the system %1").arg(done)
+                          : QStringLiteral("%1 parts of the system %2").arg(n).arg(done);
+        };
         struct Day {
             QMap<QString, QString> updated;
             // Each package's "old -> new", or the version installed or removed.
@@ -387,7 +453,7 @@ RecentChanges::Look RecentChanges::readLook(const QString &output, const QList<C
             if (what == QLatin1String("upgraded") || what == QLatin1String("downgraded") || what == QLatin1String("reinstalled")) {
                 day.updated.insert(name, versions.section(QStringLiteral(" -> "), -1));
             } else if (what == QLatin1String("installed")) {
-                if (explicitly.contains(name))
+                if (!appName(name).isEmpty())
                     day.installed.append(name);
                 else
                     day.parts.append(name);
@@ -461,34 +527,48 @@ RecentChanges::Look RecentChanges::readLook(const QString &output, const QList<C
                 look.items.append(item);
             }
             if (!day.installed.isEmpty() || !day.parts.isEmpty()) {
+                QStringList names;
+                for (const QString &name : day.installed)
+                    names.append(appName(name));
+                const QString what = names.isEmpty() ? QString() : listed(names);
                 Item item;
                 item.id = QStringLiteral("install-") + key;
                 item.day = date;
                 item.when = day.last;
                 item.kind = QStringLiteral("install");
-                item.title = day.installed.isEmpty() ? QStringLiteral("Installed parts of the system")
-                                                     : QStringLiteral("Installed %1").arg(listed(day.installed));
-                item.detail = day.parts.isEmpty() ? at
-                            : day.parts.size() == 1 ? QStringLiteral("With 1 part it needs · ") + at
-                                                    : QStringLiteral("With %1 parts they need · %2").arg(day.parts.size()).arg(at);
+                item.title = names.isEmpty() ? partsWords(day.parts.size(), QStringLiteral("installed"))
+                                             : QStringLiteral("Installed %1").arg(what);
+                item.detail = names.isEmpty() || day.parts.isEmpty() ? at
+                            : day.parts.size() == 1 ? QStringLiteral("And 1 part of the system · ") + at
+                                                    : QStringLiteral("And %1 parts of the system · %2").arg(day.parts.size()).arg(at);
                 item.action = backAction;
                 item.actionLabel = backLabel;
                 item.question = QStringLiteral("I installed %1 %2. Could that be why something stopped working?")
-                                    .arg(day.installed.isEmpty() ? QStringLiteral("some parts of the system") : listed(day.installed),
-                                         onDay(date, today));
+                                    .arg(names.isEmpty() ? QStringLiteral("some parts of the system") : what, onDay(date, today));
                 item.help = QStringLiteral("I installed these on my computer %1 at %2:\n%3\n\nThe way back would be to remove "
                                            "them. %4\n%5\n\nCould that be why something stopped working, and how do I put it right?")
                                 .arg(onDay(date, today), at, versionLines(day, day.installed + day.parts), restoreWords, after);
                 look.items.append(item);
             }
             if (!day.removed.isEmpty()) {
+                QStringList names;
+                qsizetype parts = 0;
+                for (const QString &name : day.removed) {
+                    if (const QString app = appName(name); !app.isEmpty())
+                        names.append(app);
+                    else
+                        ++parts;
+                }
+                const QString what = names.isEmpty() ? QString() : listed(names, QStringLiteral("others"));
                 Item item;
                 item.id = QStringLiteral("remove-") + key;
                 item.day = date;
                 item.when = day.last;
                 item.kind = QStringLiteral("remove");
-                item.title = QStringLiteral("Removed %1").arg(listed(day.removed, QStringLiteral("others")));
-                item.detail = at;
+                item.title = names.isEmpty() ? partsWords(parts, QStringLiteral("removed")) : QStringLiteral("Removed %1").arg(what);
+                item.detail = names.isEmpty() || parts == 0 ? at
+                            : parts == 1 ? QStringLiteral("And 1 part of the system · ") + at
+                                         : QStringLiteral("And %1 parts of the system · %2").arg(parts).arg(at);
                 item.action = backAction;
                 item.actionLabel = backLabel;
                 item.question = QStringLiteral("These were removed from my computer %1: %2. Could that be why something "

@@ -6,12 +6,23 @@
 [2026-10-08T09:10:02-0500] [ALPM] upgraded mesa (1:25.2.3-1 -> 1:25.2.4-1)
 [2026-10-08T09:10:03-0500] [ALPM] upgraded firefox (131.0-1 -> 132.0-1)
 [2026-10-08T09:10:04-0500] [ALPM] upgraded libfoo (1-1 -> 2-1)
+[2026-10-06T11:00:00-0500] [ALPM] installed dovecot (2.4.1-1)
+[2026-10-06T11:00:01-0500] [ALPM] installed libsodium (1.0.20-1)
+[2026-10-07T11:00:00-0500] [ALPM] installed elisa (25.08.2-1)
+[2026-10-07T11:00:01-0500] [ALPM] installed dovecot (2.4.1-1)
+[2026-10-07T11:00:02-0500] [ALPM] installed shuffle-plasma (1.1.0-1)
+[2026-10-07T11:00:03-0500] [ALPM] installed baloo-widgets (6.8.1-1)
+[2026-10-07T11:05:00-0500] [ALPM] removed dovecot (2.4.1-1)
 [2026-10-09T08:00:00-0500] [ALPM] installed libvlc-dep (1-1)
 [2026-10-09T08:00:01-0500] [ALPM] installed vlc (3.0.21-1)
 [2026-10-09T08:05:00-0500] [ALPM] removed okular (24.08-1)
-@@ explicit
-firefox
-vlc
+@@ apps
+vlc|vlc.desktop|VLC media player
+elisa|org.kde.elisa-player.desktop|Elisa Helper
+elisa|org.kde.elisa.desktop|Elisa
+elisa|org.kde.elisa-tray.desktop|Elisa Tray
+okular|org.kde.okular-mobile.desktop|Okular Mobile
+okular|org.kde.okular.desktop|Okular
 @@ flatpak
 Oct  9 12:01:02  deploy update  org.mozilla.firefox
 Oct  9 12:01:03  deploy update  org.freedesktop.Platform.GL.default
