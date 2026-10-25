@@ -5,8 +5,12 @@ name: Arch current
 # a device. No account or network is needed.
 on:
   pull_request:
+    # A Markdown-only change runs no build.
+    paths-ignore: ['**.md']
   push:
     branches: [main]
+    # A Markdown-only change runs no build.
+    paths-ignore: ['**.md']
   schedule:
     # Weekly: Split Rock is shelved, and its minutes are counted.
     - cron: "47 9 * * 1"
