@@ -20,9 +20,6 @@
 Helpers that look after a KDE Plasma computer, built for people leaving decades of Windows. Each Helper does one job, in plain words, and changes nothing until you tap its button. Core watches the computer quietly in the background and points you to the Helper that fits when something needs a look.
 </p>
 
-<p align="center"><img src="assets/readme/showcase.webp" alt="The What changed Helper lists recent changes, each with a way to put it back" width="100%"></p>
-<p align="center"><sub>What changed: put a change back in one tap.</sub></p>
-
 **Status:** early. On its own there is no package yet, only a developer install
 (below).
 
