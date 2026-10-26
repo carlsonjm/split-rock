@@ -20,8 +20,12 @@
 Helpers that look after a KDE Plasma computer, built for people leaving decades of Windows. Each Helper does one job, in plain words, and changes nothing until you tap its button. Core watches the computer quietly in the background and points you to the Helper that fits when something needs a look.
 </p>
 
-**Status:** early. On its own there is no package yet, only a developer install
-(below).
+
+
+https://github.com/user-attachments/assets/b5c5d53a-4f06-4f06-9c3e-ebca5be75959
+
+
+
 
 ## What you get
 
