@@ -131,6 +131,14 @@ private Q_SLOTS:
         QCOMPARE(file.value(QStringLiteral("action")).toString(), QStringLiteral("file"));
         QCOMPARE(file.value(QStringLiteral("ids")).toStringList(), QStringList{QStringLiteral("7")});
         QCOMPARE(file.value(QStringLiteral("tab")).toString(), QStringLiteral("Receipts"));
+
+        // As Codex wrote them on the tablet: the numbers as numbers.
+        QString numbers = QStringLiteral("Filed.\n\n```proposals\n[{\"action\": \"file\", \"ids\": [501, 502], \"why\": \"Keep\", "
+                                         "\"tab\": \"Projects\"}]\n```");
+        const QVariantList numbered = Broker::proposalsIn(&numbers, {QStringLiteral("501"), QStringLiteral("502")});
+        QCOMPARE(numbered.size(), 1);
+        QCOMPARE(numbered.first().toMap().value(QStringLiteral("ids")).toStringList(),
+                 (QStringList{QStringLiteral("501"), QStringLiteral("502")}));
     }
 
     void sortsMailOnTheBus()
