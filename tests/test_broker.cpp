@@ -11,6 +11,8 @@
 
 #include <QDBusConnection>
 #include <QDBusInterface>
+#include <QDBusMessage>
+#include <QDBusMetaType>
 #include <QDBusReply>
 #include <QDir>
 #include <QFile>
@@ -68,6 +70,19 @@ struct Fixture {
         setup.codex = codex::pretend(QStringLiteral(PRETEND_PROGRAM), QStringLiteral(SCRIPTS_DIR "/broker.json"), home);
         broker = std::make_unique<Broker>(model.get(), setup);
     }
+};
+
+// What arrives on the bus, as the broker reads it.
+class Echo : public QObject
+{
+    Q_OBJECT
+    Q_CLASSINFO("D-Bus Interface", "io.github.carlsonjm.SplitRock.TestEcho")
+
+public:
+    QVariantMap taken;
+
+public Q_SLOTS:
+    Q_SCRIPTABLE void Take(const QVariantMap &message) { taken = BrokerService::plain(message).toMap(); }
 };
 
 } // namespace
@@ -144,6 +159,37 @@ private Q_SLOTS:
         QVERIFY(fixture.pretend.asked.last().startsWith(QLatin1String("sort:<email>")));
         bus.unregisterService(QLatin1String(BrokerService::Service));
         bus.unregisterObject(QLatin1String(BrokerService::Path));
+    }
+
+    void nestedMessagesArriveWhole()
+    {
+        // Sent the way Mail sends a conversation: its messages as aa{sv},
+        // attachments as as, from another connection so it is really marshalled.
+        qDBusRegisterMetaType<QList<QVariantMap>>();
+        QDBusConnection bus = QDBusConnection::sessionBus();
+        QVERIFY(bus.isConnected());
+        Echo echo;
+        QVERIFY(bus.registerObject(QStringLiteral("/Echo"), &echo, QDBusConnection::ExportScriptableSlots));
+        QDBusConnection other = QDBusConnection::connectToBus(QDBusConnection::SessionBus, QStringLiteral("other"));
+        QVERIFY(other.isConnected());
+        const QVariantMap conversation{{QStringLiteral("id"), QStringLiteral("c1")},
+                                       {QStringLiteral("messages"), QVariant::fromValue(QList<QVariantMap>{logoMail(), logoMail()})}};
+        QDBusMessage call = QDBusMessage::createMethodCall(bus.baseService(), QStringLiteral("/Echo"),
+                                                           QStringLiteral("io.github.carlsonjm.SplitRock.TestEcho"),
+                                                           QStringLiteral("Take"));
+        call << conversation;
+        QCOMPARE(other.call(call, QDBus::BlockWithGui, 5000).type(), QDBusMessage::ReplyMessage);
+        QCoreApplication::processEvents();
+        QTRY_COMPARE(echo.taken.value(QStringLiteral("id")).toString(), QStringLiteral("c1"));
+        const QVariantList messages = echo.taken.value(QStringLiteral("messages")).toList();
+        QCOMPARE(messages.size(), 2);
+        const QVariantMap first = messages.first().toMap();
+        QCOMPARE(first.value(QStringLiteral("body")).toString(), logoMail().value(QStringLiteral("body")).toString());
+        QCOMPARE(first.value(QStringLiteral("attachments")).toStringList(), QStringList{QStringLiteral("brief.pdf")});
+        // And so the reply is drafted from them, not from nothing.
+        QVERIFY(Broker::mailText(first).contains(QLatin1String("vector file by Thursday")));
+        bus.unregisterObject(QStringLiteral("/Echo"));
+        QDBusConnection::disconnectFromBus(QStringLiteral("other"));
     }
 
     void sortingThatDoesNotFitFails()

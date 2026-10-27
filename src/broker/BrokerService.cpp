@@ -10,30 +10,59 @@ namespace splitrock::broker {
 
 namespace {
 
-// A dictionary or list from the bus, as plain Qt values all the way down:
-// nested messages arrive wrapped as QDBusArgument.
-QVariant plain(const QVariant &value)
+// One element of a message from the bus, whatever its signature: a{sv}, an
+// array of them, as, or a plain value.
+QVariant element(const QDBusArgument &argument)
 {
-    if (value.canConvert<QDBusArgument>()) {
-        const QDBusArgument argument = value.value<QDBusArgument>();
-        if (argument.currentType() == QDBusArgument::MapType) {
-            QVariantMap map;
-            argument >> map;
-            return plain(map);
+    switch (argument.currentType()) {
+    case QDBusArgument::MapType: {
+        QVariantMap map;
+        argument.beginMap();
+        while (!argument.atEnd()) {
+            argument.beginMapEntry();
+            const QString key = argument.asVariant().toString();
+            map.insert(key, element(argument));
+            argument.endMapEntry();
         }
-        if (argument.currentType() == QDBusArgument::ArrayType) {
-            QVariantList list;
-            argument.beginArray();
-            while (!argument.atEnd()) {
-                QVariant item;
-                argument >> item;
-                list.append(plain(item));
-            }
-            argument.endArray();
-            return list;
-        }
+        argument.endMap();
+        return map;
+    }
+    case QDBusArgument::ArrayType: {
+        QVariantList list;
+        argument.beginArray();
+        while (!argument.atEnd())
+            list.append(element(argument));
+        argument.endArray();
+        return list;
+    }
+    case QDBusArgument::StructureType: {
+        QVariantList fields;
+        argument.beginStructure();
+        while (!argument.atEnd())
+            fields.append(element(argument));
+        argument.endStructure();
+        return fields;
+    }
+    case QDBusArgument::VariantType: {
+        QDBusVariant variant;
+        argument >> variant;
+        return BrokerService::plain(variant.variant());
+    }
+    case QDBusArgument::BasicType:
+        return argument.asVariant();
+    default:
         return {};
     }
+}
+
+} // namespace
+
+// Nested messages arrive wrapped as QDBusArgument: Mail's conversation holds
+// its messages as aa{sv} and each mail its attachments as as.
+QVariant BrokerService::plain(const QVariant &value)
+{
+    if (value.canConvert<QDBusArgument>())
+        return element(value.value<QDBusArgument>());
     if (value.typeId() == QMetaType::QVariantMap) {
         QVariantMap map = value.toMap();
         for (auto it = map.begin(); it != map.end(); ++it)
@@ -48,8 +77,6 @@ QVariant plain(const QVariant &value)
     }
     return value;
 }
-
-} // namespace
 
 BrokerService::BrokerService(Broker *broker, QObject *parent)
     : QObject(parent)

@@ -27,6 +27,9 @@ public:
 
     bool publish(QDBusConnection bus);
 
+    // A dictionary or list from the bus as plain Qt values all the way down.
+    static QVariant plain(const QVariant &value);
+
 public Q_SLOTS:
     Q_SCRIPTABLE uint ProtocolVersion() const;
     Q_SCRIPTABLE QVariantMap Model() const;

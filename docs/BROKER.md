@@ -49,9 +49,9 @@ Name `io.github.carlsonjm.splitrock.Broker`, object `/Broker`, interface
 | `Codex() → a{sv}` | `installed`, `signedIn`, and `problem` when it can't start |
 | `Warm()` | Starts the model ahead of the first request, where it is downloaded |
 | `SortMail(a{sv} message) → u` | Sorts one email with the model on this computer |
-| `StyleNote(aa{sv} sent) → u` | The model on this computer writes how the person writes email, from up to 30 messages they sent, with nothing private in it |
+| `StyleNote(av sent) → u` | The model on this computer writes how the person writes email, from up to 30 messages they sent, with nothing private in it |
 | `DraftReply(a{sv} conversation, s styleNote, s ask) → u` | Codex drafts a reply to one conversation |
-| `Clerk(s question, aa{sv} found) → u` | Codex answers a question from up to eight emails the app found itself |
+| `Clerk(s question, av found) → u` | Codex answers a question from up to eight emails the app found itself |
 | `Cancel(u id)` | Stops a request |
 
 An email is a dictionary with these keys: `id`, `from`, `to`, `cc`,
@@ -59,6 +59,11 @@ An email is a dictionary with these keys: `id`, `from`, `to`, `cc`,
 `attachments` (as, by name) and `body` (plain text, of which the first 4,000
 characters are used). A conversation is `id`, `from` (who replies),
 `replyAll` (b) and `messages`.
+
+A list of emails, whether `messages`, `found` or `sent`, goes as `av`, each
+item an `a{sv}` in a variant: Qt matches a call on its exact signature, so
+`Clerk(s, aa{sv})` reaches no method. Inside a dictionary the broker reads an
+`aa{sv}` too, but a client should send `av`. Proposals come back the same way.
 
 | Signal | When |
 | --- | --- |
