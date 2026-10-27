@@ -269,15 +269,24 @@ void Broker::run(const Job &job)
     const uint id = job.id;
     if (job.kind == QLatin1String("sort")) {
         const QString messageId = job.message.value(QStringLiteral("id")).toString();
+        // On the Mac mini one sorting in twenty ran to its limit on spaces and
+        // said nothing; asked once more, a little differently, it answers.
+        const QString asked = mailText(job.message)
+            + (job.again ? QStringLiteral("\n\nAnswer with the form on one line.") : QString());
         const QJsonArray messages{
             QJsonObject{{QStringLiteral("role"), QStringLiteral("system")}, {QStringLiteral("content"), sortingWords()}},
-            QJsonObject{{QStringLiteral("role"), QStringLiteral("user")}, {QStringLiteral("content"), mailText(job.message)}}};
-        m_client->complete(messages, sortingShape(), 0, 300, {}, [this, id, messageId](const QString &text, const QString &error) {
+            QJsonObject{{QStringLiteral("role"), QStringLiteral("user")}, {QStringLiteral("content"), asked}}};
+        m_client->complete(messages, sortingShape(), 0, 300, {}, [this, job, messageId](const QString &text, const QString &error) {
+            const uint id = job.id;
             if (m_current != id)
                 return;
             m_current = 0;
             const QVariantMap sorting = error.isEmpty() ? sortingFrom(text, messageId) : QVariantMap();
-            if (sorting.isEmpty())
+            if (sorting.isEmpty() && error.isEmpty() && !job.again) {
+                Job again = job;
+                again.again = true;
+                m_queue.prepend(again);
+            } else if (sorting.isEmpty())
                 Q_EMIT failed(id, QStringLiteral("The model's sorting didn't fit."));
             else
                 Q_EMIT sorted(id, sorting);

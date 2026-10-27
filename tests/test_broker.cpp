@@ -210,6 +210,9 @@ private Q_SLOTS:
         QVERIFY(failed.wait(10000));
         QCOMPARE(failed.first().at(0).toUInt(), id);
         QCOMPARE(sorted.size(), 0);
+        // Asked once more, a little differently, before it fails.
+        QCOMPARE(fixture.pretend.asked.size(), 2);
+        QVERIFY(fixture.pretend.asked.last().endsWith(QLatin1String("Answer with the form on one line.")));
     }
 
     void noModelFailsAtOnce()

@@ -94,6 +94,7 @@ private:
         QString kind;
         QVariantMap message;
         QVariantList sent;
+        bool again = false;
     };
 
     void next();
