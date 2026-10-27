@@ -16,11 +16,13 @@ Paths are from the repository root.
 | `docs/INPUT.md` | Every input a Helper answers, opening with its controls map |
 | `docs/CORE.md` | Core: what it watches, when it speaks, the files it keeps, and its bus interface |
 | `docs/ASK.md` | Ask on this computer: the front desk in front of the model, its download, its fence and its bus interface; and Codex, for the bigger questions, in its own window |
+| `docs/BROKER.md` | The broker: the models for the Good Input apps that ask, such as Mail, what holds, and its bus interface |
+| `tools/capability-trial/` | The capability trial: notes and mail against the real model, before the capability layer is built |
 | `skills/plasma/` | The settings skills Ask's front desk opens, each with its read-only look-around |
 | `tools/desk-trial/` | The trial: the front desk's 144 questions against the real model, on a computer that has it |
 | `docs/DESKTOP.md` | The desktop file, the command line, and how a Helper opens in a window of its own |
-| `data/` | The desktop file, Core's and Ask's bus services, Core's systemd unit and autostart entry, filled in at build time; the model list and its licence |
-| `src/` | The Helpers, the change record and the notebook (`app/`); the guide reader (`guide/`); how a second start hands over (`desktop/`); `split-rock-admin`, the administrator's jobs (`admin/`); Core, the front desk (`core/`); Ask, its model and fence (`ask/`), and the front desk in front of the model (`desk/`); Codex's protocol client (`acp/`) and its window's conversation (`codex/`); the pretend assistant the tests use (`pretend/`) |
+| `data/` | The desktop file, Core's, Ask's and the broker's bus services, Core's systemd unit and autostart entry, filled in at build time; the model list and its licence |
+| `src/` | The Helpers, the change record and the notebook (`app/`); the guide reader (`guide/`); how a second start hands over (`desktop/`); `split-rock-admin`, the administrator's jobs (`admin/`); Core, the front desk (`core/`); Ask, its model and fence (`ask/`), and the front desk in front of the model (`desk/`); the broker (`broker/`); Codex's protocol client (`acp/`) and its window's conversation (`codex/`); the pretend assistant the tests use (`pretend/`) |
 | `qml/` | The Helpers' window and each Helper's card |
 | `tests/` | The tests, each run in its own home folder; `tests/bus/` holds the private bus Core's test runs on |
 | `guide/plasma/` | The troubleshooting guide's general Plasma entries, one known problem each; installed, though no Helper shows it now |

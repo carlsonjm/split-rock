@@ -1247,3 +1247,25 @@ service by name too; whether it brings an app is what they would recognise.
 Rejected: dropping package changes from the list, which loses "it worked
 yesterday" after an update; and showing changes made in this account only,
 since an update made by anyone changes this person's computer too.
+
+## The broker is a program of its own, and apps do their own actions
+
+The Good Input apps reach the models through the broker (`BROKER.md`), a
+third program beside Core and Ask. An app hands it material and gets back a
+structured result, then does any action itself, after the person's tap where
+the app's rules need one. The model on this computer only fills in a form the
+engine enforces, with no tools. Codex answers only on the person's tap and
+only from what the app passed it, and every request it makes to act is
+refused.
+
+Why: Ask's rules are written for questions about the computer, by a person
+new to it. They don't fit mail, documents or notes, and Core never calls a
+model. A model with tools to act on what it reads would let one email instruct
+it, and the small model was not reliable with tools in the October trials.
+With the app doing its own actions, the broker can't touch the mail server or
+anything else, and an app keeps working without it.
+
+Rejected: putting the broker inside Ask, which would bring Ask's rules for the
+computer to every app; each app talking to the models itself, which repeats
+the sign-in, the fence and the safety rules in every app; and giving the model
+the app's actions as tools, so that the words it reads could reach them.

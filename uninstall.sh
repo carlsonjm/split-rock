@@ -39,6 +39,7 @@ fi
 # A Core still running for this account ends with its program, and Ask too.
 systemctl --user stop split-rock-core.service >/dev/null 2>&1 || true
 pkill -x -u "$(id -u)" split-rock-ask >/dev/null 2>&1 || true
+pkill -x -u "$(id -u)" split-rock-broker >/dev/null 2>&1 || true
 pkill -x -u "$(id -u)" split-rock-core >/dev/null 2>&1 || true
 systemctl --user daemon-reload >/dev/null 2>&1 || true
 kbuildsycoca6 >/dev/null 2>&1 || true

@@ -177,6 +177,28 @@ configure_file(data/io.github.carlsonjm.splitrock.Ask.service.in
 install(FILES ${CMAKE_CURRENT_BINARY_DIR}/data/io.github.carlsonjm.splitrock.Ask.service
     DESTINATION ${CMAKE_INSTALL_DATADIR}/dbus-1/services)
 
+# The broker (docs/BROKER.md): the models, for the Good Input apps that ask, a
+# program of its own beside Core and Ask.
+add_library(splitrock_broker STATIC
+    src/broker/Broker.cpp
+    src/broker/BrokerService.cpp
+    src/broker/CodexTask.cpp
+)
+target_include_directories(splitrock_broker PUBLIC src)
+target_link_libraries(splitrock_broker PUBLIC splitrock_ask splitrock_codex Qt6::Core Qt6::DBus Qt6::Network)
+target_compile_options(splitrock_broker PRIVATE -Wall -Wextra)
+qt_add_executable(split-rock-broker src/broker/main.cpp)
+target_link_libraries(split-rock-broker PRIVATE splitrock_broker)
+target_compile_definitions(split-rock-broker PRIVATE
+    SPLIT_ROCK_ENGINE_DIR="${CMAKE_INSTALL_FULL_LIBDIR}/split-rock/engine"
+    SPLIT_ROCK_INSTALLED_MODELS="${CMAKE_INSTALL_FULL_LIBDIR}/split-rock/models.json")
+install(TARGETS split-rock-broker RUNTIME DESTINATION ${CMAKE_INSTALL_LIBDIR}/split-rock)
+set(SPLIT_ROCK_BROKER_PROGRAM "${CMAKE_INSTALL_FULL_LIBDIR}/split-rock/split-rock-broker")
+configure_file(data/io.github.carlsonjm.splitrock.Broker.service.in
+    ${CMAKE_CURRENT_BINARY_DIR}/data/io.github.carlsonjm.splitrock.Broker.service @ONLY)
+install(FILES ${CMAKE_CURRENT_BINARY_DIR}/data/io.github.carlsonjm.splitrock.Broker.service
+    DESTINATION ${CMAKE_INSTALL_DATADIR}/dbus-1/services)
+
 # Codex, for the bigger questions (docs/ASK.md, Codex): its Agent Client
 # Protocol client, and the conversation in its own window, in the fence Ask's
 # engine runs in.

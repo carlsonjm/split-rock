@@ -24,6 +24,10 @@ What Split Rock does not do yet, and what it will not do.
 - Codex needs its adapter, `codex-acp`, installed; nothing in Split Rock
   installs it.
 
+- The broker is version 0. It has been tested against a pretend model and the
+  pretend assistant, not yet against the real model or Codex, and Mail is the
+  only app that calls it.
+
 ## Not planned
 
 - Handling anyone's account, payment or password.

@@ -27,7 +27,7 @@ fi
 cmake -S "${project_root}" -B "${build_dir}" "${generator[@]}" \
     -DCMAKE_BUILD_TYPE=RelWithDebInfo \
     -DCMAKE_INSTALL_PREFIX=/usr >/dev/null
-cmake --build "${build_dir}" --parallel --target split-rock split-rock-core split-rock-ask
+cmake --build "${build_dir}" --parallel --target split-rock split-rock-core split-rock-ask split-rock-broker
 # Shuffle's install key, where it is set up, installs with no password: the
 # build is laid out here with this account's own rights, and a root-owned helper
 # takes the files as a stream and puts only Split Rock's own in place.
@@ -74,8 +74,9 @@ if pgrep -x -u "$(id -u)" split-rock-core >/dev/null 2>&1; then
     fi
 fi
 
-# An Ask already running ends, so the next question starts the new program.
+# An Ask or broker already running ends, so the next call starts the new program.
 pkill -x -u "$(id -u)" split-rock-ask >/dev/null 2>&1 || true
+pkill -x -u "$(id -u)" split-rock-broker >/dev/null 2>&1 || true
 
 echo "Split Rock installed. Core opens its Helpers; Search finds them by name."
 echo "A Helper's window already open keeps the old program until it closes."
