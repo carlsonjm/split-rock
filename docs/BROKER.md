@@ -51,7 +51,7 @@ Name `io.github.carlsonjm.splitrock.Broker`, object `/Broker`, interface
 | `SortMail(a{sv} message) → u` | Sorts one email with the model on this computer |
 | `StyleNote(av sent) → u` | The model on this computer writes how the person writes email, from up to 30 messages they sent, with nothing private in it |
 | `DraftReply(a{sv} conversation, s styleNote, s ask) → u` | Codex drafts a reply to one conversation |
-| `Clerk(s question, av found) → u` | Codex answers a question from up to eight emails the app found itself |
+| `Clerk(s question, av found) → u` | Codex answers a question from up to twelve emails the app found itself. Each call stands alone: for a follow-up the app passes the earlier turns at the head of `question`, under "Earlier:", and the emails from earlier turns again in `found` |
 | `Cancel(u id)` | Stops a request |
 
 An email is a dictionary with these keys: `id`, `from`, `to`, `cc`,
