@@ -26,7 +26,7 @@ done
 [ -n "$server" ] && [ -x "$server" ] || { echo "No llama-server found; set LLAMA_SERVER."; exit 1; }
 
 layers=99
-if command -v lspci >/dev/null && ! lspci | grep -Ei 'vga|3d|display' | grep -viq intel; then
+if command -v lspci >/dev/null && ! lspci | grep -Ei '^[^ ]+ (vga|3d|display)' | grep -viq intel; then
     layers=0
 fi
 host=$(uname -n)

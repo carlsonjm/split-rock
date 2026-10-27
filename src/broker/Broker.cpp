@@ -272,7 +272,7 @@ void Broker::run(const Job &job)
         const QJsonArray messages{
             QJsonObject{{QStringLiteral("role"), QStringLiteral("system")}, {QStringLiteral("content"), sortingWords()}},
             QJsonObject{{QStringLiteral("role"), QStringLiteral("user")}, {QStringLiteral("content"), mailText(job.message)}}};
-        m_client->complete(messages, sortingShape(), 0, 160, {}, [this, id, messageId](const QString &text, const QString &error) {
+        m_client->complete(messages, sortingShape(), 0, 300, {}, [this, id, messageId](const QString &text, const QString &error) {
             if (m_current != id)
                 return;
             m_current = 0;
