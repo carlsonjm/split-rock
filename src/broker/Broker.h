@@ -78,7 +78,7 @@ public:
     static QVariantMap sortingFrom(const QString &reply, const QString &id);
     // Proposals at the end of what Codex wrote, as the app shows them as cards,
     // with the words before them. Only the actions and messages it was given.
-    static QVariantList proposalsIn(QString *text, const QStringList &ids);
+    static QVariantList proposalsIn(QString *text, const QStringList &ids, const QStringList &froms = {});
 
 Q_SIGNALS:
     void sorted(uint id, const QVariantMap &result);
@@ -101,7 +101,7 @@ private:
     void run(const Job &job);
     void engineUp();
     void finishLocal();
-    uint codexTask(const QString &kind, const QString &prompt, const QStringList &ids);
+    uint codexTask(const QString &kind, const QString &prompt, const QStringList &ids, const QStringList &froms = {});
 
     LocalModel *m_model;
     Setup m_setup;

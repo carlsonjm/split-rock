@@ -65,12 +65,18 @@ item an `a{sv}` in a variant: Qt matches a call on its exact signature, so
 `Clerk(s, aa{sv})` reaches no method. Inside a dictionary the broker reads an
 `aa{sv}` too, but a client should send `av`. Proposals come back the same way.
 
+A trash proposal's `senders` asks for more than the emails Codex read, so
+the broker keeps only what the emails passed vouch for. The app counts what
+each sender has before asking, moves it only on the person's yes, and never
+sweeps anyone the person has written to: that rule is the app's, since only
+it knows the mail.
+
 | Signal | When |
 | --- | --- |
 | `Sorted(u id, a{sv})` | Carries `id` (the email's), `needsYou` (b), `line` (one plain sentence of up to 120 characters), `kind` (receipt, travel, orders, accounts, notice, newsletter, person or other), `suggest` (none, reply, file or unsubscribe) and `who` |
 | `Said(u id, s text)` | The next words of a style note, draft or answer |
 | `Drafted(u id, a{sv})` | Carries `text`, the reply's body, and `who` |
-| `Answered(u id, a{sv})` | A style note or the clerk's answer. Carries `text` and `who`; from the clerk also `read` (the emails Codex was given) and `proposals`, each with `action` (file, done, needs_you, draft or trash), `ids`, `why` and, to file, `tab` |
+| `Answered(u id, a{sv})` | A style note or the clerk's answer. Carries `text` and `who`; from the clerk also `read` (the emails Codex was given) and `proposals`, each with `action` (file, done, needs_you, draft or trash), `ids`, `why`, to file `tab`, and to trash perhaps `senders`: addresses or domains meaning everything from them, each kept only when one of the emails passed came from it (a whole shared domain such as gmail.com never) |
 | `Failed(u id, s problem)` | Why it couldn't be done, in plain words, or `cancelled` |
 | `ModelChanged(a{sv})` | As `Model()` |
 

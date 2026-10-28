@@ -23,6 +23,47 @@ const QStringList Suggestions{QStringLiteral("none"), QStringLiteral("reply"), Q
 const QStringList Actions{QStringLiteral("file"), QStringLiteral("done"), QStringLiteral("needs_you"),
                           QStringLiteral("draft"), QStringLiteral("trash")};
 
+// Where anyone may have an address: never swept as a whole domain.
+const QStringList SharedDomains{QStringLiteral("gmail.com"), QStringLiteral("googlemail.com"), QStringLiteral("outlook.com"),
+                                QStringLiteral("hotmail.com"), QStringLiteral("live.com"), QStringLiteral("msn.com"),
+                                QStringLiteral("yahoo.com"), QStringLiteral("icloud.com"), QStringLiteral("me.com"),
+                                QStringLiteral("mac.com"), QStringLiteral("aol.com"), QStringLiteral("proton.me"),
+                                QStringLiteral("protonmail.com"), QStringLiteral("gmx.com"), QStringLiteral("gmx.net"),
+                                QStringLiteral("mail.com"), QStringLiteral("yandex.com"), QStringLiteral("fastmail.com"),
+                                QStringLiteral("zoho.com"), QStringLiteral("hey.com")};
+
+// The bare address in "Name <someone@example.com>", lower case.
+QString addressIn(const QString &from)
+{
+    static const QRegularExpression angle(QStringLiteral("<([^<>\\s]+@[^<>\\s]+)>"));
+    static const QRegularExpression plain(QStringLiteral("([^\\s<>\"]+@[^\\s<>\"]+)"));
+    QRegularExpressionMatch match = angle.match(from);
+    if (!match.hasMatch())
+        match = plain.match(from);
+    return match.hasMatch() ? match.captured(1).toLower() : QString();
+}
+
+// A sender the model named, kept only if one of the messages it was given
+// came from it: an address exactly, or a domain one of them was sent from.
+QString senderFrom(const QString &named, const QStringList &froms)
+{
+    QString sender = named.trimmed().toLower();
+    if (sender.startsWith(QLatin1Char('@')))
+        sender.remove(0, 1);
+    if (sender.isEmpty() || sender.contains(QLatin1Char(' ')))
+        return {};
+    if (sender.contains(QLatin1Char('@')))
+        return froms.contains(sender) ? sender : QString();
+    if (!sender.contains(QLatin1Char('.')) || SharedDomains.contains(sender))
+        return {};
+    for (const QString &from : froms) {
+        const QString domain = from.section(QLatin1Char('@'), 1);
+        if (domain == sender || domain.endsWith(QLatin1Char('.') + sender))
+            return sender;
+    }
+    return {};
+}
+
 QString field(const QVariantMap &message, const char *key)
 {
     // Every field is the app's, and plain: no line breaks where one line goes.
@@ -180,7 +221,7 @@ QVariantMap Broker::sortingFrom(const QString &reply, const QString &id)
             {QStringLiteral("who"), QStringLiteral("computer")}};
 }
 
-QVariantList Broker::proposalsIn(QString *text, const QStringList &ids)
+QVariantList Broker::proposalsIn(QString *text, const QStringList &ids, const QStringList &froms)
 {
     static const QRegularExpression block(QStringLiteral("```proposals\\s*(\\[.*?\\])\\s*```"),
                                           QRegularExpression::DotMatchesEverythingOption);
@@ -200,14 +241,27 @@ QVariantList Broker::proposalsIn(QString *text, const QStringList &ids)
             if (ids.contains(id) && !chosen.contains(id))
                 chosen.append(id);
         }
+        // To the trash, also everything from senders of the messages it was
+        // given; the app counts and moves them, and spares anyone the person
+        // writes to.
+        QStringList senders;
+        if (action == QLatin1String("trash")) {
+            for (const QJsonValue &value : proposal.value(QStringLiteral("senders")).toArray()) {
+                const QString sender = senderFrom(value.toString(), froms);
+                if (!sender.isEmpty() && !senders.contains(sender))
+                    senders.append(sender);
+            }
+        }
         // Only what the app offers, on the messages it passed.
-        if (!Actions.contains(action) || chosen.isEmpty())
+        if (!Actions.contains(action) || (chosen.isEmpty() && senders.isEmpty()))
             continue;
         QVariantMap card{{QStringLiteral("action"), action},
                          {QStringLiteral("ids"), chosen},
                          {QStringLiteral("why"), oneLine(proposal.value(QStringLiteral("why")).toString(), 160)}};
         if (action == QLatin1String("file"))
             card.insert(QStringLiteral("tab"), oneLine(proposal.value(QStringLiteral("tab")).toString(), 40));
+        if (!senders.isEmpty())
+            card.insert(QStringLiteral("senders"), senders);
         proposals.append(card);
     }
     return proposals;
@@ -354,11 +408,15 @@ uint Broker::draftReply(const QVariantMap &conversation, const QString &styleNot
 uint Broker::clerk(const QString &question, const QVariantList &found)
 {
     QStringList ids;
+    QStringList froms;
     QStringList emails;
     for (const QVariant &value : found.mid(0, 12)) {
         const QVariantMap message = value.toMap();
         ids.append(field(message, "id"));
         emails.append(QStringLiteral("Message %1:\n%2").arg(field(message, "id"), mailText(message, 3000)));
+        const QString from = addressIn(field(message, "from"));
+        if (!from.isEmpty() && !froms.contains(from))
+            froms.append(from);
     }
     const QString prompt = QStringLiteral(
         "Answer the person's question about their mail from these messages alone, in plain words and briefly, "
@@ -372,21 +430,23 @@ uint Broker::clerk(const QString &question, const QVariantList &found)
         "needing the person, drafting a reply, or moving to the trash), you must end with a block holding one proposal for each "
         "suggestion, since the person can act only on what is in it:\n"
         "```proposals\n[{\"action\": \"file\" | \"done\" | \"needs_you\" | \"draft\" | \"trash\", \"ids\": [\"message numbers, as strings\"], "
-        "\"why\": \"one plain sentence\", \"tab\": \"for file, the tab\"}]\n```\n"
+        "\"why\": \"one plain sentence\", \"tab\": \"for file, the tab\", \"senders\": [\"for trash, optional\"]}]\n```\n"
         "Offer trash only for promotions, expired offers and notices the person says they don't want, never for "
-        "mail from a person. To file, use one of the drawer tabs the question names when one fits, otherwise a short new name of one or "
+        "mail from a person. When they ask to clear out or get rid of a kind of mail, a trash proposal may also "
+        "carry \"senders\": the addresses or domains behind those messages that send promotions, digests or "
+        "expired offers, never people, meaning everything from them; the app counts it first. To file, use one of the drawer tabs the question names when one fits, otherwise a short new name of one or "
         "two words. Nothing is done until the person taps it.\n\nQuestion: %1\n\n%2")
                                .arg(question.trimmed().right(6000), emails.join(QStringLiteral("\n\n")));
-    return codexTask(QStringLiteral("clerk"), prompt, ids);
+    return codexTask(QStringLiteral("clerk"), prompt, ids, froms);
 }
 
-uint Broker::codexTask(const QString &kind, const QString &prompt, const QStringList &ids)
+uint Broker::codexTask(const QString &kind, const QString &prompt, const QStringList &ids, const QStringList &froms)
 {
     const uint id = ++m_next;
     auto *task = new CodexTask(m_setup.codex, this);
     m_codex.insert(id, task);
     connect(task, &CodexTask::said, this, [this, id](const QString &text) { Q_EMIT said(id, text); });
-    connect(task, &CodexTask::finished, this, [this, id, kind, ids, task](QString text, const QString &problem) {
+    connect(task, &CodexTask::finished, this, [this, id, kind, ids, froms, task](QString text, const QString &problem) {
         m_codex.remove(id);
         task->deleteLater();
         if (!problem.isEmpty()) {
@@ -403,7 +463,7 @@ uint Broker::codexTask(const QString &kind, const QString &prompt, const QString
             Q_EMIT drafted(id, {{QStringLiteral("text"), text.trimmed()}, {QStringLiteral("who"), QStringLiteral("codex")}});
             return;
         }
-        const QVariantList proposals = proposalsIn(&text, ids);
+        const QVariantList proposals = proposalsIn(&text, ids, froms);
         Q_EMIT answered(id, {{QStringLiteral("text"), text},
                              {QStringLiteral("who"), QStringLiteral("codex")},
                              // Codex was given every one of them.

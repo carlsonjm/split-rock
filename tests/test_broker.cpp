@@ -135,6 +135,18 @@ private Q_SLOTS:
         QString trash = QStringLiteral("Old offers.\n\n```proposals\n[{\"action\": \"trash\", \"ids\": [\"7\"], \"why\": \"Expired\"}]\n```");
         QCOMPARE(Broker::proposalsIn(&trash, {QStringLiteral("7")}).size(), 1);
 
+        // Everything from a sender, only if a message it was given came from it.
+        QString sweep = QStringLiteral("Clear them out.\n\n```proposals\n[{\"action\": \"trash\", \"ids\": [\"7\"], \"why\": \"Old offers\", "
+                                       "\"senders\": [\"deals@kwikrewards.com\", \"Mail.KwikRewards.com\", \"robin@example.com\", "
+                                       "\"gmail.com\", \"com\", \"news.example.org\"]}, {\"action\": \"trash\", \"why\": \"x\", "
+                                       "\"senders\": [\"someone@else.com\"]}]\n```");
+        const QVariantList swept = Broker::proposalsIn(&sweep, {QStringLiteral("7")},
+                                                       {QStringLiteral("deals@kwikrewards.com"), QStringLiteral("dana@gmail.com"),
+                                                        QStringLiteral("offers@mail.kwikrewards.com")});
+        QCOMPARE(swept.size(), 1);
+        QCOMPARE(swept.first().toMap().value(QStringLiteral("senders")).toStringList(),
+                 (QStringList{QStringLiteral("deals@kwikrewards.com"), QStringLiteral("mail.kwikrewards.com")}));
+
         // As Codex wrote them on the tablet: the numbers as numbers.
         QString numbers = QStringLiteral("Filed.\n\n```proposals\n[{\"action\": \"file\", \"ids\": [501, 502], \"why\": \"Keep\", "
                                          "\"tab\": \"Projects\"}]\n```");
