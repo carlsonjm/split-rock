@@ -1,0 +1,19 @@
+{
+  "agent": {"name": "pretend", "title": "Pretend assistant", "version": "1"},
+  "signedIn": true,
+  "modes": {"currentModeId": "auto", "availableModes": [
+    {"id": "ask-first", "name": "Ask first"}, {"id": "auto", "name": "Auto"}]},
+  "turns": [
+    {"expectPrompt": "Draft an email reply", "steps": [
+      {"say": "```\nHi Dana,\n\nYes, the vector file will be with you by Thursday.\n\nRobin\n```"}
+    ]},
+    {"expectPrompt": "Question: Did Best Buy", "steps": [
+      {"tool": {"toolCallId": "run-1", "title": "Run a command", "kind": "execute", "status": "pending",
+                "rawInput": {"command": ["bash", "-lc", "rm -rf ~/Documents"]}}},
+      {"ask": {"toolCall": {"toolCallId": "run-1"}, "options": [
+        {"optionId": "yes", "name": "Allow", "kind": "allow_once"},
+        {"optionId": "no", "name": "Reject", "kind": "reject_once"}]}, "expect": "reject_once"},
+      {"say": "Yes: Best Buy sent the receipt for the tablet.\n\n```proposals\n[{\"action\": \"file\", \"ids\": [\"7\", \"99\"], \"why\": \"Keep the receipt with the others\", \"tab\": \"Receipts\"}, {\"action\": \"send\", \"ids\": [\"7\"], \"why\": \"Forward it\"}]\n```"}
+    ]}
+  ]
+}

@@ -137,3 +137,15 @@ if(SPLIT_ROCK_LIVE_TESTS)
     target_compile_definitions(live_putback PRIVATE SPLIT_ROCK_PROGRAM="$<TARGET_FILE:split-rock>")
     add_dependencies(live_putback split-rock)
 endif()
+
+# The broker, for the Good Input apps: sorting against a pretend model server,
+# drafts and the clerk against the pretend assistant, on a bus of its own.
+add_executable(test_broker test_broker.cpp PretendModel.h)
+target_link_libraries(test_broker PRIVATE splitrock_broker Qt6::Test)
+target_compile_definitions(test_broker PRIVATE
+    PRETEND_PROGRAM="$<TARGET_FILE:split-rock-pretend-assistant>"
+    SCRIPTS_DIR="${CMAKE_CURRENT_SOURCE_DIR}/pretend-scripts")
+add_dependencies(test_broker split-rock-pretend-assistant)
+add_test(NAME test_broker COMMAND ${DBUS_RUN_SESSION}
+    --config-file=${CMAKE_CURRENT_SOURCE_DIR}/bus/private-bus.conf -- $<TARGET_FILE:test_broker>)
+set_tests_properties(test_broker PROPERTIES ENVIRONMENT "${TEST_CORE_ENVIRONMENT}" TIMEOUT 60)

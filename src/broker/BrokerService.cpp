@@ -1,0 +1,143 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
+#include "broker/BrokerService.h"
+
+#include "broker/Broker.h"
+
+#include <QDBusArgument>
+#include <QDBusMetaType>
+
+namespace splitrock::broker {
+
+namespace {
+
+// One element of a message from the bus, whatever its signature: a{sv}, an
+// array of them, as, or a plain value.
+QVariant element(const QDBusArgument &argument)
+{
+    switch (argument.currentType()) {
+    case QDBusArgument::MapType: {
+        QVariantMap map;
+        argument.beginMap();
+        while (!argument.atEnd()) {
+            argument.beginMapEntry();
+            const QString key = argument.asVariant().toString();
+            map.insert(key, element(argument));
+            argument.endMapEntry();
+        }
+        argument.endMap();
+        return map;
+    }
+    case QDBusArgument::ArrayType: {
+        QVariantList list;
+        argument.beginArray();
+        while (!argument.atEnd())
+            list.append(element(argument));
+        argument.endArray();
+        return list;
+    }
+    case QDBusArgument::StructureType: {
+        QVariantList fields;
+        argument.beginStructure();
+        while (!argument.atEnd())
+            fields.append(element(argument));
+        argument.endStructure();
+        return fields;
+    }
+    case QDBusArgument::VariantType: {
+        QDBusVariant variant;
+        argument >> variant;
+        return BrokerService::plain(variant.variant());
+    }
+    case QDBusArgument::BasicType:
+        return argument.asVariant();
+    default:
+        return {};
+    }
+}
+
+} // namespace
+
+// Nested messages arrive wrapped as QDBusArgument: Mail's conversation holds
+// its messages as aa{sv} and each mail its attachments as as.
+QVariant BrokerService::plain(const QVariant &value)
+{
+    if (value.canConvert<QDBusArgument>())
+        return element(value.value<QDBusArgument>());
+    if (value.typeId() == QMetaType::QVariantMap) {
+        QVariantMap map = value.toMap();
+        for (auto it = map.begin(); it != map.end(); ++it)
+            it.value() = plain(it.value());
+        return map;
+    }
+    if (value.typeId() == QMetaType::QVariantList) {
+        QVariantList list = value.toList();
+        for (QVariant &item : list)
+            item = plain(item);
+        return list;
+    }
+    return value;
+}
+
+BrokerService::BrokerService(Broker *broker, QObject *parent)
+    : QObject(parent)
+    , m_broker(broker)
+{
+    connect(m_broker, &Broker::sorted, this, &BrokerService::Sorted);
+    connect(m_broker, &Broker::said, this, &BrokerService::Said);
+    connect(m_broker, &Broker::drafted, this, &BrokerService::Drafted);
+    connect(m_broker, &Broker::answered, this, &BrokerService::Answered);
+    connect(m_broker, &Broker::failed, this, &BrokerService::Failed);
+    connect(m_broker, &Broker::modelChanged, this, &BrokerService::ModelChanged);
+}
+
+bool BrokerService::publish(QDBusConnection bus)
+{
+    return bus.registerObject(QLatin1String(Path), this, QDBusConnection::ExportScriptableContents);
+}
+
+uint BrokerService::ProtocolVersion() const
+{
+    return Version;
+}
+
+QVariantMap BrokerService::Model() const
+{
+    return m_broker->model();
+}
+
+QVariantMap BrokerService::Codex() const
+{
+    return m_broker->codex();
+}
+
+void BrokerService::Warm()
+{
+    m_broker->warm();
+}
+
+uint BrokerService::SortMail(const QVariantMap &message)
+{
+    return m_broker->sortMail(plain(message).toMap());
+}
+
+uint BrokerService::DraftReply(const QVariantMap &conversation, const QString &styleNote, const QString &ask)
+{
+    return m_broker->draftReply(plain(conversation).toMap(), styleNote, ask);
+}
+
+uint BrokerService::Clerk(const QString &question, const QVariantList &found)
+{
+    return m_broker->clerk(question, plain(found).toList());
+}
+
+uint BrokerService::StyleNote(const QVariantList &sent)
+{
+    return m_broker->styleNote(plain(sent).toList());
+}
+
+void BrokerService::Cancel(uint id)
+{
+    m_broker->cancel(id);
+}
+
+} // namespace splitrock::broker

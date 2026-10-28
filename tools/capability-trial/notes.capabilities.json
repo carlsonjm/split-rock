@@ -1,0 +1,43 @@
+{
+  "format": 1,
+  "about": "A stand-in for the description file Notes would install: its tools, what each takes and its risk. The trial builds both the enforced form and the model's native tool list from this one file.",
+  "app": "Notes",
+  "tools": [
+    {
+      "name": "notes.search",
+      "risk": "read",
+      "description": "Finds notes whose text, folder or title contain the words. Gives each note's id, title, folder, the line with the words and when it changed, newest first.",
+      "arguments": {
+        "type": "object",
+        "properties": {"words": {"type": "string", "minLength": 1, "maxLength": 80, "description": "A few words to look for, such as Connected or testing"}},
+        "required": ["words"],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "notes.read",
+      "risk": "read",
+      "description": "Gives the whole text of one note, by the id notes.search gave.",
+      "arguments": {
+        "type": "object",
+        "properties": {"id": {"type": "string", "minLength": 1, "maxLength": 40}},
+        "required": ["id"],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "notes.create",
+      "risk": "reversible",
+      "description": "Proposes a new note with this text in this folder. The person sees it on a card and decides; nothing is saved until they tap.",
+      "arguments": {
+        "type": "object",
+        "properties": {
+          "text": {"type": "string", "minLength": 1, "maxLength": 2000},
+          "folder": {"type": "string", "maxLength": 40, "description": "The folder's name, or empty for Inbox"}
+        },
+        "required": ["text", "folder"],
+        "additionalProperties": false
+      }
+    }
+  ]
+}
