@@ -132,6 +132,9 @@ private Q_SLOTS:
         QCOMPARE(file.value(QStringLiteral("ids")).toStringList(), QStringList{QStringLiteral("7")});
         QCOMPARE(file.value(QStringLiteral("tab")).toString(), QStringLiteral("Receipts"));
 
+        QString trash = QStringLiteral("Old offers.\n\n```proposals\n[{\"action\": \"trash\", \"ids\": [\"7\"], \"why\": \"Expired\"}]\n```");
+        QCOMPARE(Broker::proposalsIn(&trash, {QStringLiteral("7")}).size(), 1);
+
         // As Codex wrote them on the tablet: the numbers as numbers.
         QString numbers = QStringLiteral("Filed.\n\n```proposals\n[{\"action\": \"file\", \"ids\": [501, 502], \"why\": \"Keep\", "
                                          "\"tab\": \"Projects\"}]\n```");

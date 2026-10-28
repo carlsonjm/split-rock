@@ -70,7 +70,7 @@ item an `a{sv}` in a variant: Qt matches a call on its exact signature, so
 | `Sorted(u id, a{sv})` | Carries `id` (the email's), `needsYou` (b), `line` (one plain sentence of up to 120 characters), `kind` (receipt, travel, orders, accounts, notice, newsletter, person or other), `suggest` (none, reply, file or unsubscribe) and `who` |
 | `Said(u id, s text)` | The next words of a style note, draft or answer |
 | `Drafted(u id, a{sv})` | Carries `text`, the reply's body, and `who` |
-| `Answered(u id, a{sv})` | A style note or the clerk's answer. Carries `text` and `who`; from the clerk also `read` (the emails Codex was given) and `proposals`, each with `action` (file, done, needs_you or draft), `ids`, `why` and, to file, `tab` |
+| `Answered(u id, a{sv})` | A style note or the clerk's answer. Carries `text` and `who`; from the clerk also `read` (the emails Codex was given) and `proposals`, each with `action` (file, done, needs_you, draft or trash), `ids`, `why` and, to file, `tab` |
 | `Failed(u id, s problem)` | Why it couldn't be done, in plain words, or `cancelled` |
 | `ModelChanged(a{sv})` | As `Model()` |
 
