@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 #pragma once
 
+#include <optional>
+
 #include "app/Chore.h"
 
 #include <QDateTime>
@@ -156,13 +158,21 @@ public:
     {
         return Chore::whyFailed(output, exitCode, QStringLiteral("The update"));
     }
+    // The quick look the card opens on, from the lists the last fetch left.
+    static QString quickLook();
     // What the look after the update printed.
     static void readAfter(const QString &output, Result &result);
 
     // Tests run the steps with scripts of their own instead of the
     // computer's: each is a /bin/sh script; the update's runs through the
     // elevate program.
-    void setLookScript(const QString &script) { m_lookScript = script; }
+    // A test's own look has no quick look before it unless it sets one.
+    void setLookScript(const QString &script)
+    {
+        m_lookScript = script;
+        m_quickScript.clear();
+    }
+    void setQuickLookScript(const QString &script) { m_quickScript = script; }
     void setAppsScript(const QString &script) { m_appsScript = script; }
     void setAfterScript(const QString &script) { m_afterScript = script; }
     void setSnapshots(bool on) { m_snapshots = on; }
@@ -173,6 +183,9 @@ Q_SIGNALS:
     void waitingChanged();
 
 private:
+    void look();
+    void refresh();
+    void afterRecheck(const QStringList &read, Plan now);
     void recheck();
     void update();
     void afterSystem(int exitCode, const QString &output);
@@ -185,11 +198,16 @@ private:
     QString m_output;
 
     QString m_lookScript;
+    QString m_quickScript;
     QString m_appsScript;
     QString m_afterScript;
     bool m_snapshots = true;
     int m_waiting = -1;
     bool m_peeking = false;
+    // The fresh look after the quick one is under way; a recheck asked for
+    // meanwhile is answered by it, against the list read then.
+    bool m_refreshing = false;
+    std::optional<QStringList> m_recheckRead;
 };
 
 } // namespace splitrock

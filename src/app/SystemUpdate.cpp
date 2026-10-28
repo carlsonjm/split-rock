@@ -17,7 +17,9 @@ namespace {
 
 // Run as the person: each section starts with a line "@@ name" that readLook
 // reads it by. Nothing here changes anything; checkupdates fetches the package
-// lists into a folder of its own, never the system's.
+// lists into a folder of its own, never the system's, the one Core's own look
+// fetches into (core::updatesListsFolder), so after Core has looked only what
+// changed since is fetched.
 // The download section asks pacman what the update would fetch, from the
 // lists checkupdates fetched, without root and without fetching anything.
 const QString LookScript = QStringLiteral(R"SH(echo "@@ system"
@@ -61,6 +63,27 @@ command -v curl >/dev/null 2>&1 && curl -fsS --max-time 10 https://archlinux.org
 echo
 echo "@@ end"
 )SH");
+
+// The look again, from the lists the last fetch left, by Core's look or this
+// card's, so it takes a moment and fetches nothing: pacman reads what is
+// newer in those lists, Flatpak its own cached ones. No community apps and
+// no news, which only the network has; the fresh look after it brings them.
+// "@@ stale" when no fetch has left lists yet.
+QString quickLookOf(QString script)
+{
+    script.replace(QStringLiteral("    checkupdates 2>/dev/null\n"),
+                   QStringLiteral("    pacman -Qu --dbpath \"$CHECKUPDATES_DB\" --logfile /dev/null 2>/dev/null\n"));
+    script.replace(QStringLiteral("if command -v paru >/dev/null 2>&1; then paru -Qua 2>/dev/null; elif command -v yay "
+                                  ">/dev/null 2>&1; then yay -Qua 2>/dev/null; fi\n"),
+                   QString());
+    script.replace(QStringLiteral("flatpak remote-ls --updates "), QStringLiteral("flatpak remote-ls --updates --cached "));
+    script.replace(QStringLiteral("command -v curl >/dev/null 2>&1 && curl -fsS --max-time 10 https://archlinux.org/feeds/news/ "
+                                  "2>/dev/null\n"),
+                   QString());
+    const qsizetype lists = script.indexOf(QStringLiteral("if command -v checkupdates"));
+    script.insert(lists, QStringLiteral("[ -d \"$CHECKUPDATES_DB/sync\" ] || { echo \"@@ stale\"; exit 0; }\n"));
+    return script;
+}
 
 // Run as the person: their Flatpak apps.
 const QString AppsScript = QStringLiteral(R"SH(flatpak update -y --noninteractive 2>&1
@@ -229,9 +252,15 @@ QVariantMap SystemUpdate::Result::toMap() const
 SystemUpdate::SystemUpdate(QObject *parent)
     : Chore(parent)
     , m_lookScript(LookScript)
+    , m_quickScript(quickLookOf(LookScript))
     , m_appsScript(AppsScript)
     , m_afterScript(AfterScript)
 {
+}
+
+QString SystemUpdate::quickLook()
+{
+    return quickLookOf(LookScript);
 }
 
 bool SystemUpdate::busy() const
@@ -482,12 +511,58 @@ void SystemUpdate::readAfter(const QString &output, Result &result)
 
 void SystemUpdate::check()
 {
-    if (busy())
+    if (busy() || m_refreshing)
         return;
     m_plan = Plan();
     m_result = Result();
     clearProgress();
     setStage(QStringLiteral("looking"));
+    if (m_quickScript.isEmpty()) {
+        look();
+        return;
+    }
+    // The list the last fetch left shows at once, Core's every few hours or
+    // this card's; the fresh look follows and puts it right in place.
+    run(asPerson(m_quickScript), 15000, [this](int, const QString &output) {
+        const Plan quick = readLook(output);
+        if (output.startsWith(QLatin1String("@@ stale")) || quick.system < 0) {
+            look();
+            return;
+        }
+        m_plan = quick;
+        setStage(m_plan.nothing() ? QStringLiteral("nothing") : QStringLiteral("ready"));
+        Q_EMIT changed();
+        refresh();
+    });
+}
+
+void SystemUpdate::refresh()
+{
+    m_refreshing = true;
+    run(asPerson(m_lookScript), 90000, [this](int, const QString &output) {
+        m_refreshing = false;
+        Plan now = readLook(output);
+        if (stage() == QLatin1String("rechecking") && m_recheckRead) {
+            const QStringList read = *m_recheckRead;
+            m_recheckRead.reset();
+            afterRecheck(read, now);
+            return;
+        }
+        // The person may have read on, to the question before a desktop
+        // step: it stands while the list is the same.
+        if (stage() == QLatin1String("confirming") && now.fingerprint() == m_plan.fingerprint() && now.blockers.isEmpty())
+            return;
+        if (stage() != QLatin1String("ready") && stage() != QLatin1String("nothing") && stage() != QLatin1String("confirming"))
+            return;
+        m_plan = now;
+        setStage(m_plan.nothing() ? QStringLiteral("nothing") : QStringLiteral("ready"));
+        setWaiting(m_plan);
+        Q_EMIT changed();
+    });
+}
+
+void SystemUpdate::look()
+{
     // checkupdates fetches the lists, so it may take a while on a slow line.
     run(asPerson(m_lookScript), 90000, [this](int, const QString &output) {
         m_plan = readLook(output);
@@ -542,20 +617,26 @@ void SystemUpdate::recheck()
     // read is checked again first: something new can arrive in between.
     setStage(QStringLiteral("rechecking"));
     const QStringList read = m_plan.fingerprint();
-    run(asPerson(m_lookScript), 90000, [this, read](int, const QString &output) {
-        Plan now = readLook(output);
-        if (now.fingerprint() == read && now.blockers.isEmpty()) {
-            update();
-            return;
-        }
-        now.changed = now.fingerprint() != read;
-        qInfo().noquote() << QStringLiteral("%1: the update changed since it was read, %2 system updates now")
-                                 .arg(productName()).arg(now.system);
-        m_plan = now;
-        setStage(m_plan.nothing() ? QStringLiteral("nothing") : QStringLiteral("ready"));
-        setWaiting(m_plan);
-        Q_EMIT changed();
-    });
+    if (m_refreshing) {
+        m_recheckRead = read;
+        return;
+    }
+    run(asPerson(m_lookScript), 90000, [this, read](int, const QString &output) { afterRecheck(read, readLook(output)); });
+}
+
+void SystemUpdate::afterRecheck(const QStringList &read, Plan now)
+{
+    if (now.fingerprint() == read && now.blockers.isEmpty()) {
+        update();
+        return;
+    }
+    now.changed = now.fingerprint() != read;
+    qInfo().noquote() << QStringLiteral("%1: the update changed since it was read, %2 system updates now")
+                             .arg(productName()).arg(now.system);
+    m_plan = now;
+    setStage(m_plan.nothing() ? QStringLiteral("nothing") : QStringLiteral("ready"));
+    setWaiting(m_plan);
+    Q_EMIT changed();
 }
 
 void SystemUpdate::update()

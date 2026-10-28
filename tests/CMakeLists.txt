@@ -85,6 +85,7 @@ qt_add_resources(test_codex_window "codex_window_for_test"
 find_program(DBUS_RUN_SESSION dbus-run-session REQUIRED)
 add_executable(test_core test_core.cpp)
 target_link_libraries(test_core PRIVATE splitrock_core_watch Qt6::DBus Qt6::Test)
+target_compile_definitions(test_core PRIVATE PROJECT_DIR="${PROJECT_SOURCE_DIR}")
 add_test(NAME test_core COMMAND ${DBUS_RUN_SESSION}
     --config-file=${CMAKE_CURRENT_SOURCE_DIR}/bus/private-bus.conf -- $<TARGET_FILE:test_core>)
 set(TEST_CORE_ENVIRONMENT ${TEST_ENVIRONMENT})

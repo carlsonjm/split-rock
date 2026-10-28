@@ -2,6 +2,7 @@
 #include "core/Updates.h"
 
 #include <QRegularExpression>
+#include <QStandardPaths>
 #include <QStringList>
 
 namespace splitrock::core {
@@ -39,6 +40,12 @@ UpdatesFact judge(const UpdatesLook &look, const QDateTime &waitingSince, const 
                                 : days == 1 ? QStringLiteral("Last updated yesterday")
                                             : QStringLiteral("Last updated %1 days ago").arg(days);
     return fact;
+}
+
+QString updatesListsFolder()
+{
+    return QStandardPaths::writableLocation(QStandardPaths::GenericCacheLocation)
+        + QStringLiteral("/split-rock/checkup-db");
 }
 
 int countLines(const QString &output)
