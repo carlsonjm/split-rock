@@ -156,6 +156,11 @@ once, is checked against its known fingerprint, and is kept in
 `~/.local/share/split-rock/models`. A download that stops carries on where it
 left off. Until it is there, Ask still points you to the Helper that fits.
 
+If you'd rather not download it, tap **Codex only**: your questions then go to
+OpenAI's Codex, online, on your own ChatGPT plan, and only when you tap **Ask
+Codex**. To change your mind, open **Split Rock Settings** from the app
+launcher and choose who answers.
+
 ### 6. Update
 
 To get a newer Split Rock:

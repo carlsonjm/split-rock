@@ -4,6 +4,7 @@
 //
 //   split-rock --card NAME [--query TEXT] [--notebook DIR]
 //   split-rock --codex [--question TEXT]
+//   split-rock --settings
 //   split-rock --health-report
 //   split-rock --health-facts
 //   split-rock --set-shortcut COMPONENT ACTION KEYS NAME
@@ -16,6 +17,9 @@
 // --codex opens Ask Codex, the window for the bigger questions Ask hands on
 // (docs/ASK.md, Codex), with the question; with none, it only signs in, as
 // Settings asks.
+//
+// --settings opens Split Rock Settings, Ask's own page, for a computer with or
+// without Shuffle (docs/ASK.md, Split Rock Settings).
 //
 // --notebook    the notebook folder (default: Notebook in the Documents folder)
 //
@@ -38,6 +42,7 @@
 #include "app/Notebook.h"
 #include "app/QmlContext.h"
 #include "codex/Chat.h"
+#include "settings/AskSettings.h"
 #include "desktop/Entry.h"
 
 #include <QCommandLineParser>
@@ -57,6 +62,7 @@
 #include <QProcess>
 #include <QQuickWindow>
 #include <QSocketNotifier>
+#include <QStandardPaths>
 #include <QTimer>
 #include <QUrl>
 
@@ -80,6 +86,7 @@ const QCommandLineOption codexOption(QStringLiteral("codex"),
 const QCommandLineOption questionOption(QStringLiteral("question"),
                                         QStringLiteral("With --codex: the question Codex takes."),
                                         QStringLiteral("text"));
+const QCommandLineOption settingsOption(QStringLiteral("settings"), QStringLiteral("Open Split Rock Settings."));
 const QCommandLineOption notebookOption(QStringLiteral("notebook"),
                                         QStringLiteral("The notebook folder (default: Notebook in the Documents folder)."),
                                         QStringLiteral("dir"));
@@ -283,9 +290,9 @@ int main(int argc, char **argv)
     QCommandLineParser parser;
     parser.setApplicationDescription(QStringLiteral("Split Rock's Helpers, one at a time."));
     parser.addHelpOption();
-    parser.addOptions({cardOption, queryOption, codexOption, questionOption, notebookOption});
+    parser.addOptions({cardOption, queryOption, codexOption, questionOption, settingsOption, notebookOption});
     parser.process(app);
-    if (!parser.isSet(cardOption) && !parser.isSet(codexOption)) {
+    if (!parser.isSet(cardOption) && !parser.isSet(codexOption) && !parser.isSet(settingsOption)) {
         qWarning("Split Rock opens one Helper at a time: split-rock --card NAME. See --help.");
         return 2;
     }
@@ -316,7 +323,11 @@ int main(int argc, char **argv)
 
     splitrock::codex::Chat chat(splitrock::codex::codex(), helpers.changeRunner(), &notebook, {});
 
+    splitrock::AskSettings askSettings(QStandardPaths::writableLocation(QStandardPaths::GenericConfigLocation)
+                                       + QStringLiteral("/split-rock-corerc"));
+
     QQmlApplicationEngine engine;
+    engine.rootContext()->setContextProperty(QStringLiteral("askSettings"), &askSettings);
     engine.rootContext()->setContextProperty(QStringLiteral("helpers"), &helpers);
     engine.rootContext()->setContextProperty(QStringLiteral("chat"), &chat);
     splitrock::exposeProduct(engine.rootContext());
@@ -324,8 +335,11 @@ int main(int argc, char **argv)
     auto *window = qobject_cast<QQuickWindow *>(component.create(engine.rootContext()));
     QQmlComponent codexComponent(&engine, QUrl(QStringLiteral("qrc:/qml/CodexWindow.qml")));
     auto *codexWindow = qobject_cast<QQuickWindow *>(codexComponent.create(engine.rootContext()));
-    if (!window || !codexWindow) {
-        qWarning().noquote() << component.errorString() << codexComponent.errorString();
+    QQmlComponent settingsComponent(&engine, QUrl(QStringLiteral("qrc:/qml/SettingsWindow.qml")));
+    auto *settingsWindow = qobject_cast<QQuickWindow *>(settingsComponent.create(engine.rootContext()));
+    if (!window || !codexWindow || !settingsWindow) {
+        qWarning().noquote() << component.errorString() << codexComponent.errorString()
+                             << settingsComponent.errorString();
         return 1;
     }
     const auto showWindow = [](QQuickWindow *shown) {
@@ -360,12 +374,12 @@ int main(int argc, char **argv)
     // again. The session bus's next start brings it back.
     const auto quitWhenDone = [&] {
         QTimer::singleShot(std::chrono::seconds(2), &app, [&] {
-            if (!window->isVisible() && !codexWindow->isVisible() && !helpers.choreBusy()
+            if (!window->isVisible() && !codexWindow->isVisible() && !settingsWindow->isVisible() && !helpers.choreBusy()
                 && !(helpers.changeRunner() && helpers.changeRunner()->busy()))
                 QCoreApplication::quit();
         });
     };
-    for (QQuickWindow *each : {window, codexWindow}) {
+    for (QQuickWindow *each : {window, codexWindow, settingsWindow}) {
         QObject::connect(each, &QWindow::visibleChanged, &app, [quitWhenDone](bool visible) {
             if (!visible)
                 quitWhenDone();
@@ -374,11 +388,15 @@ int main(int argc, char **argv)
 
     const auto handle = [&](const QStringList &arguments) {
         QCommandLineParser request;
-        request.addOptions({cardOption, queryOption, codexOption, questionOption, notebookOption});
+        request.addOptions({cardOption, queryOption, codexOption, questionOption, settingsOption, notebookOption});
         request.parse(arguments);
         if (request.isSet(codexOption)) {
             chat.begin(request.value(questionOption));
             showWindow(codexWindow);
+            return;
+        }
+        if (request.isSet(settingsOption)) {
+            showWindow(settingsWindow);
             return;
         }
         if (!request.isSet(cardOption) || !helpers.openChore(request.value(cardOption), request.value(queryOption)))
@@ -397,10 +415,11 @@ int main(int argc, char **argv)
     quitOnSignals(app);
 
     handle(app.arguments());
-    if (!window->isVisible() && !codexWindow->isVisible())
+    if (!window->isVisible() && !codexWindow->isVisible() && !settingsWindow->isVisible())
         return 1; // Nothing opened: an unknown Helper, or one already busy.
     const int code = app.exec();
     // The windows go first, while everything they show is still there.
+    delete settingsWindow;
     delete codexWindow;
     delete window;
     return code;

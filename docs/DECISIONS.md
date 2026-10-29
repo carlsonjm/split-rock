@@ -1269,3 +1269,21 @@ Rejected: putting the broker inside Ask, which would bring Ask's rules for the
 computer to every app; each app talking to the models itself, which repeats
 the sign-in, the fence and the safety rules in every app; and giving the model
 the app's actions as tools, so that the words it reads could reach them.
+
+## Ask's first card says what it downloads, and offers Codex only
+
+The card Ask's first question gets names the model, says it runs on this
+computer and that nothing asked leaves it, and gives its size. It gives no
+time for the download, since that depends on a connection Split Rock can't
+know. Where llama-server isn't on the computer, the card says so before it
+offers the download, since the model could never run without it, and offers
+to install llama.cpp through Install an app. Where Codex is installed, the
+card also offers Codex only: no model, and every question waits for the
+person's tap on Ask Codex. The safety check still answers on this computer,
+so the authority stays split: the computer warns, Codex fixes, and the person
+chooses who answers.
+
+Rejected: a time estimate from a guessed speed, which misleads on a slower
+connection; offering the download without the engine, which fetches 2.5 GB
+that can't run; and sending a question to Codex as typing pauses under Codex
+only, which would send words the person never meant to send.

@@ -47,11 +47,15 @@ public Q_SLOTS:
     Q_SCRIPTABLE void CancelDownload();
     Q_SCRIPTABLE void RemoveModel();
     // Codex, for the bigger questions: installed, signedIn, handOff (the
-    // switch in Settings) and, when it can't start, problem.
+    // switch in Settings), only (every question goes to Codex) and, when it
+    // can't start, problem.
     Q_SCRIPTABLE QVariantMap Codex() const;
     // Opens Ask Codex with the question; with none, it only signs in.
     Q_SCRIPTABLE bool OpenCodex(const QString &question);
     Q_SCRIPTABLE bool SignOutCodex();
+    // The person's choice of who answers: Codex only, or the model on this
+    // computer. False where Codex isn't installed and only was asked for.
+    Q_SCRIPTABLE bool SetCodexOnly(bool only);
 
 Q_SIGNALS:
     Q_SCRIPTABLE void Said(uint id, const QString &text);

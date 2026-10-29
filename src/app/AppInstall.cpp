@@ -23,6 +23,19 @@ namespace {
 const QString SearchScript = QStringLiteral(R"SH(export LANG=C LC_ALL=C
 echo "@@ shelf"
 command -v appstreamcli >/dev/null 2>&1 && appstreamcli search -- "$1" 2>/dev/null
+# A package asked for by its exact name, such as llama.cpp, which no app
+# description lists, as a block shaped like appstreamcli's.
+case $1 in
+*[!A-Za-z0-9.+_-]*) ;;
+*)
+    for name in "$1" "$(printf '%s' "$1" | tr . -)"; do
+        summary=$(pacman -Si -- "$name" 2>/dev/null | sed -n 's/^Description *: //p' | head -n 1)
+        [ -n "$summary" ] || continue
+        printf 'Identifier: %s\nName: %s\nSummary: %s\nPackage: %s\n---\n' "$name" "$name" "$summary" "$name"
+        break
+    done
+    ;;
+esac
 echo "@@ flathub"
 command -v flatpak >/dev/null 2>&1 && flatpak search --columns=application,name,description,remotes -- "$1" 2>/dev/null
 echo "@@ installed"

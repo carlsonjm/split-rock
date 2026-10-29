@@ -164,8 +164,56 @@ private Q_SLOTS:
         Fixture f(false, false);
         const QVariantMap result = f.answer(QStringLiteral("What is KDE?"));
         QVERIFY(result.value(QStringLiteral("needsModel")).toBool());
-        QVERIFY(result.value(QStringLiteral("text")).toString().contains(QStringLiteral("about 2.5 GB")));
+        const QString text = result.value(QStringLiteral("text")).toString();
+        QVERIFY2(text.contains(QStringLiteral("about 2.5 GB")), qPrintable(text));
+        QVERIFY2(text.contains(QStringLiteral("runs on this computer")), qPrintable(text));
+        QVERIFY2(text.contains(QStringLiteral("nothing you ask leaves")), qPrintable(text));
+        QVERIFY(!result.value(QStringLiteral("needsEngine")).toBool());
         QCOMPARE(f.model->state(), QStringLiteral("missing"));
+    }
+
+    // Without llama-server the model could never run, so Ask says the engine
+    // is missing before it offers the download.
+    void saysTheEngineIsMissingFirst()
+    {
+        QTemporaryDir dir;
+        LocalModel model(QString(), catalogue(dir.path(), false), dir.filePath(QStringLiteral("models")));
+        model.surveyAs(8, false);
+        Ask::Setup setup;
+        setup.settings = dir.filePath(QStringLiteral("split-rock-corerc"));
+        setup.skillRoots = {QStringLiteral(PROJECT_DIR)};
+        Ask ask(&model, setup);
+        QVERIFY(!ask.hasEngine());
+        QVERIFY(!ask.model().value(QStringLiteral("engine")).toBool());
+        QSignalSpy answered(&ask, &Ask::answered);
+        ask.ask(QStringLiteral("What is KDE?"));
+        QVERIFY(answered.wait(10000));
+        const QVariantMap result = answered.first().at(1).toMap();
+        QVERIFY(result.value(QStringLiteral("needsModel")).toBool());
+        QVERIFY(result.value(QStringLiteral("needsEngine")).toBool());
+        QVERIFY(result.value(QStringLiteral("text")).toString().contains(QStringLiteral("llama.cpp")));
+        QCOMPARE(model.state(), QStringLiteral("missing"));
+    }
+
+    // Codex only: the model is never asked or offered, the Helper the words
+    // name stays listed, and the safety check still answers here.
+    void codexOnlyLeavesTheModelOut()
+    {
+        Fixture f(false, false);
+        QVERIFY(!f.ask->codexOnly());
+        f.ask->setCodexOnly(true);
+        QVERIFY(f.ask->codexOnly());
+        const QVariantMap result = f.answer(QStringLiteral("my disk is almost full"));
+        QVERIFY(result.value(QStringLiteral("codexOnly")).toBool());
+        QVERIFY(!result.value(QStringLiteral("needsModel")).toBool());
+        QVERIFY(result.value(QStringLiteral("text")).toString().contains(QStringLiteral("Ask Codex")));
+        QCOMPARE(result.value(QStringLiteral("helpers")).toStringList(), QStringList{QStringLiteral("space")});
+        QVERIFY(f.pretend.asked.isEmpty());
+        const QVariantMap scam = f.answer(QStringLiteral("Microsoft called and wants me to buy gift cards to fix my computer"));
+        QVERIFY(scam.value(QStringLiteral("routed")).toString().startsWith(QStringLiteral("gate:")));
+        QVERIFY(!scam.value(QStringLiteral("codexOnly")).toBool());
+        f.ask->setCodexOnly(false);
+        QVERIFY(f.answer(QStringLiteral("What is KDE?")).value(QStringLiteral("needsModel")).toBool());
     }
 
     // The Helper an ask's words name stays listed before the download.
@@ -336,6 +384,19 @@ http.server.HTTPServer(("127.0.0.1", port), Reply).serve_forever()
         const QVariantMap result = qdbus_cast<QVariantMap>(answered.first().at(1));
         QCOMPARE(result.value(QStringLiteral("text")).toString(), QStringLiteral("It's the desktop you're using."));
         QCOMPARE(result.value(QStringLiteral("who")).toString(), QStringLiteral("computer"));
+        // Codex only is the person's choice, and is refused where Codex
+        // isn't installed.
+        QSignalSpy codexChanged(&ask, SIGNAL(CodexChanged(QVariantMap)));
+        const bool installed = QDBusReply<QVariantMap>(ask.call(QStringLiteral("Codex"))).value()
+                                   .value(QStringLiteral("installed")).toBool();
+        QCOMPARE(QDBusReply<bool>(ask.call(QStringLiteral("SetCodexOnly"), true)).value(), installed);
+        QCOMPARE(f.ask->codexOnly(), installed);
+        QCOMPARE(QDBusReply<QVariantMap>(ask.call(QStringLiteral("Codex"))).value().value(QStringLiteral("only")).toBool(),
+                 installed);
+        if (installed)
+            QTRY_COMPARE_WITH_TIMEOUT(codexChanged.size(), 1, 5000);
+        QVERIFY(QDBusReply<bool>(ask.call(QStringLiteral("SetCodexOnly"), false)).value());
+        QVERIFY(!f.ask->codexOnly());
         bus.unregisterService(QLatin1String(AskService::Service));
     }
 };

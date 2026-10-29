@@ -18,7 +18,7 @@ What Split Rock does not do yet, and what it will not do.
 - Ask's front desk has been tested against a pretend model here. Its last
   trial against the real model was before it became a program of its own;
   `tools/desk-trial/` runs it again on a computer that has the model.
-- Ask needs `llama-server` installed; nothing in Split Rock installs it.
+- Ask needs `llama-server` installed. Split Rock never installs it on its own; Ask's first card offers it through Install an app, after the person's yes.
 - Codex has been tested here against a pretend assistant. Its ChatGPT sign-in
   through the fence, and what it costs, are still to be checked live.
 - Codex needs its adapter, `codex-acp`, installed; nothing in Split Rock
