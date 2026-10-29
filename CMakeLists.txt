@@ -14,9 +14,9 @@ include(GNUInstallDirs)
 # all of it.
 # The copies Core keeps of the desktop's settings, and what changed in them,
 # which What changed reads (src/settings/SettingsHistory.h).
-add_library(splitrock_settings STATIC src/settings/SettingsHistory.cpp)
+add_library(splitrock_settings STATIC src/settings/SettingsHistory.cpp src/settings/AskSettings.cpp)
 target_include_directories(splitrock_settings PUBLIC src)
-target_link_libraries(splitrock_settings PUBLIC Qt6::Core)
+target_link_libraries(splitrock_settings PUBLIC Qt6::Core Qt6::DBus)
 target_compile_options(splitrock_settings PRIVATE -Wall -Wextra)
 
 add_library(splitrock_core STATIC
@@ -75,6 +75,7 @@ qt_add_resources(split-rock "sheet"
         qml/CommunityCard.qml
         qml/ActionWindow.qml
         qml/CodexWindow.qml
+        qml/SettingsWindow.qml
         qml/WheelScroll.qml
 )
 target_link_libraries(split-rock PRIVATE splitrock_core splitrock_codex Qt6::DBus Qt6::Gui Qt6::Quick)
@@ -85,6 +86,9 @@ target_link_libraries(split-rock PRIVATE splitrock_core splitrock_codex Qt6::DBu
 set(SPLIT_ROCK_PROGRAM "${CMAKE_INSTALL_FULL_BINDIR}/split-rock")
 configure_file(data/io.github.carlsonjm.SplitRock.desktop.in
     ${CMAKE_CURRENT_BINARY_DIR}/data/io.github.carlsonjm.SplitRock.desktop @ONLY)
+# Split Rock Settings, in the app launcher by its name.
+configure_file(data/io.github.carlsonjm.SplitRock.Settings.desktop.in
+    ${CMAKE_CURRENT_BINARY_DIR}/data/io.github.carlsonjm.SplitRock.Settings.desktop @ONLY)
 # The icon is the mark on its tile, drawn from the mark's one file.
 file(READ assets/mark.svg SPLIT_ROCK_MARK)
 string(REGEX MATCHALL "<path[^>]*/>" SPLIT_ROCK_MARK_PATHS "${SPLIT_ROCK_MARK}")
@@ -96,6 +100,7 @@ configure_file(data/io.github.carlsonjm.SplitRock.svg.in
 
 install(TARGETS split-rock RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
 install(FILES ${CMAKE_CURRENT_BINARY_DIR}/data/io.github.carlsonjm.SplitRock.desktop
+    ${CMAKE_CURRENT_BINARY_DIR}/data/io.github.carlsonjm.SplitRock.Settings.desktop
     DESTINATION ${CMAKE_INSTALL_DATADIR}/applications)
 install(FILES ${CMAKE_CURRENT_BINARY_DIR}/data/io.github.carlsonjm.SplitRock.svg
     DESTINATION ${CMAKE_INSTALL_DATADIR}/icons/hicolor/scalable/apps)

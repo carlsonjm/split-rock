@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=Split Rock Settings
+GenericName=Ask settings
+Comment=Choose who answers Ask, and manage its model and Codex
+Exec=@SPLIT_ROCK_PROGRAM@ --settings
+Icon=io.github.carlsonjm.SplitRock
+Categories=Settings;Utility;System;
+Keywords=ask;codex;qwen;model;split rock;
+StartupNotify=true

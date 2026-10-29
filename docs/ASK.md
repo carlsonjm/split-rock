@@ -135,6 +135,16 @@ from under the protocol's "Internal error", not the bare code.
   own settings, and writes only its own folder and a working folder of its
   own; it keeps the network to reach OpenAI and to finish its sign-in.
 
+## Split Rock Settings
+
+`split-rock --settings` opens Split Rock Settings, the simplest settings page,
+for a computer with or without Shuffle; the app launcher lists it by that
+name. Four things, each a row: Ask in Search, on or off (`[Ask] Enabled`); who
+answers, the model with Codex for bigger fixes, the default, or Codex only
+(`SetCodexOnly`); the model, with Download, Stop or Remove; and Codex's
+sign-in, through Codex's own window. Opening it changes nothing. Shuffle's own
+Settings has the same choices on its Ask Your Computer page.
+
 ## On the bus
 
 Name `io.github.carlsonjm.splitrock.Ask`, object `/Ask`, interface

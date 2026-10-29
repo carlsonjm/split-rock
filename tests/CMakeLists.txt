@@ -150,3 +150,21 @@ add_dependencies(test_broker split-rock-pretend-assistant)
 add_test(NAME test_broker COMMAND ${DBUS_RUN_SESSION}
     --config-file=${CMAKE_CURRENT_SOURCE_DIR}/bus/private-bus.conf -- $<TARGET_FILE:test_broker>)
 set_tests_properties(test_broker PROPERTIES ENVIRONMENT "${TEST_CORE_ENVIRONMENT}" TIMEOUT 60)
+
+# Split Rock Settings, against Ask on a bus of the test's own.
+add_executable(test_settings_window test_settings_window.cpp)
+target_link_libraries(test_settings_window PRIVATE splitrock_ask splitrock_settings Qt6::Gui Qt6::Quick Qt6::Test)
+qt_add_resources(test_settings_window "settings_window_for_test"
+    PREFIX "/"
+    BASE "${PROJECT_SOURCE_DIR}"
+    FILES
+        ${PROJECT_SOURCE_DIR}/qml/SettingsWindow.qml
+        ${PROJECT_SOURCE_DIR}/qml/Theme.qml
+        ${PROJECT_SOURCE_DIR}/qml/Icon.qml
+        ${PROJECT_SOURCE_DIR}/qml/Icons.js
+        ${PROJECT_SOURCE_DIR}/qml/Pill.qml
+        ${PROJECT_SOURCE_DIR}/qml/WheelScroll.qml
+)
+add_test(NAME test_settings_window COMMAND ${DBUS_RUN_SESSION}
+    --config-file=${CMAKE_CURRENT_SOURCE_DIR}/bus/private-bus.conf -- $<TARGET_FILE:test_settings_window>)
+set_tests_properties(test_settings_window PROPERTIES ENVIRONMENT "${TEST_CORE_ENVIRONMENT}" TIMEOUT 60)
