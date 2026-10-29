@@ -123,8 +123,7 @@ Keep this folder: the uninstaller reads its list of installed files from it.
 ./install.sh
 ```
 
-The installer checks the code, builds it and runs every test, which takes a
-few minutes. Then it asks for your password in Konsole (nothing shows as you
+The installer checks the code, builds it and runs every test. Then it asks for your password in Konsole (nothing shows as you
 type) to install the Helpers, Core, the guide and the tour for every account
 on the computer. It ends with **Split Rock installed**.
 
@@ -157,8 +156,7 @@ first time you use Ask it offers to fetch it: **Qwen3 4B**, an open model under
 the Apache 2.0 licence, one file of about 2.5 GB. Tap **Download** and it comes
 once, is checked against its known fingerprint, and is kept in
 `~/.local/share/split-rock/models`. A download that stops carries on where it
-left off. How long it takes depends on your connection: about 4 minutes at
-100 Mbit/s. Until it is there, Ask still points you to the Helper that fits.
+left off. Until it is there, Ask still points you to the Helper that fits.
 
 ### 6. Update
 
