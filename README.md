@@ -71,35 +71,95 @@ Every input, with what you see happen, is in [docs/INPUT.md](docs/INPUT.md).
 
 ## Install
 
-```sh
+These steps are for Arch Linux or CachyOS with KDE Plasma. The Helpers look
+after an Arch-based system: updates and apps go through pacman and Flatpak,
+and restore points through snapper where the disk supports them. Split Rock is
+built on your computer from this page's code, so you type a few commands into
+**Konsole**, Plasma's terminal. Open it from the application launcher.
+
+### 1. What you need
+
+Bring the computer up to date, then restart it:
+
+```bash
+sudo pacman -Syu
+```
+
+After the restart, open Konsole again and install what the build and its
+checks need. Type your password when asked, and answer `Y`:
+
+```bash
+sudo pacman -S --needed base-devel git cmake ninja python dbus bubblewrap noto-fonts qt6-base qt6-declarative
+```
+
+### 2. Download
+
+This puts the code in a folder called `split-rock` in your home folder. Use
+`git`, not GitHub's Download ZIP: the installer's checks read the download's
+history.
+
+```bash
+cd ~
+git clone https://github.com/carlsonjm/split-rock.git
+cd split-rock
+```
+
+Keep this folder: the uninstaller reads its list of installed files from it.
+
+### 3. Install
+
+```bash
 ./install.sh
 ```
 
-This builds Split Rock, runs every check, and installs it for every account on
-this computer: the Helpers' program, Core, the guide and the tour. It is a
-developer install, not a package to hand to anyone else.
+The installer checks the code, builds it and runs every test, which takes a
+few minutes. Then it asks for your password in Konsole (nothing shows as you
+type) to install the Helpers, Core, the guide and the tour for every account
+on the computer. It ends with **Split Rock installed**.
 
-<details>
-<summary>What it needs</summary>
+### 4. Finish
 
-CMake, a C++20 compiler, Qt 6.4 or later and Python 3 to build. The Helpers
-manage an Arch-based system: updates and apps go through pacman and Flatpak,
-and restore points through snapper where the disk supports them.
+Sign out and back in. Core, the part that watches the computer, starts by
+itself from then on, with no window.
 
-</details>
+### 5. Check it worked
 
-<details>
-<summary>Updating and uninstalling</summary>
+Open a Helper by its name. With [Tettegouche](https://github.com/carlsonjm/tettegouche)
+installed, press `Meta` and type **Health check**. Without it, run this once
+in Konsole:
 
-Running `./install.sh` again first removes what the earlier install placed,
-and replaces Core if it is running. It asks for the administrator
-password once, to write under `/usr`. On a computer where Shuffle has set up
-its own install step, it needs no password.
+```bash
+split-rock --card health
+```
 
-`./uninstall.sh` removes what the install placed and leaves the notebook in
-place.
+Health check opens in a window of its own, looks the computer over and says
+what is fine and what needs a look. It changes nothing. The other Helpers'
+names are `update`, `space`, `install`, `uninstall`, `apps`, `changes`,
+`restore` and `community`.
 
-</details>
+### 6. Update
+
+To get a newer Split Rock:
+
+```bash
+cd ~/split-rock
+git pull
+./install.sh
+```
+
+It removes what the earlier install placed first, and replaces Core if it is
+running. A Helper's window already open keeps the old program until it closes.
+
+### 7. Uninstall
+
+```bash
+cd ~/split-rock
+./uninstall.sh
+```
+
+It asks for your password and ends with **Split Rock removed**. Your notebook,
+Documents › Notebook, where each Helper wrote what it changed, stays. To
+delete the download too, run `rm -rf ~/split-rock` after uninstalling.
 
 <details>
 <summary>With Shuffle</summary>
