@@ -115,8 +115,6 @@ git clone https://github.com/carlsonjm/split-rock.git
 cd split-rock
 ```
 
-Keep this folder: the uninstaller reads its list of installed files from it.
-
 ### 3. Install
 
 ```bash
