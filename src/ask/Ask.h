@@ -57,6 +57,13 @@ public:
     // Whether a bigger question goes straight to Codex where it is signed in:
     // [Ask] HandToCodex, off unless the person switched it on.
     bool handsToCodex() const;
+    // Whether every question goes to Codex instead of the model on this
+    // computer: [Ask] CodexOnly, the person's choice on Ask's first card or in
+    // Settings. The safety check still answers here.
+    bool codexOnly() const;
+    void setCodexOnly(bool only);
+    // Whether llama-server, which runs the model, is on this computer.
+    bool hasEngine() const { return !m_setup.engine.isEmpty() || !m_setup.server.isEmpty(); }
     QString settings() const { return m_setup.settings; }
     // The question asked last, as answered gives its end.
     QString question() const { return m_question; }
@@ -84,7 +91,8 @@ Q_SIGNALS:
     // routed (how the desk handled it), helpers (the Helpers that fit, by
     // name), query (what the install Helper looks for), doIt (a Do it card
     // from a settings skill, as JSON), handOff (Codex can take it), and
-    // needsModel, off, cancelled or problem when it couldn't be answered.
+    // needsModel (with needsEngine when llama-server is missing), codexOnly,
+    // off, cancelled or problem when it wasn't answered here.
     void answered(uint id, const QVariantMap &result);
     void modelChanged(const QVariantMap &model);
 

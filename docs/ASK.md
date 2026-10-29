@@ -23,6 +23,11 @@ Core never calls a model (`CORE.md`). Ask is where the model lives.
   asks one at a time.
 - `split-rock-corerc` switches Ask off: `[Ask] Enabled=false`. Off, it answers
   only that it is off.
+- Codex only, the person's choice: `[Ask] CodexOnly=true`, set through
+  `SetCodexOnly`. Where Codex is installed, the model is then never asked or
+  offered: after the safety check, an ask ends with `codexOnly`, its words say
+  it waits for Ask Codex, and the Helper its words name is listed. Nothing
+  goes to Codex until the person taps Ask Codex.
 
 ## The front desk
 
@@ -68,6 +73,11 @@ The desk decides, not the model alone (`DECISIONS.md`, Ask on this computer):
   every computer, with its exact size and SHA-256. A model without them is
   never downloaded, and a download that doesn't match is deleted. Its licence,
   Apache 2.0, installs beside the list.
+- Until it is downloaded, an ask ends with `needsModel`, and its words name
+  the model, say it runs on this computer and that nothing asked leaves it,
+  and give its size; never a time, which depends on the connection. Where
+  `llama-server` isn't found, it also carries `needsEngine`, and its words say
+  llama.cpp must be installed first; the download isn't offered until it is.
 - It downloads only when a surface asks with `DownloadModel`, after the
   person's tap, into `split-rock/models` in the person's data folder. A
   download that stops carries on where it stopped.
@@ -136,13 +146,14 @@ Name `io.github.carlsonjm.splitrock.Ask`, object `/Ask`, interface
 | `Enabled() → b` | Whether Ask is switched on |
 | `Ask(s question) → u` | Starts answering and returns the question's id. A new question stops the one before it |
 | `Cancel(u id)` | Stops a question |
-| `Model() → a{sv}` | `state` (missing, downloading, verifying, ready, failed), `progress` from 0 to 1, the model's `name`, `size` and `credit` in words, `problem` |
+| `Model() → a{sv}` | `state` (missing, downloading, verifying, ready, failed), `progress` from 0 to 1, the model's `name`, `size` and `credit` in words, `problem`, and `engine`, whether `llama-server` is found |
 | `DownloadModel()` | Downloads the model, after the person's tap |
 | `CancelDownload()` | Stops the download; it carries on from there next time |
 | `RemoveModel()` | Deletes the model from this computer |
-| `Codex() → a{sv}` | Codex: `installed`, `signedIn`, `handOff` (the switch in Settings), and `problem` when it can't start |
+| `Codex() → a{sv}` | Codex: `installed`, `signedIn`, `handOff` (the switch in Settings), `only` (Codex only), and `problem` when it can't start |
 | `OpenCodex(s question) → b` | Opens Ask Codex with the question; with none, it only signs in |
 | `SignOutCodex() → b` | Forgets Codex's sign-in |
+| `SetCodexOnly(b only) → b` | The person's choice: Codex only, or the model on this computer. False for Codex only where Codex isn't installed |
 
 | Signal | When |
 | --- | --- |
@@ -164,6 +175,8 @@ Name `io.github.carlsonjm.splitrock.Ask`, object `/Ask`, interface
 | `handOff` | A bigger change, which Codex, signed in, can take |
 | `handedToCodex` | It went straight on to Codex, as the person switched on |
 | `needsModel` | The model isn't downloaded yet; `text` says what it needs |
+| `needsEngine` | With `needsModel`: `llama-server` isn't installed either |
+| `codexOnly` | Codex only: the question waits for Ask Codex |
 | `off` | Ask is switched off |
 | `cancelled` | A newer question, or `Cancel`, stopped it |
 | `problem` | The model couldn't start, and why |

@@ -427,6 +427,19 @@ private Q_SLOTS:
         QVERIFY(!apps.at(1).installed);
     }
 
+    // A package asked for by its exact name, such as the engine Ask runs its
+    // model with, is found though no app description lists it.
+    void installFindsAPackageByItsName()
+    {
+        const QString output = QStringLiteral("@@ shelf\nIdentifier: llama-cpp\nName: llama-cpp\n"
+                                              "Summary: Port of LLaMA in C/C++\nPackage: llama-cpp\n---\n"
+                                              "@@ flathub\n@@ installed\n@@ owned\n@@ end\n");
+        const QList<AppInstall::App> apps = AppInstall::readSearch(output, QStringLiteral("llama.cpp"));
+        QCOMPARE(apps.size(), 1);
+        QCOMPARE(apps.first().key, QStringLiteral("shelf:llama-cpp"));
+        QVERIFY(!apps.first().installed);
+    }
+
     void installRunsThroughTheTransaction()
     {
         // The real transaction, with pacman stood in for.

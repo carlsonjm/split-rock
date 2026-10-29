@@ -101,6 +101,7 @@ QVariantMap AskService::Codex() const
     return {{QStringLiteral("installed"), m_codex.unavailable.isEmpty()},
             {QStringLiteral("signedIn"), m_codex.unavailable.isEmpty() && m_codex.signedIn()},
             {QStringLiteral("handOff"), m_ask->handsToCodex()},
+            {QStringLiteral("only"), m_codex.unavailable.isEmpty() && m_ask->codexOnly()},
             {QStringLiteral("problem"), m_codex.unavailable}};
 }
 
@@ -122,6 +123,17 @@ bool AskService::SignOutCodex()
         Q_EMIT CodexChanged(Codex());
     }
     return done;
+}
+
+bool AskService::SetCodexOnly(bool only)
+{
+    if (only && !m_codex.unavailable.isEmpty())
+        return false;
+    if (m_ask->codexOnly() != only) {
+        m_ask->setCodexOnly(only);
+        Q_EMIT CodexChanged(Codex());
+    }
+    return true;
 }
 
 } // namespace splitrock::ask

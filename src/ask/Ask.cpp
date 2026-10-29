@@ -207,6 +207,18 @@ bool Ask::handsToCodex() const
     return QSettings(m_setup.settings, QSettings::IniFormat).value(QStringLiteral("Ask/HandToCodex"), false).toBool();
 }
 
+bool Ask::codexOnly() const
+{
+    return QSettings(m_setup.settings, QSettings::IniFormat).value(QStringLiteral("Ask/CodexOnly"), false).toBool();
+}
+
+void Ask::setCodexOnly(bool only)
+{
+    QSettings settings(m_setup.settings, QSettings::IniFormat);
+    settings.setValue(QStringLiteral("Ask/CodexOnly"), only);
+    settings.sync();
+}
+
 desk::Context Ask::context() const
 {
     desk::Context context;
@@ -240,7 +252,8 @@ QVariantMap Ask::model() const
             {QStringLiteral("size"), m_model->size()},
             {QStringLiteral("name"), m_model->name()},
             {QStringLiteral("credit"), m_model->credit()},
-            {QStringLiteral("problem"), m_model->problem()}};
+            {QStringLiteral("problem"), m_model->problem()},
+            {QStringLiteral("engine"), hasEngine()}};
 }
 
 uint Ask::ask(const QString &question)
@@ -291,6 +304,18 @@ uint Ask::ask(const QString &question)
 
 void Ask::begin()
 {
+    // Codex only, where Codex is installed: nothing is asked of the model here. The question waits for
+    // the person's tap on Ask Codex; the Helper the words name stays listed.
+    if (codexOnly() && m_setup.codex.unavailable.isEmpty()) {
+        const QString helper = desk::helperFor(m_question, upkeep());
+        if (!helper.isEmpty() && !m_helpers.contains(helper))
+            m_helpers.append(helper);
+        finish({{QStringLiteral("codexOnly"), true},
+                {QStringLiteral("text"), QStringLiteral("Ask is set to Codex only. Press Enter or tap Ask Codex to send "
+                                                        "this question to Codex, online, on your ChatGPT plan. It "
+                                                        "answers in its own window.")}});
+        return;
+    }
     if (m_setup.server.isEmpty()) {
         if (!m_model->isReady()) {
             m_model->survey();
@@ -303,10 +328,25 @@ void Ask::begin()
                     m_helpers.append(helper);
                 if (m_model->state() == QLatin1String("downloading") || m_model->state() == QLatin1String("verifying"))
                     return;
+                const QString name = m_model->name().isEmpty() ? QStringLiteral("its model") : m_model->name();
+                // Without llama-server the model could never run, so the
+                // download isn't offered until it is installed.
+                if (!hasEngine()) {
+                    finish({{QStringLiteral("needsModel"), true},
+                            {QStringLiteral("needsEngine"), true},
+                            {QStringLiteral("text"),
+                             QStringLiteral("llama.cpp is the free engine that runs Ask's AI model on this computer, "
+                                            "and it isn't installed. Install it first; then Ask offers the model "
+                                            "itself, %1, a one-time download of %2.")
+                                 .arg(name, m_model->size())}});
+                    return;
+                }
                 finish({{QStringLiteral("needsModel"), true},
-                        {QStringLiteral("text"), QStringLiteral("To answer on this computer, Ask needs a one-time "
-                                                                "download of %1. Nothing you ask leaves the computer.")
-                                                     .arg(m_model->size())}});
+                        {QStringLiteral("text"), QStringLiteral("Ask can answer with %1, an open AI model that runs on "
+                                                                "this computer. It's a one-time download of %2. Once "
+                                                                "it's here, Ask works offline and nothing you ask "
+                                                                "leaves this computer.")
+                                                     .arg(name, m_model->size())}});
                 return;
             }
         }
