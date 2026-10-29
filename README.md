@@ -79,18 +79,29 @@ built on your computer from this page's code, so you type a few commands into
 
 ### 1. What you need
 
-Bring the computer up to date, then restart it:
+Bring the computer up to date. If you just did this for another part of the
+suite, skip it:
 
 ```bash
 sudo pacman -Syu
 ```
 
-After the restart, open Konsole again and install what the build and its
-checks need. Type your password when asked, and answer `Y`:
+Restart the computer only if that update installed a new `kwin`,
+`plasma-workspace` or kernel (`linux`, or `linux-cachyos` on CachyOS): Split Rock is built against what is
+installed, so that has to be what is running.
+
+Then install what the build needs. Type your password when asked, and answer
+`Y`:
 
 ```bash
-sudo pacman -S --needed base-devel git cmake ninja python dbus bubblewrap noto-fonts qt6-base qt6-declarative
+sudo pacman -S --needed base-devel git cmake ninja python dbus bubblewrap noto-fonts qt6-base qt6-declarative llama-cpp
 ```
+
+`llama-cpp` is the engine that runs Ask's model on this computer. Without it,
+Ask can download the model but still can't answer.
+
+If pacman says a package **is up to date -- skipping**, or **there is nothing
+to do**, that is normal: it is already installed.
 
 ### 2. Download
 
@@ -137,6 +148,18 @@ what is fine and what needs a look. It changes nothing. The other Helpers'
 names are `update`, `space`, `install`, `uninstall`, `apps`, `changes`,
 `restore` and `community`.
 
+### Ask, on this computer
+
+Ask answers questions about the computer in plain words, from Search's **Ask**
+tab where Tettegouche is installed. It runs a language model on this computer,
+so nothing you ask leaves it. The model is not part of the download above. The
+first time you use Ask it offers to fetch it: **Qwen3 4B**, an open model under
+the Apache 2.0 licence, one file of about 2.5 GB. Tap **Download** and it comes
+once, is checked against its known fingerprint, and is kept in
+`~/.local/share/split-rock/models`. A download that stops carries on where it
+left off. How long it takes depends on your connection: about 4 minutes at
+100 Mbit/s. Until it is there, Ask still points you to the Helper that fits.
+
 ### 6. Update
 
 To get a newer Split Rock:
@@ -160,6 +183,8 @@ cd ~/split-rock
 It asks for your password and ends with **Split Rock removed**. Your notebook,
 Documents › Notebook, where each Helper wrote what it changed, stays. To
 delete the download too, run `rm -rf ~/split-rock` after uninstalling.
+Ask's model stays too; to free its 2.5 GB, run
+`rm -rf ~/.local/share/split-rock/models`.
 
 <details>
 <summary>With Shuffle</summary>
