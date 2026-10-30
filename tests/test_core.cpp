@@ -12,6 +12,7 @@
 #include "core/Storage.h"
 #include "core/Updates.h"
 #include "core/Windows.h"
+#include "core/WorkspaceMemory.h"
 
 #include <QDBusConnection>
 #include <QDBusConnectionInterface>
@@ -25,6 +26,7 @@
 #include <QTemporaryDir>
 #include <QTest>
 #include <QTimeZone>
+#include <QUuid>
 
 using namespace splitrock::core;
 
@@ -56,6 +58,8 @@ struct Desk {
     QStringList opened;
     QStringList settingsOpened;
     int notificationsOpened = 0;
+    int bringBacks = 0;
+    int dismissed = 0;
     QStringList settingsInstalled{QStringLiteral("kcm_printer_manager"), QStringLiteral("kcm_device_automounter"),
                                   QStringLiteral("kcm_bluetooth")};
     std::unique_ptr<Core> core;
@@ -78,6 +82,11 @@ struct Desk {
         hooks.hasSettings = [this](const QString &page) { return settingsInstalled.contains(page); };
         hooks.openSettings = [this](const QString &page) { settingsOpened.append(page); };
         hooks.openNotifications = [this] { ++notificationsOpened; };
+        hooks.bringBack = [this] { ++bringBacks; };
+        hooks.dismissSavedSession = [this] { ++dismissed; };
+        hooks.appName = [](const QString &id) {
+            return id == QLatin1String("org.mozilla.firefox") ? QStringLiteral("Firefox") : appName(id);
+        };
         core = std::make_unique<Core>(dir.filePath(QStringLiteral("core")), dir.filePath(QStringLiteral("corerc")), hooks);
     }
 
@@ -132,6 +141,73 @@ struct Desk {
 };
 
 } // namespace
+
+namespace {
+
+// A session Cards offers, saved this many hours before the test's clock.
+SavedSession session(const QDateTime &now, int hoursAgo, const QStringList &apps)
+{
+    SavedSession s;
+    s.available = true;
+    s.count = int(apps.size());
+    s.apps = apps;
+    s.when = now.addSecs(-hoursAgo * 3600);
+    return s;
+}
+
+const QStringList FourApps{QStringLiteral("org.mozilla.firefox"), QStringLiteral("org.kde.kate"),
+                           QStringLiteral("spotify"), QStringLiteral("org.kde.dolphin")};
+
+} // namespace
+
+// Kadunce's Workspace Memory calls, as the contract gives them, on a
+// connection of their own on the test's bus.
+class StandInKadunce : public QObject
+{
+    Q_OBJECT
+    Q_CLASSINFO("D-Bus Interface", "co.goodinput.Kadunce")
+
+public:
+    int version = 1;
+    QVariantMap saved;
+    QVariantMap plan;
+    QVariantList together;
+    QStringList calls;
+    QString token;
+
+    void finish(int placed, int missed)
+    {
+        QDBusMessage signal = QDBusMessage::createSignal(QStringLiteral("/Kadunce"), QStringLiteral("co.goodinput.Kadunce"),
+                                                         QStringLiteral("bringBackFinished"));
+        signal.setArguments({token, placed, missed});
+        QDBusConnection(QStringLiteral("kadunce")).send(signal);
+    }
+
+public Q_SLOTS:
+    int workspaceMemoryProtocolVersion()
+    {
+        calls.append(QStringLiteral("version"));
+        return version;
+    }
+    QVariantMap savedSession()
+    {
+        calls.append(QStringLiteral("savedSession"));
+        return saved;
+    }
+    QVariantMap bringBack(const QString &t)
+    {
+        calls.append(QStringLiteral("bringBack"));
+        token = t;
+        return plan;
+    }
+    void cancelBringBack(const QString &) { calls.append(QStringLiteral("cancelBringBack")); }
+    void dismissSavedSession() { calls.append(QStringLiteral("dismissSavedSession")); }
+    QVariantList openTogether()
+    {
+        calls.append(QStringLiteral("openTogether"));
+        return together;
+    }
+};
 
 class TestCore : public QObject
 {
@@ -966,6 +1042,253 @@ private Q_SLOTS:
         d.core->seeDevices(DeviceKind::Drive, {{DeviceKind::Drive, QStringLiteral("WD-2"), QStringLiteral("WD Elements")}});
         QVERIFY(d.ticker.isEmpty());
         QVERIFY(!d.core->act(QStringLiteral("devices"), QStringLiteral("open")));
+    }
+
+    void workspaceMemoryAsksOnceOnTheIsland()
+    {
+        Desk d;
+        QVERIFY(d.core->watchesMemory());
+        QVERIFY(!d.core->bringsBackAlways());
+        // Nothing saved, or a session with no apps: nothing to say.
+        d.core->seeSavedSession(SavedSession());
+        QVERIFY(d.core->facts().isEmpty());
+        d.core->seeSavedSession(session(d.now, 14, FourApps));
+        const QVariantMap fact = d.fact(QStringLiteral("memory"));
+        QCOMPARE(fact.value(QStringLiteral("line")).toString(), QStringLiteral("Bring back 4 apps from yesterday?"));
+        QCOMPARE(fact.value(QStringLiteral("detail")).toString(), QStringLiteral("Each one goes back to its place"));
+        QCOMPARE(fact.value(QStringLiteral("attention")).toString(), QStringLiteral("island"));
+        QCOMPARE(fact.value(QStringLiteral("actionText")).toString(), QStringLiteral("Bring back"));
+        QCOMPARE(fact.value(QStringLiteral("apps")).toStringList().first(), QStringLiteral("Firefox"));
+        QCOMPARE(fact.value(QStringLiteral("choices")).value<QList<QVariantMap>>().first().value(QStringLiteral("action")).toString(),
+                 QStringLiteral("always"));
+        QVERIFY(d.ticker.isEmpty());
+        QVERIFY(d.logbook().contains(QStringLiteral("Workspace Memory  Showed the island: Bring back 4 apps from yesterday?")));
+        // The same session again, as after Core restarts, is not news.
+        d.make();
+        d.core->seeSavedSession(session(d.now, 14, FourApps));
+        QCOMPARE(d.fact(QStringLiteral("memory")).value(QStringLiteral("attention")).toString(), QStringLiteral("island"));
+        QVERIFY(d.ticker.isEmpty());
+
+        // Bring back: Cards is asked, once, and the island goes.
+        QVERIFY(d.core->act(QStringLiteral("memory"), QStringLiteral("open")));
+        QCOMPARE(d.bringBacks, 1);
+        QVERIFY(d.fact(QStringLiteral("memory")).isEmpty());
+        QVERIFY(!d.core->act(QStringLiteral("memory"), QStringLiteral("open")));
+        QCOMPARE(d.bringBacks, 1);
+        BringBackRun run;
+        run.accepted = true;
+        run.finished = true;
+        run.launched = FourApps;
+        run.placed = 4;
+        d.core->broughtBack(run);
+        // Asked, so no ticker afterwards.
+        QVERIFY(d.ticker.isEmpty());
+        QVERIFY(d.logbook().contains(QStringLiteral("Workspace Memory  Brought back 4 apps; 4 in place, 0 missed.")));
+        QVERIFY(!d.core->bringsBackAlways());
+    }
+
+    void notNowLeavesTheDesktopAndTellsCards()
+    {
+        Desk d;
+        d.core->seeSavedSession(session(d.now, 2, FourApps.mid(0, 1)));
+        QCOMPARE(d.fact(QStringLiteral("memory")).value(QStringLiteral("line")).toString(),
+                 QStringLiteral("Bring back 1 app from earlier today?"));
+        QVERIFY(d.core->act(QStringLiteral("memory"), QStringLiteral("not-now")));
+        QCOMPARE(d.dismissed, 1);
+        QCOMPARE(d.bringBacks, 0);
+        QVERIFY(d.fact(QStringLiteral("memory")).isEmpty());
+        QVERIFY(d.logbook().contains(QStringLiteral("Workspace Memory  You said not now; the desktop stays as it is.")));
+        QVERIFY(!d.core->act(QStringLiteral("memory"), QStringLiteral("never")));
+
+        // The next sign-in's session is news again; a second the same day
+        // goes to the ticker, as does one during Do Not Disturb.
+        d.now = d.now.addSecs(3600);
+        d.core->seeSavedSession(session(d.now, 1, FourApps));
+        QVERIFY(d.fact(QStringLiteral("memory")).isEmpty());
+        QCOMPARE(d.ticker, QStringList{QStringLiteral("Bring back 4 apps from earlier today? | Each one goes back to its place")});
+        QCOMPARE(d.topics, QStringList{QStringLiteral("memory")});
+        // The ticker's tap brings them back.
+        QVERIFY(d.core->act(QStringLiteral("memory"), QStringLiteral("open")));
+        QCOMPARE(d.bringBacks, 1);
+        d.now = d.now.addDays(1);
+        d.doNotDisturb = true;
+        d.core->seeSavedSession(session(d.now, 20, FourApps));
+        QCOMPARE(d.ticker.size(), 2);
+        // A session from weeks ago is not offered.
+        d.doNotDisturb = false;
+        d.now = d.now.addDays(1);
+        d.core->seeSavedSession(session(d.now, 24 * 30, FourApps));
+        QCOMPARE(d.ticker.size(), 2);
+        QVERIFY(d.logbook().contains(QStringLiteral("not offered")));
+    }
+
+    void alwaysBringsThemBackWithNoIsland()
+    {
+        Desk d;
+        d.core->seeSavedSession(session(d.now, 30, FourApps));
+        QVERIFY(d.fact(QStringLiteral("memory")).value(QStringLiteral("line")).toString().startsWith(QStringLiteral("Bring back 4 apps from ")));
+        QVERIFY(d.core->act(QStringLiteral("memory"), QStringLiteral("always")));
+        QCOMPARE(d.bringBacks, 1);
+        QVERIFY(d.core->bringsBackAlways());
+        QCOMPARE(QSettings(d.dir.filePath(QStringLiteral("corerc")), QSettings::IniFormat)
+                     .value(QStringLiteral("WorkspaceMemory/Always")).toBool(),
+                 true);
+        QVERIFY(d.fact(QStringLiteral("memory")).isEmpty());
+
+        // The next sign-in: no island, Cards is asked straight away, and the
+        // ticker says so once it is done.
+        d.now = d.now.addDays(1);
+        d.core->seeSavedSession(session(d.now, 12, FourApps));
+        QCOMPARE(d.bringBacks, 2);
+        QVERIFY(d.fact(QStringLiteral("memory")).isEmpty());
+        QVERIFY(d.ticker.isEmpty());
+        BringBackRun run;
+        run.accepted = true;
+        run.finished = true;
+        run.launched = FourApps;
+        run.placed = 4;
+        d.core->broughtBack(run);
+        QCOMPARE(d.ticker, QStringList{QStringLiteral("Brought back 4 apps | As you left them")});
+        QVERIFY(d.logbook().contains(QStringLiteral("as you chose Always")));
+        // One that didn't open in time is said.
+        d.now = d.now.addDays(1);
+        d.core->seeSavedSession(session(d.now, 12, FourApps));
+        run.placed = 3;
+        run.missed = 1;
+        d.core->broughtBack(run);
+        QCOMPARE(d.ticker.last(), QStringLiteral("Brought back 3 apps | 1 didn't open in time"));
+        // Settings turns Always off: the island asks again.
+        {
+            QSettings settings(d.dir.filePath(QStringLiteral("corerc")), QSettings::IniFormat);
+            settings.setValue(QStringLiteral("WorkspaceMemory/Always"), false);
+        }
+        d.now = d.now.addDays(1);
+        d.core->seeSavedSession(session(d.now, 12, FourApps));
+        QCOMPARE(d.bringBacks, 3);
+        QCOMPARE(d.fact(QStringLiteral("memory")).value(QStringLiteral("attention")).toString(), QStringLiteral("island"));
+    }
+
+    void workspaceMemorySwitchedOffIsSilent()
+    {
+        Desk d;
+        {
+            QSettings settings(d.dir.filePath(QStringLiteral("corerc")), QSettings::IniFormat);
+            settings.setValue(QStringLiteral("WorkspaceMemory/Enabled"), false);
+            settings.setValue(QStringLiteral("WorkspaceMemory/Always"), true);
+        }
+        QVERIFY(!d.core->watchesMemory());
+        d.core->seeSavedSession(session(d.now, 12, FourApps));
+        QVERIFY(d.core->facts().isEmpty());
+        QCOMPARE(d.bringBacks, 0);
+        QVERIFY(!d.core->act(QStringLiteral("memory"), QStringLiteral("open")));
+    }
+
+    void wordsForWhenAndWhich()
+    {
+        const QDateTime thursday(QDate(2026, 10, 29), QTime(9, 0));
+        QCOMPARE(fromWhen(thursday.addSecs(-3600), thursday), QStringLiteral("from earlier today"));
+        QCOMPARE(fromWhen(thursday.addDays(-1), thursday), QStringLiteral("from yesterday"));
+        QCOMPARE(fromWhen(thursday.addDays(-3), thursday), QStringLiteral("from Monday"));
+        QCOMPARE(fromWhen(thursday.addDays(-10), thursday), QStringLiteral("from 19 October"));
+        QCOMPARE(namesList({QStringLiteral("Firefox")}), QStringLiteral("Firefox"));
+        QCOMPARE(namesList({QStringLiteral("Firefox"), QStringLiteral("Notes")}), QStringLiteral("Firefox and Notes"));
+        QCOMPARE(namesList({QStringLiteral("Firefox"), QStringLiteral("Notes"), QStringLiteral("Mail")}),
+                 QStringLiteral("Firefox, Notes and Mail"));
+        QCOMPARE(namesList({QStringLiteral("A"), QStringLiteral("B"), QStringLiteral("C"), QStringLiteral("D"), QStringLiteral("E")}),
+                 QStringLiteral("A, B, C and 2 more"));
+        QCOMPARE(appName(QStringLiteral("org.kde.dolphin")), QStringLiteral("Dolphin"));
+    }
+
+    void kadunceIsAskedOnTheBusAndCoreLaunchesWhatItNames()
+    {
+        QDBusConnection standIn = QDBusConnection::connectToBus(QDBusConnection::SessionBus, QStringLiteral("kadunce"));
+        QVERIFY(standIn.isConnected());
+        StandInKadunce kadunce;
+        const QDateTime saved = QDateTime::currentDateTimeUtc().addSecs(-3600 * 14);
+        kadunce.saved = {{QStringLiteral("available"), true}, {QStringLiteral("count"), 3},
+                         {QStringLiteral("apps"), QStringList{QStringLiteral("org.mozilla.firefox"), QStringLiteral("org.kde.kate"),
+                                                              QStringLiteral("spotify")}},
+                         {QStringLiteral("when"), qint64(saved.toSecsSinceEpoch())},
+                         {QStringLiteral("clean"), true},
+                         {QStringLiteral("windows"), 4}};
+        kadunce.plan = {{QStringLiteral("accepted"), true},
+                        {QStringLiteral("launch"), QStringList{QStringLiteral("org.mozilla.firefox"), QStringLiteral("org.kde.kate")}},
+                        {QStringLiteral("alreadyOpen"), QStringList{QStringLiteral("spotify")}},
+                        {QStringLiteral("count"), 2}};
+        QVERIFY(standIn.registerObject(QStringLiteral("/Kadunce"), &kadunce, QDBusConnection::ExportAllSlots));
+        const QString service = QStringLiteral("org.kde.KWin");
+        QVERIFY(standIn.registerService(service));
+
+        KadunceMemory memory(QDBusConnection::sessionBus(), service);
+        std::optional<SavedSession> got;
+        bool answered = false;
+        memory.savedSession([&](const std::optional<SavedSession> &s) {
+            got = s;
+            answered = true;
+        });
+        QTRY_VERIFY(answered);
+        QVERIFY(got);
+        QVERIFY(got->available);
+        QCOMPARE(got->count, 3);
+        QCOMPARE(got->apps.last(), QStringLiteral("spotify"));
+        QCOMPARE(got->when.toSecsSinceEpoch(), saved.toSecsSinceEpoch());
+        QCOMPARE(got->windows, 4);
+
+        // Bring back: Cards is armed first, then Core launches each app it
+        // names, and the run ends when Cards says so.
+        QStringList launched;
+        std::optional<BringBackRun> run;
+        memory.bringBack([&](const QString &id) { launched.append(id); }, [&](const BringBackRun &r) { run = r; });
+        QTRY_COMPARE(launched.size(), 2);
+        QVERIFY(memory.running());
+        QCOMPARE(kadunce.calls.mid(kadunce.calls.indexOf(QStringLiteral("bringBack"))).first(), QStringLiteral("bringBack"));
+        QVERIFY(!QUuid::fromString(kadunce.token).isNull());
+        QVERIFY(!run);
+        kadunce.finish(2, 0);
+        QTRY_VERIFY(run.has_value());
+        QVERIFY(run->accepted);
+        QVERIFY(run->finished);
+        QCOMPARE(run->launched, launched);
+        QCOMPARE(run->alreadyOpen, QStringList{QStringLiteral("spotify")});
+        QCOMPARE(run->placed, 2);
+        QVERIFY(!memory.running());
+
+        // Busy: nothing is launched.
+        kadunce.plan = {{QStringLiteral("accepted"), false}, {QStringLiteral("reason"), QStringLiteral("busy")}};
+        run.reset();
+        launched.clear();
+        memory.bringBack([&](const QString &id) { launched.append(id); }, [&](const BringBackRun &r) { run = r; });
+        QTRY_VERIFY(run.has_value());
+        QVERIFY(!run->accepted);
+        QCOMPARE(run->reason, QStringLiteral("busy"));
+        QVERIFY(launched.isEmpty());
+
+        memory.dismissSavedSession();
+        QTRY_VERIFY(kadunce.calls.contains(QStringLiteral("dismissSavedSession")));
+        // The version is asked once.
+        QCOMPARE(kadunce.calls.count(QStringLiteral("version")), 1);
+
+        // A version Core doesn't know answers nothing.
+        KadunceMemory newer(QDBusConnection::sessionBus(), service);
+        kadunce.version = 2;
+        answered = false;
+        newer.savedSession([&](const std::optional<SavedSession> &s) {
+            got = s;
+            answered = true;
+        });
+        QTRY_VERIFY(answered);
+        QVERIFY(!got);
+        // And no Kadunce at all answers nothing either.
+        KadunceMemory none(QDBusConnection::sessionBus(), QStringLiteral("org.example.NoKadunce"));
+        answered = false;
+        none.savedSession([&](const std::optional<SavedSession> &s) {
+            got = s;
+            answered = true;
+        });
+        QTRY_VERIFY(answered);
+        QVERIFY(!got);
+        standIn.unregisterService(service);
+        QDBusConnection::disconnectFromBus(QStringLiteral("kadunce"));
     }
 
     void focusSaysOnceWhatCameInDuringDoNotDisturb()

@@ -17,6 +17,9 @@ What Split Rock does not do yet, and what it will not do.
   systemd, not yet with a real printer. Game controllers and second screens
   have been run against a stand-in of the kernel's folders, not yet with a
   real controller or monitor.
+- Workspace Memory has been run against a stand-in for Cards on the bus. It
+  needs Kadunce's Workspace Memory calls, which ship after 1.0, and sign-out
+  rounds on a tablet before anyone relies on it.
 - The Health check's Battery row has been run against a stand-in power supply
   folder and a stand-in UPower, not yet on a computer whose battery has worn.
 - Ask's front desk has been tested against a pretend model here. Its last

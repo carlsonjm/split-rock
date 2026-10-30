@@ -110,6 +110,8 @@ public:
                     QStringLiteral("Find the Linux version")}
             : topic == QLatin1String("tidy")
             ? Words{QStringLiteral("Downloads"), QStringLiteral("folder-download"), QStringLiteral("Tidy up Downloads")}
+            : topic == QLatin1String("memory")
+            ? Words{QStringLiteral("Workspace Memory"), QStringLiteral("window-restore"), QStringLiteral("Bring back")}
             : Words{QStringLiteral("Storage"), QStringLiteral("drive-harddisk"), QStringLiteral("Free up space")};
         QDBusMessage call = QDBusMessage::createMethodCall(Notifications, NotificationsPath, Notifications,
                                                            QStringLiteral("Notify"));
@@ -485,6 +487,9 @@ int main(int argc, char **argv)
 
     Core *core = nullptr;
     CoreService *offeredService = nullptr;
+    // Cards, from Kadunce, where it runs: Workspace Memory's saved session
+    // and the apps opened together.
+    KadunceMemory kadunce(bus);
     Ticker ticker(bus, [&core](const QString &topic) {
         if (core)
             core->act(topic, QStringLiteral("open"));
@@ -515,6 +520,14 @@ int main(int argc, char **argv)
         else
             QProcess::startDetached(QStringLiteral("kcmshell6"), {page});
     };
+    hooks.bringBack = [&kadunce, &core] {
+        kadunce.bringBack([](const QString &id) { launchApp(id); },
+                          [&core](const BringBackRun &run) {
+                              if (core)
+                                  core->broughtBack(run);
+                          });
+    };
+    hooks.dismissSavedSession = [&kadunce] { kadunce.dismissSavedSession(); };
     Core desk(parser.isSet(folderOption) ? parser.value(folderOption) : Core::defaultFolder(),
               parser.isSet(settingsOption) ? parser.value(settingsOption) : Core::defaultSettings(), hooks);
     core = &desk;
@@ -708,6 +721,32 @@ int main(int argc, char **argv)
     QTimer::singleShot(std::chrono::seconds(30), &desk, [&localEvery, listLocal] {
         listLocal();
         localEvery.start();
+    });
+
+    // Workspace Memory: after sign-in, once Cards has had time to start and
+    // read what it saved, the session it offers. Asked three times at most,
+    // until Cards answers; a session already offered is not offered again.
+    int memoryAsks = 0;
+    bool memoryAnswered = false;
+    QTimer memoryAsk;
+    memoryAsk.setInterval(std::chrono::seconds(40));
+    const auto askMemory = [&desk, &kadunce, &memoryAsks, &memoryAnswered, &memoryAsk] {
+        if (memoryAnswered || ++memoryAsks > 3 || !desk.watchesMemory()) {
+            memoryAsk.stop();
+            return;
+        }
+        kadunce.savedSession([&desk, &memoryAnswered, &memoryAsk](const std::optional<SavedSession> &session) {
+            if (!session || memoryAnswered)
+                return;
+            memoryAnswered = true;
+            memoryAsk.stop();
+            desk.seeSavedSession(*session);
+        });
+    };
+    QObject::connect(&memoryAsk, &QTimer::timeout, &desk, askMemory);
+    QTimer::singleShot(std::chrono::seconds(20), &desk, [&memoryAsk, askMemory] {
+        askMemory();
+        memoryAsk.start();
     });
 
     // Settings, such as how readily Core speaks, take effect when they are

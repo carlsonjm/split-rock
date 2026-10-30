@@ -1313,3 +1313,26 @@ problem, which would make normal ageing sound like something to act on; the
 island; reading a controller or a screen through a desktop service, which
 would tie Core to one desktop's display server, where the kernel's folders
 say the same on any of them.
+
+## Workspace Memory asks once after sign-in, until the person chooses Always
+
+After sign-in, where Cards from Kadunce kept a session with apps in it, Core
+asks once on the island: "Bring back 4 apps from yesterday?", with Bring back,
+Always and Not now. Cards remembers where each window stood and puts it back;
+Core asks, and launches the apps Cards names, each the way the app menu does.
+Always is the person's stated preference, kept in `split-rock-corerc`, so from
+then on Core asks Cards with no island and the ticker says it happened. It is
+a topic of its own with its own switch, and each saved session is news once.
+
+Why: approved on 19 Oct as Shuffle's own way, each app back on its screen,
+card and pair, with the island asking first until Always. Cards never launches
+an app itself, since a program started from inside the compositor would belong
+to it rather than to the person's session, so the launching is Core's. Always
+lives in the settings file rather than in Core's own notes so Settings can show
+it and turn it off.
+
+Rejected: Plasma's own "restore the previous session", which brings apps back
+loose, out of their cards and pairs, and asks nothing; named setups to switch
+between, which need a new place to keep them; a session from weeks ago, which
+is no longer what the person left; and asking during Do Not Disturb on the
+island, which the ticker carries instead like every other topic.

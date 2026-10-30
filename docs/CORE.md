@@ -13,10 +13,11 @@ Core speaks in two ways:
   reads Core's facts over the session bus. It is for what should not wait.
   Without that launcher, only the ticker is seen.
 
-Core has seven topics, each switched on and off on its own: Storage, Updates,
+Core has eight topics, each switched on and off on its own: Storage, Updates,
 Health, Windows programs (an installer arriving in Downloads), Tidy up
-Downloads (how much has piled up there), Devices and Focus (what came in
-during Do Not Disturb). Each section below gives what Core watches, the
+Downloads (how much has piled up there), Devices, Focus (what came in during
+Do Not Disturb) and Workspace Memory (bringing back the apps from the last
+sign-in). Each section below gives what Core watches, the
 Helper it can open and the words it uses.
 
 ## What holds
@@ -26,7 +27,8 @@ Helper it can open and the words it uses.
   fixed wording ("Storage · 91% full"). Ask, which does answer with a model,
   is a program of its own beside it (`ASK.md`).
 - It changes nothing on the computer. The most it does is open a Helper, where
-  the person decides.
+  the person decides, or open apps the person said yes to, as Workspace Memory
+  does.
 - Everything it keeps is a plain file in `split-rock/core` in the person's data
   folder, cut back to the last 90 days:
   - `logbook.txt`: what it saw and said, and what the person did, one line each,
@@ -42,8 +44,10 @@ Helper it can open and the words it uses.
   whole (`[General] Enabled=false`) or one topic (`[Storage] Enabled=false`,
   `[Updates] Enabled=false`, `[Health] Enabled=false`,
   `[Windows] Enabled=false`, `[Tidy] Enabled=false`,
-  `[Devices] Enabled=false`, `[Focus] Enabled=false`). Core neither watches
-  nor offers a topic that is switched off.
+  `[Devices] Enabled=false`, `[Focus] Enabled=false`,
+  `[WorkspaceMemory] Enabled=false`). Core neither watches nor offers a topic
+  that is switched off. Core writes to this file only what the person chose
+  on one of its islands: `[WorkspaceMemory] Always=true`.
 - Core starts at sign-in, from `io.github.carlsonjm.splitrock.Core.desktop` in
   the system's autostart folder, so it keeps its schedule whether or not
   anything has asked for it yet. A second start ends at once.
@@ -217,6 +221,35 @@ held instead. Each time Do Not Disturb ends is news once; the island's daily
 allowance leaves a second time the same day to the ticker. Once answered, it
 is no longer a fact.
 
+## Workspace Memory
+
+Cards, from Kadunce, remembers at sign-out which apps were open and where each
+one stood: its screen, its card, its pair. After sign-in Core asks once, on
+Search's island: "Bring back 4 apps from yesterday?", "Each one goes back to
+its place", with Bring back, Always and Not now. Bring back asks Cards to
+expect them, then launches each app as the app menu would; Cards puts each one
+back in its place as its window arrives. Not now leaves the desktop as it is
+and tells Cards to stop offering that session. Always brings them back now
+and is kept as `[WorkspaceMemory] Always=true`: from the next sign-in Core
+asks Cards straight away with no island, and the ticker says "Brought back 4
+apps", "As you left them" once they are back, or how many didn't open in
+time. Turning Always off in Settings brings the question back.
+
+Core asks Cards twenty seconds after it starts, and twice more forty seconds
+apart until Cards answers, on Kadunce's Workspace Memory calls, version 1
+(`savedSession`, `bringBack`, `dismissSavedSession`, and the
+`bringBackFinished` signal), at `org.kde.KWin`, `/Kadunce`,
+`co.goodinput.Kadunce`. Without Cards, or with a version Core doesn't know,
+nothing is said. Core launches only the apps Cards names, each once, and stops
+waiting 90 seconds after the last one arrived if Cards never says the run is
+over.
+
+Each saved session is news once, by when Cards saved it, so a Core started
+again in the same session doesn't ask twice. A second sign-in the same day, or
+one during Do Not Disturb, goes to the ticker, whose tap brings the apps
+back. A session saved more than 14 days ago is not offered. The Notice setting
+does not move it.
+
 ## Settings copies
 
 What changed says a settings change as it was made, "Built-in screen: scale
@@ -299,7 +332,7 @@ can set these limits. Below the ticker's mark it writes nothing more.
 | --- | --- |
 | `ProtocolVersion() → u` | The version, `1` |
 | `Facts() → aa{sv}` | Every fact Core has now; none for a topic switched off |
-| `Act(s topic, s action) → b` | The person answered a fact: `open` opens its Helper, `not-now` and `dismiss` quiet it, and `never`, for Windows programs, stops it for good. False for any other topic or action |
+| `Act(s topic, s action) → b` | The person answered a fact: `open` opens its Helper, `not-now` and `dismiss` quiet it, `never`, for Windows programs, stops it for good, and `always`, for Workspace Memory, brings the apps back and stops asking. False for any other topic or action |
 | `Actions() → aa{sv}` | The Helpers Search can open by their words: `id`, `title`, `sub`, `icon` and `keywords` (`as`) each |
 | `OpenAction(s id, s query) → b` | Opens that Helper on its own. `query` goes only to Install an app, which searches for it, or removes an app when it starts with "uninstall" or "remove". False for an id not listed |
 | `RemoveApp(s desktopId) → b` | Opens Install an app straight to removing the app with that desktop file id, such as `org.videolan.vlc.desktop`: it finds the package or Flatpak that owns it and waits for the person's yes. False for anything not shaped like a desktop file id |
@@ -316,7 +349,7 @@ Each fact is a dictionary of strings to variants:
 
 | Key | Type | What it is |
 | --- | --- | --- |
-| `topic` | `s` | `storage`, `updates`, `health`, `windows` or `focus` (`tidy` speaks only on the ticker and has no fact) |
+| `topic` | `s` | `storage`, `updates`, `health`, `windows`, `focus` or `memory` (`tidy` speaks only on the ticker and has no fact) |
 | `title` | `s` | `Storage`, `Updates`, `Health`, `Windows programs` |
 | `line` | `s` | `91% full`, `12 waiting`, `Up to date`, `1 problem`, `All good` |
 | `detail` | `s` | `45 GB free · filling about 2 GB a day` (the rate only when it is at least 100 MB a day), `Last updated 9 days ago` |
@@ -325,6 +358,8 @@ Each fact is a dictionary of strings to variants:
 | `problems` | `i` | Health only: how many problems |
 | `notifications` | `i` | Focus only: how many notifications came in during Do Not Disturb |
 | `program` | `s` | Windows programs only: the program the installer is for, such as `Zoom`; empty when its name gives none |
+| `apps`, `count` | `as`, `i` | Workspace Memory only: the apps' names, as the app menu gives them, and how many |
+| `choices` | `aa{sv}` | Choices beside the tap and Not now, each an `action` to pass to `Act` and the `text` its button says: Workspace Memory's `always`, "Always". A surface that doesn't show them still offers the tap and Not now |
 | `level` | `s` | `quiet`, `ticker` or `island` |
 | `attention` | `s` | `island` while the island should show it, `none` otherwise |
 | `icon` | `s` | An icon name from the icon theme |

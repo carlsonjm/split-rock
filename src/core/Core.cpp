@@ -23,6 +23,7 @@ const QString Windows = QStringLiteral("windows");
 const QString Tidy = QStringLiteral("tidy");
 const QString Devices = QStringLiteral("devices");
 const QString Focus = QStringLiteral("focus");
+const QString Memory = QStringLiteral("memory");
 
 // How many of each kind of device are kept, the latest first.
 constexpr int DevicesKept = 200;
@@ -62,9 +63,11 @@ Core::Core(const QString &folder, const QString &settings, Hooks hooks, QObject 
 bool Core::enabled(const QString &topic) const
 {
     QSettings settings(m_settings, QSettings::IniFormat);
-    // A topic's own switch, under the switch for all of Core.
+    // A topic's own switch, under the switch for all of Core. Workspace
+    // Memory's group says its whole name.
+    const QString group = topic == Memory ? QStringLiteral("WorkspaceMemory") : topic.left(1).toUpper() + topic.mid(1);
     return settings.value(QStringLiteral("General/Enabled"), true).toBool()
-        && settings.value(topic.left(1).toUpper() + topic.mid(1) + QStringLiteral("/Enabled"), true).toBool();
+        && settings.value(group + QStringLiteral("/Enabled"), true).toBool();
 }
 
 int Core::notice() const
@@ -510,6 +513,9 @@ QList<QVariantMap> Core::facts() const
     // What came in during Do Not Disturb is news only while its island is up.
     if (watchesFocus() && m_focusAttention.islandOpen)
         facts.append(focusFact());
+    // The session Cards offers is news only while its island is up.
+    if (watchesMemory() && m_sessionPending && m_memoryAttention.islandOpen)
+        facts.append(memoryFact());
     return facts;
 }
 
@@ -567,6 +573,8 @@ QVariantMap Core::storageFact() const
 
 bool Core::act(const QString &topic, const QString &action)
 {
+    if (topic == Memory)
+        return actMemory(action);
     if (topic == Health) {
         if (!enabled(Health) || !m_health.known)
             return false;
@@ -921,6 +929,14 @@ void Core::loadAttention()
     }
     m_deviceSpoken = saved.value(QStringLiteral("Spoken")).toString();
     saved.endGroup();
+    loadState(saved, QStringLiteral("Memory"), m_memoryAttention);
+    m_sessionSeen = savedTime(saved, QStringLiteral("Memory/SessionSaved"));
+    m_sessionOffers = saved.value(QStringLiteral("Memory/Offers"), 0).toInt();
+    m_sessionPending = saved.value(QStringLiteral("Memory/Pending"), false).toBool();
+    m_session.available = m_sessionPending;
+    m_session.apps = saved.value(QStringLiteral("Memory/Apps")).toStringList();
+    m_session.count = saved.value(QStringLiteral("Memory/Count"), 0).toInt();
+    m_session.when = m_sessionSeen;
 }
 
 void Core::saveAttention(const QString &topic) const
@@ -968,6 +984,16 @@ void Core::saveAttention(const QString &topic) const
     }
     if (topic == Tidy) {
         saved.setValue(QStringLiteral("Tidy/SpokenKb"), m_tidySpokenKb);
+        return;
+    }
+    if (topic == Memory) {
+        saveState(saved, QStringLiteral("Memory"), m_memoryAttention);
+        saved.setValue(QStringLiteral("Memory/SessionSaved"),
+                       m_sessionSeen.isValid() ? m_sessionSeen.toUTC().toString(Qt::ISODate) : QString());
+        saved.setValue(QStringLiteral("Memory/Offers"), m_sessionOffers);
+        saved.setValue(QStringLiteral("Memory/Pending"), m_sessionPending);
+        saved.setValue(QStringLiteral("Memory/Apps"), m_session.apps);
+        saved.setValue(QStringLiteral("Memory/Count"), m_session.count);
         return;
     }
     if (topic == Focus) {

@@ -117,9 +117,11 @@ add_library(splitrock_core_watch STATIC
     src/core/CoreService.cpp
     src/core/Devices.cpp
     src/core/Health.cpp
+    src/core/Memory.cpp
     src/core/Storage.cpp
     src/core/Updates.cpp
     src/core/Windows.cpp
+    src/core/WorkspaceMemory.cpp
 )
 target_include_directories(splitrock_core_watch PUBLIC src)
 target_link_libraries(splitrock_core_watch PUBLIC Qt6::Core Qt6::DBus splitrock_settings)

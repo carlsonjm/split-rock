@@ -6,6 +6,7 @@
 #include "core/Health.h"
 #include "core/Storage.h"
 #include "core/Updates.h"
+#include "core/WorkspaceMemory.h"
 
 #include <QDateTime>
 #include <QHash>
@@ -52,6 +53,13 @@ public:
         std::function<void(const QString &page)> openSettings;
         // Opens the notifications that came in, where the desktop keeps them.
         std::function<void()> openNotifications;
+        // Workspace Memory: asks Cards to bring back the session it offers,
+        // after the person's yes or their Always; Core hears how it went
+        // through broughtBack(). And tells Cards the person said not now.
+        std::function<void()> bringBack;
+        std::function<void()> dismissSavedSession;
+        // What the app menu calls an app, by its desktop file id.
+        std::function<QString(const QString &desktopId)> appName = [](const QString &id) { return core::appName(id); };
     };
 
     // folder: where its files are kept. settings: the person's settings file,
@@ -105,6 +113,20 @@ public:
     void notificationsSeen();
     bool watchesFocus() const;
 
+    // Workspace Memory (docs/CORE.md § Workspace Memory): the session Cards
+    // offers after sign-in. Core asks once, on the island, "Bring back 4
+    // apps from yesterday?"; once the person chose Always, it asks Cards to
+    // bring them back with no island, and the ticker says so. A session
+    // already offered is not offered again.
+    void seeSavedSession(const SavedSession &session);
+    // Cards said how the bring-back went.
+    void broughtBack(const BringBackRun &run);
+    bool watchesMemory() const;
+    // The person chose Always: [WorkspaceMemory] Always in the settings file.
+    bool bringsBackAlways() const;
+    // A session older than this is not offered.
+    static constexpr int MemoryKeepDays = 14;
+
     // How readily Core speaks, the person's Notice setting, from 0 (Less) to
     // 100 (More), 50 by default; the words "quiet" and "eager" read as 0 and
     // 100. The limits each topic holds follow it.
@@ -147,6 +169,10 @@ private:
 
     QVariantMap windowsFact() const;
     QVariantMap focusFact() const;
+    QVariantMap memoryFact() const;
+    bool actMemory(const QString &action);
+    // A settings key Core writes itself, after the person's choice.
+    void setSetting(const QString &key, const QVariant &value);
     // A fact that wanted the island while Do Not Disturb kept it to the
     // ticker, for Focus to name when Do Not Disturb ends.
     void hold(const QString &title, bool doNotDisturb, Level level, const Spoken &spoken);
@@ -203,6 +229,16 @@ private:
     QStringList m_focusHeld;
     int m_focusTimes = 0;
     Attention m_focusAttention;
+
+    // The session offered and not yet answered; when the last one Core saw
+    // was saved, so it is offered once; how many it has offered; and whether
+    // the bring-back under way came from Always, which the ticker reports.
+    SavedSession m_session;
+    bool m_sessionPending = false;
+    QDateTime m_sessionSeen;
+    int m_sessionOffers = 0;
+    bool m_memoryAlwaysRun = false;
+    Attention m_memoryAttention;
 };
 
 } // namespace splitrock::core
