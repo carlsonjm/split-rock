@@ -2,8 +2,10 @@
 #include "broker/BrokerService.h"
 
 #include "broker/Broker.h"
+#include "broker/Toolbox.h"
 
 #include <QDBusArgument>
+#include <QDBusMessage>
 #include <QDBusMetaType>
 
 namespace splitrock::broker {
@@ -78,10 +80,13 @@ QVariant BrokerService::plain(const QVariant &value)
     return value;
 }
 
-BrokerService::BrokerService(Broker *broker, QObject *parent)
+BrokerService::BrokerService(Broker *broker, Toolbox *toolbox, QObject *parent)
     : QObject(parent)
     , m_broker(broker)
+    , m_toolbox(toolbox)
 {
+    if (!m_broker)
+        return;
     connect(m_broker, &Broker::sorted, this, &BrokerService::Sorted);
     connect(m_broker, &Broker::said, this, &BrokerService::Said);
     connect(m_broker, &Broker::drafted, this, &BrokerService::Drafted);
@@ -138,6 +143,37 @@ uint BrokerService::StyleNote(const QVariantList &sent)
 void BrokerService::Cancel(uint id)
 {
     m_broker->cancel(id);
+}
+
+QVariantList BrokerService::Tools()
+{
+    return m_toolbox ? m_toolbox->tools() : QVariantList();
+}
+
+QVariantMap BrokerService::Call(const QString &tool, const QVariantMap &args, const QString &caller)
+{
+    if (!m_toolbox || !calledFromDBus())
+        return {{QStringLiteral("ok"), false}, {QStringLiteral("problem"), QStringLiteral("No tools are offered here.")}};
+    // The app answers in its own time; the reply waits for it.
+    setDelayedReply(true);
+    m_toolbox->call(tool, plain(args).toMap(), caller, answerLater());
+    return {};
+}
+
+QVariantMap BrokerService::Run(const QString &cardToken)
+{
+    if (!m_toolbox || !calledFromDBus())
+        return {{QStringLiteral("ok"), false}, {QStringLiteral("problem"), QStringLiteral("No tools are offered here.")}};
+    setDelayedReply(true);
+    m_toolbox->run(cardToken, answerLater());
+    return {};
+}
+
+std::function<void(const QVariantMap &)> BrokerService::answerLater()
+{
+    return [bus = connection(), request = message()](const QVariantMap &result) mutable {
+        bus.send(request.createReply(QVariant(result)));
+    };
 }
 
 } // namespace splitrock::broker

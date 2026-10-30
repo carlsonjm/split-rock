@@ -158,6 +158,15 @@ add_test(NAME test_broker COMMAND ${DBUS_RUN_SESSION}
     --config-file=${CMAKE_CURRENT_SOURCE_DIR}/bus/private-bus.conf -- $<TARGET_FILE:test_broker>)
 set_tests_properties(test_broker PROPERTIES ENVIRONMENT "${TEST_CORE_ENVIRONMENT}" TIMEOUT 60)
 
+# The apps' tools through the broker, against a stand-in Notes on a bus of its
+# own.
+add_executable(test_tools test_tools.cpp NotesStandIn.h)
+target_link_libraries(test_tools PRIVATE splitrock_broker Qt6::Test)
+target_compile_definitions(test_tools PRIVATE FIXTURES_DIR="${CMAKE_CURRENT_SOURCE_DIR}/fixtures")
+add_test(NAME test_tools COMMAND ${DBUS_RUN_SESSION}
+    --config-file=${CMAKE_CURRENT_SOURCE_DIR}/bus/private-bus.conf -- $<TARGET_FILE:test_tools>)
+set_tests_properties(test_tools PROPERTIES ENVIRONMENT "${TEST_CORE_ENVIRONMENT}" TIMEOUT 60)
+
 # Split Rock Settings, against Ask on a bus of the test's own.
 add_executable(test_settings_window test_settings_window.cpp)
 target_link_libraries(test_settings_window PRIVATE splitrock_ask splitrock_settings Qt6::Gui Qt6::Quick Qt6::Test)

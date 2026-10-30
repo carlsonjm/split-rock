@@ -8,6 +8,8 @@
 #include "ask/LocalModel.h"
 #include "broker/Broker.h"
 #include "broker/BrokerService.h"
+#include "broker/Toolbox.h"
+#include "tools/Capabilities.h"
 #include "codex/Agent.h"
 
 #include <QCommandLineParser>
@@ -75,7 +77,9 @@ int main(int argc, char **argv)
     broker::Broker broker(&model, setup);
 
     QDBusConnection bus = QDBusConnection::sessionBus();
-    broker::BrokerService service(&broker);
+    // The apps' tools, from the files they install beside their bus services.
+    broker::Toolbox toolbox(tools::Capabilities::defaultFolders(), bus);
+    broker::BrokerService service(&broker, &toolbox);
     if (!bus.isConnected() || !service.publish(bus)
         || !bus.registerService(QLatin1String(broker::BrokerService::Service))) {
         // Another broker already answers, or there is no bus to answer on.
@@ -91,6 +95,7 @@ int main(int argc, char **argv)
     QObject::connect(&broker, &broker::Broker::drafted, &idle, restart);
     QObject::connect(&broker, &broker::Broker::answered, &idle, restart);
     QObject::connect(&broker, &broker::Broker::failed, &idle, restart);
+    QObject::connect(&toolbox, &broker::Toolbox::used, &idle, restart);
     QObject::connect(&idle, &QTimer::timeout, &app, [&] {
         if (broker.busy()) {
             idle.start();

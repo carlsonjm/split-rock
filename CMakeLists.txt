@@ -192,6 +192,7 @@ add_library(splitrock_broker STATIC
     src/broker/Broker.cpp
     src/broker/BrokerService.cpp
     src/broker/CodexTask.cpp
+    src/broker/Toolbox.cpp
 )
 target_include_directories(splitrock_broker PUBLIC src)
 target_link_libraries(splitrock_broker PUBLIC splitrock_ask splitrock_codex Qt6::Core Qt6::DBus Qt6::Network)
@@ -208,6 +209,13 @@ configure_file(data/io.github.carlsonjm.splitrock.Broker.service.in
 install(FILES ${CMAKE_CURRENT_BINARY_DIR}/data/io.github.carlsonjm.splitrock.Broker.service
     DESTINATION ${CMAKE_INSTALL_DATADIR}/dbus-1/services)
 
+# The apps' tools (docs/BROKER.md § Tools): the files the apps describe them in,
+# and the checks each call passes, for the broker, Ask and Codex alike.
+add_library(splitrock_tools STATIC src/tools/Capabilities.cpp)
+target_include_directories(splitrock_tools PUBLIC src)
+target_link_libraries(splitrock_tools PUBLIC Qt6::Core)
+target_compile_options(splitrock_tools PRIVATE -Wall -Wextra)
+
 # Codex, for the bigger questions (docs/ASK.md, Codex): its Agent Client
 # Protocol client, and the conversation in its own window, in the fence Ask's
 # engine runs in.
@@ -220,7 +228,7 @@ add_library(splitrock_codex STATIC
     src/codex/Chat.cpp
 )
 target_include_directories(splitrock_codex PUBLIC src)
-target_link_libraries(splitrock_codex PUBLIC splitrock_core Qt6::Core)
+target_link_libraries(splitrock_codex PUBLIC splitrock_core splitrock_tools Qt6::Core Qt6::DBus Qt6::Network)
 target_compile_options(splitrock_codex PRIVATE -Wall -Wextra)
 target_compile_definitions(splitrock_codex PUBLIC
     # Where Shuffle's own copy of Codex's adapter is installed.
