@@ -22,36 +22,15 @@ Skill SkillShelf::parse(const QString &path, const QString &text, const QString 
     skill.path = path;
 
     const QStringList lines = text.split(QLatin1Char('\n'));
-    if (lines.isEmpty() || lines.first() != QLatin1String("---") || lines.indexOf(QStringLiteral("---"), 1) < 0) {
-        *problem = QStringLiteral("no header");
+    FileHeader header;
+    if (!readHeader(lines, &header, problem))
         return {};
-    }
-    const int end = int(lines.indexOf(QStringLiteral("---"), 1));
-    static const QRegularExpression pair(QStringLiteral("^([a-z]+):\\s*(.*)$"));
-    static const QRegularExpression item(QStringLiteral("^\\s+-\\s+(.*)$"));
-    QString key;
-    int format = 0;
-    for (int i = 1; i < end; ++i) {
-        const QString &line = lines.at(i);
-        const QRegularExpressionMatch listItem = item.match(line);
-        if (listItem.hasMatch() && key == QLatin1String("also")) {
-            skill.also.append(listItem.captured(1).trimmed());
-            continue;
-        }
-        const QRegularExpressionMatch match = pair.match(line);
-        if (!match.hasMatch())
-            continue;
-        key = match.captured(1);
-        const QString value = match.captured(2).trimmed();
-        if (key == QLatin1String("id"))
-            skill.id = value;
-        else if (key == QLatin1String("title"))
-            skill.title = value;
-        else if (key == QLatin1String("checked"))
-            skill.checked = value;
-        else if (key == QLatin1String("format"))
-            format = value.toInt();
-    }
+    const int end = header.end;
+    skill.id = header.fields.value(QStringLiteral("id"));
+    skill.title = header.fields.value(QStringLiteral("title"));
+    skill.checked = header.fields.value(QStringLiteral("checked"));
+    skill.also = header.also;
+    const int format = header.fields.value(QStringLiteral("format")).toInt();
     if (format != Format) {
         *problem = QStringLiteral("format %1 is not one this reader knows").arg(format);
         return {};
