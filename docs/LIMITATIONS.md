@@ -49,9 +49,6 @@ What Split Rock does not do yet, and what it will not do.
   `mcpServers` and asks before each call with the title `mcp.apps.<tool>`, as
   read from its source, but no real Codex has yet started
   `split-rock-tools-mcp` in the fence, listed its tools or had a call allowed.
-- When Ask finds where something was written down, it names the note but
-  can't open it with one tap: Search has no way yet to show a tap that opens
-  a note from Ask's answer.
 - Search shows no Do it card from Ask yet, so a card from an app's tool, such
   as saving an answer to Notes, waits for Search to show it and hand its token
   to the broker's `Run`.

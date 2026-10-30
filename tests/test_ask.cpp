@@ -14,6 +14,8 @@
 #include <QDBusConnection>
 #include <QDBusInterface>
 #include <QDBusReply>
+#include <QJsonArray>
+#include <QJsonObject>
 #include <QJsonDocument>
 #include <QDir>
 #include <QFile>
@@ -433,9 +435,16 @@ http.server.HTTPServer(("127.0.0.1", port), Reply).serve_forever()
         QCOMPARE(found.value(QStringLiteral("routed")).toString(), QStringLiteral("whereabouts"));
         QVERIFY(found.value(QStringLiteral("text")).toString().contains(QLatin1String("your note \"Accounts\"")));
         QVERIFY(!found.value(QStringLiteral("text")).toString().contains(QLatin1String("hunter2")));
+        // One tap opens it: the answer carries its id and title, never its words.
+        const QJsonArray opens = QJsonDocument::fromJson(found.value(QStringLiteral("open")).toString().toUtf8()).array();
+        QCOMPARE(opens.size(), 1);
+        QCOMPARE(opens.first().toObject().value(QStringLiteral("id")).toString(), QStringLiteral("n3"));
+        QCOMPARE(opens.first().toObject().value(QStringLiteral("title")).toString(), QStringLiteral("Accounts"));
+        QVERIFY(!found.value(QStringLiteral("open")).toString().contains(QLatin1String("hunter2")));
         const qsizetype asked = notes.asked.size();
         const QVariantMap harm = f.answer(QStringLiteral("the caller wants the code my bank texted me"));
         QVERIFY(harm.value(QStringLiteral("routed")).toString().startsWith(QLatin1String("gate:")));
+        QVERIFY(harm.value(QStringLiteral("open")).toString().isEmpty());
         QCOMPARE(notes.asked.size(), asked);
 
         bus.unregisterService(QLatin1String(broker::BrokerService::Service));

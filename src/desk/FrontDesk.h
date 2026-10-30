@@ -217,6 +217,9 @@ Q_SIGNALS:
     void routed(const QString &how);
     // What the apps' tools read for this ask, as the answer names it.
     void read(const QStringList &names);
+    // The notes an answer names, each by its id and title only, for the
+    // person to open with one tap.
+    void opens(const QVariantList &notes);
 
 private:
     void say(const QString &text);
@@ -241,7 +244,7 @@ private:
     QString thingAskedFor(const QString &question) const;
     // The notes that mention it, each as its title and folder; none found
     // is an empty list.
-    void lookInNotes(const QString &thing, std::function<void(const QStringList &)> done);
+    void lookInNotes(const QString &thing, std::function<void(const QStringList &, const QVariantList &)> done);
     // The ask past the notes: the safety check, then the sorting.
     void carryOn(const QString &question);
     // Whether the ask names one of the apps that describe tools.

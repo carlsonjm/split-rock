@@ -129,6 +129,7 @@ private:
     QString m_query;
     QJsonObject m_doIt;
     QStringList m_read;
+    QVariantList m_opens;
     // The apps' tools as the broker gave them for this question.
     QList<tools::Tool> m_appTools;
     // The last answer in words, which "save this answer" keeps.

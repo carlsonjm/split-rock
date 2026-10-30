@@ -291,6 +291,7 @@ uint Ask::ask(const QString &question)
     m_query.clear();
     m_doIt = {};
     m_read.clear();
+    m_opens.clear();
     // Answered once the caller has the id.
     QMetaObject::invokeMethod(this, [this, id] {
         if (m_current != id)
@@ -425,6 +426,7 @@ void Ask::engineUp()
         qInfo().noquote() << QStringLiteral("split-rock-ask: routed: ") + how;
     });
     connect(m_desk.get(), &desk::FrontDesk::read, this, [this](const QStringList &names) { m_read = names; });
+    connect(m_desk.get(), &desk::FrontDesk::opens, this, [this](const QVariantList &notes) { m_opens = notes; });
     connect(m_desk.get(), &desk::FrontDesk::finished, this, [this](bool handOff) {
         if (!m_cancelling)
             finish({{QStringLiteral("handOff"), handOff}});
@@ -465,6 +467,12 @@ void Ask::finish(QVariantMap result)
     if (!result.contains(QStringLiteral("handOff")))
         result.insert(QStringLiteral("handOff"), false);
     result.insert(QStringLiteral("read"), m_read);
+    // The notes named, by id and title, as JSON like "doIt": Search offers
+    // each as an Open pill. Never their words.
+    result.insert(QStringLiteral("open"),
+                  m_opens.isEmpty() ? QString()
+                                    : QString::fromUtf8(QJsonDocument(QJsonArray::fromVariantList(m_opens))
+                                                            .toJson(QJsonDocument::Compact)));
     // An answer in words is what "save this answer" keeps next.
     if (m_doIt.isEmpty() && !m_said.trimmed().isEmpty()
         && (m_routed.startsWith(QLatin1String("answer")) || m_routed.startsWith(QLatin1String("tools: answered"))))

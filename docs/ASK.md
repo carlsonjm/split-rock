@@ -233,6 +233,7 @@ Name `io.github.carlsonjm.splitrock.Ask`, object `/Ask`, interface
 | `query` | What Install an app looks for |
 | `doIt` | A Do it card, as JSON, or empty: from a settings skill, with its `command`; or from an app's tool, with `tool`, `app`, `args` and the `token` the surface hands to the broker's `Run` after the tap |
 | `read` | What the apps' tools read for the answer, by name, such as each note's title |
+| `open` | The notes a `whereabouts` answer names, as a JSON array of `id` and `title`, or empty; Search offers each as one tap that opens it in Notes. Never their words |
 | `handOff` | A bigger change, which Codex, signed in, can take |
 | `handedToCodex` | It went straight on to Codex, as the person switched on |
 | `needsModel` | The model isn't downloaded yet; `text` says what it needs |

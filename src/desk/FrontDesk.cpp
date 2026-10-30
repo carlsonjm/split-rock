@@ -815,7 +815,7 @@ void FrontDesk::ask(const QString &question)
     // as any other.
     if (const QString thing = thingAskedFor(question); !thing.isEmpty() && !Gate::harmful(question)) {
         const int generation = m_generation;
-        lookInNotes(thing, [this, generation, question](const QStringList &places) {
+        lookInNotes(thing, [this, generation, question](const QStringList &places, const QVariantList &notes) {
             if (generation != m_generation)
                 return;
             if (places.isEmpty()) {
@@ -823,6 +823,7 @@ void FrontDesk::ask(const QString &question)
                 return;
             }
             Q_EMIT routed(QStringLiteral("whereabouts"));
+            Q_EMIT opens(notes);
             say(places.size() == 1
                     ? QStringLiteral("You wrote it down in your note %1. I won't show what it says here; open the "
                                      "note in Notes to see it.").arg(places.first())
@@ -1142,7 +1143,7 @@ QString FrontDesk::thingAskedFor(const QString &question) const
     return thing.size() >= 3 && thing.count(QLatin1Char(' ')) < 4 ? thing : QString();
 }
 
-void FrontDesk::lookInNotes(const QString &thing, std::function<void(const QStringList &)> done)
+void FrontDesk::lookInNotes(const QString &thing, std::function<void(const QStringList &, const QVariantList &)> done)
 {
     const auto search = std::find_if(m_context.appTools.cbegin(), m_context.appTools.cend(), [](const tools::Tool &tool) {
         return tool.risk == QLatin1String("read") && tool.name.endsWith(QLatin1String(".search"));
@@ -1161,11 +1162,12 @@ void FrontDesk::lookInNotes(const QString &thing, std::function<void(const QStri
     auto next = std::make_shared<std::function<void(int)>>();
     *next = [this, name, tries, done, next](int at) {
         if (at >= tries.size()) {
-            done({});
+            done({}, {});
             return;
         }
         m_tools->callTool(name, {{QStringLiteral("words"), tries.at(at)}}, [done, next, at](const QVariantMap &reply) {
             QStringList places;
+            QVariantList notes;
             if (reply.value(QStringLiteral("ok")).toBool()) {
                 for (const QVariant &item : reply.value(QStringLiteral("result")).toList()) {
                     const QVariantMap note = item.toMap();
@@ -1175,14 +1177,18 @@ void FrontDesk::lookInNotes(const QString &thing, std::function<void(const QStri
                         continue;
                     const QString place = folder.isEmpty() ? QStringLiteral("\"%1\"").arg(title)
                                                            : QStringLiteral("\"%1\" (in %2)").arg(title, folder);
-                    if (!places.contains(place) && places.size() < 3)
+                    if (!places.contains(place) && places.size() < 3) {
                         places.append(place);
+                        const QString id = note.value(QStringLiteral("id")).toString();
+                        if (!id.isEmpty())
+                            notes.append(QVariantMap{{QStringLiteral("id"), id}, {QStringLiteral("title"), title}});
+                    }
                 }
             }
             if (places.isEmpty())
                 (*next)(at + 1);
             else
-                done(places);
+                done(places, notes);
         });
     };
     (*next)(0);
