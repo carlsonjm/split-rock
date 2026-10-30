@@ -196,6 +196,9 @@ private Q_SLOTS:
         QCOMPARE(window->title(), QStringLiteral("Free up space"));
         QTRY_COMPARE(space->stage(), QStringLiteral("ready"));
         QTRY_VERIFY(find(window.get(), QStringLiteral("spaceCard")) && find(window.get(), QStringLiteral("spaceCard"))->isVisible());
+        // Once it has looked, the window's name carries the card's one fact,
+        // which Shuffle's Context Bar shows beside the name.
+        QCOMPARE(window->title(), QStringLiteral("Free up space · 46 GB free"));
         settle();
         QVERIFY(overflowing(window.get()).isEmpty());
         shoot(window.get(), QStringLiteral("60-space-on-its-own"));
@@ -237,6 +240,7 @@ private Q_SLOTS:
             QTRY_VERIFY2(find(window.get(), QString::fromLatin1(card.card)) && find(window.get(), QString::fromLatin1(card.card))->isVisible(), card.name);
             QObject *job = c.property(card.name).value<QObject *>();
             QTRY_COMPARE(job->property("stage").toString(), QString::fromLatin1(card.stage));
+            QVERIFY2(window->title().startsWith(QString::fromLatin1(card.title)), card.name);
             settle();
             QVERIFY2(overflowing(window.get()).isEmpty(), card.name);
             shoot(window.get(), QStringLiteral("61-") + name + QStringLiteral("-on-its-own"));
@@ -253,8 +257,25 @@ private Q_SLOTS:
         QTRY_COMPARE(space->stage(), QStringLiteral("ready"));
         settle();
         QVERIFY(window->isVisible());
-        QCOMPARE(window->title(), QStringLiteral("Free up space"));
+        QCOMPARE(window->title(), QStringLiteral("Free up space · 46 GB free"));
         QVERIFY(find(window.get(), QStringLiteral("spaceCard")) && find(window.get(), QStringLiteral("spaceCard"))->isVisible());
+        QMetaObject::invokeMethod(space, "close");
+        QTRY_VERIFY(!window->isVisible());
+
+        // Update and Health check put their count after the name, and say
+        // nothing more when there is nothing to count.
+        QVERIFY(c.openChore(QStringLiteral("update")));
+        window->show();
+        QTRY_COMPARE(update->stage(), QStringLiteral("ready"));
+        QVERIFY(update->waiting() > 0);
+        QTRY_COMPARE(window->title(), QStringLiteral("Update · %1 waiting").arg(update->waiting()));
+        QMetaObject::invokeMethod(update, "close");
+        QTRY_VERIFY(!window->isVisible());
+        QVERIFY(c.openChore(QStringLiteral("health")));
+        window->show();
+        QTRY_COMPARE(c.healthCheck()->property("stage").toString(), QStringLiteral("done"));
+        const int attention = c.healthCheck()->attention();
+        QTRY_COMPARE(window->title(), attention > 0 ? QStringLiteral("Health check · %1 to look at").arg(attention) : QStringLiteral("Health check"));
     }
 
     void theHelpersShowEachStep()
