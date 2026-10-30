@@ -10,7 +10,8 @@
 //
 // It also looks over the computer's health once a week, with Split Rock's own
 // `split-rock --health-facts`, and, on the system bus, for a printer, a drive
-// or a Bluetooth device it hasn't seen before. It keeps a copy of the
+// or a Bluetooth device it hasn't seen before, and in the kernel's own folders
+// for a game controller or a screen. It keeps a copy of the
 // desktop's settings files, to tell What changed exactly what changed in them
 // and since when (src/settings/SettingsHistory.h).
 //
@@ -682,6 +683,31 @@ int main(int argc, char **argv)
     QTimer::singleShot(std::chrono::seconds(30), &desk, [&devices, &desk] {
         if (desk.watchesDevices())
             devices.start();
+    });
+    // Game controllers and screens are read from the kernel's own folders,
+    // which cost a few small reads: when a node comes or goes in /dev/input,
+    // and every half minute, since a screen plugged in says so nowhere Core
+    // can watch without the desktop's own display service.
+    const auto listLocal = [&desk] {
+        if (!desk.watchesDevices())
+            return;
+        desk.seeDevices(DeviceKind::Controller, controllersIn());
+        desk.seeDevices(DeviceKind::Screen, screensIn());
+    };
+    QFileSystemWatcher inputWatcher;
+    if (QFileInfo(QStringLiteral("/dev/input")).isDir())
+        inputWatcher.addPath(QStringLiteral("/dev/input"));
+    QTimer inputSettled;
+    inputSettled.setSingleShot(true);
+    inputSettled.setInterval(std::chrono::seconds(3));
+    QObject::connect(&inputWatcher, &QFileSystemWatcher::directoryChanged, &desk, [&inputSettled] { inputSettled.start(); });
+    QObject::connect(&inputSettled, &QTimer::timeout, &desk, listLocal);
+    QTimer localEvery;
+    localEvery.setInterval(std::chrono::seconds(30));
+    QObject::connect(&localEvery, &QTimer::timeout, &desk, listLocal);
+    QTimer::singleShot(std::chrono::seconds(30), &desk, [&localEvery, listLocal] {
+        listLocal();
+        localEvery.start();
     });
 
     // Settings, such as how readily Core speaks, take effect when they are

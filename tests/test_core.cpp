@@ -611,6 +611,23 @@ private Q_SLOTS:
         QVERIFY(d.logbook().contains(QStringLiteral("Health  Showed the island: 2 problems")));
     }
 
+    void aWornBatterySpeaksOnceAtTheTickerNeverTheIsland()
+    {
+        Desk d;
+        d.health({});
+        d.now = d.now.addDays(HealthEveryDays);
+        const QString worn = QStringLiteral("problem\tbattery\tBattery\tHolds 64% of its original charge. It runs out "
+                                            "sooner than it did new.\n");
+        d.core->seeHealth(readHealthFacts(worn, d.now));
+        QCOMPARE(d.ticker.size(), 1);
+        QVERIFY(d.ticker.first().startsWith(QStringLiteral("Health · 1 problem | Battery: Holds 64%")));
+        QCOMPARE(d.fact(QStringLiteral("health")).value(QStringLiteral("attention")).toString(), QStringLiteral("none"));
+        // The next week's look, still worn, is not news.
+        d.now = d.now.addDays(HealthEveryDays);
+        d.core->seeHealth(readHealthFacts(worn, d.now));
+        QCOMPARE(d.ticker.size(), 1);
+    }
+
     void healthLooksAgainAfterAWeekAndSurvivesARestart()
     {
         Desk d;
@@ -861,6 +878,80 @@ private Q_SLOTS:
         d.core->seeDevices(DeviceKind::Bluetooth, {{DeviceKind::Bluetooth, QStringLiteral("AC:80"), QStringLiteral("WH-1000XM4")}});
         QCOMPARE(d.ticker.size(), 2);
         QVERIFY(d.logbook().contains(QStringLiteral("Devices  New Bluetooth device: WH-1000XM4.")));
+    }
+
+    void controllersAndScreensAreReadFromTheKernelsFolders()
+    {
+        QTemporaryDir sys;
+        const auto put = [&sys](const QString &path, const QByteArray &bytes) {
+            QDir().mkpath(QFileInfo(sys.filePath(path)).absolutePath());
+            QFile file(sys.filePath(path));
+            QVERIFY(file.open(QIODevice::WriteOnly));
+            file.write(bytes);
+        };
+        // A game pad, and a keyboard's event node beside it that is no
+        // controller.
+        put(QStringLiteral("input/js0/device/name"), "Xbox Wireless Controller\n");
+        put(QStringLiteral("input/js0/device/id/vendor"), "045e\n");
+        put(QStringLiteral("input/js0/device/id/product"), "0b13\n");
+        put(QStringLiteral("input/js0/device/uniq"), "98:7a:14:00:00:01\n");
+        put(QStringLiteral("input/event3/device/name"), "AT Translated Set 2 keyboard\n");
+        const QList<Device> pads = controllersIn(sys.filePath(QStringLiteral("input")));
+        QCOMPARE(pads.size(), 1);
+        QCOMPARE(pads.first().kind, DeviceKind::Controller);
+        QCOMPARE(pads.first().name, QStringLiteral("Xbox Wireless Controller"));
+        QCOMPARE(pads.first().id, QStringLiteral("045e:0b13:98:7a:14:00:00:01"));
+
+        // A screen's EDID: maker DEL, model 0xa0f1, its name in a 0xFC
+        // descriptor.
+        QByteArray edid(128, '\0');
+        const QByteArray header("\x00\xff\xff\xff\xff\xff\xff\x00", 8);
+        edid.replace(0, 8, header);
+        const quint16 maker = ('D' - 'A' + 1) << 10 | ('E' - 'A' + 1) << 5 | ('L' - 'A' + 1);
+        edid[8] = char(maker >> 8);
+        edid[9] = char(maker & 0xff);
+        edid[10] = char(0xf1);
+        edid[11] = char(0xa0);
+        edid[12] = 0x2a;
+        const QByteArray named = QByteArray("\x00\x00\x00\xfc\x00", 5) + QByteArray("DELL U2723QE\n");
+        edid.replace(72, named.size(), named);
+        const auto dell = screenFrom(edid, QStringLiteral("DP-1"));
+        QVERIFY(dell);
+        QCOMPARE(dell->name, QStringLiteral("DELL U2723QE"));
+        QCOMPARE(dell->id, QStringLiteral("DEL-a0f1-42"));
+        QVERIFY(!screenFrom(QByteArray(20, '\0'), QStringLiteral("DP-1")));
+
+        put(QStringLiteral("drm/card1-eDP-1/status"), "connected\n");
+        put(QStringLiteral("drm/card1-eDP-1/edid"), QByteArray(edid).replace(12, 1, "\x01"));
+        put(QStringLiteral("drm/card1-DP-1/status"), "connected\n");
+        put(QStringLiteral("drm/card1-DP-1/edid"), edid);
+        put(QStringLiteral("drm/card1-HDMI-A-1/status"), "disconnected\n");
+        put(QStringLiteral("drm/card1-HDMI-A-1/edid"), QByteArray());
+        const QList<Device> screens = screensIn(sys.filePath(QStringLiteral("drm")));
+        QCOMPARE(screens.size(), 2);
+
+        // Through Core: what is there at first is known; a screen plugged in
+        // later is news, and opens Display Configuration.
+        Desk d;
+        d.settingsInstalled << QStringLiteral("kcm_kscreen") << QStringLiteral("kcm_gamecontroller");
+        d.core->seeDevices(DeviceKind::Screen, {screens.first()});
+        d.core->seeDevices(DeviceKind::Controller, {});
+        QVERIFY(d.logbook().contains(QStringLiteral("Devices  Looked at the screens here: 1 known.")));
+        QVERIFY(d.logbook().contains(QStringLiteral("Devices  Looked at the game controllers here: 0 known.")));
+        d.core->seeDevices(DeviceKind::Screen, screens);
+        QCOMPARE(d.ticker, QStringList{QStringLiteral("New screen · Set it up | DELL U2723QE")});
+        QVERIFY(d.core->act(QStringLiteral("devices"), QStringLiteral("open")));
+        QCOMPARE(d.settingsOpened.last(), QStringLiteral("kcm_kscreen"));
+        d.core->seeDevices(DeviceKind::Controller, pads);
+        QCOMPARE(d.ticker.last(), QStringLiteral("New game controller · Set it up | Xbox Wireless Controller"));
+        // Known across a restart, and the tap still opens the right page.
+        d.make();
+        d.core->seeDevices(DeviceKind::Controller, pads);
+        d.core->seeDevices(DeviceKind::Screen, screens);
+        QCOMPARE(d.ticker.size(), 2);
+        QVERIFY(d.core->act(QStringLiteral("devices"), QStringLiteral("open")));
+        QCOMPARE(d.settingsOpened.last(), QStringLiteral("kcm_gamecontroller"));
+        QVERIFY(d.logbook().contains(QStringLiteral("Devices  You opened the game controller settings.")));
     }
 
     void devicesSwitchedOffAreSilent()

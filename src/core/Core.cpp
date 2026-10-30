@@ -367,7 +367,7 @@ void Core::seeDevices(DeviceKind kind, const QList<Device> &present)
     }
     if (first)
         write(QStringLiteral("Devices  Looked at the %1 here: %2 known.")
-                  .arg(kind == DeviceKind::Bluetooth ? QStringLiteral("Bluetooth devices") : name + QLatin1Char('s'))
+                  .arg(deviceKindPlural(kind))
                   .arg(known.size()));
     if (known.size() > DevicesKept)
         known.resize(DevicesKept);
@@ -589,12 +589,11 @@ bool Core::act(const QString &topic, const QString &action)
     if (topic == Devices) {
         if (!watchesDevices() || m_deviceSpoken.isEmpty() || action != QLatin1String("open"))
             return false;
-        const DeviceKind kind = m_deviceSpoken == QLatin1String("printer") ? DeviceKind::Printer
-            : m_deviceSpoken == QLatin1String("bluetooth")                ? DeviceKind::Bluetooth
-                                                                          : DeviceKind::Drive;
-        write(QStringLiteral("Devices  You opened the %1 settings.").arg(m_deviceSpoken == QLatin1String("bluetooth")
-                                                                          ? QStringLiteral("Bluetooth")
-                                                                          : m_deviceSpoken));
+        const DeviceKind kind = deviceKindNamed(m_deviceSpoken);
+        write(QStringLiteral("Devices  You opened the %1 settings.")
+                  .arg(kind == DeviceKind::Bluetooth    ? QStringLiteral("Bluetooth")
+                       : kind == DeviceKind::Controller ? QStringLiteral("game controller")
+                                                        : m_deviceSpoken));
         if (m_hooks.openSettings)
             m_hooks.openSettings(deviceSettingsPage(kind));
         return true;
@@ -915,7 +914,8 @@ void Core::loadAttention()
     m_focusHeld = saved.value(QStringLiteral("Focus/Held")).toStringList();
     m_focusTimes = saved.value(QStringLiteral("Focus/Times"), 0).toInt();
     saved.beginGroup(QStringLiteral("Devices"));
-    for (const QString &kind : {QStringLiteral("printer"), QStringLiteral("drive"), QStringLiteral("bluetooth")}) {
+    for (DeviceKind each : DeviceKinds) {
+        const QString kind = deviceKindName(each);
         if (saved.contains(kind))
             m_devicesKnown.insert(kind, saved.value(kind).toStringList());
     }

@@ -731,7 +731,6 @@ private Q_SLOTS:
         QCOMPARE(byId.value(QStringLiteral("space")).action, QStringLiteral("space"));
         QCOMPARE(byId.value(QStringLiteral("drive")).state, QStringLiteral("good"));
         QVERIFY(byId.value(QStringLiteral("battery")).detail.contains(QStringLiteral("86%")));
-        QVERIFY(byId.value(QStringLiteral("battery")).detail.contains(QStringLiteral("312 charges")));
         QCOMPARE(byId.value(QStringLiteral("updates")).state, QStringLiteral("warn"));
         QCOMPARE(byId.value(QStringLiteral("updates")).action, QStringLiteral("update"));
         QCOMPARE(byId.value(QStringLiteral("restore")).state, QStringLiteral("good"));

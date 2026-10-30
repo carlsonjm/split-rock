@@ -97,6 +97,13 @@ target_compile_definitions(test_ask PRIVATE PROJECT_DIR="${PROJECT_SOURCE_DIR}")
 add_test(NAME test_ask COMMAND ${DBUS_RUN_SESSION}
     --config-file=${CMAKE_CURRENT_SOURCE_DIR}/bus/private-bus.conf -- $<TARGET_FILE:test_ask>)
 set_tests_properties(test_ask PROPERTIES ENVIRONMENT "${TEST_CORE_ENVIRONMENT}" TIMEOUT 60)
+# The Health check's Battery row, against a power supply folder of its own and
+# a stand-in UPower on a bus of its own.
+add_executable(test_battery test_battery.cpp)
+target_link_libraries(test_battery PRIVATE splitrock_core Qt6::DBus Qt6::Test)
+add_test(NAME test_battery COMMAND ${DBUS_RUN_SESSION}
+    --config-file=${CMAKE_CURRENT_SOURCE_DIR}/bus/private-bus.conf -- $<TARGET_FILE:test_battery>)
+set_tests_properties(test_battery PROPERTIES ENVIRONMENT "${TEST_CORE_ENVIRONMENT}" TIMEOUT 60)
 
 # The Helpers' window and its cards.
 split_rock_test(test_sheet)

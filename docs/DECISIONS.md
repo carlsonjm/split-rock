@@ -1287,3 +1287,29 @@ Rejected: a time estimate from a guessed speed, which misleads on a slower
 connection; offering the download without the engine, which fetches 2.5 GB
 that can't run; and sending a question to Codex as typing pauses under Codex
 only, which would send words the person never meant to send.
+
+## The battery's wear is a Health row, and two more kinds of device are news
+
+Where the computer has a battery that says what it holds, the Health check
+shows a Battery row in plain words: "Holds 87% of its original charge". Under
+70%, or with a fault the battery reports itself, the row is a problem with
+Copy for help, and Core's weekly Health look speaks of it once on the ticker,
+as of any other problem. It never takes the island; a worn battery loses no
+files. The kernel's own power supply folder is read first, UPower where that
+folder says nothing. Devices also names a game controller and a screen the
+first time each is plugged in, with the same one ticker line, opening KDE's
+Game Controller or Display Configuration page.
+
+Why: the 20 Oct order put battery wear first among the wider Devices, as a
+Health row where the computer reports it, and then controllers and second
+screens. People leaving Windows on a laptop or a tablet notice a battery that
+runs down sooner, and nothing told them how worn it was. A row drawn like
+every other Health row, rather than a new surface, keeps it where they
+already look.
+
+Rejected: a ticker line of its own for battery wear, which would speak of a
+slow change as if it were news; a "worth a look" step between good and
+problem, which would make normal ageing sound like something to act on; the
+island; reading a controller or a screen through a desktop service, which
+would tie Core to one desktop's display server, where the kernel's folders
+say the same on any of them.

@@ -14,7 +14,11 @@ What Split Rock does not do yet, and what it will not do.
   not yet on a freshly installed one.
 - English only.
 - Core's Devices topic has been run against stand-ins for UDisks2, BlueZ and
-  systemd, not yet with a real printer.
+  systemd, not yet with a real printer. Game controllers and second screens
+  have been run against a stand-in of the kernel's folders, not yet with a
+  real controller or monitor.
+- The Health check's Battery row has been run against a stand-in power supply
+  folder and a stand-in UPower, not yet on a computer whose battery has worn.
 - Ask's front desk has been tested against a pretend model here. Its last
   trial against the real model was before it became a program of its own;
   `tools/desk-trial/` runs it again on a computer that has the model.

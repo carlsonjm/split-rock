@@ -129,7 +129,7 @@ int healthReport(int argc, char **argv, bool facts)
         std::fputs("Health check: the look stopped before its end.\n", stderr);
         return 1;
     }
-    const auto items = splitrock::HealthCheck::readLook(output);
+    const auto items = splitrock::HealthCheck::readLook(output + splitrock::HealthCheck::batteryLook());
     const QString printed = facts ? splitrock::HealthCheck::facts(items) : splitrock::HealthCheck::report(items);
     std::fputs(printed.toUtf8().constData(), stdout);
     return 0;

@@ -113,6 +113,15 @@ The step is one problem: Health speaks again only when there is a problem
 more, and Not now quiets it until then. No problems counts as settled. The
 Notice setting does not move Health: a problem is a problem.
 
+The Health check has a Battery row wherever the computer has a battery that
+says what it holds: "Holds 87% of its original charge". It
+reads the kernel's own power supply folder, and UPower where that folder says
+nothing, and leaves out the batteries of a mouse, a pen or a controller. Under
+70% of its original charge, or with a fault the battery itself reports, such
+as overheating, the row is a problem with Copy for help, and Core's weekly
+look speaks of it once on the ticker like any other problem; never the
+island. A computer with no battery has no row.
+
 A problem no Helper fixes says "Copy for help" on the Health check. A tap
 copies the problem, written as a question, with the computer's maker and
 model, its system, its Linux kernel and Plasma's version, to paste in a forum
@@ -153,11 +162,12 @@ row that opens it, never ticked.
 
 ## Devices
 
-The first time the computer sees a printer, a drive that can be unplugged or
-a Bluetooth device once it is paired, Core says so once, at the ticker: "New
-printer · Set it up", with the device's own name under it, such as "LaserJet
-M110we". Tapping it opens KDE's own settings page for that kind of device:
-Printers, Removable Storage or Bluetooth. It never takes the island, has no
+The first time the computer sees a printer, a drive that can be unplugged,
+a Bluetooth device once it is paired, a game controller or a screen, Core
+says so once, at the ticker: "New printer · Set it up", with the device's own
+name under it, such as "LaserJet M110we". Tapping it opens KDE's own settings
+page for that kind of device: Printers, Removable Storage, Bluetooth, Game
+Controller or Display Configuration. It never takes the island, has no
 fact on the bus, and speaks during Do Not Disturb too, as only the ticker does.
 
 Core reads the system bus and changes nothing there: UDisks2's drives that
@@ -168,6 +178,15 @@ seconds after the bus says something about that kind changed. The first time
 Core lists a kind, what is already there is known without a word, so only
 what arrives afterwards is new. A drive is known by its id, a Bluetooth device
 by its address and a printer by its model; Core keeps the last 200 of each.
+
+Game controllers and screens are read from the kernel's own folders instead:
+each joystick in `/sys/class/input`, known by its maker's and model's numbers
+and its serial, and each connector in `/sys/class/drm` that says it is
+connected, known by the maker, model and serial in the screen's EDID and named
+by the name the screen gives itself there. Core lists both when a device
+comes or goes in `/dev/input`, and every half minute, which costs a few small
+reads. The built-in screen is there at the first look, so it is known without
+a word.
 Where a kind's settings page isn't installed, as on a desktop without Plasma's
 printer settings, the logbook alone records the new device.
 

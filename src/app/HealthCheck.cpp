@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 #include "app/HealthCheck.h"
 
+#include "app/Battery.h"
 #include "app/Product.h"
 #include "app/RestorePoints.h"
 
@@ -35,14 +36,6 @@ df -Pk / 2>/dev/null | awk 'NR==2 {print $2, $4}'
 echo "@@ drive"
 command -v udisksctl >/dev/null 2>&1 && udisksctl dump 2>/dev/null \
     | grep -E '^[[:space:]]*(SmartFailing|SmartCriticalWarning|SmartPercentUsed):'
-echo "@@ battery"
-for d in /sys/class/power_supply/*; do
-    [ "$(cat "$d/type" 2>/dev/null)" = Battery ] || continue
-    [ "$(cat "$d/scope" 2>/dev/null)" = Device ] && continue
-    full=$(cat "$d/energy_full" 2>/dev/null || cat "$d/charge_full" 2>/dev/null)
-    design=$(cat "$d/energy_full_design" 2>/dev/null || cat "$d/charge_full_design" 2>/dev/null)
-    echo "$full $design $(cat "$d/cycle_count" 2>/dev/null)"
-done
 echo "@@ lastupdate"
 grep -a "starting full system upgrade" /var/log/pacman.log 2>/dev/null | tail -n 1
 echo "@@ snapper"
@@ -177,7 +170,8 @@ QString HealthCheck::tile(const Item &item)
         return item.state == QLatin1String("bad") ? QStringLiteral("The drive reports a problem")
                                                   : QStringLiteral("The drive is wearing out");
     if (item.id == QLatin1String("battery"))
-        return QStringLiteral("The battery has worn down");
+        return item.question.contains(QLatin1String("fault")) ? QStringLiteral("The battery reports a fault")
+                                                               : QStringLiteral("The battery has worn down");
     if (item.id == QLatin1String("updates"))
         return detail;
     if (item.id == QLatin1String("restore"))
@@ -213,6 +207,40 @@ HealthCheck::HealthCheck(QObject *parent)
 bool HealthCheck::busy() const
 {
     return stage() == QLatin1String("looking");
+}
+
+std::optional<HealthCheck::Item> HealthCheck::batteryItem(const BatteryReading &battery)
+{
+    const int health = battery.health();
+    if (health < 0 && battery.fault.isEmpty())
+        return std::nullopt;
+    const QString charges = battery.cycles > 0 ? QStringLiteral(", after %1 charges").arg(battery.cycles) : QString();
+    Item item{QStringLiteral("battery"), QStringLiteral("Battery"), QStringLiteral("good"), {}, {}, {}, {}};
+    if (!battery.fault.isEmpty()) {
+        item.state = QStringLiteral("bad");
+        item.detail = QStringLiteral("It reports a fault: %1. Keep an eye on it while it charges.").arg(battery.fault.toLower());
+        item.question = QStringLiteral("My computer's battery reports a fault (\"%1\")%2. What does it mean, is it safe to "
+                                       "keep using and charging, and should it be replaced?")
+                            .arg(battery.fault, health >= 0 ? QStringLiteral("; it holds %1% of its original charge").arg(health)
+                                                            : QString());
+    } else if (health < BatteryWornBelow) {
+        item.state = QStringLiteral("bad");
+        item.detail = QStringLiteral("Holds %1% of its original charge. It runs out sooner than it did new.").arg(health);
+        item.question = QStringLiteral("My computer's battery now holds only %1% of its original charge%2. Is that "
+                                       "normal wear, can I make it last longer, and is it time to replace it?")
+                            .arg(health).arg(charges);
+    } else {
+        item.detail = QStringLiteral("Holds %1% of its original charge.").arg(health);
+        return item;
+    }
+    item.action = QStringLiteral("ask");
+    item.actionLabel = QStringLiteral("Copy for help");
+    return item;
+}
+
+QString HealthCheck::batteryLook()
+{
+    return batterySection(readBatteries(QStringLiteral("/sys/class/power_supply"), QDBusConnection::systemBus()));
 }
 
 QList<HealthCheck::Item> HealthCheck::readLook(const QString &output, const QDateTime &now)
@@ -284,17 +312,19 @@ QList<HealthCheck::Item> HealthCheck::readLook(const QString &output, const QDat
         }
     }
 
-    // The battery: what it holds now, against when it was new.
+    // The battery: what it holds now, against when it was new, and any fault
+    // it reports. Worn under BatteryWornBelow, or a fault, is a problem no
+    // Helper fixes, so it is copied for help. No battery, no row.
     {
         const QStringList parts = found.value(QStringLiteral("battery")).value(0).split(QLatin1Char(' '), Qt::SkipEmptyParts);
-        if (parts.size() >= 2 && parts.at(1).toLongLong() > 0) {
-            const int health = qRound(100.0 * parts.at(0).toLongLong() / parts.at(1).toLongLong());
-            const int cycles = parts.value(2).toInt();
-            QString words = QStringLiteral("Holds %1% of what it did when new").arg(std::min(health, 100));
-            if (cycles > 0)
-                words += QStringLiteral(", after %1 charges").arg(cycles);
-            items.append({QStringLiteral("battery"), QStringLiteral("Battery"),
-                          health < 60 ? QStringLiteral("warn") : QStringLiteral("good"), words + QLatin1Char('.'), {}, {}, {}});
+        if (parts.size() >= 3) {
+            BatteryReading battery;
+            battery.full = parts.at(0).toLongLong();
+            battery.design = parts.at(1).toLongLong();
+            battery.cycles = parts.at(2).toInt();
+            battery.fault = parts.mid(3).join(QLatin1Char(' '));
+            if (std::optional<Item> item = batteryItem(battery))
+                items.append(*item);
         }
     }
 
@@ -599,7 +629,7 @@ void HealthCheck::look(bool open)
     if (open)
         setStage(QStringLiteral("looking"));
     run(asPerson(m_lookScript), 60000, [this](int, const QString &output) {
-        m_items = readLook(output);
+        m_items = readLook(output + (m_batteryLook ? m_batteryLook() : batteryLook()));
         m_checked = QDateTime::currentDateTime();
         m_lastAttention = attention();
         QSettings settings(Organization, Settings);

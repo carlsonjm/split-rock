@@ -23,6 +23,7 @@ add_library(splitrock_core STATIC
     src/app/Admin.cpp
     src/app/Appearance.cpp
     src/app/AnswerText.cpp
+    src/app/Battery.cpp
     src/app/Change.cpp
     src/app/ChangeRunner.cpp
     src/app/Helpers.cpp
