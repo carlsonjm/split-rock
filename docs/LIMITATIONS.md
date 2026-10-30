@@ -35,7 +35,20 @@ What Split Rock does not do yet, and what it will not do.
 
 - The broker is version 0. It has been tested against a pretend model and the
   pretend assistant, not yet against the real model or Codex, and Mail is the
-  only app that calls it.
+  only app that calls it for the models.
+- The apps' tools (`BROKER.md`, Tools) have been tested against a stand-in
+  Notes, the pretend model and the pretend assistant only. Still to do: the
+  trial of about 40 note questions against the real model on the tablet, a
+  pass mark for it agreed before it runs, and a check with the real Notes once
+  it ships `Read`, `Create` and its `notes.json`.
+- Codex with the apps' tools is still to be checked live. The codex-acp
+  adapter Shuffle ships (2.5.0) reads stdio tool servers from the session's
+  `mcpServers` and asks before each call with the title `mcp.apps.<tool>`, as
+  read from its source, but no real Codex has yet started
+  `split-rock-tools-mcp` in the fence, listed its tools or had a call allowed.
+- Search shows no Do it card from Ask yet, so a card from an app's tool, such
+  as saving an answer to Notes, waits for Search to show it and hand its token
+  to the broker's `Run`.
 
 ## Not planned
 

@@ -1358,3 +1358,36 @@ Not now mean "ask me later"; putting two apps side by side first, which needs
 Cards to report pairs; drafting email replies, which belong to Mail; and
 counting apps Workspace Memory brought back, which would turn one Always into
 an automation nobody asked for.
+
+## Apps describe their tools in a file; the broker checks every call
+
+Each Good Input app describes what it lets the models do in one JSON file
+beside its bus service: each tool, the method it calls, each argument's type
+and limits, its risk (read, write or outward) and whether its results may go
+to Codex (`BROKER.md`, Tools). The broker reads the files afresh on every
+request and checks every call against them before the app hears of it. A read
+runs and is named in the answer; a write is a Do it card, run only by the
+token the tap hands back; an outward tool is refused. The model on this
+computer fills one tool request at a time on a form the engine enforces,
+behind the front desk, with at most two reads a question; Codex reaches the
+same tools, generated from the same files, through a tool server that only
+forwards out of its fence, and only for a question the person handed it, with
+each note it read listed in its window. Notes is the first app; saving a note
+keeps its card, as "No change without a card, however small" holds.
+
+Why: the label on an appliance says what it does whether or not it's plugged
+in. An app that isn't running is still found, nothing has to remember to sign
+up, and uninstalling an app takes its tools with it. One checker in one place
+means the safety rules are never spread across the apps, and the small model,
+which in the October trials announced actions it never took when left to call
+tools on its own, only fills in a blank the desk asked for. What a note says
+reaches a model only as material in marks it can't close, and anything written
+after reading it still waits on a card that shows the exact words.
+
+Rejected: apps signing their tools in at runtime, which loses them whenever
+the app isn't running and leaves stale ones when it crashes; each app shipping
+its own Model Context Protocol server, which spreads the checks across every
+app; letting the local model call tools in a loop; Codex reaching the desktop
+bus from inside its fence; saving a note at once with Undo after, which would
+rewrite the card rule; and reading Notes' folder directly, which would make its
+layout a contract and hide what was read.

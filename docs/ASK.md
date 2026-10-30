@@ -15,12 +15,14 @@ Core never calls a model (`CORE.md`). Ask is where the model lives.
 - Nothing the person asks leaves the computer. The model is Split Rock's own
   download, run by llama.cpp's `llama-server`.
 - It changes nothing. An answer is words, the Helpers that fit, and at most
-  one Do it card from a settings skill, which waits for the person's tap.
+  one Do it card, from a settings skill or an app's tool, which waits for the
+  person's tap.
 - Every answer says who gave it: `who` is `computer` for every answer Ask
   gives. Codex answers only in its own window, Ask Codex, so the two are
   never mixed.
 - Each question is asked afresh, with no earlier question in it, as Search
-  asks one at a time.
+  asks one at a time. Only the last answer in words is kept, for "save this
+  answer to my notes" to keep.
 - `split-rock-corerc` switches Ask off: `[Ask] Enabled=false`. Off, it answers
   only that it is off.
 - Codex only, the person's choice: `[Ask] CodexOnly=true`, set through
@@ -62,7 +64,21 @@ The desk decides, not the model alone (`DECISIONS.md`, Ask on this computer):
    the ask is answered in words without a card being asked for. A card that fails either is never
    shown; the ask is answered in words instead.
 5. A Helper is named by its id, and goes under the answer.
-6. Anything else that changes the computer is a bigger change. Once Codex
+6. Where the person's apps describe tools (`BROKER.md`, Tools), the model
+   may sort an ask as `tools`: something to find, read or keep in one of
+   their own apps, such as Notes. An ask that names one of those apps goes
+   there too, unless a skill or Helper covers it. The model then fills one
+   tool request on a form the engine enforces, which allows only the tools
+   the apps' files list, each with the arguments its file allows, or none.
+   The desk runs it through the broker, which checks it again. After a read
+   the model may ask for one more read, never a write; then it answers from
+   what came back, set apart in `<tool_result>` marks a note can't close
+   early, and the desk's own last line names each note read and that it was
+   read on this computer. A write is a Do it card titled with its first
+   words, such as "Save this answer to my notes", with the answer put in
+   whole by the desk; nothing is written until the person taps it. A tool
+   request that picks none is answered in words.
+7. Anything else that changes the computer is a bigger change. Once Codex
    is signed in, the answer says so and `handOff` is set, and Search offers
    Ask Codex; until then, it is answered in words, and nobody is sent to
    sign in.
@@ -126,6 +142,11 @@ from under the protocol's "Internal error", not the bare code.
   Codex keeps its sign-in in a folder of its own, `split-rock/codex` in the
   person's data folder, never the person's own Codex; `SignOutCodex` deletes
   it.
+- **The person's apps:** Codex is given the apps' tools marked for it, for
+  the question the person handed it, through a tool server that only
+  forwards out of the fence (`BROKER.md`, Codex). The window lists each note
+  Codex read, since its words went to OpenAI, and a write it asks for is a
+  Do it row.
 - **Changes:** Codex runs in read-only mode, and every request it makes to
   act is refused. A change it proposes with `split-rock-change` goes on a
   Do it row; Split Rock makes it outside the fence, as the person and never
@@ -178,10 +199,11 @@ Name `io.github.carlsonjm.splitrock.Ask`, object `/Ask`, interface
 | --- | --- |
 | `who` | `computer` |
 | `text` | Every word said |
-| `routed` | How the desk handled it: `answer`, `gate:<kind>`, `unsafe:<kind>`, `card:<helper>`, `skill:<id>`, `handoff: <why>` |
+| `routed` | How the desk handled it: `answer`, `gate:<kind>`, `unsafe:<kind>`, `card:<helper>`, `skill:<id>`, `tools:<tool>`, `tools: answered from what was read`, `handoff: <why>` |
 | `helpers` | The Helpers that fit, by Core's ids (`space`, `install`, …), for `OpenAction` |
 | `query` | What Install an app looks for |
-| `doIt` | A Do it card from a settings skill, as JSON, or empty |
+| `doIt` | A Do it card, as JSON, or empty: from a settings skill, with its `command`; or from an app's tool, with `tool`, `app`, `args` and the `token` the surface hands to the broker's `Run` after the tap |
+| `read` | What the apps' tools read for the answer, by name, such as each note's title |
 | `handOff` | A bigger change, which Codex, signed in, can take |
 | `handedToCodex` | It went straight on to Codex, as the person switched on |
 | `needsModel` | The model isn't downloaded yet; `text` says what it needs |
