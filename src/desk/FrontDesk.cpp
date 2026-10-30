@@ -6,6 +6,7 @@
 
 #include <QJsonArray>
 #include <QJsonDocument>
+#include <QNetworkInterface>
 #include <QProcess>
 #include <QRegularExpression>
 
@@ -496,6 +497,126 @@ bool sendsToTerminal(const QString &answer)
     return terminal.match(answer).hasMatch();
 }
 
+QList<Address> localAddresses()
+{
+    // Networks a container, a virtual machine or a VPN made: their addresses
+    // aren't the ones the person's other devices reach this computer by.
+    static const QRegularExpression made(QStringLiteral("^(docker|veth|virbr|vnet|br-|lxc|podman|tun|tap|wg)"));
+    QList<Address> found;
+    for (const QNetworkInterface &connection : QNetworkInterface::allInterfaces()) {
+        const QNetworkInterface::InterfaceFlags flags = connection.flags();
+        if (!flags.testFlag(QNetworkInterface::IsUp) || !flags.testFlag(QNetworkInterface::IsRunning)
+            || flags.testFlag(QNetworkInterface::IsLoopBack) || connection.type() == QNetworkInterface::Virtual
+            || made.match(connection.name()).hasMatch())
+            continue;
+        const bool wireless = connection.type() == QNetworkInterface::Wifi || connection.name().startsWith(QLatin1String("wl"));
+        for (const QNetworkAddressEntry &entry : connection.addressEntries()) {
+            QHostAddress ip = entry.ip();
+            // An address that only works on the cable or the Wi-Fi itself,
+            // which nothing would ask for by hand.
+            if (ip.isNull() || ip.isLoopback() || ip.isLinkLocal())
+                continue;
+            ip.setScopeId({});
+            found.append({ip.toString(), connection.name(), wireless});
+        }
+    }
+    return found;
+}
+
+namespace {
+
+bool isFour(const Address &address)
+{
+    return !address.address.contains(QLatin1Char(':'));
+}
+
+// The addresses worth naming: the IPv4 ones, which a router's page or a
+// printer's settings show, or the others where there are none.
+QList<Address> namedAddresses(const QList<Address> &addresses)
+{
+    QList<Address> four;
+    for (const Address &address : addresses) {
+        if (isFour(address))
+            four.append(address);
+    }
+    return (four.isEmpty() ? addresses : four).mid(0, 3);
+}
+
+QString overWhat(const Address &address)
+{
+    return address.wireless ? QStringLiteral("on Wi-Fi") : QStringLiteral("on a wired connection");
+}
+
+} // namespace
+
+std::optional<QString> aboutThisComputer(const QString &question, const Context &context)
+{
+    const auto words = [](const char *pattern) {
+        return QRegularExpression(QString::fromLatin1(pattern), QRegularExpression::CaseInsensitiveOption);
+    };
+    // A plain question, short and about the person's own computer.
+    static const QRegularExpression plain = words(
+        "^\\s*(please\\s+)?(what('?s| is| are)|whats|where('?s| is| are| can i (find|see))|tell me|show me|find|give me|"
+        "how (do|can) i (find|see|check|get|look up)|can (you|i) (tell|show|find|give|see|get)( me)?|i need)\\b");
+    // Someone else wants it, the person wants it changed or hidden, or it is
+    // another device's: the sorting and the safety check decide those.
+    static const QRegularExpression elsewhere = words(
+        "\\b(caller|rang|phoned|phone|support|technician|microsoft|someone|somebody|stranger|wants?|asked (me|for)|"
+        "asking (me|for)|send|change|hide|block|static|vpn|printer|router|modem|tv|camera|server|website|site)\\b");
+    static const QRegularExpression address = words(
+        "\\b(my|this|the|our)\\b[^.?!]{0,30}\\b(ip|ipv4|ipv6|ip ?address(es)?|(network|internet|local|lan|wi-?fi) "
+        "address(es)?)\\b");
+    static const QRegularExpression name = words(
+        "\\bhost ?name\\b|\\b(computer|tablet|laptop|pc|machine|device)('?s| network)? name\\b|"
+        "\\bname of (this|my|the) (computer|tablet|laptop|pc|machine|device)\\b|"
+        "\\b(this|my|the) (computer|tablet|laptop|pc|machine|device) (is )?called\\b");
+    const QString asked = QString(question).replace(QChar(0x2019), QLatin1Char('\''));
+    if (asked.size() > 100 || !plain.match(asked).hasMatch() || elsewhere.match(asked).hasMatch())
+        return std::nullopt;
+    const QString called = context.hostName.isEmpty()
+        ? QString()
+        : QStringLiteral(" Its name on the network is %1.").arg(context.hostName);
+    if (address.match(asked).hasMatch()) {
+        const QList<Address> named = namedAddresses(context.addresses);
+        if (named.isEmpty())
+            return QStringLiteral("This computer isn't connected to a network just now, so it has no address on one. "
+                                  "Once it's on Wi-Fi or a cable, ask me again.");
+        QString said;
+        if (named.size() == 1) {
+            said = QStringLiteral("This computer's address on your network is %1, %2.").arg(named.first().address, overWhat(named.first()));
+        } else {
+            QStringList each;
+            for (const Address &one : named)
+                each.append(QStringLiteral("%1, %2").arg(one.address, overWhat(one)));
+            const QString last = each.takeLast();
+            said = QStringLiteral("This computer's addresses on your network are %1 and %2.").arg(each.join(QStringLiteral("; ")), last);
+        }
+        return said + QStringLiteral(" That's how your other devices at home, such as a printer or a phone, reach it. "
+                                     "Websites see a different one, your router's, which this computer can't read from "
+                                     "here.") + called;
+    }
+    if (name.match(asked).hasMatch() && !context.hostName.isEmpty())
+        return QStringLiteral("This computer's name on the network is %1. That's the name your other devices see it by.")
+            .arg(context.hostName);
+    return std::nullopt;
+}
+
+QString networkFacts(const Context &context)
+{
+    if (context.hostName.isEmpty() && context.addresses.isEmpty())
+        return {};
+    QStringList lines;
+    if (!context.hostName.isEmpty())
+        lines.append(QStringLiteral("This computer's name on the network: %1.").arg(context.hostName));
+    QStringList each;
+    for (const Address &one : namedAddresses(context.addresses))
+        each.append(QStringLiteral("%1 (%2)").arg(one.address, one.wireless ? QStringLiteral("Wi-Fi") : QStringLiteral("wired")));
+    lines.append(each.isEmpty() ? QStringLiteral("It isn't connected to a network now.")
+                                : QStringLiteral("Its addresses on the network now: %1. Websites see the router's "
+                                                 "address instead, which this computer can't read.").arg(each.join(QStringLiteral(", "))));
+    return lines.join(QLatin1Char(' '));
+}
+
 FrontDesk::FrontDesk(Model *model, Tools *tools, QObject *parent)
     : QObject(parent)
     , m_model(model)
@@ -538,9 +659,12 @@ QString FrontDesk::sortingWords() const
         "kind is \"answer\" when they want to know or understand something, or are just chatting; \"change\" when "
         "they want something set, switched, installed, removed, freed, updated or done on the computer, including "
         "when they only describe a problem a change would fix, such as \"it's too loud\" or \"the screen is too "
-        "bright at night\"; \"unsafe\" when helping could hurt them or someone else: scams, payment or bank codes, "
-        "passwords, remote control by others, deleting the system, pirated software, watching someone secretly, "
-        "switching protection off.\n%4"
+        "bright at night\"; \"unsafe\" only when helping would do real harm to them or someone else: a scam, or "
+        "a code read out to a caller; a stranger taking control of the computer; payment or bank codes; deleting "
+        "the system; pirated software; watching someone secretly; switching protection off. This helper runs on "
+        "the person's own computer, so a question about this computer or their own things is never unsafe: its "
+        "IP address, its name, its hardware, the Wi-Fi it is on, its disk, or where they wrote a password or a "
+        "key down. Those are \"answer\".\n%4"
         "target is the skill or card below that covers a change, or \"none\".\n"
         "Settings skills:\n%1"
         "Upkeep cards:\n%2"
@@ -598,6 +722,8 @@ QString FrontDesk::answerWords() const
         "sent by text or email. If you don't know, say so; you can't see the news, the weather or the internet.\n");
     if (!m_context.facts.isEmpty())
         words += m_context.facts + QLatin1Char('\n');
+    if (const QString network = networkFacts(m_context); !network.isEmpty())
+        words += network + QLatin1Char('\n');
     if (!m_context.memory.isEmpty())
         words += QStringLiteral("What the person's notebook remembers:\n%1\n").arg(m_context.memory.left(2000));
     return words;
@@ -673,6 +799,15 @@ void FrontDesk::ask(const QString &question)
     if (m_shelf.skills().size() != m_context.skills.size())
         m_shelf.setSkills(m_context.skills);
 
+    // "What is my IP address?": the desk read it itself, so it says it, with
+    // no model to get the numbers wrong.
+    if (const std::optional<QString> words = aboutThisComputer(question, m_context); words && !Gate::harmful(question)) {
+        Q_EMIT routed(QStringLiteral("computer"));
+        say(*words);
+        finish(false);
+        return;
+    }
+
     // "Where's my golden key?", "what is my router password?": the person
     // wants something they wrote down. The desk looks in their notes itself,
     // before any check or model can take it for a secret to refuse, and
@@ -735,11 +870,17 @@ void FrontDesk::route(const QString &question)
         QJsonObject sorted;
         if (error.isEmpty())
             sorted = QJsonDocument::fromJson(text.toUtf8()).object();
-        const QString kind = sorted.value(QStringLiteral("kind")).toString(QStringLiteral("answer"));
+        QString kind = sorted.value(QStringLiteral("kind")).toString(QStringLiteral("answer"));
         const QString target = sorted.value(QStringLiteral("target")).toString(QStringLiteral("none"));
         const QString worry = sorted.value(QStringLiteral("worry")).toString(QStringLiteral("none"));
         const QString query = sorted.value(QStringLiteral("query")).toString();
 
+        // The model's "unsafe" counts only with a kind of real harm named. A
+        // password or a key of the person's own is not one: the desk's own
+        // check still catches asking it to keep one or switch the prompt off.
+        static const QStringList notHarm{QStringLiteral("none"), QStringLiteral("password"), QStringLiteral("forgotten")};
+        if (kind == QLatin1String("unsafe") && notHarm.contains(worry))
+            kind = QStringLiteral("answer");
         if (kind == QLatin1String("unsafe")) {
             Q_EMIT routed(QStringLiteral("unsafe:") + worry);
             // A call, a stranger at the controls or an advert is a story of its

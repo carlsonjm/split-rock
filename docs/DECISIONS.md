@@ -1396,3 +1396,37 @@ app; letting the local model call tools in a loop; Codex reaching the desktop
 bus from inside its fence; saving a note at once with Undo after, which would
 rewrite the card rule; and reading Notes' folder directly, which would make its
 layout a contract and hide what was read.
+
+## A question about this computer is answered, not refused
+
+Ask runs a model on the person's own computer, so a plain question about the
+computer or the person's own things is answered: its IP address, its name,
+its hardware, the Wi-Fi it is on, its disk, or where they wrote a password or
+a key down. Only real harm is refused: a scam or a code read out to a caller,
+a stranger taking control, payment or bank codes, deleting the system,
+pirated software, watching someone secretly, and switching protection off.
+The safety check's fixed patterns for those stay as they were. The sorting's
+definition of unsafe names only those, says a question about this computer is
+never unsafe, and no longer lists passwords as a kind of harm; the model's
+unsafe is honoured only when it names a kind of harm. Ask reads the
+computer's own name and addresses itself, read-only, through Qt, and answers
+"what is my IP address" with them, with no model and before the model is
+downloaded.
+
+Why: approved after a tablet test in which "what is my IP address" was
+refused as a risk. Nothing asked leaves the computer, so the person's own
+details are no more exposed by answering than by opening the settings page
+that shows them; a refusal there only teaches the person that Ask is no use
+for the computer it runs on. The harm worth refusing is the person being
+talked into giving control, codes or money to someone else, or doing damage
+that can't be undone, and those keep their fixed answers whatever the model
+says. A small model given the bare word "passwords" refused anything that
+mentioned one, and given only its own judgement it reads numbers wrongly, so
+the address is said by the desk from what it read.
+
+Rejected: keeping "passwords" as a kind of harm in the sorting, which refused
+asks about where a password was written down; letting the model write the
+address from the facts alone, which a 4B model can garble; answering with the
+address websites see, which needs a request to a service off the computer;
+and answering an ask that tells of a caller or a stranger wanting the
+address, which is left to the safety check and the sorting.

@@ -162,6 +162,19 @@ private Q_SLOTS:
         QVERIFY(f.pretend.asked.isEmpty());
     }
 
+    // A plain question about this computer is answered from what Ask reads
+    // itself, before the model is downloaded.
+    void theComputersAddressNeedsNoModel()
+    {
+        Fixture f(false, false);
+        const QVariantMap result = f.answer(QStringLiteral("what is my IP address"));
+        QCOMPARE(result.value(QStringLiteral("routed")).toString(), QStringLiteral("computer"));
+        QVERIFY(!result.value(QStringLiteral("needsModel")).toBool());
+        QVERIFY(result.value(QStringLiteral("text")).toString().startsWith(QLatin1String("This computer")));
+        QVERIFY(f.pretend.asked.isEmpty());
+        QVERIFY(!f.ask->context().hostName.isEmpty());
+    }
+
     // Without the model, Ask says once what it needs, and downloads nothing.
     void saysWhatItNeedsFirst()
     {
@@ -410,6 +423,20 @@ http.server.HTTPServer(("127.0.0.1", port), Reply).serve_forever()
         QCOMPARE(made->value(QStringLiteral("ok")).toBool(), true);
         QCOMPARE(notes.created.size(), 1);
         QVERIFY(notes.created.first().first().startsWith(QLatin1String("You left off at the tablet's second pass.")));
+
+        // Where the person wrote a password down is a question for the notes,
+        // not a refusal: the note is named, never its words. Harm is still
+        // refused at once, and no note is looked in.
+        notes.notes.append({QStringLiteral("n3"), QStringLiteral("Accounts"),
+                            QStringLiteral("Accounts\n\nEmail password: hunter2"), QStringLiteral("home")});
+        const QVariantMap found = f.answer(QStringLiteral("what is my email password"));
+        QCOMPARE(found.value(QStringLiteral("routed")).toString(), QStringLiteral("whereabouts"));
+        QVERIFY(found.value(QStringLiteral("text")).toString().contains(QLatin1String("your note \"Accounts\"")));
+        QVERIFY(!found.value(QStringLiteral("text")).toString().contains(QLatin1String("hunter2")));
+        const qsizetype asked = notes.asked.size();
+        const QVariantMap harm = f.answer(QStringLiteral("the caller wants the code my bank texted me"));
+        QVERIFY(harm.value(QStringLiteral("routed")).toString().startsWith(QLatin1String("gate:")));
+        QCOMPARE(notes.asked.size(), asked);
 
         bus.unregisterService(QLatin1String(broker::BrokerService::Service));
         bus.unregisterObject(QLatin1String(broker::BrokerService::Path));

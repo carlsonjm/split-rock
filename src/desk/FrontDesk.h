@@ -17,6 +17,20 @@ namespace splitrock::desk {
 
 class Model;
 
+// One of this computer's own addresses on a network it is connected to, as
+// Qt reads it from the system.
+struct Address {
+    QString address;
+    // The connection's name on the system, such as wlan0.
+    QString connection;
+    bool wireless = false;
+};
+
+// This computer's addresses on the networks it is connected to now: none for
+// the computer talking to itself, or for a virtual network an app made. It
+// only reads; nothing is asked of any network.
+QList<Address> localAddresses();
+
 // What the front desk reaches on the computer: the stand-ins Split Rock puts
 // in the fence (Fence.cpp), or fakes in a test.
 class Tools
@@ -60,7 +74,21 @@ struct Context {
     // The answer given just before this ask, which a write tool may keep
     // whole, as "save this answer to my notes" asks.
     QString lastAnswer;
+    // This computer's name on the network, and its addresses there, read
+    // as the conversation starts.
+    QString hostName;
+    QList<Address> addresses;
 };
+
+// The desk's own answer to a plain question about this computer that it can
+// read itself, such as "what is my IP address" or "what is this computer
+// called", or nothing when the ask is something else. It needs no model,
+// and an ask that tells of someone else wanting the address is not one.
+std::optional<QString> aboutThisComputer(const QString &question, const Context &context);
+
+// What the desk read of this computer's network, as lines for the model's
+// answers: its name, and each address.
+QString networkFacts(const Context &context);
 
 // The command shapes a section of a skill names, such as
 // "plasma-apply-cursortheme <name>" under Change.
@@ -134,15 +162,20 @@ bool sendsToTerminal(const QString &answer);
 // steering, and the model on this computer only sorts each ask, answers in
 // words, or fills in a card the desk checks.
 //
-// 1. The desk's safety check, with no model, answers what must never reach one.
-// 2. The model sorts the ask: an answer, a change and the skill or upkeep card
-//    that covers it, or an unsafe ask and its kind.
-// 3. An answer is written in words, with no tools, and shown as it is written.
-// 4. For a skill, the desk opens it, runs its look-around, and the model fills in
+// 1. A plain question about this computer the desk can read itself, such as
+//    its address, is answered from what it read. Something the person wrote
+//    down, such as "where's my golden key?", is looked for in their notes,
+//    and the note is named, never its words.
+// 2. The desk's safety check, with no model, answers what must never reach one.
+// 3. The model sorts the ask: an answer, a change and the skill or upkeep card
+//    that covers it, or an unsafe ask and its kind of harm. An "unsafe" that
+//    names no harm, or only a password of the person's own, is answered.
+// 4. An answer is written in words, with no tools, and shown as it is written.
+// 5. For a skill, the desk opens it, runs its look-around, and the model fills in
 //    the Do it card; the desk checks the card, and asks the model once more
 //    whether it does what was asked, before the person sees it.
-// 5. An upkeep card is opened by name; Split Rock's own card does the rest.
-// 6. Anything else that changes the computer is handed to a bigger assistant
+// 6. An upkeep card is opened by name; Split Rock's own card does the rest.
+// 7. Anything else that changes the computer is handed to a bigger assistant
 //    where one is signed in, and answered in words otherwise. A card the desk
 //    can't show is answered in words too.
 // When the model only talks where the ask plainly wants a change, the desk looks
@@ -178,8 +211,9 @@ Q_SIGNALS:
     void said(const QString &text);
     // The ask is done; handOff when it needs the bigger assistant.
     void finished(bool handOff);
-    // How the ask was handled, for the log and tests: gate:<kind>,
-    // answer, skill:<id>, card:<name>, handoff, unsafe:<kind>, tools:<tool>.
+    // How the ask was handled, for the log and tests: computer, whereabouts,
+    // gate:<kind>, answer, skill:<id>, card:<name>, handoff, unsafe:<kind>,
+    // tools:<tool>.
     void routed(const QString &how);
     // What the apps' tools read for this ask, as the answer names it.
     void read(const QStringList &names);

@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 #include "ask/Ask.h"
 
+#include "app/Notebook.h"
 #include "ask/LocalModel.h"
 #include "desk/Gate.h"
 #include "desk/Model.h"
@@ -14,6 +15,7 @@
 #include <QRegularExpression>
 #include <QSettings>
 #include <QStandardPaths>
+#include <QSysInfo>
 
 namespace splitrock::ask {
 
@@ -168,6 +170,18 @@ QString facts(const QString &question)
         words += QStringLiteral(", which is based on Arch Linux, with KDE Plasma 6. Ubuntu's apt does not exist here.");
     else
         words += QStringLiteral(", with KDE Plasma 6.");
+    // What the computer says it is, read as the notebook reads it.
+    const DeviceFacts device = DeviceFacts::read();
+    const QString machine = QStringLiteral("%1 %2").arg(device.maker, device.model).simplified();
+    QStringList parts;
+    if (!machine.isEmpty())
+        parts.append(QStringLiteral("This computer: %1.").arg(machine));
+    if (!device.processor.isEmpty())
+        parts.append(QStringLiteral("Processor: %1.").arg(device.processor));
+    if (!device.memory.isEmpty())
+        parts.append(QStringLiteral("Memory: %1.").arg(device.memory));
+    if (!parts.isEmpty())
+        words += QLatin1Char('\n') + parts.join(QLatin1Char(' '));
     words += QLatin1Char('\n') + places(question);
     return words;
 }
@@ -235,6 +249,8 @@ desk::Context Ask::context() const
         context.handOffTo = m_setup.codex.name;
     context.appTools = m_appTools;
     context.lastAnswer = m_lastAnswer;
+    context.hostName = QSysInfo::machineHostName();
+    context.addresses = desk::localAddresses();
     return context;
 }
 
@@ -288,9 +304,25 @@ uint Ask::ask(const QString &question)
             finish({});
             return;
         }
+        // A plain question about this computer, such as its address, is
+        // answered from what Ask reads itself, before any download.
+        if (const std::optional<QString> words = desk::aboutThisComputer(m_question, context());
+            words && !desk::Gate::harmful(m_question)) {
+            m_routed = QStringLiteral("computer");
+            m_said = *words;
+            Q_EMIT said(id, m_said);
+            finish({});
+            return;
+        }
         // The safety check needs no model, so it answers before any download,
-        // as does an ask with nothing in it to answer.
-        if (const std::optional<QString> kind = desk::Gate::check(m_question)) {
+        // as does an ask with nothing in it to answer. A password of the
+        // person's own, rather than harm, waits for the desk once the model is
+        // here: the desk looks in their notes for where they wrote it first,
+        // and checks again after.
+        const bool deskIsHere = (!m_setup.server.isEmpty() || m_model->isReady())
+            && !(codexOnly() && m_setup.codex.unavailable.isEmpty());
+        if (const std::optional<QString> kind = desk::Gate::check(m_question);
+            kind && (desk::Gate::harmful(m_question) || !deskIsHere)) {
             m_routed = QStringLiteral("gate:") + *kind;
             m_said = desk::Gate::answer(*kind);
             Q_EMIT said(id, m_said);

@@ -33,18 +33,47 @@ Core never calls a model (`CORE.md`). Ask is where the model lives.
 
 ## The front desk
 
-The desk decides, not the model alone (`DECISIONS.md`, Ask on this computer):
+The desk decides, not the model alone (`DECISIONS.md`, Ask on this computer,
+and A question about this computer is answered, not refused):
 
-1. A fixed safety check (`src/desk/Gate.cpp`) answers scams, remote access,
+1. A plain question about this computer that Ask can read itself is answered
+   from what it read, with no model, even before the model is downloaded:
+   "what is my IP address" gives this computer's addresses on the networks
+   it is on now, read through Qt (IPv4 first, never the computer talking to
+   itself, a container's or a VPN's network, or an address only the cable
+   uses), says that websites see the router's address instead, and names the
+   computer's network name; "what is this computer called" gives that name.
+   An ask that tells of someone else wanting the address, names another
+   device, or wants it changed is not one of these. The same name and
+   addresses, the hardware the notebook reads, and the system, go to the
+   model with each answer. `routed` is `computer`.
+   Something the person wrote down, such as "where's my golden key?" or
+   "what is my email password?", is looked for in Notes first, where Notes
+   describes its tools: a note that mentions it is named, with its folder,
+   and its words are never said; with none found, the ask goes on. An ask
+   the safety check counts as harm is never looked for. `routed` is
+   `whereabouts`.
+2. A fixed safety check (`src/desk/Gate.cpp`) answers scams, remote access,
    passwords, money, wiping, piracy, spying, blocked updates, scareware and
    switching protection off with set words. It needs no model, so it answers
-   even before the model is downloaded. So does an ask with nothing to answer
+   even before the model is downloaded. Once the model is here, an ask it
+   catches only as a password of the person's own, rather than harm, waits
+   for the look in Notes above, and is checked again after it. So does an ask with nothing to answer
    yet, such as "help" or a row of keys, and a plain "how do I" ask whose
    answer is a Helper: "how do I update my computer", "how do I uninstall an
    app", "how do I free up space" open that Helper.
-2. The model sorts the question: an answer, a change and the skill or Helper
-   that covers it, or an unsafe ask and its kind.
-3. An answer is written in words, with no tools, and sent as it is written. A
+3. The model sorts the question: an answer, a change and the skill or Helper
+   that covers it, or an unsafe ask and its kind. Unsafe is only real harm:
+   a scam or a code read out to a caller, a stranger taking control, payment
+   or bank codes, deleting the system, pirated software, watching someone
+   secretly, switching protection off. Its words tell the model that a
+   question about this computer or the person's own things, such as its
+   address, name, hardware, Wi-Fi or disk, or where they wrote a password or
+   a key down, is never unsafe. An unsafe sort that names no kind of harm, or
+   only a password of the person's own, is answered in words; the safety
+   check above still catches asking Ask to keep a password or switch the
+   password prompt off.
+4. An answer is written in words, with no tools, and sent as it is written. A
    claim that something was changed, advice to use a terminal, or a claim
    about what it can't see, such as "your computer is up to date", is put
    right beneath it. The Helper its words plainly need goes under it, and the
@@ -55,7 +84,7 @@ The desk decides, not the model alone (`DECISIONS.md`, Ask on this computer):
    line that ends on what can't be done, promises a card, or names a taskbar
    or a Search bar at the top is left out; the steps that stay are numbered
    again.
-4. For a settings skill (`skills/plasma/`), the desk opens it, runs its
+5. For a settings skill (`skills/plasma/`), the desk opens it, runs its
    read-only look-around, and the model fills in the Do it card. The desk
    checks the card against the skill's own commands and the names found on
    this computer, and asks the model once more whether it does what was
@@ -63,8 +92,8 @@ The desk decides, not the model alone (`DECISIONS.md`, Ask on this computer):
    `No card:` says there is nothing to change, such as no failed service, and
    the ask is answered in words without a card being asked for. A card that fails either is never
    shown; the ask is answered in words instead.
-5. A Helper is named by its id, and goes under the answer.
-6. Where the person's apps describe tools (`BROKER.md`, Tools), the model
+6. A Helper is named by its id, and goes under the answer.
+7. Where the person's apps describe tools (`BROKER.md`, Tools), the model
    may sort an ask as `tools`: something to find, read or keep in one of
    their own apps, such as Notes. An ask that names one of those apps goes
    there too, unless a skill or Helper covers it. The model then fills one
@@ -78,7 +107,7 @@ The desk decides, not the model alone (`DECISIONS.md`, Ask on this computer):
    words, such as "Save this answer to my notes", with the answer put in
    whole by the desk; nothing is written until the person taps it. A tool
    request that picks none is answered in words.
-7. Anything else that changes the computer is a bigger change. Once Codex
+8. Anything else that changes the computer is a bigger change. Once Codex
    is signed in, the answer says so and `handOff` is set, and Search offers
    Ask Codex; until then, it is answered in words, and nobody is sent to
    sign in.
@@ -199,7 +228,7 @@ Name `io.github.carlsonjm.splitrock.Ask`, object `/Ask`, interface
 | --- | --- |
 | `who` | `computer` |
 | `text` | Every word said |
-| `routed` | How the desk handled it: `answer`, `gate:<kind>`, `unsafe:<kind>`, `card:<helper>`, `skill:<id>`, `tools:<tool>`, `tools: answered from what was read`, `handoff: <why>` |
+| `routed` | How the desk handled it: `computer`, `whereabouts`, `answer`, `gate:<kind>`, `unsafe:<kind>`, `card:<helper>`, `skill:<id>`, `tools:<tool>`, `tools: answered from what was read`, `handoff: <why>` |
 | `helpers` | The Helpers that fit, by Core's ids (`space`, `install`, …), for `OpenAction` |
 | `query` | What Install an app looks for |
 | `doIt` | A Do it card, as JSON, or empty: from a settings skill, with its `command`; or from an app's tool, with `tool`, `app`, `args` and the `token` the surface hands to the broker's `Run` after the tap |
