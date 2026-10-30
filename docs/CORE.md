@@ -260,13 +260,11 @@ each set (apps it brought back don't count). Core asks Cards for the sets
 seven minutes after it starts and every two hours. Once the same set has
 opened together three times, Core offers once, on Search's island.
 
-> **Draft wording, waiting for the product owner's approval.** Every word of
-> the offer is in one place, `automationWords` in `src/core/Automations.h`:
+> **The wording names the apps** (the product owner, 30 October). Every word
+> of the offer is in one place, `automationWords` in `src/core/Automations.h`:
 > "Open Firefox, Notes and Mail when you sign in?", "You've started with these
 > three times", with "Yes, each time" and "Not now". Past three apps the names
-> end "and 2 more". The other wording drawn on 30 Oct, "You often start with
-> these 3 apps", "Open them for you when you sign in?", is a change to that
-> one place.
+> end "and 2 more".
 
 - Yes adds the automation to `split-rock-corerc`, in a group of its own that
   Settings lists with a switch: `[Automation 1]` with `Kind=open-together`,
@@ -429,3 +427,10 @@ Split Rock then opens that one Helper in an ordinary window titled after it.
 The window closes when the Helper does, and can't be closed while the Helper is
 busy. A Helper that hands over to another, as Health check does to Free up
 space, keeps the window: the next Helper opens in it.
+
+The window's title is the Helper's name, then its one fact after a middle dot,
+once it has one: `Update · 12 waiting`, `Free up space · 46 GB free`,
+`Health check · 2 to look at`. The other Helpers carry their name alone.
+Shuffle's top bar names the Helper and shows the fact beside it, lighter, as
+it shows any window's own name (the product owner, 30 October; Shuffle's
+`docs/CONTEXT-BAR-CONTRACT.md`).

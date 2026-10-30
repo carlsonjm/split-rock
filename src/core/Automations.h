@@ -19,8 +19,8 @@ namespace splitrock::core {
 // switch of its own, which Settings lists.
 
 // ---------------------------------------------------------------------------
-// THE OFFER'S WORDS: a draft, waiting for the product owner's approval
-// (docs/CORE.md § Automations). Every word the person sees for an offer is
+// THE OFFER'S WORDS, naming the apps, as the product owner chose on 30
+// October (docs/CORE.md § Automations). Every word the person sees for an offer is
 // here, and only here.
 namespace automationWords {
 // "Open Firefox, Notes and Mail when you sign in?"; the names as namesList()
