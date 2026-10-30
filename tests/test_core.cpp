@@ -116,7 +116,7 @@ struct Desk {
     void setNotice(const QString &notice)
     {
         QSettings settings(dir.filePath(QStringLiteral("corerc")), QSettings::IniFormat);
-        settings.setValue(QStringLiteral("General/Notice"), notice);
+        settings.setValue(QStringLiteral("Notice"), notice);
     }
 
     QVariantMap fact() const { return core->facts().value(0); }
@@ -318,6 +318,21 @@ private Q_SLOTS:
         QVERIFY(d.ticker.isEmpty());
         QVERIFY(!d.core->act(QStringLiteral("storage"), QStringLiteral("open")));
         QVERIFY(!QFile::exists(d.dir.filePath(QStringLiteral("core/storage.tsv"))));
+    }
+
+    // Shuffle's Settings writes the switch for all of Core and the Pings
+    // slider into a [General] group, as KConfig does.
+    void theGeneralGroupSettingsWritesIsRead()
+    {
+        Desk d;
+        {
+            QFile file(d.dir.filePath(QStringLiteral("corerc")));
+            QVERIFY(file.open(QIODevice::WriteOnly));
+            file.write("[General]\nEnabled=false\n");
+        }
+        d.look(95);
+        QVERIFY(d.core->facts().isEmpty());
+        QVERIFY(d.ticker.isEmpty());
     }
 
     void searchOpensEachUpkeepCard()
