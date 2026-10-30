@@ -23,6 +23,10 @@ public:
     // The kind of unsafe ask this is, if the patterns catch it.
     static std::optional<QString> check(const QString &ask);
 
+    // Whether the patterns catch it as harm to the person or someone else,
+    // rather than only a password or a key of their own.
+    static bool harmful(const QString &ask);
+
     // The desk's fixed answer for a kind. Empty for a kind it doesn't know.
     static QString answer(const QString &kind);
 };

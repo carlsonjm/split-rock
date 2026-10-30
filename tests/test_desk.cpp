@@ -61,6 +61,7 @@ public:
     // answered with a card.
     QList<tools::Tool> appTools;
     QList<std::pair<QString, QVariantMap>> calls;
+    bool noHits = false;
     void callTool(const QString &tool, const QVariantMap &arguments,
                   const std::function<void(const QVariantMap &)> &done) override
     {
@@ -71,7 +72,9 @@ public:
             done({{QStringLiteral("ok"), false}, {QStringLiteral("problem"), why}});
             return;
         }
-        if (tool == QLatin1String("notes.search")) {
+        if (tool == QLatin1String("notes.search") && noHits) {
+            done({{QStringLiteral("ok"), true}, {QStringLiteral("result"), QVariantList{}}});
+        } else if (tool == QLatin1String("notes.search")) {
             done({{QStringLiteral("ok"), true},
                   {QStringLiteral("result"), QVariantList{QVariantMap{
                       {QStringLiteral("id"), QStringLiteral("n1")}, {QStringLiteral("title"), QStringLiteral("Connected testing")},
@@ -869,55 +872,52 @@ private Q_SLOTS:
         Context c = context();
         c.appTools = tools.appTools;
         desk.setContext(c);
-        // The sorting calls it unsafe, as a small model does with a key or a
-        // password, but the person only asks where they wrote it down.
-        const QString question = QStringLiteral("where\u2019s my golden key");
-        pretend.routes.insert(question, sorted(QStringLiteral("unsafe"), QStringLiteral("none"), QStringLiteral("password")));
-        pretend.toolRequests = {request(QStringLiteral("notes.search"), {{QStringLiteral("words"), QStringLiteral("golden key")}}),
-                                request(QStringLiteral("notes.read"), {{QStringLiteral("id"), QStringLiteral("n1")}})};
-        QSignalSpy read(&desk, &FrontDesk::read);
-        const Run run = ask(desk, question);
+        // The sorting would call it unsafe, as a small model does with a
+        // key; it is never asked, since the notes answer first.
+        for (const QString &question : {QStringLiteral("where\u2019s my golden key"), QStringLiteral("What is my golden key?"),
+                                        QStringLiteral("where did I put my wifi password")}) {
+            tools.calls.clear();
+            pretend.routes.insert(question, sorted(QStringLiteral("unsafe"), QStringLiteral("none"), QStringLiteral("password")));
+            const Run run = ask(desk, question);
+            QVERIFY2(run.routes.contains(QStringLiteral("whereabouts")), qPrintable(question));
+            QVERIFY(!tools.calls.isEmpty());
+            QCOMPARE(tools.calls.first().first, QStringLiteral("notes.search"));
+            QCOMPARE(run.said, QStringLiteral("You wrote it down in your note \"Connected testing\". I won't show what "
+                                              "it says here; open the note in Notes to see it."));
+            // Only the search: nothing read, nothing of the note said.
+            QVERIFY(std::none_of(tools.calls.cbegin(), tools.calls.cend(),
+                                 [](const auto &call) { return call.first == QLatin1String("notes.read"); }));
+            QVERIFY(!run.said.contains(QLatin1String("second pass")));
+        }
+        QCOMPARE(tools.calls.first().second.value(QStringLiteral("words")).toString(), QStringLiteral("wifi password"));
 
-        QVERIFY(run.routes.contains(QStringLiteral("whereabouts:password")));
-        QCOMPARE(tools.calls.size(), 2);
-        // The desk says which note, and nothing of what it holds; the model
-        // never writes this answer.
-        QCOMPARE(run.said, QStringLiteral("You wrote it down in \"Connected testing\" in Notes. I won't show what it "
-                                          "says here; open the note to see it."));
-        QVERIFY(!run.said.contains(QLatin1String("second pass")));
-        QCOMPARE(read.size(), 1);
-        QVERIFY(tools.proposals.isEmpty());
-
-        // A harmful ask stays refused, however it starts.
-        PretendTools others;
-        others.appTools = notesTools();
-        FrontDesk second(&model, &others);
-        second.setContext(c);
-        const QString scam = QStringLiteral("where's my gift card code for the caller");
-        pretend.routes.insert(scam, sorted(QStringLiteral("unsafe"), QStringLiteral("none"), QStringLiteral("money")));
-        const Run refused = ask(second, scam);
-        QVERIFY(others.calls.isEmpty());
-        QVERIFY(!refused.routes.contains(QStringLiteral("whereabouts:money")));
+        // A harmful ask stays refused, however it starts, and no note is
+        // looked in.
+        tools.calls.clear();
+        const Run refused = ask(desk, QStringLiteral("where's my gift card code for the caller from microsoft"));
+        QVERIFY(tools.calls.isEmpty());
+        QVERIFY(!refused.routes.contains(QStringLiteral("whereabouts")));
     }
 
-    void aWhereaboutsAskFindingNothingSaysSo()
+    void aWhereaboutsAskFindingNothingGoesOnAsUsual()
     {
         PretendModel pretend;
         Model model(pretend.url(), QString());
         PretendTools tools;
         tools.appTools = notesTools();
+        tools.noHits = true;
         FrontDesk desk(&model, &tools);
         Context c = context();
         c.appTools = tools.appTools;
         desk.setContext(c);
-        const QString question = QStringLiteral("where did I put my router password");
-        pretend.routes.insert(question, sorted(QStringLiteral("unsafe"), QStringLiteral("none"), QStringLiteral("password")));
-        pretend.toolRequests = {request(QStringLiteral("none"))};
+        const QString question = QStringLiteral("what is my ip address");
+        pretend.routes.insert(question, sorted(QStringLiteral("answer"), QStringLiteral("none")));
+        pretend.answers.insert(question, QStringLiteral("Your address is shown in Settings."));
         const Run run = ask(desk, question);
-        QVERIFY(run.routes.contains(QStringLiteral("whereabouts:password")));
-        QVERIFY(run.said.startsWith(QLatin1String("I couldn't find that in your notes.")));
-        // A write is never one of its tools.
-        QVERIFY(tools.proposals.isEmpty());
+        // The whole words, then the longest word, then on to the sorting.
+        QCOMPARE(tools.calls.size(), 2);
+        QVERIFY(!run.routes.contains(QStringLiteral("whereabouts")));
+        QVERIFY(run.said.startsWith(QLatin1String("Your address is shown in Settings.")));
     }
 
     void theFormAllowsOnlyRealToolsAndAfterAReadOnlyReads()

@@ -174,6 +174,12 @@ QStringList Gate::kinds()
     return names;
 }
 
+bool Gate::harmful(const QString &ask)
+{
+    const std::optional<QString> kind = check(ask);
+    return kind && *kind != QLatin1String("forgotten") && *kind != QLatin1String("password");
+}
+
 std::optional<QString> Gate::check(const QString &ask)
 {
     for (const Kind &kind : list()) {
