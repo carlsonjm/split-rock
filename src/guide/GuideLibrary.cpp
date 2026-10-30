@@ -96,6 +96,32 @@ bool holds(const GuideEntry &entry, const GuideContext &context)
 
 } // namespace
 
+bool readHeader(const QStringList &lines, FileHeader *header, QString *problem)
+{
+    if (lines.isEmpty() || lines.first() != QLatin1String("---") || lines.indexOf(QStringLiteral("---"), 1) < 0) {
+        *problem = QStringLiteral("no header");
+        return false;
+    }
+    header->end = int(lines.indexOf(QStringLiteral("---"), 1));
+    static const QRegularExpression pair(QStringLiteral("^([a-z]+):\\s*(.*)$"));
+    static const QRegularExpression item(QStringLiteral("^\\s+-\\s+(.*)$"));
+    QString key;
+    for (int i = 1; i < header->end; ++i) {
+        const QString &line = lines.at(i);
+        const QRegularExpressionMatch listItem = item.match(line);
+        if (listItem.hasMatch() && key == QLatin1String("also")) {
+            header->also.append(listItem.captured(1).trimmed());
+            continue;
+        }
+        const QRegularExpressionMatch match = pair.match(line);
+        if (!match.hasMatch())
+            continue;
+        key = match.captured(1);
+        header->fields.insert(key, match.captured(2).trimmed());
+    }
+    return true;
+}
+
 GuideEntry GuideLibrary::parse(const QString &path, const QString &text, const QString &source,
                                GuideEntry::Kind kind, QString *problem)
 {
@@ -105,40 +131,17 @@ GuideEntry GuideLibrary::parse(const QString &path, const QString &text, const Q
     entry.path = path;
 
     const QStringList lines = text.split(QLatin1Char('\n'));
-    if (lines.isEmpty() || lines.first() != QLatin1String("---") || lines.indexOf(QStringLiteral("---"), 1) < 0) {
-        *problem = QStringLiteral("no header");
+    FileHeader header;
+    if (!readHeader(lines, &header, problem))
         return {};
-    }
-    const int end = int(lines.indexOf(QStringLiteral("---"), 1));
-    static const QRegularExpression pair(QStringLiteral("^([a-z]+):\\s*(.*)$"));
-    static const QRegularExpression item(QStringLiteral("^\\s+-\\s+(.*)$"));
-    QString key;
-    int format = 0;
-    for (int i = 1; i < end; ++i) {
-        const QString &line = lines.at(i);
-        const QRegularExpressionMatch listItem = item.match(line);
-        if (listItem.hasMatch() && key == QLatin1String("also")) {
-            entry.also.append(listItem.captured(1).trimmed());
-            continue;
-        }
-        const QRegularExpressionMatch match = pair.match(line);
-        if (!match.hasMatch())
-            continue;
-        key = match.captured(1);
-        const QString value = match.captured(2).trimmed();
-        if (key == QLatin1String("id"))
-            entry.id = value;
-        else if (key == QLatin1String("title"))
-            entry.title = value;
-        else if (key == QLatin1String("applies"))
-            entry.applies = value;
-        else if (key == QLatin1String("replaces"))
-            entry.replaces = value;
-        else if (key == QLatin1String("checked"))
-            entry.checked = value;
-        else if (key == QLatin1String("format"))
-            format = value.toInt();
-    }
+    const int end = header.end;
+    entry.id = header.fields.value(QStringLiteral("id"));
+    entry.title = header.fields.value(QStringLiteral("title"));
+    entry.applies = header.fields.value(QStringLiteral("applies"));
+    entry.replaces = header.fields.value(QStringLiteral("replaces"));
+    entry.checked = header.fields.value(QStringLiteral("checked"));
+    entry.also = header.also;
+    const int format = header.fields.value(QStringLiteral("format")).toInt();
     if (format != Format) {
         *problem = QStringLiteral("format %1 is not one this reader knows").arg(format);
         return {};
