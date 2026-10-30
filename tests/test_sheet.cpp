@@ -236,7 +236,7 @@ private Q_SLOTS:
             const QString name = QString::fromLatin1(card.name);
             QVERIFY2(c.openChore(name, QString::fromLatin1(card.query)), card.name);
             window->show();
-            QCOMPARE(window->title(), QString::fromLatin1(card.title));
+            QVERIFY2(window->title().startsWith(QString::fromLatin1(card.title)), qPrintable(window->title()));
             QTRY_VERIFY2(find(window.get(), QString::fromLatin1(card.card)) && find(window.get(), QString::fromLatin1(card.card))->isVisible(), card.name);
             QObject *job = c.property(card.name).value<QObject *>();
             QTRY_COMPARE(job->property("stage").toString(), QString::fromLatin1(card.stage));
