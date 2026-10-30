@@ -1331,11 +1331,16 @@ to it rather than to the person's session, so the launching is Core's. Always
 lives in the settings file rather than in Core's own notes so Settings can show
 it and turn it off.
 
-Rejected: Plasma's own "restore the previous session", which brings apps back
-loose, out of their cards and pairs, and asks nothing; named setups to switch
-between, which need a new place to keep them; a session from weeks ago, which
-is no longer what the person left; and asking during Do Not Disturb on the
-island, which the ticker carries instead like every other topic.
+Plasma's own "restore the previous session" stays on beside it (the product
+owner, 30 Oct, changing the earlier call to turn it off). Plasma reopens the
+apps it can; the island still asks, and brings back the ones Plasma didn't,
+each to its card and pair. An app already open is left where it stands, not
+opened twice.
+
+Rejected: a session from weeks ago, which is no longer what the person left;
+and asking during Do Not Disturb on the island, which the ticker carries
+instead like every other topic. Named setups to switch between, rejected here
+at first, came later as saved layouts (§ Layouts in `CORE.md`).
 
 ## Automations are offered once, after three times, and kept with a switch each
 
