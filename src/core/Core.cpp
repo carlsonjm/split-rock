@@ -67,14 +67,14 @@ bool Core::enabled(const QString &topic) const
     // A topic's own switch, under the switch for all of Core. Workspace
     // Memory's group says its whole name.
     const QString group = topic == Memory ? QStringLiteral("WorkspaceMemory") : topic.left(1).toUpper() + topic.mid(1);
-    return settings.value(QStringLiteral("General/Enabled"), true).toBool()
+    return settings.value(QStringLiteral("Enabled"), true).toBool()
         && settings.value(group + QStringLiteral("/Enabled"), true).toBool();
 }
 
 int Core::notice() const
 {
     const QVariant stored = QSettings(m_settings, QSettings::IniFormat)
-                                .value(QStringLiteral("General/Notice"), 50);
+                                .value(QStringLiteral("Notice"), 50);
     const QString word = stored.toString().trimmed();
     if (word == QLatin1String("quiet"))
         return 0;

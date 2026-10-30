@@ -679,7 +679,7 @@ int main(int argc, char **argv)
     };
     const auto compareSettings = [&settingsHistory, &watchSettings, coreSettings] {
         // Core switched off as a whole keeps no copies either.
-        if (!QSettings(coreSettings, QSettings::IniFormat).value(QStringLiteral("General/Enabled"), true).toBool())
+        if (!QSettings(coreSettings, QSettings::IniFormat).value(QStringLiteral("Enabled"), true).toBool())
             return;
         const auto changed = settingsHistory.look(QDateTime::currentDateTime());
         if (!changed.isEmpty())

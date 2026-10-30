@@ -557,7 +557,7 @@ QString HealthCheck::lastChecked() const
 bool HealthCheck::watched() const
 {
     QSettings core(m_coreSettings, QSettings::IniFormat);
-    return core.value(QStringLiteral("General/Enabled"), true).toBool()
+    return core.value(QStringLiteral("Enabled"), true).toBool()
         && core.value(QStringLiteral("Health/Enabled"), true).toBool();
 }
 
