@@ -90,4 +90,8 @@ private:
     QStringList m_problems;
 };
 
+// A value from the bus as plain Qt values all the way down: dictionaries and
+// lists nested in a reply arrive wrapped, as QDBusArgument.
+QVariant fromBus(const QVariant &value);
+
 } // namespace splitrock::tools

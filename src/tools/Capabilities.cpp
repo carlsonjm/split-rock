@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 #include "tools/Capabilities.h"
 
+#include <QDBusArgument>
+#include <QDBusVariant>
 #include <QDir>
 #include <QFile>
 #include <QJsonArray>
@@ -352,6 +354,76 @@ QString Capabilities::check(const Tool &tool, const QVariantMap &arguments, QVar
     if (positional)
         *positional = values;
     return {};
+}
+
+namespace {
+
+// One element of a message from the bus, whatever its signature: a{sv}, an
+// array of them, as, or a plain value.
+QVariant element(const QDBusArgument &argument)
+{
+    switch (argument.currentType()) {
+    case QDBusArgument::MapType: {
+        QVariantMap map;
+        argument.beginMap();
+        while (!argument.atEnd()) {
+            argument.beginMapEntry();
+            const QString key = argument.asVariant().toString();
+            map.insert(key, element(argument));
+            argument.endMapEntry();
+        }
+        argument.endMap();
+        return map;
+    }
+    case QDBusArgument::ArrayType: {
+        QVariantList list;
+        argument.beginArray();
+        while (!argument.atEnd())
+            list.append(element(argument));
+        argument.endArray();
+        return list;
+    }
+    case QDBusArgument::StructureType: {
+        QVariantList fields;
+        argument.beginStructure();
+        while (!argument.atEnd())
+            fields.append(element(argument));
+        argument.endStructure();
+        return fields;
+    }
+    case QDBusArgument::VariantType: {
+        QDBusVariant variant;
+        argument >> variant;
+        return fromBus(variant.variant());
+    }
+    case QDBusArgument::BasicType:
+        return argument.asVariant();
+    default:
+        return {};
+    }
+}
+
+} // namespace
+
+// Nested values arrive wrapped as QDBusArgument: Mail's conversation holds its
+// messages as aa{sv}, and Notes' Find gives its notes as av.
+QVariant fromBus(const QVariant &value)
+{
+    if (value.canConvert<QDBusArgument>())
+        return element(value.value<QDBusArgument>());
+    if (value.typeId() == QMetaType::QVariantMap) {
+        QVariantMap map = value.toMap();
+        for (auto it = map.begin(); it != map.end(); ++it)
+            it.value() = fromBus(it.value());
+        return map;
+    }
+    if (value.typeId() == QMetaType::QVariantList) {
+        QVariantList list = value.toList();
+        for (QVariant &item : list)
+            item = fromBus(item);
+        return list;
+    }
+    return value;
 }
 
 } // namespace splitrock::tools

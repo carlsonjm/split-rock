@@ -91,8 +91,8 @@ add_test(NAME test_core COMMAND ${DBUS_RUN_SESSION}
 set(TEST_CORE_ENVIRONMENT ${TEST_ENVIRONMENT})
 list(FILTER TEST_CORE_ENVIRONMENT EXCLUDE REGEX "^DBUS_SESSION_BUS_ADDRESS=")
 set_tests_properties(test_core PROPERTIES ENVIRONMENT "${TEST_CORE_ENVIRONMENT}" TIMEOUT 60)
-add_executable(test_ask test_ask.cpp PretendModel.h)
-target_link_libraries(test_ask PRIVATE splitrock_ask Qt6::Test)
+add_executable(test_ask test_ask.cpp PretendModel.h NotesStandIn.h)
+target_link_libraries(test_ask PRIVATE splitrock_ask splitrock_broker Qt6::Test)
 target_compile_definitions(test_ask PRIVATE PROJECT_DIR="${PROJECT_SOURCE_DIR}")
 add_test(NAME test_ask COMMAND ${DBUS_RUN_SESSION}
     --config-file=${CMAKE_CURRENT_SOURCE_DIR}/bus/private-bus.conf -- $<TARGET_FILE:test_ask>)

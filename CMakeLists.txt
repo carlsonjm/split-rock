@@ -213,7 +213,7 @@ install(FILES ${CMAKE_CURRENT_BINARY_DIR}/data/io.github.carlsonjm.splitrock.Bro
 # and the checks each call passes, for the broker, Ask and Codex alike.
 add_library(splitrock_tools STATIC src/tools/Capabilities.cpp)
 target_include_directories(splitrock_tools PUBLIC src)
-target_link_libraries(splitrock_tools PUBLIC Qt6::Core)
+target_link_libraries(splitrock_tools PUBLIC Qt6::Core Qt6::DBus)
 target_compile_options(splitrock_tools PRIVATE -Wall -Wextra)
 
 # Codex, for the bigger questions (docs/ASK.md, Codex): its Agent Client

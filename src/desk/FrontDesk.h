@@ -2,6 +2,7 @@
 #pragma once
 
 #include "guide/SkillShelf.h"
+#include "tools/Capabilities.h"
 
 #include <QJsonObject>
 #include <QList>
@@ -28,6 +29,16 @@ public:
     // Hands a proposal to Split Rock, as split-rock-change does. False when it
     // couldn't be handed over.
     virtual bool propose(const QJsonObject &proposal) = 0;
+    // Calls one of the apps' tools through the broker (docs/BROKER.md §
+    // Tools), which checks it against the app's file first; done gets the
+    // broker's reply: ok, and result from a read or a card from a write.
+    virtual void callTool(const QString &tool, const QVariantMap &arguments,
+                          const std::function<void(const QVariantMap &)> &done)
+    {
+        Q_UNUSED(tool)
+        Q_UNUSED(arguments)
+        done({{QStringLiteral("ok"), false}, {QStringLiteral("problem"), QStringLiteral("No apps' tools here.")}});
+    }
 };
 
 // What Split Rock tells the front desk as a conversation starts.
@@ -43,6 +54,12 @@ struct Context {
     QString facts;
     // The notebook's memory, for answers.
     QString memory;
+    // The tools the person's apps describe, as the broker gives them; none
+    // where no app describes any. Outward tools are never among them.
+    QList<tools::Tool> appTools;
+    // The answer given just before this ask, which a write tool may keep
+    // whole, as "save this answer to my notes" asks.
+    QString lastAnswer;
 };
 
 // The command shapes a section of a skill names, such as
@@ -91,6 +108,15 @@ private:
     int m_gap = 0;
     int m_step = 0;
 };
+
+// What an app's tool gave, as the model is given it: set apart in
+// <tool_result> marks the text can't close early, as material, never
+// instructions.
+QString toolResultText(const QString &tool, const QVariant &result);
+
+// The names of what a tool read, as the answer names them: each title it
+// gave.
+QStringList readNames(const QVariant &result);
 
 // The desk's own words for an ask with nothing to answer yet, such as "help"
 // or a row of keys, or nothing when there is something to answer.
@@ -162,8 +188,10 @@ Q_SIGNALS:
     // The ask is done; handOff when it needs the bigger assistant.
     void finished(bool handOff);
     // How the ask was handled, for the log and tests: gate:<kind>,
-    // answer, skill:<id>, card:<name>, handoff, unsafe:<kind>.
+    // answer, skill:<id>, card:<name>, handoff, unsafe:<kind>, tools:<tool>.
     void routed(const QString &how);
+    // What the apps' tools read for this ask, as the answer names it.
+    void read(const QStringList &names);
 
 private:
     void say(const QString &text);
@@ -171,10 +199,22 @@ private:
     void route(const QString &question);
     // An answer in words, with the Helper that fits under it, if any; how is
     // what routed says.
-    void answer(const QString &question, const QString &helper = {}, const QString &how = QStringLiteral("answer"));
+    // material, when given, is what the apps' tools gave, which the answer
+    // is written from; after is the desk's own line at its end.
+    void answer(const QString &question, const QString &helper = {}, const QString &how = QStringLiteral("answer"),
+                const QString &material = {}, const QString &after = {});
     void fillCard(const QString &question, const Skill &skill);
     void openCard(const QString &question, const QString &card, const QString &query);
     void handOff(const QString &why);
+    // The apps' tools: the model fills one request on an enforced form, the
+    // desk runs it through the broker, and the model answers from what came
+    // back. At most two reads, and a write only as a card.
+    void useTools(const QString &question, const QStringList &results, const QStringList &names, int step);
+    void answerFrom(const QString &question, const QStringList &results, const QStringList &names);
+    // Whether the ask names one of the apps that describe tools.
+    bool namesAnApp(const QString &question) const;
+    QString toolWords(int step) const;
+    QJsonObject toolShape(int step) const;
     QString answerWords() const;
     QJsonArray withHistory(const QString &system, const QString &question, int turns) const;
     // Split Rock offers the upkeep card of that name.

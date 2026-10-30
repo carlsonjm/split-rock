@@ -13,7 +13,8 @@
 
 // A pretend llama-server. What it answers is chosen by the person's last
 // message: routes[ask] is the sorting, cards[ask] the card, fits[ask] the
-// yes or no, answers[ask] the words, sent a few at a time.
+// yes or no, answers[ask] the words, sent a few at a time. A request on the
+// apps' tools' form takes the next of toolRequests, or none.
 class PretendModel : public QObject
 {
 public:
@@ -21,6 +22,11 @@ public:
     QHash<QString, QJsonObject> cards;
     QHash<QString, bool> fits;
     QHash<QString, QString> answers;
+    QList<QJsonObject> toolRequests;
+    // The tools' forms the model was given, in order.
+    QList<QJsonObject> toolShapes;
+    // Every system message, in order.
+    QStringList systems;
     QStringList asked;
     // How many of the person's messages each request carried.
     QList<int> history;
@@ -66,11 +72,18 @@ private:
             return m.toObject().value(QStringLiteral("role")).toString() == QLatin1String("user");
         })));
         const QString last = messages.last().toObject().value(QStringLiteral("content")).toString();
+        systems.append(messages.first().toObject().value(QStringLiteral("content")).toString());
         const QJsonObject schema = body.value(QStringLiteral("response_format")).toObject()
                                        .value(QStringLiteral("json_schema")).toObject().value(QStringLiteral("schema")).toObject();
         const QJsonObject properties = schema.value(QStringLiteral("properties")).toObject();
         QString content;
-        if (properties.contains(QStringLiteral("kind"))) {
+        if (schema.contains(QStringLiteral("anyOf"))) {
+            asked.append(QStringLiteral("tool:") + last);
+            toolShapes.append(schema);
+            const QJsonObject request = toolRequests.isEmpty() ? QJsonObject{{QStringLiteral("tool"), QStringLiteral("none")}}
+                                                               : toolRequests.takeFirst();
+            content = QString::fromUtf8(QJsonDocument(request).toJson(QJsonDocument::Compact));
+        } else if (properties.contains(QStringLiteral("kind"))) {
             asked.append(QStringLiteral("sort:") + last);
             content = QString::fromUtf8(QJsonDocument(routes.value(last, QJsonObject{{QStringLiteral("kind"), QStringLiteral("answer")},
                                                                                        {QStringLiteral("target"), QStringLiteral("none")},
