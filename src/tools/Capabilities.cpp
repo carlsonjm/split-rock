@@ -21,6 +21,8 @@ namespace {
 // The only version of the contract this reads.
 constexpr int ContractVersion = 0;
 const QStringList Types{QStringLiteral("s"), QStringLiteral("u"), QStringLiteral("i"), QStringLiteral("b")};
+// The most a tool's answer gives a model, in characters.
+constexpr int ToolResultLimit = 6000;
 const QStringList Risks{QStringLiteral("read"), QStringLiteral("write"), QStringLiteral("outward")};
 
 bool isName(const QString &text)
@@ -424,6 +426,40 @@ QVariant fromBus(const QVariant &value)
         return list;
     }
     return value;
+}
+
+QString toolResultText(const QString &tool, const QVariant &result)
+{
+    QString text;
+    if (result.typeId() == QMetaType::QString)
+        text = result.toString();
+    else
+        text = QString::fromUtf8(QJsonDocument::fromVariant(result).toJson(QJsonDocument::Indented));
+    if (text.size() > ToolResultLimit)
+        text = text.left(ToolResultLimit) + QStringLiteral("\n(cut short)");
+    // What a note says can't close its own block early.
+    static const QRegularExpression close(QStringLiteral("<\\s*/\\s*tool_result"), QRegularExpression::CaseInsensitiveOption);
+    text.replace(close, QStringLiteral("&lt;/tool_result"));
+    QString name = tool;
+    name.remove(QRegularExpression(QStringLiteral("[^A-Za-z0-9._-]")));
+    return QStringLiteral("<tool_result tool=\"%1\">\n%2\n</tool_result>").arg(name, text.trimmed());
+}
+
+QStringList readNames(const QVariant &result)
+{
+    QStringList names;
+    const auto add = [&names](const QVariantMap &item) {
+        const QString title = item.value(QStringLiteral("title")).toString().simplified().left(80);
+        if (!title.isEmpty() && !names.contains(title))
+            names.append(title);
+    };
+    if (result.typeId() == QMetaType::QVariantList) {
+        for (const QVariant &item : result.toList())
+            add(item.toMap());
+    } else {
+        add(result.toMap());
+    }
+    return names;
 }
 
 } // namespace splitrock::tools

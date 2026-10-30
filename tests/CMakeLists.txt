@@ -54,8 +54,9 @@ foreach(name test_protocol test_codex)
     target_link_libraries(${name} PRIVATE splitrock_codex)
     target_compile_definitions(${name} PRIVATE
         PRETEND_PROGRAM="$<TARGET_FILE:split-rock-pretend-assistant>"
-        SCRIPTS_DIR="${CMAKE_CURRENT_SOURCE_DIR}/pretend-scripts")
-    add_dependencies(${name} split-rock-pretend-assistant)
+        SCRIPTS_DIR="${CMAKE_CURRENT_SOURCE_DIR}/pretend-scripts"
+        TOOLS_ADAPTER="$<TARGET_FILE:split-rock-tools-mcp>")
+    add_dependencies(${name} split-rock-pretend-assistant split-rock-tools-mcp)
 endforeach()
 split_rock_test(test_codex_window PretendFixture.h)
 target_link_libraries(test_codex_window PRIVATE splitrock_codex Qt6::Gui Qt6::Quick)

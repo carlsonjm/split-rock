@@ -76,7 +76,7 @@ void Client::authenticate(const QString &methodId, Done done)
 void Client::newSession(const QString &workingDirectory, Done done)
 {
     const QJsonObject params{{QStringLiteral("cwd"), workingDirectory},
-                             {QStringLiteral("mcpServers"), QJsonArray{}}};
+                             {QStringLiteral("mcpServers"), m_mcpServers}};
     m_connection->request(QStringLiteral("session/new"), params,
                           [this, done](const QJsonValue &result, const std::optional<RpcError> &error) {
         if (error) {

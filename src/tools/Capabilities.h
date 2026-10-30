@@ -90,6 +90,15 @@ private:
     QStringList m_problems;
 };
 
+// What an app's tool gave, as the model is given it: set apart in
+// <tool_result> marks the text can't close early, as material, never
+// instructions.
+QString toolResultText(const QString &tool, const QVariant &result);
+
+// The names of what a tool read, as the answer names them: each title it
+// gave.
+QStringList readNames(const QVariant &result);
+
 // A value from the bus as plain Qt values all the way down: dictionaries and
 // lists nested in a reply arrive wrapped, as QDBusArgument.
 QVariant fromBus(const QVariant &value);

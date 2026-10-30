@@ -1,0 +1,25 @@
+{
+  "agent": {"name": "pretend", "title": "Pretend assistant", "version": "1"},
+  "signedIn": true,
+  "turns": [
+    {"expectPrompt": "where I left off", "steps": [
+      {"mcp": {"server": "apps", "list": true}},
+      {"tool": {"toolCallId": "mcp-1", "title": "mcp.apps.notes_read", "kind": "execute", "status": "pending",
+                "rawInput": {"server": "apps", "tool": "notes_read", "arguments": {"id": "n1"}}}},
+      {"ask": {"toolCall": {"toolCallId": "mcp-1"}, "options": [
+        {"optionId": "yes", "name": "Allow", "kind": "allow_once"},
+        {"optionId": "no", "name": "Reject", "kind": "reject_once"}]}, "expect": "allow_once"},
+      {"mcp": {"server": "apps", "tool": "notes_read", "arguments": {"id": "n1"}}},
+      {"mcp": {"server": "apps", "tool": "notes_read", "arguments": {"id": "../../etc/passwd"}}},
+      {"mcp": {"server": "apps", "tool": "notes_delete", "arguments": {}}},
+      {"mcp": {"server": "apps", "tool": "notes_create", "arguments": {"text": "Connected: left off at the second pass"}}},
+      {"tool": {"toolCallId": "run-1", "title": "Run a command", "kind": "execute", "status": "pending",
+                "rawInput": {"command": ["bash", "-lc", "rm -rf ~/Notes"]}}},
+      {"ask": {"toolCall": {"toolCallId": "run-1"}, "options": [
+        {"optionId": "yes", "name": "Allow", "kind": "allow_once"},
+        {"optionId": "no", "name": "Reject", "kind": "reject_once"}]}, "expect": "reject_once"},
+      {"say": "You left off at the second pass."}
+    ]},
+    {"expectPrompt": "tapped Do it", "steps": [{"say": "It's in your notes."}]}
+  ]
+}

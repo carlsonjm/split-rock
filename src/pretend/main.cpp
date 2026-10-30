@@ -32,13 +32,17 @@
 //        {exit: code}, {write: {path, text}}: writes the file itself, as an
 //        agent does after asking, and says whether it could; {run: [program,
 //        arguments...]}: runs it where the assistant runs, as an agent's own
-//        tool does, and says what it printed.
+//        tool does, and says what it printed; {mcp: {server, list: true}} or
+//        {mcp: {server, tool, arguments}}: starts the tool server of that
+//        name the session was given, as Codex does, and says the tools it
+//        lists, or what the call gave ("ERROR: " first when it failed).
 // ${HOME} in any step is the home folder the pretend assistant sees.
 
 #include <QCoreApplication>
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
+#include <QHash>
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
@@ -172,6 +176,7 @@ public:
                 respondError(id, -32000, QStringLiteral("Authentication required"));
             } else {
                 m_sessionId = QStringLiteral("pretend-session-%1").arg(++m_sessionCount);
+                m_mcpServers = params.value(QStringLiteral("mcpServers")).toArray();
                 QJsonObject result{{QStringLiteral("sessionId"), m_sessionId}};
                 if (m_script.contains(QStringLiteral("modes")))
                     result.insert(QStringLiteral("modes"), m_script.value(QStringLiteral("modes")));
@@ -317,6 +322,8 @@ private:
                     run.start(words.takeFirst(), words);
                 run.waitForFinished(10000);
                 say(QStringLiteral("agent_message_chunk"), QString::fromUtf8(run.readAll()));
+            } else if (step.contains(QStringLiteral("mcp"))) {
+                say(QStringLiteral("agent_message_chunk"), mcp(step.value(QStringLiteral("mcp")).toObject()));
             } else if (step.contains(QStringLiteral("exit"))) {
                 std::fflush(stdout);
                 std::_Exit(step.value(QStringLiteral("exit")).toInt());
@@ -360,8 +367,71 @@ private:
         m_steps = {};
     }
 
+    // One tool server the session was given, started on first use, and asked
+    // one thing, as Codex asks it.
+    QString mcp(const QJsonObject &step)
+    {
+        const QString name = step.value(QStringLiteral("server")).toString();
+        QProcess *server = m_mcp.value(name);
+        if (!server) {
+            QJsonObject given;
+            for (const QJsonValue &each : std::as_const(m_mcpServers)) {
+                if (each.toObject().value(QStringLiteral("name")).toString() == name)
+                    given = each.toObject();
+            }
+            if (given.isEmpty())
+                return QStringLiteral("ERROR: no tool server called %1.").arg(name);
+            server = new QProcess(this);
+            server->setProcessChannelMode(QProcess::ForwardedErrorChannel);
+            QStringList args;
+            for (const QJsonValue &arg : given.value(QStringLiteral("args")).toArray())
+                args.append(arg.toString());
+            server->start(given.value(QStringLiteral("command")).toString(), args);
+            if (!server->waitForStarted(5000))
+                return QStringLiteral("ERROR: the tool server didn't start.");
+            m_mcp.insert(name, server);
+            mcpAsk(server, QStringLiteral("initialize"), QJsonObject{{QStringLiteral("protocolVersion"), QStringLiteral("2025-06-18")},
+                                                                     {QStringLiteral("capabilities"), QJsonObject{}},
+                                                                     {QStringLiteral("clientInfo"), QJsonObject{{QStringLiteral("name"), QStringLiteral("pretend")}}}});
+            server->write("{\"jsonrpc\":\"2.0\",\"method\":\"notifications/initialized\"}\n");
+        }
+        if (step.value(QStringLiteral("list")).toBool()) {
+            QStringList names;
+            for (const QJsonValue &tool : mcpAsk(server, QStringLiteral("tools/list"), {}).value(QStringLiteral("result")).toObject()
+                                              .value(QStringLiteral("tools")).toArray())
+                names.append(tool.toObject().value(QStringLiteral("name")).toString());
+            return QStringLiteral("Tools: %1\n").arg(names.join(QStringLiteral(", ")));
+        }
+        const QJsonObject reply = mcpAsk(server, QStringLiteral("tools/call"),
+                                         QJsonObject{{QStringLiteral("name"), step.value(QStringLiteral("tool"))},
+                                                     {QStringLiteral("arguments"), step.value(QStringLiteral("arguments"))}});
+        const QJsonObject result = reply.value(QStringLiteral("result")).toObject();
+        QString text;
+        for (const QJsonValue &block : result.value(QStringLiteral("content")).toArray())
+            text += block.toObject().value(QStringLiteral("text")).toString();
+        if (reply.isEmpty())
+            return QStringLiteral("ERROR: the tool server didn't answer.\n");
+        return (result.value(QStringLiteral("isError")).toBool() ? QStringLiteral("ERROR: ") : QString()) + text + QLatin1Char('\n');
+    }
+
+    QJsonObject mcpAsk(QProcess *server, const QString &method, const QJsonObject &params)
+    {
+        const int id = ++m_mcpId;
+        server->write(QJsonDocument(QJsonObject{{QStringLiteral("jsonrpc"), QStringLiteral("2.0")}, {QStringLiteral("id"), id},
+                                                {QStringLiteral("method"), method}, {QStringLiteral("params"), params}})
+                          .toJson(QJsonDocument::Compact) + '\n');
+        while (!server->canReadLine()) {
+            if (!server->waitForReadyRead(10000))
+                return {};
+        }
+        return QJsonDocument::fromJson(server->readLine()).object();
+    }
+
     QJsonObject m_script;
     QJsonArray m_turns;
+    QJsonArray m_mcpServers;
+    QHash<QString, QProcess *> m_mcp;
+    int m_mcpId = 0;
     QString m_sessionId;
     int m_sessionCount = 0;
     QJsonValue m_promptId;

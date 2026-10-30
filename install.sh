@@ -27,7 +27,7 @@ fi
 cmake -S "${project_root}" -B "${build_dir}" "${generator[@]}" \
     -DCMAKE_BUILD_TYPE=RelWithDebInfo \
     -DCMAKE_INSTALL_PREFIX=/usr >/dev/null
-cmake --build "${build_dir}" --parallel --target split-rock split-rock-core split-rock-ask split-rock-broker
+cmake --build "${build_dir}" --parallel --target split-rock split-rock-core split-rock-ask split-rock-broker split-rock-tools-mcp
 # Shuffle's install key, where it is set up, installs with no password: the
 # build is laid out here with this account's own rights, and a root-owned helper
 # takes the files as a stream and puts only Split Rock's own in place.

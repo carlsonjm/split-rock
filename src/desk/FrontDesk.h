@@ -109,15 +109,6 @@ private:
     int m_step = 0;
 };
 
-// What an app's tool gave, as the model is given it: set apart in
-// <tool_result> marks the text can't close early, as material, never
-// instructions.
-QString toolResultText(const QString &tool, const QVariant &result);
-
-// The names of what a tool read, as the answer names them: each title it
-// gave.
-QStringList readNames(const QVariant &result);
-
 // The desk's own words for an ask with nothing to answer yet, such as "help"
 // or a row of keys, or nothing when there is something to answer.
 std::optional<QString> unclear(const QString &question);

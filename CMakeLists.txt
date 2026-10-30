@@ -226,13 +226,22 @@ add_library(splitrock_codex STATIC
     src/ask/Fence.cpp
     src/codex/Agent.cpp
     src/codex/Chat.cpp
+    src/codex/ToolDoor.cpp
 )
 target_include_directories(splitrock_codex PUBLIC src)
 target_link_libraries(splitrock_codex PUBLIC splitrock_core splitrock_tools Qt6::Core Qt6::DBus Qt6::Network)
 target_compile_options(splitrock_codex PRIVATE -Wall -Wextra)
 target_compile_definitions(splitrock_codex PUBLIC
     # Where Shuffle's own copy of Codex's adapter is installed.
-    SPLIT_ROCK_CODEX_DIR="${CMAKE_INSTALL_FULL_LIBDIR}/split-rock/codex")
+    SPLIT_ROCK_CODEX_DIR="${CMAKE_INSTALL_FULL_LIBDIR}/split-rock/codex"
+    # The apps' tools' server, which Codex runs in its fence.
+    SPLIT_ROCK_TOOLS_ADAPTER="${CMAKE_INSTALL_FULL_LIBDIR}/split-rock/split-rock-tools-mcp")
+# The apps' tools for Codex (docs/BROKER.md § Codex): a tool server that only
+# forwards, from inside the fence to the door Split Rock holds outside it.
+qt_add_executable(split-rock-tools-mcp src/mcp/main.cpp)
+target_link_libraries(split-rock-tools-mcp PRIVATE Qt6::Core Qt6::Network)
+target_compile_options(split-rock-tools-mcp PRIVATE -Wall -Wextra)
+install(TARGETS split-rock-tools-mcp RUNTIME DESTINATION ${CMAKE_INSTALL_LIBDIR}/split-rock)
 
 # A package build leaves the tests out.
 option(BUILD_TESTING "Build the tests" ON)
