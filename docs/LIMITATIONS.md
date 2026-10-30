@@ -22,6 +22,9 @@ What Split Rock does not do yet, and what it will not do.
   rounds on a tablet before anyone relies on it.
 - Automations have been run against a stand-in for Cards' record of apps
   opened together. The offer's wording is a draft until it is approved.
+- Saved layouts have been run against a stand-in for Cards on the bus. They
+  need Kadunce's layout calls and Search's Layouts island, which ship after
+  the 6 November launch.
 - The Health check's Battery row has been run against a stand-in power supply
   folder and a stand-in UPower, not yet on a computer whose battery has worn.
 - Ask's front desk has been tested against a pretend model here. Its last

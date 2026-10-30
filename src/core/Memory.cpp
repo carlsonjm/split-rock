@@ -68,8 +68,7 @@ void Core::seeSavedSession(const SavedSession &session)
         m_memoryAttention.islandOpen = false;
         m_memoryAlwaysRun = true;
         saveAttention(Memory);
-        if (m_hooks.bringBack)
-            m_hooks.bringBack();
+        startBringBack();
         if (islandBefore)
             Q_EMIT factChanged(memoryFact());
         return;
@@ -149,17 +148,45 @@ bool Core::actMemory(const QString &action)
     m_sessionPending = false;
     saveAttention(Memory);
     if (action == QLatin1String("open") || action == QLatin1String("always")) {
-        if (m_hooks.bringBack)
-            m_hooks.bringBack();
+        startBringBack();
     } else if (m_hooks.dismissSavedSession) {
         m_hooks.dismissSavedSession();
     }
     if (islandBefore != m_memoryAttention.islandOpen)
         Q_EMIT factChanged(memoryFact());
+    // Not now settles the question, so a layout waiting for it opens.
+    nextLayoutAtSignIn();
     return true;
 }
 
+void Core::startBringBack()
+{
+    if (!m_hooks.bringBack)
+        return;
+    m_bringingBack = true;
+    m_hooks.bringBack();
+}
+
+bool Core::memorySettled() const
+{
+    if (m_bringingBack)
+        return false;
+    // A question still standing on the island; one nobody touched for a day
+    // has closed.
+    const bool asking = watchesMemory() && m_sessionPending && m_memoryAttention.islandOpen
+        && (!m_memoryAttention.islandSince.isValid() || m_memoryAttention.islandSince.secsTo(m_hooks.now()) < 24 * 3600);
+    return !asking;
+}
+
 void Core::broughtBack(const BringBackRun &run)
+{
+    m_bringingBack = false;
+    tellBroughtBack(run);
+    // Whatever came of it, the layouts waiting for it may open now.
+    nextLayoutAtSignIn();
+}
+
+void Core::tellBroughtBack(const BringBackRun &run)
 {
     const bool always = m_memoryAlwaysRun;
     m_memoryAlwaysRun = false;
@@ -312,6 +339,7 @@ bool Core::runAutomations(const QStringList &skip)
         said.append(namesList(names));
     }
     m_automationsRanIn = signIn;
+    m_openedAtSignIn = open;
     saveAttention(Automations);
     if (open.isEmpty())
         return false;

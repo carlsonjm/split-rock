@@ -18,7 +18,8 @@ Health, Windows programs (an installer arriving in Downloads), Tidy up
 Downloads (how much has piled up there), Devices, Focus (what came in during
 Do Not Disturb), Workspace Memory (bringing back the apps from the last
 sign-in) and Automations (opening the apps the person always starts with). Each section below gives what Core watches, the
-Helper it can open and the words it uses.
+Helper it can open and the words it uses. Beside the topics, Core keeps the
+person's saved layouts and opens them (Layouts, below).
 
 ## What holds
 
@@ -48,7 +49,8 @@ Helper it can open and the words it uses.
   `[WorkspaceMemory] Enabled=false`, `[Automations] Enabled=false`). Core
   neither watches nor offers a topic that is switched off. Core writes to
   this file only what the person chose on one of its islands:
-  `[WorkspaceMemory] Always=true`, and each automation they said yes to.
+  `[WorkspaceMemory] Always=true`, each automation they said yes to, and
+  each layout they saved.
 - Core starts at sign-in, from `io.github.carlsonjm.splitrock.Core.desktop` in
   the system's autostart folder, so it keeps its schedule whether or not
   anything has asked for it yet. A second start ends at once.
@@ -279,6 +281,41 @@ opened together three times, Core offers once, on Search's island.
   opens the apps of every automation switched on, each once, but those Always
   is bringing back. It runs once a sign-in, however often Core starts in it.
 
+## Layouts
+
+A saved layout is a named desk: groups of apps on one workspace, each group
+one app standing alone or a Stack. The person saves the desk as it stands from
+Search's Layouts island and opens it again from there; Core keeps the layouts
+and opens them. It is not a topic: it speaks on no island or ticker of its
+own, and Search shows what it says.
+
+- Each layout is a group of its own in `split-rock-corerc`: `[Layout 1]` and
+  on, with `Name`, `Groups` (the JSON array of `{apps, stack}`, desktop file
+  ids in Stack order, front first), `AtSignIn` (false by default) and `Added`.
+  Qt writes the group's space as `%20` on disk, as it does for
+  `[Automation 1]`. The layout's id is its group's number.
+- Saving under a name already used, whatever its case, replaces that layout
+  and keeps its id. An id ending `.desktop` loses it, an app appears once, in
+  its first group, and a group of one app is no Stack.
+- Opening one asks Cards to arrange it (`arrangeLayout`, on Kadunce's layout
+  calls, version 1, at the same endpoint as Workspace Memory), then launches
+  each app Cards names as the app menu would. Cards brings what is already
+  open to the current workspace and forms the Stacks. Nothing is ever closed.
+  When Cards says the run is over, Core tells Search which apps didn't come,
+  by name; it stops waiting 90 seconds after Cards last said an app arrived.
+- One layout opens at a time, and none while Workspace Memory is bringing
+  apps back; Cards refuses both, too.
+- At each sign-in, Core opens every layout switched to "Open when I sign in",
+  one after another, once the Workspace Memory question is settled: Cards had
+  nothing to offer, the person answered the island, or the apps Always or
+  Bring back asked for are back. It runs once a sign-in. An app an automation
+  opened in the same sign-in is not launched a second time.
+- The logbook records each layout saved, removed and opened, with what
+  missed.
+
+Folding accepted automations into layouts is later; `[Automation N]` keeps
+working as it does.
+
 ## Settings copies
 
 What changed says a settings change as it was made, "Built-in screen: scale
@@ -370,6 +407,14 @@ can set these limits. Below the ticker's mark it writes nothing more.
 | `NotificationsSeen()` | The person opened the notifications, so the island about what came in goes |
 | `FactChanged(a{sv})` | A fact changed: its words, its level or whether it wants the island |
 | `OpenNotifications()` | The person asked to see what came in during Do Not Disturb; whatever keeps the notifications opens them |
+| `Layouts() → aa{sv}` | Each saved layout: `id` (`s`), `name` (`s`), `groups` (`aa{sv}`: `apps` `as`, `names` `as`, `stack` `b`) and `atSignIn` (`b`) |
+| `CurrentLayout() → a{sv}` | The desk as Cards reads it now (`currentLayout()`): `workspace` and `groups`, with each group's `names` as the app menu gives them; `available` is false when Cards isn't running. It answers once Cards has |
+| `SaveLayout(s name, s groupsJson, b atSignIn) → s` | Saves the groups, the JSON array of `{apps, stack}`, under that name, and answers its id; empty for an empty name or no groups |
+| `OpenLayout(s id) → b` | Arranges it and launches what isn't running; false for an unknown id, while a layout or a bring-back is under way, or when Cards turns it down. It answers once Cards has |
+| `RemoveLayout(s id) → b` | Forgets it; false for an unknown id |
+| `SetLayoutAtSignIn(s id, b on) → b` | Its "Open when I sign in" switch; false for an unknown id |
+| `LayoutsChanged()` | A layout was saved, removed or switched |
+| `LayoutOpened(s id, i placed, i missed, as missedNames)` | A layout's run is over: how many apps went to their place, how many didn't, and their names |
 
 `Act("devices", "open")` opens the settings page for the kind of device Core
 spoke of last, as a tap on its ticker line does.

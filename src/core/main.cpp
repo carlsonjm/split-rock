@@ -490,6 +490,8 @@ int main(int argc, char **argv)
     // Cards, from Kadunce, where it runs: Workspace Memory's saved session
     // and the apps opened together.
     KadunceMemory kadunce(bus);
+    // And its saved layouts: reading the desk and arranging one.
+    KadunceLayouts kadunceLayouts(bus);
     Ticker ticker(bus, [&core](const QString &topic) {
         if (core)
             core->act(topic, QStringLiteral("open"));
@@ -531,6 +533,13 @@ int main(int argc, char **argv)
     hooks.openApps = [](const QStringList &ids) {
         for (const QString &id : ids)
             launchApp(id);
+    };
+    hooks.currentLayout = [&kadunceLayouts](std::function<void(std::optional<CurrentDesk>)> answered) {
+        kadunceLayouts.currentLayout(std::move(answered));
+    };
+    hooks.arrangeLayout = [&kadunceLayouts](const QList<LayoutGroup> &groups, std::function<void(const LayoutPlan &)> armed,
+                                            std::function<void(const LayoutRun &)> done) {
+        kadunceLayouts.arrange(groups, std::move(armed), std::move(done));
     };
     Core desk(parser.isSet(folderOption) ? parser.value(folderOption) : Core::defaultFolder(),
               parser.isSet(settingsOption) ? parser.value(settingsOption) : Core::defaultSettings(), hooks);
@@ -731,7 +740,8 @@ int main(int argc, char **argv)
     // read what it saved, the session it offers. Asked three times at most,
     // until Cards answers; a session already offered is not offered again.
     // Then the automations the person accepted open, but for the apps
-    // Always is bringing back.
+    // Always is bringing back, and the layouts switched on for sign-in open
+    // once the question is settled.
     int memoryAsks = 0;
     bool memoryAnswered = false;
     bool automationsRan = false;
@@ -742,6 +752,7 @@ int main(int argc, char **argv)
             return;
         automationsRan = true;
         desk.runAutomations(skip);
+        desk.openLayoutsAtSignIn();
     };
     const auto askMemory = [&desk, &kadunce, &memoryAsks, &memoryAnswered, &memoryAsk, runAutomations] {
         if (memoryAnswered)

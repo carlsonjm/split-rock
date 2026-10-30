@@ -948,6 +948,7 @@ void Core::loadAttention()
     m_offerPending = saved.value(QStringLiteral("Automations/Pending"), false).toBool();
     m_offer.apps = saved.value(QStringLiteral("Automations/Apps")).toStringList();
     m_offer.count = saved.value(QStringLiteral("Automations/Count"), 0).toInt();
+    m_layoutsRanIn = saved.value(QStringLiteral("Layouts/RanIn")).toString();
 }
 
 void Core::saveAttention(const QString &topic) const
@@ -1014,6 +1015,10 @@ void Core::saveAttention(const QString &topic) const
         saved.setValue(QStringLiteral("Memory/Pending"), m_sessionPending);
         saved.setValue(QStringLiteral("Memory/Apps"), m_session.apps);
         saved.setValue(QStringLiteral("Memory/Count"), m_session.count);
+        return;
+    }
+    if (topic == QLatin1String("layouts")) {
+        saved.setValue(QStringLiteral("Layouts/RanIn"), m_layoutsRanIn);
         return;
     }
     if (topic == Focus) {

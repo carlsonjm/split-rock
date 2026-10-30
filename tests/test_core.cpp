@@ -10,6 +10,7 @@
 #include "core/CoreService.h"
 #include "core/Devices.h"
 #include "core/Health.h"
+#include "core/Layouts.h"
 #include "core/Storage.h"
 #include "core/Updates.h"
 #include "core/Windows.h"
@@ -65,6 +66,14 @@ struct Desk {
     QString signIn = QStringLiteral("1");
     QStringList settingsInstalled{QStringLiteral("kcm_printer_manager"), QStringLiteral("kcm_device_automounter"),
                                   QStringLiteral("kcm_bluetooth")};
+    // Saved layouts: what Cards reads of the desk, what it accepts, each
+    // arrangement asked for, and the run under way, which the test ends.
+    std::optional<CurrentDesk> cards;
+    LayoutPlan plan{true, {}, {}, {}};
+    QList<QList<LayoutGroup>> arranged;
+    std::function<void(const LayoutRun &)> runDone;
+    // Anything the test wires differently, such as Cards on the bus.
+    std::function<void(Core::Hooks &)> wire;
     std::unique_ptr<Core> core;
 
     Desk() { make(); }
@@ -92,7 +101,39 @@ struct Desk {
         hooks.appName = [](const QString &id) {
             return id == QLatin1String("org.mozilla.firefox") ? QStringLiteral("Firefox") : appName(id);
         };
+        hooks.currentLayout = [this](std::function<void(std::optional<CurrentDesk>)> answered) { answered(cards); };
+        hooks.arrangeLayout = [this](const QList<LayoutGroup> &groups, std::function<void(const LayoutPlan &)> armed,
+                                     std::function<void(const LayoutRun &)> done) {
+            arranged.append(groups);
+            if (!plan.accepted) {
+                LayoutRun refused;
+                refused.reason = plan.reason;
+                refused.finished = true;
+                done(refused);
+                return;
+            }
+            runDone = std::move(done);
+            armed(plan);
+        };
+        if (wire)
+            wire(hooks);
         core = std::make_unique<Core>(dir.filePath(QStringLiteral("core")), dir.filePath(QStringLiteral("corerc")), hooks);
+    }
+
+    // Cards says the run under way is over.
+    void endRun(int placed, const QStringList &missedApps = {})
+    {
+        LayoutRun run;
+        run.accepted = true;
+        run.finished = true;
+        run.launch = plan.launch;
+        run.alreadyOpen = plan.alreadyOpen;
+        run.placed = placed;
+        run.missed = int(missedApps.size());
+        run.missedApps = missedApps;
+        const auto done = std::move(runDone);
+        runDone = nullptr;
+        done(run);
     }
 
     void look(double full, int minutesLater = 30)
@@ -224,6 +265,48 @@ public Q_SLOTS:
         calls.append(QStringLiteral("openTogether"));
         return together;
     }
+
+    // Kadunce's layout calls, as the saved layouts contract gives them.
+public:
+    QVariantMap desk;
+    QVariantMap layoutPlan;
+    QList<QVariantMap> arrangedGroups;
+    QString layoutToken;
+
+    void placed(const QString &appId, bool went)
+    {
+        QDBusMessage signal = QDBusMessage::createSignal(QStringLiteral("/Kadunce"), QStringLiteral("co.goodinput.Kadunce"),
+                                                         QStringLiteral("layoutAppPlaced"));
+        signal.setArguments({layoutToken, appId, went});
+        QDBusConnection(QStringLiteral("kadunce")).send(signal);
+    }
+    void layoutDone(int placedCount, int missed)
+    {
+        QDBusMessage signal = QDBusMessage::createSignal(QStringLiteral("/Kadunce"), QStringLiteral("co.goodinput.Kadunce"),
+                                                         QStringLiteral("layoutFinished"));
+        signal.setArguments({layoutToken, placedCount, missed});
+        QDBusConnection(QStringLiteral("kadunce")).send(signal);
+    }
+
+public Q_SLOTS:
+    int layoutProtocolVersion()
+    {
+        calls.append(QStringLiteral("layoutVersion"));
+        return version;
+    }
+    QVariantMap currentLayout()
+    {
+        calls.append(QStringLiteral("currentLayout"));
+        return desk;
+    }
+    QVariantMap arrangeLayout(const QString &t, const QList<QVariantMap> &groups)
+    {
+        calls.append(QStringLiteral("arrangeLayout"));
+        layoutToken = t;
+        arrangedGroups = groups;
+        return layoutPlan;
+    }
+    void cancelLayout(const QString &) { calls.append(QStringLiteral("cancelLayout")); }
 };
 
 class TestCore : public QObject
@@ -1472,6 +1555,410 @@ private Q_SLOTS:
         d.core->seeOpenTogether(*sets);
         QCOMPARE(d.fact(QStringLiteral("automations")).value(QStringLiteral("line")).toString(),
                  QStringLiteral("Open Mail and Firefox when you sign in?"));
+        standIn.unregisterService(QStringLiteral("org.kde.KWin"));
+        QDBusConnection::disconnectFromBus(QStringLiteral("kadunce"));
+    }
+
+    void layoutsAreKeptInTheSettingsFile()
+    {
+        Desk d;
+        const QString rc = d.dir.filePath(QStringLiteral("corerc"));
+        d.setNotice(QStringLiteral("60"));
+        QSignalSpy changed(d.core.get(), &Core::layoutsChanged);
+        QVERIFY(d.core->layouts().isEmpty());
+        // An empty name, or no groups, saves nothing.
+        QCOMPARE(d.core->saveLayout(QStringLiteral("  "), QStringLiteral(R"([{"apps":["a"],"stack":false}])"), false), QString());
+        QCOMPARE(d.core->saveLayout(QStringLiteral("Coding"), QStringLiteral("[]"), false), QString());
+        QCOMPARE(d.core->saveLayout(QStringLiteral("Coding"), QStringLiteral("not json"), false), QString());
+        QCOMPARE(changed.size(), 0);
+
+        // An id with .desktop loses it, an app is kept once, in its first
+        // group, and a group of one is no Stack.
+        const QString coding = d.core->saveLayout(
+            QStringLiteral("Coding"),
+            QStringLiteral(R"([{"apps":["com.mitchellh.ghostty.desktop","com.anthropic.claude"],"stack":true,"names":["x"]},)"
+                           R"({"apps":["org.mozilla.firefox","com.anthropic.claude"],"stack":true},{"apps":[],"stack":false}])"),
+            false);
+        QCOMPARE(coding, QStringLiteral("1"));
+        QCOMPARE(changed.size(), 1);
+        const QString reading = d.core->saveLayout(QStringLiteral("Reading"),
+                                                   QStringLiteral(R"([{"apps":["org.kde.okular"],"stack":false}])"), true);
+        QCOMPARE(reading, QStringLiteral("2"));
+        // Qt writes the group's space as %20, as it does for Automations.
+        QVERIFY(read(rc).contains(QStringLiteral("[Layout%201]")));
+        QVERIFY(read(rc).contains(QStringLiteral("Groups=")));
+
+        const QList<QVariantMap> layouts = d.core->layoutsForBus();
+        QCOMPARE(layouts.size(), 2);
+        QCOMPARE(layouts.first().value(QStringLiteral("id")).toString(), QStringLiteral("1"));
+        QCOMPARE(layouts.first().value(QStringLiteral("name")).toString(), QStringLiteral("Coding"));
+        QVERIFY(!layouts.first().value(QStringLiteral("atSignIn")).toBool());
+        const QList<QVariantMap> groups = layouts.first().value(QStringLiteral("groups")).value<QList<QVariantMap>>();
+        QCOMPARE(groups.size(), 2);
+        QCOMPARE(groups.at(0).value(QStringLiteral("apps")).toStringList(),
+                 (QStringList{QStringLiteral("com.mitchellh.ghostty"), QStringLiteral("com.anthropic.claude")}));
+        QCOMPARE(groups.at(0).value(QStringLiteral("names")).toStringList(),
+                 (QStringList{QStringLiteral("Ghostty"), QStringLiteral("Claude")}));
+        QVERIFY(groups.at(0).value(QStringLiteral("stack")).toBool());
+        QCOMPARE(groups.at(1).value(QStringLiteral("names")).toStringList(), QStringList{QStringLiteral("Firefox")});
+        QVERIFY(!groups.at(1).value(QStringLiteral("stack")).toBool());
+        QVERIFY(layouts.last().value(QStringLiteral("atSignIn")).toBool());
+
+        // The same name, whatever its case, replaces that layout and keeps
+        // its id.
+        QCOMPARE(d.core->saveLayout(QStringLiteral("coding"), QStringLiteral(R"([{"apps":["org.kde.kate"],"stack":false}])"), true),
+                 QStringLiteral("1"));
+        QCOMPARE(d.core->layouts().size(), 2);
+        QCOMPARE(d.core->layouts().first().name, QStringLiteral("coding"));
+        QCOMPARE(d.core->layouts().first().groups, (QList<LayoutGroup>{{{QStringLiteral("org.kde.kate")}, false}}));
+        QVERIFY(d.core->layouts().first().atSignIn);
+        QCOMPARE(d.core->layouts().first().added, d.now);
+
+        // Its switch, and forgetting it.
+        QVERIFY(d.core->setLayoutAtSignIn(QStringLiteral("2"), false));
+        QVERIFY(!d.core->layouts().last().atSignIn);
+        QVERIFY(!d.core->setLayoutAtSignIn(QStringLiteral("9"), true));
+        QVERIFY(d.core->removeLayout(QStringLiteral("1")));
+        QVERIFY(!d.core->removeLayout(QStringLiteral("1")));
+        QVERIFY(!d.core->removeLayout(QStringLiteral("General")));
+        QCOMPARE(d.core->layouts().size(), 1);
+        QCOMPARE(d.core->layouts().first().id, QStringLiteral("2"));
+        QCOMPARE(changed.size(), 5);
+        // The settings Core reads at the top of the file are untouched.
+        QCOMPARE(d.core->notice(), 60);
+        QVERIFY(d.logbook().contains(QStringLiteral("Layouts  Saved Coding: 3 apps in 2 groups.")));
+        QVERIFY(d.logbook().contains(QStringLiteral("Layouts  Saved Reading: 1 app in 1 group, opening when you sign in.")));
+        QVERIFY(d.logbook().contains(QStringLiteral("Layouts  Removed coding.")));
+    }
+
+    void theCurrentDeskIsCardsWithTheAppsNames()
+    {
+        Desk d;
+        QVariantMap desk;
+        d.core->currentLayout([&desk](const QVariantMap &answer) { desk = answer; });
+        QVERIFY(!desk.value(QStringLiteral("available")).toBool());
+        QVERIFY(desk.value(QStringLiteral("groups")).value<QList<QVariantMap>>().isEmpty());
+        d.cards = CurrentDesk{QStringLiteral("desktop-1"),
+                              {{{QStringLiteral("com.mitchellh.ghostty"), QStringLiteral("com.anthropic.claude")}, true},
+                               {{QStringLiteral("org.mozilla.firefox")}, false}}};
+        d.core->currentLayout([&desk](const QVariantMap &answer) { desk = answer; });
+        QVERIFY(desk.value(QStringLiteral("available")).toBool());
+        QCOMPARE(desk.value(QStringLiteral("workspace")).toString(), QStringLiteral("desktop-1"));
+        const QList<QVariantMap> groups = desk.value(QStringLiteral("groups")).value<QList<QVariantMap>>();
+        QCOMPARE(groups.size(), 2);
+        QCOMPARE(groups.first().value(QStringLiteral("names")).toStringList(),
+                 (QStringList{QStringLiteral("Ghostty"), QStringLiteral("Claude")}));
+        QCOMPARE(groups.last().value(QStringLiteral("names")).toStringList(), QStringList{QStringLiteral("Firefox")});
+    }
+
+    void openingALayoutLaunchesWhatCardsNames()
+    {
+        Desk d;
+        const QString id = d.core->saveLayout(
+            QStringLiteral("Coding"),
+            QStringLiteral(R"([{"apps":["com.mitchellh.ghostty","com.anthropic.claude"],"stack":true},{"apps":["mail"],"stack":false}])"),
+            false);
+        QSignalSpy opened(d.core.get(), &Core::layoutOpened);
+        std::optional<bool> accepted;
+        QVERIFY(!d.core->openLayout(QStringLiteral("7"), [&accepted](bool a) { accepted = a; }));
+        QVERIFY(d.arranged.isEmpty());
+        QVERIFY(!accepted);
+
+        // Cards is asked to arrange it; Core launches what Cards names.
+        d.plan.launch = {QStringLiteral("com.anthropic.claude"), QStringLiteral("mail")};
+        d.plan.alreadyOpen = {QStringLiteral("com.mitchellh.ghostty")};
+        QVERIFY(d.core->openLayout(id, [&accepted](bool a) { accepted = a; }));
+        QCOMPARE(accepted, std::optional<bool>(true));
+        QCOMPARE(d.arranged.size(), 1);
+        QCOMPARE(d.arranged.first().first().apps.size(), 2);
+        QVERIFY(d.arranged.first().first().stack);
+        QCOMPARE(d.appsOpened, (QList<QStringList>{{QStringLiteral("com.anthropic.claude"), QStringLiteral("mail")}}));
+        // One run at a time.
+        QVERIFY(!d.core->openLayout(id));
+        QCOMPARE(d.arranged.size(), 1);
+
+        // The run ends with Mail missing: the island is told its name.
+        d.endRun(2, {QStringLiteral("mail")});
+        QCOMPARE(opened.size(), 1);
+        QCOMPARE(opened.first().at(0).toString(), id);
+        QCOMPARE(opened.first().at(1).toInt(), 2);
+        QCOMPARE(opened.first().at(2).toInt(), 1);
+        QCOMPARE(opened.first().at(3).toStringList(), QStringList{QStringLiteral("Mail")});
+        QVERIFY(d.logbook().contains(QStringLiteral("Layouts  Opened Coding: launched 2 apps, with 1 already open; 2 in place, 1 missed (Mail).")));
+
+        // Cards busy: refused, nothing launched, nothing opened.
+        d.plan = {false, {}, {}, QStringLiteral("busy")};
+        accepted.reset();
+        QVERIFY(d.core->openLayout(id, [&accepted](bool a) { accepted = a; }));
+        QCOMPARE(accepted, std::optional<bool>(false));
+        QCOMPARE(d.appsOpened.size(), 1);
+        QCOMPARE(opened.size(), 1);
+        QVERIFY(d.logbook().contains(QStringLiteral("Layouts  Cards didn't open Coding: it was arranging the desk already.")));
+
+        // During a bring-back, Core refuses at once.
+        d.plan = {true, {}, {}, {}};
+        d.core->seeSavedSession(session(d.now, 14, FourApps));
+        QVERIFY(d.core->act(QStringLiteral("memory"), QStringLiteral("open")));
+        QVERIFY(!d.core->openLayout(id));
+        BringBackRun run;
+        run.accepted = true;
+        run.finished = true;
+        d.core->broughtBack(run);
+        QVERIFY(d.core->openLayout(id));
+    }
+
+    void layoutsOpenAtSignInOnceTheMemoryQuestionIsSettled()
+    {
+        Desk d;
+        const QString rc = d.dir.filePath(QStringLiteral("corerc"));
+        d.core->saveLayout(QStringLiteral("Coding"), QStringLiteral(R"([{"apps":["org.kde.kate"],"stack":false}])"), true);
+        d.core->saveLayout(QStringLiteral("Music"), QStringLiteral(R"([{"apps":["spotify"],"stack":false}])"), false);
+        d.core->saveLayout(QStringLiteral("Mail"), QStringLiteral(R"([{"apps":["mail","org.mozilla.firefox"],"stack":true}])"), true);
+        // An automation opened Firefox this sign-in already.
+        addAutomation(rc, {QStringLiteral("org.mozilla.firefox"), QStringLiteral("org.kde.notes")}, {}, d.now);
+
+        // The question stands on the island: the layouts wait for the answer.
+        d.core->seeSavedSession(session(d.now, 14, FourApps));
+        QVERIFY(!d.core->memorySettled());
+        QVERIFY(d.core->runAutomations());
+        QVERIFY(d.core->openLayoutsAtSignIn());
+        QVERIFY(d.arranged.isEmpty());
+        // Bring back: still waiting, until Cards has brought them back.
+        QVERIFY(d.core->act(QStringLiteral("memory"), QStringLiteral("open")));
+        QVERIFY(d.arranged.isEmpty());
+        BringBackRun run;
+        run.accepted = true;
+        run.finished = true;
+        d.core->broughtBack(run);
+        QVERIFY(d.core->memorySettled());
+        // Then each switched on, one after another.
+        QCOMPARE(d.arranged.size(), 1);
+        QCOMPARE(d.arranged.first().first().apps, QStringList{QStringLiteral("org.kde.kate")});
+        d.endRun(1);
+        QCOMPARE(d.arranged.size(), 2);
+        QCOMPARE(d.arranged.last().first().apps, (QStringList{QStringLiteral("mail"), QStringLiteral("org.mozilla.firefox")}));
+        d.endRun(2);
+        QCOMPARE(d.arranged.size(), 2);
+
+        // Once a sign-in, however often Core starts in it.
+        d.make();
+        QVERIFY(!d.core->openLayoutsAtSignIn());
+        QCOMPARE(d.arranged.size(), 2);
+
+        // Not now settles it too; and Firefox, which an automation is
+        // opening, isn't launched a second time.
+        d.signIn = QStringLiteral("2");
+        d.make();
+        d.now = d.now.addDays(1);
+        d.core->seeSavedSession(session(d.now, 12, FourApps));
+        QVERIFY(d.core->runAutomations());
+        d.plan.launch = {QStringLiteral("org.kde.kate")};
+        QVERIFY(d.core->openLayoutsAtSignIn());
+        QCOMPARE(d.arranged.size(), 2);
+        QVERIFY(d.core->act(QStringLiteral("memory"), QStringLiteral("not-now")));
+        QCOMPARE(d.arranged.size(), 3);
+        QCOMPARE(d.appsOpened.last(), QStringList{QStringLiteral("org.kde.kate")});
+        d.plan.launch = {QStringLiteral("mail"), QStringLiteral("org.mozilla.firefox")};
+        d.endRun(1);
+        QCOMPARE(d.arranged.size(), 4);
+        QCOMPARE(d.appsOpened.last(), QStringList{QStringLiteral("mail")});
+        d.endRun(2);
+
+        // With nothing offered, they open straight away.
+        d.signIn = QStringLiteral("3");
+        d.make();
+        d.core->seeSavedSession(SavedSession());
+        QVERIFY(d.core->openLayoutsAtSignIn());
+        QCOMPARE(d.arranged.size(), 5);
+    }
+
+    void layoutsGoThroughCardsAndTheBus()
+    {
+        qDBusRegisterMetaType<QList<QVariantMap>>();
+        QDBusConnection standIn = QDBusConnection::connectToBus(QDBusConnection::SessionBus, QStringLiteral("kadunce"));
+        QVERIFY(standIn.isConnected());
+        StandInKadunce kadunce;
+        kadunce.desk = {{QStringLiteral("workspace"), QStringLiteral("desktop-2")},
+                        {QStringLiteral("groups"),
+                         QVariant::fromValue(QList<QVariantMap>{
+                             {{QStringLiteral("apps"), QStringList{QStringLiteral("com.mitchellh.ghostty"), QStringLiteral("com.anthropic.claude")}},
+                              {QStringLiteral("stack"), true}},
+                             {{QStringLiteral("apps"), QStringList{QStringLiteral("mail")}}, {QStringLiteral("stack"), false}}})}};
+        kadunce.layoutPlan = {{QStringLiteral("accepted"), true},
+                              {QStringLiteral("launch"), QStringList{QStringLiteral("com.anthropic.claude"), QStringLiteral("mail")}},
+                              {QStringLiteral("alreadyOpen"), QStringList{QStringLiteral("com.mitchellh.ghostty")}},
+                              {QStringLiteral("reason"), QString()}};
+        QVERIFY(standIn.registerObject(QStringLiteral("/Kadunce"), &kadunce, QDBusConnection::ExportAllSlots));
+        const QString kwin = QStringLiteral("org.kde.KWin");
+        QVERIFY(standIn.registerService(kwin));
+
+        // Core, with Cards on the bus, offered on the bus.
+        KadunceLayouts cards(QDBusConnection::sessionBus(), kwin);
+        Desk d;
+        d.wire = [&cards](Core::Hooks &hooks) {
+            hooks.currentLayout = [&cards](std::function<void(std::optional<CurrentDesk>)> answered) {
+                cards.currentLayout(std::move(answered));
+            };
+            hooks.arrangeLayout = [&cards](const QList<LayoutGroup> &groups, std::function<void(const LayoutPlan &)> armed,
+                                           std::function<void(const LayoutRun &)> done) {
+                cards.arrange(groups, std::move(armed), std::move(done));
+            };
+        };
+        d.make();
+        QDBusConnection bus = QDBusConnection::sessionBus();
+        CoreService service(d.core.get());
+        QVERIFY(service.publish(bus));
+        QVERIFY(bus.registerService(QLatin1String(CoreService::Service)));
+        QSignalSpy opened(&service, &CoreService::LayoutOpened);
+        QSignalSpy changed(&service, &CoreService::LayoutsChanged);
+
+        // A caller of its own, as Search is.
+        QDBusConnection search = QDBusConnection::connectToBus(QDBusConnection::SessionBus, QStringLiteral("search"));
+        const auto ask = [&search](const QString &method, const QVariantList &arguments = {}) {
+            QDBusMessage call = QDBusMessage::createMethodCall(QLatin1String(CoreService::Service), QLatin1String(CoreService::Path),
+                                                               QStringLiteral("io.github.carlsonjm.SplitRock.Core"), method);
+            call.setArguments(arguments);
+            return search.asyncCall(call, 5000);
+        };
+
+        // The desk now, from Cards, with the apps' names.
+        QDBusPendingReply<QVariantMap> current = ask(QStringLiteral("CurrentLayout"));
+        QTRY_VERIFY(current.isFinished());
+        QVERIFY2(!current.isError(), qPrintable(current.error().message()));
+        QVERIFY(current.value().value(QStringLiteral("available")).toBool());
+        QCOMPARE(current.value().value(QStringLiteral("workspace")).toString(), QStringLiteral("desktop-2"));
+        QList<QVariantMap> groups;
+        current.value().value(QStringLiteral("groups")).value<QDBusArgument>() >> groups;
+        QCOMPARE(groups.size(), 2);
+        QCOMPARE(groups.first().value(QStringLiteral("names")).toStringList(),
+                 (QStringList{QStringLiteral("Ghostty"), QStringLiteral("Claude")}));
+        QVERIFY(groups.first().value(QStringLiteral("stack")).toBool());
+
+        // Saved as Search sends it, and listed.
+        QDBusPendingReply<QString> saved = ask(
+            QStringLiteral("SaveLayout"),
+            {QStringLiteral("Coding"),
+             QStringLiteral(R"([{"apps":["com.mitchellh.ghostty","com.anthropic.claude"],"stack":true},{"apps":["mail"],"stack":false}])"),
+             false});
+        QTRY_VERIFY(saved.isFinished());
+        QCOMPARE(saved.value(), QStringLiteral("1"));
+        QTRY_COMPARE(changed.size(), 1);
+        QDBusPendingReply<QList<QVariantMap>> listed = ask(QStringLiteral("Layouts"));
+        QTRY_VERIFY(listed.isFinished());
+        QVERIFY2(!listed.isError(), qPrintable(listed.error().message()));
+        QCOMPARE(listed.value().size(), 1);
+        QCOMPARE(listed.value().first().value(QStringLiteral("name")).toString(), QStringLiteral("Coding"));
+        QDBusPendingReply<bool> switched = ask(QStringLiteral("SetLayoutAtSignIn"), {QStringLiteral("1"), true});
+        QTRY_VERIFY(switched.isFinished());
+        QVERIFY(switched.value());
+
+        // Opened: Cards gets the groups, Core launches what it names, and
+        // the run's end comes back as LayoutOpened with what was missed.
+        QDBusPendingReply<bool> unknown = ask(QStringLiteral("OpenLayout"), {QStringLiteral("5")});
+        QTRY_VERIFY(unknown.isFinished());
+        QVERIFY(!unknown.value());
+        QDBusPendingReply<bool> open = ask(QStringLiteral("OpenLayout"), {QStringLiteral("1")});
+        QTRY_VERIFY(open.isFinished());
+        QVERIFY2(!open.isError(), qPrintable(open.error().message()));
+        QVERIFY(open.value());
+        QCOMPARE(kadunce.arrangedGroups.size(), 2);
+        QCOMPARE(kadunce.arrangedGroups.first().value(QStringLiteral("apps")).toStringList().size(), 2);
+        QVERIFY(kadunce.arrangedGroups.first().value(QStringLiteral("stack")).toBool());
+        QVERIFY(!QUuid::fromString(kadunce.layoutToken).isNull());
+        QCOMPARE(d.appsOpened, (QList<QStringList>{{QStringLiteral("com.anthropic.claude"), QStringLiteral("mail")}}));
+        kadunce.placed(QStringLiteral("com.mitchellh.ghostty"), true);
+        kadunce.placed(QStringLiteral("com.anthropic.claude"), true);
+        kadunce.placed(QStringLiteral("mail"), false);
+        kadunce.layoutDone(2, 1);
+        QTRY_COMPARE(opened.size(), 1);
+        QCOMPARE(opened.first().at(0).toString(), QStringLiteral("1"));
+        QCOMPARE(opened.first().at(1).toInt(), 2);
+        QCOMPARE(opened.first().at(2).toInt(), 1);
+        QCOMPARE(opened.first().at(3).toStringList(), QStringList{QStringLiteral("Mail")});
+        QVERIFY(!cards.running());
+
+        // Cards busy: OpenLayout answers false.
+        kadunce.layoutPlan = {{QStringLiteral("accepted"), false}, {QStringLiteral("reason"), QStringLiteral("busy")}};
+        QDBusPendingReply<bool> busy = ask(QStringLiteral("OpenLayout"), {QStringLiteral("1")});
+        QTRY_VERIFY(busy.isFinished());
+        QVERIFY(!busy.value());
+        QCOMPARE(opened.size(), 1);
+
+        QDBusPendingReply<bool> removed = ask(QStringLiteral("RemoveLayout"), {QStringLiteral("1")});
+        QTRY_VERIFY(removed.isFinished());
+        QVERIFY(removed.value());
+        QTRY_COMPARE(changed.size(), 3);
+        // The layout version is asked once.
+        QCOMPARE(kadunce.calls.count(QStringLiteral("layoutVersion")), 1);
+
+        // Without Cards, CurrentLayout says it isn't available.
+        standIn.unregisterService(kwin);
+        KadunceLayouts none(QDBusConnection::sessionBus(), QStringLiteral("org.example.NoKadunce"));
+        std::optional<CurrentDesk> nothing = CurrentDesk();
+        bool answered = false;
+        none.currentLayout([&](const std::optional<CurrentDesk> &desk) {
+            nothing = desk;
+            answered = true;
+        });
+        QTRY_VERIFY(answered);
+        QVERIFY(!nothing);
+
+        QDBusConnection::disconnectFromBus(QStringLiteral("search"));
+        bus.unregisterService(QLatin1String(CoreService::Service));
+        bus.unregisterObject(QLatin1String(CoreService::Path));
+        QDBusConnection::disconnectFromBus(QStringLiteral("kadunce"));
+    }
+
+    void cardsArrangesOneDeskAtATimeAndNamesWhatMissed()
+    {
+        QDBusConnection standIn = QDBusConnection::connectToBus(QDBusConnection::SessionBus, QStringLiteral("kadunce"));
+        StandInKadunce kadunce;
+        kadunce.layoutPlan = {{QStringLiteral("accepted"), true},
+                              {QStringLiteral("launch"), QStringList{QStringLiteral("a"), QStringLiteral("b")}}};
+        QVERIFY(standIn.registerObject(QStringLiteral("/Kadunce"), &kadunce, QDBusConnection::ExportAllSlots));
+        QVERIFY(standIn.registerService(QStringLiteral("org.kde.KWin")));
+        KadunceLayouts cards(QDBusConnection::sessionBus());
+        std::optional<LayoutPlan> armed;
+        std::optional<LayoutRun> run;
+        cards.arrange({{{QStringLiteral("a"), QStringLiteral("b")}, true}}, [&](const LayoutPlan &p) { armed = p; },
+                      [&](const LayoutRun &r) { run = r; });
+        QTRY_VERIFY(armed.has_value());
+        QCOMPARE(armed->launch, (QStringList{QStringLiteral("a"), QStringLiteral("b")}));
+        QVERIFY(cards.running());
+        // A second arrangement while one runs is turned down at once.
+        std::optional<LayoutRun> second;
+        cards.arrange({{{QStringLiteral("c")}, false}}, {}, [&](const LayoutRun &r) { second = r; });
+        QVERIFY(second.has_value());
+        QVERIFY(!second->accepted);
+        QCOMPARE(second->reason, QStringLiteral("busy"));
+        // A finish for another run is not this one's.
+        const QString token = kadunce.layoutToken;
+        kadunce.layoutToken = QStringLiteral("someone-else");
+        kadunce.layoutDone(2, 0);
+        kadunce.layoutToken = token;
+        kadunce.placed(QStringLiteral("a"), true);
+        QTest::qWait(200);
+        QVERIFY(!run);
+        // b never said it arrived, so it is the one missed.
+        kadunce.layoutDone(1, 1);
+        QTRY_VERIFY(run.has_value());
+        QVERIFY(run->accepted);
+        QVERIFY(run->finished);
+        QCOMPARE(run->placed, 1);
+        QCOMPARE(run->missedApps, QStringList{QStringLiteral("b")});
+        QVERIFY(!cards.running());
+
+        // A version Core doesn't know arranges nothing.
+        kadunce.version = 2;
+        KadunceLayouts newer(QDBusConnection::sessionBus());
+        run.reset();
+        armed.reset();
+        newer.arrange({{{QStringLiteral("a")}, false}}, [&](const LayoutPlan &p) { armed = p; },
+                      [&](const LayoutRun &r) { run = r; });
+        QTRY_VERIFY(run.has_value());
+        QVERIFY(!run->accepted);
+        QVERIFY(!armed);
+        QVERIFY(!kadunce.calls.contains(QStringLiteral("cancelLayout")));
         standIn.unregisterService(QStringLiteral("org.kde.KWin"));
         QDBusConnection::disconnectFromBus(QStringLiteral("kadunce"));
     }
