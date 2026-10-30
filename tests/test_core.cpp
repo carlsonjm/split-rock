@@ -5,6 +5,7 @@
 // every clock here is the test's own; nothing looks at this computer's drive,
 // and files are made only inside the test's own home.
 #include "core/Attention.h"
+#include "core/Automations.h"
 #include "core/Core.h"
 #include "core/CoreService.h"
 #include "core/Devices.h"
@@ -60,6 +61,8 @@ struct Desk {
     int notificationsOpened = 0;
     int bringBacks = 0;
     int dismissed = 0;
+    QList<QStringList> appsOpened;
+    QString signIn = QStringLiteral("1");
     QStringList settingsInstalled{QStringLiteral("kcm_printer_manager"), QStringLiteral("kcm_device_automounter"),
                                   QStringLiteral("kcm_bluetooth")};
     std::unique_ptr<Core> core;
@@ -84,6 +87,8 @@ struct Desk {
         hooks.openNotifications = [this] { ++notificationsOpened; };
         hooks.bringBack = [this] { ++bringBacks; };
         hooks.dismissSavedSession = [this] { ++dismissed; };
+        hooks.openApps = [this](const QStringList &ids) { appsOpened.append(ids); };
+        hooks.signIn = [this] { return signIn; };
         hooks.appName = [](const QString &id) {
             return id == QLatin1String("org.mozilla.firefox") ? QStringLiteral("Firefox") : appName(id);
         };
@@ -154,6 +159,18 @@ SavedSession session(const QDateTime &now, int hoursAgo, const QStringList &apps
     s.when = now.addSecs(-hoursAgo * 3600);
     return s;
 }
+
+OpenSet together(const QStringList &apps, int count, const QDateTime &lastSeen)
+{
+    OpenSet set;
+    set.apps = apps;
+    set.apps.sort();
+    set.count = count;
+    set.lastSeen = lastSeen;
+    return set;
+}
+
+const QStringList ThreeApps{QStringLiteral("org.mozilla.firefox"), QStringLiteral("org.kde.notes"), QStringLiteral("mail")};
 
 const QStringList FourApps{QStringLiteral("org.mozilla.firefox"), QStringLiteral("org.kde.kate"),
                            QStringLiteral("spotify"), QStringLiteral("org.kde.dolphin")};
@@ -1288,6 +1305,159 @@ private Q_SLOTS:
         QTRY_VERIFY(answered);
         QVERIFY(!got);
         standIn.unregisterService(service);
+        QDBusConnection::disconnectFromBus(QStringLiteral("kadunce"));
+    }
+
+    void anAutomationIsOfferedOnceAfterThreeTimes()
+    {
+        Desk d;
+        QVERIFY(d.core->watchesAutomations());
+        QVERIFY(d.core->automations().isEmpty());
+        // Twice is not a habit yet.
+        d.core->seeOpenTogether({together(ThreeApps, 2, d.now)});
+        QVERIFY(d.core->facts().isEmpty());
+        // Three times: one offer, on the island, in the draft's words.
+        d.core->seeOpenTogether({together(ThreeApps, 3, d.now),
+                                 together({QStringLiteral("a"), QStringLiteral("b")}, 3, d.now.addDays(-2))});
+        QVariantMap fact = d.fact(QStringLiteral("automations"));
+        QCOMPARE(fact.value(QStringLiteral("line")).toString(), QStringLiteral("Open Mail, Notes and Firefox when you sign in?"));
+        QCOMPARE(fact.value(QStringLiteral("detail")).toString(), QStringLiteral("You've started with these three times"));
+        QCOMPARE(fact.value(QStringLiteral("actionText")).toString(), QStringLiteral("Yes, each time"));
+        QCOMPARE(fact.value(QStringLiteral("dismissText")).toString(), QStringLiteral("Not now"));
+        QCOMPARE(fact.value(QStringLiteral("attention")).toString(), QStringLiteral("island"));
+        QVERIFY(d.ticker.isEmpty());
+        QVERIFY(d.appsOpened.isEmpty());
+        // One offer at a time: the other set waits.
+        d.core->seeOpenTogether({together({QStringLiteral("a"), QStringLiteral("b")}, 5, d.now)});
+        QCOMPARE(d.fact(QStringLiteral("automations")).value(QStringLiteral("line")).toString(),
+                 QStringLiteral("Open Mail, Notes and Firefox when you sign in?"));
+
+        // Yes: kept in the settings file with its own switch, nothing opened now.
+        QVERIFY(d.core->act(QStringLiteral("automations"), QStringLiteral("open")));
+        QVERIFY(d.fact(QStringLiteral("automations")).isEmpty());
+        QVERIFY(d.appsOpened.isEmpty());
+        const QList<Automation> kept = d.core->automations();
+        QCOMPARE(kept.size(), 1);
+        QCOMPARE(kept.first().group, QStringLiteral("Automation 1"));
+        QCOMPARE(kept.first().apps, together(ThreeApps, 3, d.now).apps);
+        QCOMPARE(kept.first().names.last(), QStringLiteral("Firefox"));
+        QVERIFY(kept.first().enabled);
+        QVERIFY(d.logbook().contains(QStringLiteral("Automations  You said yes: Mail, Notes and Firefox open when you sign in")));
+        // Never offered again, even seen more.
+        d.core->seeOpenTogether({together(ThreeApps, 9, d.now)});
+        QVERIFY(d.fact(QStringLiteral("automations")).isEmpty());
+
+        // The other set, the next day: Not now is for good too.
+        d.now = d.now.addDays(1);
+        d.core->seeOpenTogether({together(ThreeApps, 9, d.now), together({QStringLiteral("a"), QStringLiteral("b")}, 5, d.now)});
+        fact = d.fact(QStringLiteral("automations"));
+        QCOMPARE(fact.value(QStringLiteral("line")).toString(), QStringLiteral("Open A and B when you sign in?"));
+        QCOMPARE(fact.value(QStringLiteral("detail")).toString(), QStringLiteral("You've started with these five times"));
+        QVERIFY(d.core->act(QStringLiteral("automations"), QStringLiteral("not-now")));
+        QCOMPARE(d.core->automations().size(), 1);
+        d.now = d.now.addDays(1);
+        d.core->seeOpenTogether({together({QStringLiteral("a"), QStringLiteral("b")}, 8, d.now)});
+        QVERIFY(d.fact(QStringLiteral("automations")).isEmpty());
+        QVERIFY(!d.core->act(QStringLiteral("automations"), QStringLiteral("open")));
+    }
+
+    void anOfferWaitsOutDoNotDisturbAndTodaysIsland()
+    {
+        Desk d;
+        d.doNotDisturb = true;
+        d.core->seeOpenTogether({together(ThreeApps, 3, d.now)});
+        QVERIFY(d.core->facts().isEmpty());
+        QVERIFY(d.ticker.isEmpty());
+        d.doNotDisturb = false;
+        d.core->seeOpenTogether({together(ThreeApps, 3, d.now)});
+        QVERIFY(!d.fact(QStringLiteral("automations")).isEmpty());
+        QVERIFY(d.core->act(QStringLiteral("automations"), QStringLiteral("dismiss")));
+        // A second set the same day waits for tomorrow, never the ticker.
+        d.core->seeOpenTogether({together({QStringLiteral("a"), QStringLiteral("b")}, 3, d.now)});
+        QVERIFY(d.fact(QStringLiteral("automations")).isEmpty());
+        QVERIFY(d.ticker.isEmpty());
+        d.now = d.now.addDays(1);
+        d.core->seeOpenTogether({together({QStringLiteral("a"), QStringLiteral("b")}, 3, d.now)});
+        QVERIFY(!d.fact(QStringLiteral("automations")).isEmpty());
+        // Survives a restart while it waits for an answer.
+        d.make();
+        QVERIFY(!d.fact(QStringLiteral("automations")).isEmpty());
+        QVERIFY(d.core->act(QStringLiteral("automations"), QStringLiteral("open")));
+        QCOMPARE(d.core->automations().first().apps, (QStringList{QStringLiteral("a"), QStringLiteral("b")}));
+    }
+
+    void acceptedAutomationsOpenOnceASignInWithTheirSwitch()
+    {
+        Desk d;
+        const QString rc = d.dir.filePath(QStringLiteral("corerc"));
+        addAutomation(rc, together(ThreeApps, 3, d.now).apps, {QStringLiteral("Mail"), QStringLiteral("Notes"), QStringLiteral("Firefox")}, d.now);
+        addAutomation(rc, {QStringLiteral("org.kde.kate"), QStringLiteral("org.mozilla.firefox")}, {}, d.now);
+        QCOMPARE(readAutomations(rc).last().group, QStringLiteral("Automation 2"));
+        // Firefox is coming back with Workspace Memory, so it isn't opened twice.
+        QVERIFY(d.core->runAutomations({QStringLiteral("org.mozilla.firefox")}));
+        QCOMPARE(d.appsOpened.size(), 1);
+        QCOMPARE(d.appsOpened.first(), (QStringList{QStringLiteral("mail"), QStringLiteral("org.kde.notes"), QStringLiteral("org.kde.kate")}));
+        QVERIFY(d.logbook().contains(QStringLiteral("Automations  Opened at sign-in, as you said yes to: Mail, Notes and Firefox; Kate and Firefox.")));
+        // Once a sign-in, however often Core starts in it.
+        d.make();
+        QVERIFY(!d.core->runAutomations());
+        QCOMPARE(d.appsOpened.size(), 1);
+        // Its switch in Settings: off, it opens nothing.
+        {
+            QSettings settings(rc, QSettings::IniFormat);
+            settings.setValue(QStringLiteral("Automation 1/Enabled"), false);
+            settings.setValue(QStringLiteral("Automation 2/Enabled"), false);
+        }
+        d.signIn = QStringLiteral("2");
+        QVERIFY(!d.core->runAutomations());
+        QCOMPARE(d.appsOpened.size(), 1);
+        // The topic switched off: nothing is offered or opened.
+        {
+            QSettings settings(rc, QSettings::IniFormat);
+            settings.setValue(QStringLiteral("Automation 1/Enabled"), true);
+            settings.setValue(QStringLiteral("Automations/Enabled"), false);
+        }
+        d.signIn = QStringLiteral("3");
+        QVERIFY(!d.core->watchesAutomations());
+        QVERIFY(!d.core->runAutomations());
+        d.core->seeOpenTogether({together({QStringLiteral("x"), QStringLiteral("y")}, 4, d.now)});
+        QVERIFY(d.core->facts().isEmpty());
+        QCOMPARE(d.appsOpened.size(), 1);
+    }
+
+    void kadunceOpenTogetherComesOffTheBus()
+    {
+        QDBusConnection standIn = QDBusConnection::connectToBus(QDBusConnection::SessionBus, QStringLiteral("kadunce"));
+        StandInKadunce kadunce;
+        const qint64 seen = QDateTime::currentSecsSinceEpoch();
+        kadunce.together = {QVariantMap{{QStringLiteral("apps"), QStringList{QStringLiteral("org.mozilla.firefox"), QStringLiteral("mail")}},
+                                        {QStringLiteral("count"), 3},
+                                        {QStringLiteral("lastSeen"), seen}},
+                            QVariantMap{{QStringLiteral("apps"), QStringList{QStringLiteral("solo")}},
+                                        {QStringLiteral("count"), 7},
+                                        {QStringLiteral("lastSeen"), seen}}};
+        QVERIFY(standIn.registerObject(QStringLiteral("/Kadunce"), &kadunce, QDBusConnection::ExportAllSlots));
+        QVERIFY(standIn.registerService(QStringLiteral("org.kde.KWin")));
+        KadunceMemory memory(QDBusConnection::sessionBus());
+        std::optional<QList<OpenSet>> sets;
+        bool answered = false;
+        memory.openTogether([&](const std::optional<QList<OpenSet>> &s) {
+            sets = s;
+            answered = true;
+        });
+        QTRY_VERIFY(answered);
+        QVERIFY(sets);
+        // A set of one app is no set.
+        QCOMPARE(sets->size(), 1);
+        QCOMPARE(sets->first().apps, (QStringList{QStringLiteral("mail"), QStringLiteral("org.mozilla.firefox")}));
+        QCOMPARE(sets->first().count, 3);
+        QCOMPARE(sets->first().lastSeen.toSecsSinceEpoch(), seen);
+        // Through Core, to the offer.
+        Desk d;
+        d.core->seeOpenTogether(*sets);
+        QCOMPARE(d.fact(QStringLiteral("automations")).value(QStringLiteral("line")).toString(),
+                 QStringLiteral("Open Mail and Firefox when you sign in?"));
+        standIn.unregisterService(QStringLiteral("org.kde.KWin"));
         QDBusConnection::disconnectFromBus(QStringLiteral("kadunce"));
     }
 

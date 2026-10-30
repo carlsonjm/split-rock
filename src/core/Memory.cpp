@@ -1,7 +1,9 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 //
-// Core's Workspace Memory topic (docs/CORE.md § Workspace Memory): the
-// session Cards offers after sign-in, the island that asks, and Always.
+// Core's Workspace Memory and Automations topics (docs/CORE.md § Workspace
+// Memory, § Automations): the session Cards offers after sign-in, the island
+// that asks, and Always; and the apps opened together, the offer to open them
+// at sign-in, and running the ones the person accepted.
 #include "core/Core.h"
 
 #include <QSettings>
@@ -12,6 +14,8 @@ namespace {
 
 const QString Memory = QStringLiteral("memory");
 const QString MemoryTitle = QStringLiteral("Workspace Memory");
+const QString Automations = QStringLiteral("automations");
+const QString AutomationsTitle = QStringLiteral("Automations");
 
 QString appsCount(int count)
 {
@@ -187,6 +191,134 @@ void Core::broughtBack(const BringBackRun &run)
         m_hooks.notify(Memory, QStringLiteral("Your apps didn't come back"), QStringLiteral("Open them from the app menu"));
     else
         m_hooks.notify(Memory, QStringLiteral("Brought back %1").arg(appsCount(back)), detail);
+}
+
+bool Core::watchesAutomations() const
+{
+    return enabled(Automations);
+}
+
+QList<Automation> Core::automations() const
+{
+    return readAutomations(m_settings);
+}
+
+void Core::seeOpenTogether(const QList<OpenSet> &sets)
+{
+    // One offer at a time, and only while the topic is on.
+    if (!watchesAutomations() || m_offerPending)
+        return;
+    const std::optional<OpenSet> set = setToOffer(sets, m_offered, automations());
+    if (!set)
+        return;
+    const QDateTime now = m_hooks.now();
+    // An offer can wait: during Do Not Disturb, or with today's island
+    // already shown, it waits for the next look rather than go to the
+    // ticker, where a tap would be a yes nobody read.
+    if (m_hooks.doNotDisturb && m_hooks.doNotDisturb())
+        return;
+    if (m_automationsAttention.islandsDay == now.date() && m_automationsAttention.islandsToday >= 1)
+        return;
+    m_offer = *set;
+    m_offerPending = true;
+    m_offered.append(setKey(set->apps));
+    Measure measure;
+    measure.known = true;
+    measure.level = Level::Island;
+    measure.score = int(m_offered.size());
+    measure.step = 1;
+    const Spoken spoken = decide(measure, m_automationsAttention, now, false);
+    const QVariantMap fact = automationsFact();
+    if (spoken.island)
+        write(QStringLiteral("%1  Offered: %2 %3.")
+                  .arg(AutomationsTitle, fact.value(QStringLiteral("line")).toString(), fact.value(QStringLiteral("detail")).toString()));
+    else
+        m_offerPending = false;
+    saveAttention(Automations);
+    if (spoken.island)
+        Q_EMIT factChanged(automationsFact());
+}
+
+QVariantMap Core::automationsFact() const
+{
+    QStringList names;
+    for (const QString &id : m_offer.apps)
+        names.append(m_hooks.appName ? m_hooks.appName(id) : id);
+    return {
+        {QStringLiteral("topic"), Automations},
+        {QStringLiteral("title"), AutomationsTitle},
+        {QStringLiteral("line"), automationWords::offer(namesList(names))},
+        {QStringLiteral("detail"), automationWords::because(m_offer.count)},
+        {QStringLiteral("apps"), names},
+        {QStringLiteral("count"), int(m_offer.apps.size())},
+        {QStringLiteral("level"), levelName(Level::Island)},
+        {QStringLiteral("attention"), m_automationsAttention.islandOpen && m_offerPending ? QStringLiteral("island")
+                                                                                          : QStringLiteral("none")},
+        {QStringLiteral("icon"), QStringLiteral("system-run")},
+        {QStringLiteral("actionText"), QString::fromUtf8(automationWords::Yes)},
+        {QStringLiteral("dismissText"), QString::fromUtf8(automationWords::NotNow)},
+        {QStringLiteral("keywords"), QStringList{QStringLiteral("automation"), QStringLiteral("open at sign in"),
+                                                 QStringLiteral("startup apps")}},
+    };
+}
+
+bool Core::actAutomations(const QString &action)
+{
+    if (!watchesAutomations() || !m_offerPending)
+        return false;
+    if (!answer(m_automationsAttention, action, int(m_offered.size()), 1))
+        return false;
+    QStringList names;
+    for (const QString &id : m_offer.apps)
+        names.append(m_hooks.appName ? m_hooks.appName(id) : id);
+    if (action == QLatin1String("open")) {
+        const Automation added = addAutomation(m_settings, m_offer.apps, names, m_hooks.now());
+        write(QStringLiteral("%1  You said yes: %2 open when you sign in (%3 in the settings file).")
+                  .arg(AutomationsTitle, namesList(names), added.group));
+    } else {
+        write(QStringLiteral("%1  You %2; Core won't offer %3 again.")
+                  .arg(AutomationsTitle,
+                       action == QLatin1String("not-now") ? QStringLiteral("said not now") : QStringLiteral("dismissed it"),
+                       namesList(names)));
+    }
+    m_offerPending = false;
+    saveAttention(Automations);
+    Q_EMIT factChanged(automationsFact());
+    return true;
+}
+
+bool Core::runAutomations(const QStringList &skip)
+{
+    if (!watchesAutomations())
+        return false;
+    const QString signIn = m_hooks.signIn ? m_hooks.signIn() : QString();
+    if (!signIn.isEmpty() && signIn == m_automationsRanIn)
+        return false;
+    QStringList open;
+    QStringList said;
+    for (const Automation &automation : automations()) {
+        if (!automation.enabled)
+            continue;
+        for (const QString &id : automation.apps) {
+            if (!skip.contains(id) && !open.contains(id))
+                open.append(id);
+        }
+        QStringList names = automation.names;
+        if (names.size() != automation.apps.size()) {
+            names.clear();
+            for (const QString &id : automation.apps)
+                names.append(m_hooks.appName ? m_hooks.appName(id) : id);
+        }
+        said.append(namesList(names));
+    }
+    m_automationsRanIn = signIn;
+    saveAttention(Automations);
+    if (open.isEmpty())
+        return false;
+    write(QStringLiteral("%1  Opened at sign-in, as you said yes to: %2.").arg(AutomationsTitle, said.join(QStringLiteral("; "))));
+    if (m_hooks.openApps)
+        m_hooks.openApps(open);
+    return true;
 }
 
 } // namespace splitrock::core

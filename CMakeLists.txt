@@ -113,6 +113,7 @@ install(DIRECTORY tour/plasma DESTINATION ${CMAKE_INSTALL_DATADIR}/split-rock/to
 # core and the bus.
 add_library(splitrock_core_watch STATIC
     src/core/Attention.cpp
+    src/core/Automations.cpp
     src/core/Core.cpp
     src/core/CoreService.cpp
     src/core/Devices.cpp

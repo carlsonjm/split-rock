@@ -24,6 +24,7 @@ const QString Tidy = QStringLiteral("tidy");
 const QString Devices = QStringLiteral("devices");
 const QString Focus = QStringLiteral("focus");
 const QString Memory = QStringLiteral("memory");
+const QString Automations = QStringLiteral("automations");
 
 // How many of each kind of device are kept, the latest first.
 constexpr int DevicesKept = 200;
@@ -516,6 +517,8 @@ QList<QVariantMap> Core::facts() const
     // The session Cards offers is news only while its island is up.
     if (watchesMemory() && m_sessionPending && m_memoryAttention.islandOpen)
         facts.append(memoryFact());
+    if (watchesAutomations() && m_offerPending && m_automationsAttention.islandOpen)
+        facts.append(automationsFact());
     return facts;
 }
 
@@ -575,6 +578,8 @@ bool Core::act(const QString &topic, const QString &action)
 {
     if (topic == Memory)
         return actMemory(action);
+    if (topic == Automations)
+        return actAutomations(action);
     if (topic == Health) {
         if (!enabled(Health) || !m_health.known)
             return false;
@@ -937,6 +942,12 @@ void Core::loadAttention()
     m_session.apps = saved.value(QStringLiteral("Memory/Apps")).toStringList();
     m_session.count = saved.value(QStringLiteral("Memory/Count"), 0).toInt();
     m_session.when = m_sessionSeen;
+    loadState(saved, QStringLiteral("Automations"), m_automationsAttention);
+    m_offered = saved.value(QStringLiteral("Automations/Offered")).toStringList();
+    m_automationsRanIn = saved.value(QStringLiteral("Automations/RanIn")).toString();
+    m_offerPending = saved.value(QStringLiteral("Automations/Pending"), false).toBool();
+    m_offer.apps = saved.value(QStringLiteral("Automations/Apps")).toStringList();
+    m_offer.count = saved.value(QStringLiteral("Automations/Count"), 0).toInt();
 }
 
 void Core::saveAttention(const QString &topic) const
@@ -984,6 +995,15 @@ void Core::saveAttention(const QString &topic) const
     }
     if (topic == Tidy) {
         saved.setValue(QStringLiteral("Tidy/SpokenKb"), m_tidySpokenKb);
+        return;
+    }
+    if (topic == Automations) {
+        saveState(saved, QStringLiteral("Automations"), m_automationsAttention);
+        saved.setValue(QStringLiteral("Automations/Offered"), m_offered);
+        saved.setValue(QStringLiteral("Automations/RanIn"), m_automationsRanIn);
+        saved.setValue(QStringLiteral("Automations/Pending"), m_offerPending);
+        saved.setValue(QStringLiteral("Automations/Apps"), m_offer.apps);
+        saved.setValue(QStringLiteral("Automations/Count"), m_offer.count);
         return;
     }
     if (topic == Memory) {

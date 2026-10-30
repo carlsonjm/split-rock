@@ -2,6 +2,7 @@
 #pragma once
 
 #include "core/Attention.h"
+#include "core/Automations.h"
 #include "core/Devices.h"
 #include "core/Health.h"
 #include "core/Storage.h"
@@ -58,6 +59,12 @@ public:
         // through broughtBack(). And tells Cards the person said not now.
         std::function<void()> bringBack;
         std::function<void()> dismissSavedSession;
+        // Launches apps by their desktop file ids, as an automation the
+        // person accepted does at sign-in.
+        std::function<void(const QStringList &desktopIds)> openApps;
+        // This sign-in, so an automation runs once in it however often Core
+        // starts.
+        std::function<QString()> signIn = [] { return qEnvironmentVariable("XDG_SESSION_ID"); };
         // What the app menu calls an app, by its desktop file id.
         std::function<QString(const QString &desktopId)> appName = [](const QString &id) { return core::appName(id); };
     };
@@ -127,6 +134,18 @@ public:
     // A session older than this is not offered.
     static constexpr int MemoryKeepDays = 14;
 
+    // Automations (docs/CORE.md § Automations): the sets of apps Cards saw
+    // opened together after sign-in. Once one has opened together
+    // AutomationOfferAfter times, Core offers once, on the island, to open
+    // them at each sign-in; never more than one offer at a time, and none
+    // during Do Not Disturb, which leaves it for the next look.
+    void seeOpenTogether(const QList<OpenSet> &sets);
+    // Opens the apps of each automation switched on, once a sign-in, but
+    // those already open or coming back. False when there was none to open.
+    bool runAutomations(const QStringList &skip = {});
+    bool watchesAutomations() const;
+    QList<Automation> automations() const;
+
     // How readily Core speaks, the person's Notice setting, from 0 (Less) to
     // 100 (More), 50 by default; the words "quiet" and "eager" read as 0 and
     // 100. The limits each topic holds follow it.
@@ -170,6 +189,8 @@ private:
     QVariantMap windowsFact() const;
     QVariantMap focusFact() const;
     QVariantMap memoryFact() const;
+    QVariantMap automationsFact() const;
+    bool actAutomations(const QString &action);
     bool actMemory(const QString &action);
     // A settings key Core writes itself, after the person's choice.
     void setSetting(const QString &key, const QVariant &value);
@@ -239,6 +260,14 @@ private:
     int m_sessionOffers = 0;
     bool m_memoryAlwaysRun = false;
     Attention m_memoryAttention;
+
+    // The set offered and not yet answered, the sets offered before (by
+    // setKey), and the sign-in automations last ran in.
+    OpenSet m_offer;
+    bool m_offerPending = false;
+    QStringList m_offered;
+    QString m_automationsRanIn;
+    Attention m_automationsAttention;
 };
 
 } // namespace splitrock::core

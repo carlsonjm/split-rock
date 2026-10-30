@@ -1336,3 +1336,25 @@ loose, out of their cards and pairs, and asks nothing; named setups to switch
 between, which need a new place to keep them; a session from weeks ago, which
 is no longer what the person left; and asking during Do Not Disturb on the
 island, which the ticker carries instead like every other topic.
+
+## Automations are offered once, after three times, and kept with a switch each
+
+The first automation opens a set of apps at sign-in. Once Cards has seen the
+same apps opened together by hand after sign-in three times, Core offers it
+once on the island. Yes keeps it in `split-rock-corerc` as a group of its own
+with its own switch, which Settings lists; Not now is for good. An offer waits
+out Do Not Disturb and the topic's daily island rather than go to the ticker.
+The offer's words are a draft kept in one place until the product owner
+approves them.
+
+Why: approved on 19 Oct, "the usual?" after three times, never made on its
+own, each one listed in Settings with a switch, and "open these apps
+together" first because it shares its groundwork with Workspace Memory. The
+person's yes is the only way one is made, so a ticker line, whose tap would be
+a yes to words not read, is never used for it.
+
+Rejected: offering again once a declined set is seen more, which would make
+Not now mean "ask me later"; putting two apps side by side first, which needs
+Cards to report pairs; drafting email replies, which belong to Mail; and
+counting apps Workspace Memory brought back, which would turn one Always into
+an automation nobody asked for.

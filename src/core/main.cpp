@@ -528,6 +528,10 @@ int main(int argc, char **argv)
                           });
     };
     hooks.dismissSavedSession = [&kadunce] { kadunce.dismissSavedSession(); };
+    hooks.openApps = [](const QStringList &ids) {
+        for (const QString &id : ids)
+            launchApp(id);
+    };
     Core desk(parser.isSet(folderOption) ? parser.value(folderOption) : Core::defaultFolder(),
               parser.isSet(settingsOption) ? parser.value(settingsOption) : Core::defaultSettings(), hooks);
     core = &desk;
@@ -726,27 +730,59 @@ int main(int argc, char **argv)
     // Workspace Memory: after sign-in, once Cards has had time to start and
     // read what it saved, the session it offers. Asked three times at most,
     // until Cards answers; a session already offered is not offered again.
+    // Then the automations the person accepted open, but for the apps
+    // Always is bringing back.
     int memoryAsks = 0;
     bool memoryAnswered = false;
+    bool automationsRan = false;
     QTimer memoryAsk;
     memoryAsk.setInterval(std::chrono::seconds(40));
-    const auto askMemory = [&desk, &kadunce, &memoryAsks, &memoryAnswered, &memoryAsk] {
-        if (memoryAnswered || ++memoryAsks > 3 || !desk.watchesMemory()) {
+    const auto runAutomations = [&desk, &automationsRan](const QStringList &skip) {
+        if (automationsRan)
+            return;
+        automationsRan = true;
+        desk.runAutomations(skip);
+    };
+    const auto askMemory = [&desk, &kadunce, &memoryAsks, &memoryAnswered, &memoryAsk, runAutomations] {
+        if (memoryAnswered)
+            return;
+        if (++memoryAsks > 3 || !desk.watchesMemory()) {
             memoryAsk.stop();
+            runAutomations({});
             return;
         }
-        kadunce.savedSession([&desk, &memoryAnswered, &memoryAsk](const std::optional<SavedSession> &session) {
+        kadunce.savedSession([&desk, &memoryAnswered, &memoryAsk, runAutomations](const std::optional<SavedSession> &session) {
             if (!session || memoryAnswered)
                 return;
             memoryAnswered = true;
             memoryAsk.stop();
+            const bool comingBack = session->available && desk.bringsBackAlways();
             desk.seeSavedSession(*session);
+            runAutomations(comingBack ? session->apps : QStringList());
         });
     };
     QObject::connect(&memoryAsk, &QTimer::timeout, &desk, askMemory);
     QTimer::singleShot(std::chrono::seconds(20), &desk, [&memoryAsk, askMemory] {
         askMemory();
         memoryAsk.start();
+    });
+
+    // Automations: which apps were opened together after sign-in, once Cards
+    // has had its five minutes to see them, then every two hours.
+    const auto lookTogether = [&desk, &kadunce] {
+        if (!desk.watchesAutomations())
+            return;
+        kadunce.openTogether([&desk](const std::optional<QList<OpenSet>> &sets) {
+            if (sets)
+                desk.seeOpenTogether(*sets);
+        });
+    };
+    QTimer togetherEvery;
+    togetherEvery.setInterval(std::chrono::hours(2));
+    QObject::connect(&togetherEvery, &QTimer::timeout, &desk, lookTogether);
+    QTimer::singleShot(std::chrono::minutes(7), &desk, [&togetherEvery, lookTogether] {
+        lookTogether();
+        togetherEvery.start();
     });
 
     // Settings, such as how readily Core speaks, take effect when they are

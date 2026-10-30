@@ -13,11 +13,11 @@ Core speaks in two ways:
   reads Core's facts over the session bus. It is for what should not wait.
   Without that launcher, only the ticker is seen.
 
-Core has eight topics, each switched on and off on its own: Storage, Updates,
+Core has nine topics, each switched on and off on its own: Storage, Updates,
 Health, Windows programs (an installer arriving in Downloads), Tidy up
 Downloads (how much has piled up there), Devices, Focus (what came in during
-Do Not Disturb) and Workspace Memory (bringing back the apps from the last
-sign-in). Each section below gives what Core watches, the
+Do Not Disturb), Workspace Memory (bringing back the apps from the last
+sign-in) and Automations (opening the apps the person always starts with). Each section below gives what Core watches, the
 Helper it can open and the words it uses.
 
 ## What holds
@@ -45,9 +45,10 @@ Helper it can open and the words it uses.
   `[Updates] Enabled=false`, `[Health] Enabled=false`,
   `[Windows] Enabled=false`, `[Tidy] Enabled=false`,
   `[Devices] Enabled=false`, `[Focus] Enabled=false`,
-  `[WorkspaceMemory] Enabled=false`). Core neither watches nor offers a topic
-  that is switched off. Core writes to this file only what the person chose
-  on one of its islands: `[WorkspaceMemory] Always=true`.
+  `[WorkspaceMemory] Enabled=false`, `[Automations] Enabled=false`). Core
+  neither watches nor offers a topic that is switched off. Core writes to
+  this file only what the person chose on one of its islands:
+  `[WorkspaceMemory] Always=true`, and each automation they said yes to.
 - Core starts at sign-in, from `io.github.carlsonjm.splitrock.Core.desktop` in
   the system's autostart folder, so it keeps its schedule whether or not
   anything has asked for it yet. A second start ends at once.
@@ -250,6 +251,36 @@ one during Do Not Disturb, goes to the ticker, whose tap brings the apps
 back. A session saved more than 14 days ago is not offered. The Notice setting
 does not move it.
 
+## Automations
+
+An automation is only ever offered, never made on its own. The first kind
+opens a set of apps at sign-in. Cards records which apps the person opens by
+hand in the five minutes after the first window of each sign-in, and counts
+each set (apps it brought back don't count). Core asks Cards for the sets
+seven minutes after it starts and every two hours. Once the same set has
+opened together three times, Core offers once, on Search's island.
+
+> **Draft wording, waiting for the product owner's approval.** Every word of
+> the offer is in one place, `automationWords` in `src/core/Automations.h`:
+> "Open Firefox, Notes and Mail when you sign in?", "You've started with these
+> three times", with "Yes, each time" and "Not now". Past three apps the names
+> end "and 2 more". The other wording drawn on 30 Oct, "You often start with
+> these 3 apps", "Open them for you when you sign in?", is a change to that
+> one place.
+
+- Yes adds the automation to `split-rock-corerc`, in a group of its own that
+  Settings lists with a switch: `[Automation 1]` with `Kind=open-together`,
+  `Apps` (desktop file ids), `Names`, `Enabled` and `Added`. Nothing opens
+  until the next sign-in.
+- Not now, or dismissing it, is for good: that set is never offered again, and
+  neither is one already an automation.
+- One offer at a time. During Do Not Disturb, or once the topic's island has
+  shown today, an offer waits for a later look; it never goes to the ticker,
+  where a tap would be a yes to words nobody read.
+- At each sign-in, once Workspace Memory has had its answer from Cards, Core
+  opens the apps of every automation switched on, each once, but those Always
+  is bringing back. It runs once a sign-in, however often Core starts in it.
+
 ## Settings copies
 
 What changed says a settings change as it was made, "Built-in screen: scale
@@ -332,7 +363,7 @@ can set these limits. Below the ticker's mark it writes nothing more.
 | --- | --- |
 | `ProtocolVersion() → u` | The version, `1` |
 | `Facts() → aa{sv}` | Every fact Core has now; none for a topic switched off |
-| `Act(s topic, s action) → b` | The person answered a fact: `open` opens its Helper, `not-now` and `dismiss` quiet it, `never`, for Windows programs, stops it for good, and `always`, for Workspace Memory, brings the apps back and stops asking. False for any other topic or action |
+| `Act(s topic, s action) → b` | The person answered a fact: `open` opens its Helper (for Automations, says yes to the offer), `not-now` and `dismiss` quiet it, `never`, for Windows programs, stops it for good, and `always`, for Workspace Memory, brings the apps back and stops asking. False for any other topic or action |
 | `Actions() → aa{sv}` | The Helpers Search can open by their words: `id`, `title`, `sub`, `icon` and `keywords` (`as`) each |
 | `OpenAction(s id, s query) → b` | Opens that Helper on its own. `query` goes only to Install an app, which searches for it, or removes an app when it starts with "uninstall" or "remove". False for an id not listed |
 | `RemoveApp(s desktopId) → b` | Opens Install an app straight to removing the app with that desktop file id, such as `org.videolan.vlc.desktop`: it finds the package or Flatpak that owns it and waits for the person's yes. False for anything not shaped like a desktop file id |
@@ -349,7 +380,7 @@ Each fact is a dictionary of strings to variants:
 
 | Key | Type | What it is |
 | --- | --- | --- |
-| `topic` | `s` | `storage`, `updates`, `health`, `windows`, `focus` or `memory` (`tidy` speaks only on the ticker and has no fact) |
+| `topic` | `s` | `storage`, `updates`, `health`, `windows`, `focus`, `memory` or `automations` (`tidy` speaks only on the ticker and has no fact) |
 | `title` | `s` | `Storage`, `Updates`, `Health`, `Windows programs` |
 | `line` | `s` | `91% full`, `12 waiting`, `Up to date`, `1 problem`, `All good` |
 | `detail` | `s` | `45 GB free · filling about 2 GB a day` (the rate only when it is at least 100 MB a day), `Last updated 9 days ago` |
@@ -358,7 +389,8 @@ Each fact is a dictionary of strings to variants:
 | `problems` | `i` | Health only: how many problems |
 | `notifications` | `i` | Focus only: how many notifications came in during Do Not Disturb |
 | `program` | `s` | Windows programs only: the program the installer is for, such as `Zoom`; empty when its name gives none |
-| `apps`, `count` | `as`, `i` | Workspace Memory only: the apps' names, as the app menu gives them, and how many |
+| `apps`, `count` | `as`, `i` | Workspace Memory and Automations only: the apps' names, as the app menu gives them, and how many |
+| `dismissText` | `s` | Automations only: what Not now says on the island, "Not now" |
 | `choices` | `aa{sv}` | Choices beside the tap and Not now, each an `action` to pass to `Act` and the `text` its button says: Workspace Memory's `always`, "Always". A surface that doesn't show them still offers the tap and Not now |
 | `level` | `s` | `quiet`, `ticker` or `island` |
 | `attention` | `s` | `island` while the island should show it, `none` otherwise |
