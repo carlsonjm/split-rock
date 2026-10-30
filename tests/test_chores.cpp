@@ -769,6 +769,23 @@ private Q_SLOTS:
         QTRY_COMPARE(health.stage(), QStringLiteral("done"));
     }
 
+    void theBatteryIsReadAfterTheLookEnds()
+    {
+        // The look's own output comes back trimmed, ending "@@ end" with no
+        // line after it; the battery, read apart, still makes its own row.
+        QSettings(QStringLiteral("split-rock"), QStringLiteral("upkeep")).remove(QStringLiteral("health"));
+        HealthCheck health;
+        health.setLookScript(QStringLiteral("sed '/^@@ battery$/,/^@@ /{/^@@ battery$/d;/^[0-9]/d}' '")
+                             + QStringLiteral(FIXTURES_DIR "/chores/health-look.txt'"));
+        health.setBatteryLook([] { return QStringLiteral("@@ battery\n59927000 70003000 0\n"); });
+        health.check();
+        QTRY_COMPARE(health.stage(), QStringLiteral("done"));
+        const QList<HealthCheck::Item> items = health.items();
+        const auto battery = std::find_if(items.cbegin(), items.cend(), [](const auto &i) { return i.id == QLatin1String("battery"); });
+        QVERIFY(battery != items.cend());
+        QCOMPARE(battery->detail, QStringLiteral("Holds 86% of its original charge."));
+    }
+
     void theHealthReportSaysWhatTheLookFound()
     {
         const QString look = fixture(QStringLiteral("health-look.txt"));

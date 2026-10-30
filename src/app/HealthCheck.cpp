@@ -629,7 +629,9 @@ void HealthCheck::look(bool open)
     if (open)
         setStage(QStringLiteral("looking"));
     run(asPerson(m_lookScript), 60000, [this](int, const QString &output) {
-        m_items = readLook(output + (m_batteryLook ? m_batteryLook() : batteryLook()));
+        // The output comes back trimmed, so the battery starts on a line of
+        // its own.
+        m_items = readLook(output + QLatin1Char('\n') + (m_batteryLook ? m_batteryLook() : batteryLook()));
         m_checked = QDateTime::currentDateTime();
         m_lastAttention = attention();
         QSettings settings(Organization, Settings);
