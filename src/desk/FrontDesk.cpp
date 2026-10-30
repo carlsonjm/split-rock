@@ -673,7 +673,16 @@ void FrontDesk::ask(const QString &question)
     if (m_shelf.skills().size() != m_context.skills.size())
         m_shelf.setSkills(m_context.skills);
 
+    m_whereOnly = false;
     if (const std::optional<QString> kind = Gate::check(question)) {
+        // A password the person wrote in a note is theirs to find: the desk
+        // names the note and never says what it holds.
+        if ((*kind == QLatin1String("forgotten") || *kind == QLatin1String("password")) && asksWhereItIs(question)) {
+            Q_EMIT routed(QStringLiteral("whereabouts:") + *kind);
+            m_whereOnly = true;
+            useTools(question, {}, {}, 1);
+            return;
+        }
         Q_EMIT routed(QStringLiteral("gate:") + *kind);
         say(Gate::answer(*kind));
         finish(false);
@@ -711,6 +720,18 @@ void FrontDesk::route(const QString &question)
         const QString worry = sorted.value(QStringLiteral("worry")).toString(QStringLiteral("none"));
         const QString query = sorted.value(QStringLiteral("query")).toString();
 
+        // "Where's my golden key?" sounds like a secret, but the person only
+        // wants the note they wrote it in: the tools look, and the desk names
+        // the note without its words.
+        static const QStringList harmful{QStringLiteral("scam"), QStringLiteral("remote"), QStringLiteral("money"),
+                                         QStringLiteral("destructive"), QStringLiteral("piracy"),
+                                         QStringLiteral("spying"), QStringLiteral("scareware")};
+        if (kind == QLatin1String("unsafe") && !harmful.contains(worry) && asksWhereItIs(question)) {
+            Q_EMIT routed(QStringLiteral("whereabouts:") + worry);
+            m_whereOnly = true;
+            useTools(question, {}, {}, 1);
+            return;
+        }
         if (kind == QLatin1String("unsafe")) {
             Q_EMIT routed(QStringLiteral("unsafe:") + worry);
             // A call, a stranger at the controls or an advert is a story of its
@@ -954,6 +975,16 @@ void FrontDesk::fillCard(const QString &question, const Skill &skill)
     });
 }
 
+bool FrontDesk::asksWhereItIs(const QString &question) const
+{
+    static const QRegularExpression where(QStringLiteral("^\\s*(where('?s| is| are| did i (put|save|keep|write|note)| "
+                                                         "have i (put|saved|kept|written|noted))|find)\\b.*\\bmy\\b"),
+                                          QRegularExpression::CaseInsensitiveOption);
+    const bool reads = std::any_of(m_context.appTools.cbegin(), m_context.appTools.cend(),
+                                   [](const tools::Tool &tool) { return tool.risk == QLatin1String("read"); });
+    return reads && where.match(QString(question).replace(QChar(0x2019), QLatin1Char('\''))).hasMatch();
+}
+
 bool FrontDesk::namesAnApp(const QString &question) const
 {
     QStringList seen;
@@ -1037,10 +1068,17 @@ void FrontDesk::useTools(const QString &question, const QStringList &results, co
         const QString name = request.value(QStringLiteral("tool")).toString();
         std::optional<tools::Tool> tool;
         for (const tools::Tool &each : m_context.appTools) {
-            if (each.name == name && each.risk != QLatin1String("outward") && (step == 1 || each.risk == QLatin1String("read")))
+            if (each.name == name && each.risk != QLatin1String("outward")
+                && ((step == 1 && !m_whereOnly) || each.risk == QLatin1String("read")))
                 tool = each;
         }
         if (!tool) {
+            if (results.isEmpty() && m_whereOnly) {
+                say(QStringLiteral("I couldn't find that in your notes. If you wrote it down somewhere else, I can't "
+                                   "see it from here."));
+                finish(false);
+                return;
+            }
             if (results.isEmpty())
                 answer(question, cardFor(question), QStringLiteral("answer: no tool fits"));
             else
@@ -1126,6 +1164,22 @@ void FrontDesk::answerFrom(const QString &question, const QStringList &results, 
                 return r.startsWith(QStringLiteral("<tool_result tool=\"%1\"").arg(tool.name));
             }))
             apps.append(tool.appName);
+    }
+    // Where something secret is written: the note's name, never its words.
+    if (m_whereOnly) {
+        QStringList quoted;
+        for (const QString &name : names)
+            quoted.append(QStringLiteral("\"%1\"").arg(name));
+        if (quoted.isEmpty())
+            say(QStringLiteral("I couldn't find that in your notes. If you wrote it down somewhere else, I can't see "
+                               "it from here."));
+        else
+            say(QStringLiteral("You wrote it down in %1 in %2. I won't show what it says here; open the note to see "
+                               "it.").arg(quoted.join(QStringLiteral(", ")), apps.join(QStringLiteral(" and "))));
+        if (!names.isEmpty())
+            Q_EMIT read(names);
+        finish(false);
+        return;
     }
     // The desk, not the model, says what was read, and where.
     QString after;

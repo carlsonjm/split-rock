@@ -202,6 +202,10 @@ private:
     // back. At most two reads, and a write only as a card.
     void useTools(const QString &question, const QStringList &results, const QStringList &names, int step);
     void answerFrom(const QString &question, const QStringList &results, const QStringList &names);
+    // "Where's my …", "where did I put my …": the person wants to know where
+    // they wrote something down, and the apps' tools can say, so a secret in
+    // it names the note rather than being refused.
+    bool asksWhereItIs(const QString &question) const;
     // Whether the ask names one of the apps that describe tools.
     bool namesAnApp(const QString &question) const;
     QString toolWords(int step) const;
@@ -224,6 +228,9 @@ private:
     // Earlier asks and answers in this conversation, oldest first.
     QList<std::pair<QString, QString>> m_history;
     int m_generation = 0;
+    // "Where's my golden key?" with a secret in it: the apps' tools look for
+    // it, and the desk names the note it is in without saying what it holds.
+    bool m_whereOnly = false;
 };
 
 } // namespace splitrock::desk

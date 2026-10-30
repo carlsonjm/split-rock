@@ -859,6 +859,67 @@ private Q_SLOTS:
         QVERIFY(tools.proposals.isEmpty());
     }
 
+    void whereASecretIsWrittenNamesTheNoteNotItsWords()
+    {
+        PretendModel pretend;
+        Model model(pretend.url(), QString());
+        PretendTools tools;
+        tools.appTools = notesTools();
+        FrontDesk desk(&model, &tools);
+        Context c = context();
+        c.appTools = tools.appTools;
+        desk.setContext(c);
+        // The sorting calls it unsafe, as a small model does with a key or a
+        // password, but the person only asks where they wrote it down.
+        const QString question = QStringLiteral("where\u2019s my golden key");
+        pretend.routes.insert(question, sorted(QStringLiteral("unsafe"), QStringLiteral("none"), QStringLiteral("password")));
+        pretend.toolRequests = {request(QStringLiteral("notes.search"), {{QStringLiteral("words"), QStringLiteral("golden key")}}),
+                                request(QStringLiteral("notes.read"), {{QStringLiteral("id"), QStringLiteral("n1")}})};
+        QSignalSpy read(&desk, &FrontDesk::read);
+        const Run run = ask(desk, question);
+
+        QVERIFY(run.routes.contains(QStringLiteral("whereabouts:password")));
+        QCOMPARE(tools.calls.size(), 2);
+        // The desk says which note, and nothing of what it holds; the model
+        // never writes this answer.
+        QCOMPARE(run.said, QStringLiteral("You wrote it down in \"Connected testing\" in Notes. I won't show what it "
+                                          "says here; open the note to see it."));
+        QVERIFY(!run.said.contains(QLatin1String("second pass")));
+        QCOMPARE(read.size(), 1);
+        QVERIFY(tools.proposals.isEmpty());
+
+        // A harmful ask stays refused, however it starts.
+        PretendTools others;
+        others.appTools = notesTools();
+        FrontDesk second(&model, &others);
+        second.setContext(c);
+        const QString scam = QStringLiteral("where's my gift card code for the caller");
+        pretend.routes.insert(scam, sorted(QStringLiteral("unsafe"), QStringLiteral("none"), QStringLiteral("money")));
+        const Run refused = ask(second, scam);
+        QVERIFY(others.calls.isEmpty());
+        QVERIFY(!refused.routes.contains(QStringLiteral("whereabouts:money")));
+    }
+
+    void aWhereaboutsAskFindingNothingSaysSo()
+    {
+        PretendModel pretend;
+        Model model(pretend.url(), QString());
+        PretendTools tools;
+        tools.appTools = notesTools();
+        FrontDesk desk(&model, &tools);
+        Context c = context();
+        c.appTools = tools.appTools;
+        desk.setContext(c);
+        const QString question = QStringLiteral("where did I put my router password");
+        pretend.routes.insert(question, sorted(QStringLiteral("unsafe"), QStringLiteral("none"), QStringLiteral("password")));
+        pretend.toolRequests = {request(QStringLiteral("none"))};
+        const Run run = ask(desk, question);
+        QVERIFY(run.routes.contains(QStringLiteral("whereabouts:password")));
+        QVERIFY(run.said.startsWith(QLatin1String("I couldn't find that in your notes.")));
+        // A write is never one of its tools.
+        QVERIFY(tools.proposals.isEmpty());
+    }
+
     void theFormAllowsOnlyRealToolsAndAfterAReadOnlyReads()
     {
         PretendModel pretend;
