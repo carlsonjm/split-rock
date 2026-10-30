@@ -92,23 +92,9 @@ CardFrame {
     }
 
     // Looking: soft bars where the list will be.
-    Column {
+    CardLooking {
         visible: card.stage === "looking"
         width: card.innerWidth
-        spacing: 10
-        Repeater {
-            model: [0.9, 0.7, 0.8, 0.5]
-            Rectangle {
-                width: card.innerWidth * modelData
-                height: 12; radius: 6
-                color: theme.chip
-                SequentialAnimation on opacity {
-                    loops: Animation.Infinite
-                    NumberAnimation { from: 0.5; to: 1; duration: 700; easing.type: Easing.InOutSine }
-                    NumberAnimation { from: 1; to: 0.5; duration: 700; easing.type: Easing.InOutSine }
-                }
-            }
-        }
     }
 
     Column {

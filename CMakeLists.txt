@@ -65,6 +65,7 @@ qt_add_resources(split-rock "sheet"
         qml/CardNote.qml
         qml/CardFact.qml
         qml/CardProgress.qml
+        qml/CardLooking.qml
         qml/CardRow.qml
         qml/SpaceCard.qml
         qml/TidyCard.qml
