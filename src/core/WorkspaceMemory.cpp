@@ -60,6 +60,15 @@ SavedSession savedSessionFrom(const QVariantMap &answer)
     session.when = unixTime(answer.value(QStringLiteral("when")));
     session.clean = answer.value(QStringLiteral("clean"), true).toBool();
     session.windows = answer.value(QStringLiteral("windows"), session.count).toInt();
+    // A Cards that names the apps not running offers only those.
+    if (answer.contains(QStringLiteral("missing")) && session.available) {
+        QStringList missing = stringsOf(answer.value(QStringLiteral("missing")));
+        missing.removeAll(QString());
+        session.allOpen = missing.isEmpty();
+        session.apps = missing;
+        session.count = int(missing.size());
+        session.available = !session.allOpen;
+    }
     return session;
 }
 
