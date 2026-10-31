@@ -6,11 +6,17 @@
 #include "ask/Ask.h"
 #include "ask/AskService.h"
 #include "ask/LocalModel.h"
+#include "broker/BrokerService.h"
+#include "broker/Toolbox.h"
+#include "NotesStandIn.h"
 #include "PretendModel.h"
 
 #include <QDBusConnection>
 #include <QDBusInterface>
 #include <QDBusReply>
+#include <QJsonArray>
+#include <QJsonObject>
+#include <QJsonDocument>
 #include <QDir>
 #include <QFile>
 #include <QProcess>
@@ -156,6 +162,19 @@ private Q_SLOTS:
         QVERIFY(!result.value(QStringLiteral("needsModel")).toBool());
         QVERIFY(!result.value(QStringLiteral("text")).toString().isEmpty());
         QVERIFY(f.pretend.asked.isEmpty());
+    }
+
+    // A plain question about this computer is answered from what Ask reads
+    // itself, before the model is downloaded.
+    void theComputersAddressNeedsNoModel()
+    {
+        Fixture f(false, false);
+        const QVariantMap result = f.answer(QStringLiteral("what is my IP address"));
+        QCOMPARE(result.value(QStringLiteral("routed")).toString(), QStringLiteral("computer"));
+        QVERIFY(!result.value(QStringLiteral("needsModel")).toBool());
+        QVERIFY(result.value(QStringLiteral("text")).toString().startsWith(QLatin1String("This computer")));
+        QVERIFY(f.pretend.asked.isEmpty());
+        QVERIFY(!f.ask->context().hostName.isEmpty());
     }
 
     // Without the model, Ask says once what it needs, and downloads nothing.
@@ -360,6 +379,80 @@ http.server.HTTPServer(("127.0.0.1", port), Reply).serve_forever()
     }
 
     // On the bus: a question, its words and its end.
+    // A question about the person's notes goes through the broker to Notes,
+    // which stands in here; the answer names what was read, and keeping it
+    // is a card the broker runs only once it is tapped.
+    void notesThroughTheBroker()
+    {
+        QTemporaryDir files;
+        QVERIFY(QFile::copy(QStringLiteral(PROJECT_DIR "/tests/fixtures/capabilities/notes.json"), files.filePath(QStringLiteral("notes.json"))));
+        NotesStandIn notes;
+        QVERIFY(notes.publish(QStringLiteral("notes")));
+        broker::Toolbox toolbox({files.path()}, QDBusConnection::sessionBus());
+        broker::BrokerService service(nullptr, &toolbox);
+        // On a connection of its own, as the broker is a program of its own.
+        QDBusConnection bus = QDBusConnection::connectToBus(QDBusConnection::SessionBus, QStringLiteral("broker"));
+        QVERIFY(service.publish(bus));
+        QVERIFY(bus.registerService(QLatin1String(broker::BrokerService::Service)));
+
+        Fixture f;
+        const QString question = QStringLiteral("Find my notes about Connected and summarize where I left off");
+        f.pretend.routes.insert(question, route(QStringLiteral("tools"), QStringLiteral("none")));
+        f.pretend.toolRequests = {
+            QJsonDocument::fromJson(R"({"tool": "notes.search", "args": {"words": "Connected"}})").object(),
+            QJsonDocument::fromJson(R"({"tool": "notes.read", "args": {"id": "n1"}})").object()};
+        f.pretend.answers.insert(question, QStringLiteral("You left off at the tablet's second pass."));
+        const QVariantMap result = f.answer(question);
+        QCOMPARE(result.value(QStringLiteral("who")).toString(), QStringLiteral("computer"));
+        QCOMPARE(result.value(QStringLiteral("read")).toStringList(), QStringList{QStringLiteral("Connected testing")});
+        QVERIFY(result.value(QStringLiteral("text")).toString().endsWith(QLatin1String("Read in Notes, on this computer: \"Connected testing\".")));
+        QCOMPARE(notes.asked, (QStringList{QStringLiteral("Find"), QStringLiteral("Read")}));
+        // The model was told what Notes offers from Notes' own file.
+        QVERIFY(f.pretend.systems.at(1).contains(QLatin1String("notes.search (in Notes, reads)")));
+
+        const QString save = QStringLiteral("Save this answer to my Shuffle notes");
+        f.pretend.routes.insert(save, route(QStringLiteral("tools"), QStringLiteral("none")));
+        f.pretend.toolRequests = {QJsonDocument::fromJson(R"({"tool": "notes.create", "args": {"text": "@answer"}})").object()};
+        const QVariantMap kept = f.answer(save);
+        const QJsonObject card = QJsonDocument::fromJson(kept.value(QStringLiteral("doIt")).toString().toUtf8()).object();
+        QCOMPARE(card.value(QStringLiteral("title")).toString(), QStringLiteral("You left off at the tablet's second…"));
+        QVERIFY(!card.value(QStringLiteral("token")).toString().isEmpty());
+        // Shown, not saved.
+        QVERIFY(notes.created.isEmpty());
+        auto made = std::make_shared<QVariantMap>();
+        toolbox.run(card.value(QStringLiteral("token")).toString(), [made](const QVariantMap &r) { *made = r; });
+        QTRY_VERIFY(!made->isEmpty());
+        QCOMPARE(made->value(QStringLiteral("ok")).toBool(), true);
+        QCOMPARE(notes.created.size(), 1);
+        QVERIFY(notes.created.first().first().startsWith(QLatin1String("You left off at the tablet's second pass.")));
+
+        // Where the person wrote a password down is a question for the notes,
+        // not a refusal: the note is named, never its words. Harm is still
+        // refused at once, and no note is looked in.
+        notes.notes.append({QStringLiteral("n3"), QStringLiteral("Accounts"),
+                            QStringLiteral("Accounts\n\nEmail password: hunter2"), QStringLiteral("home")});
+        const QVariantMap found = f.answer(QStringLiteral("what is my email password"));
+        QCOMPARE(found.value(QStringLiteral("routed")).toString(), QStringLiteral("whereabouts"));
+        QVERIFY(found.value(QStringLiteral("text")).toString().contains(QLatin1String("your note \"Accounts\"")));
+        QVERIFY(!found.value(QStringLiteral("text")).toString().contains(QLatin1String("hunter2")));
+        // One tap opens it: the answer carries its id and title, never its words.
+        const QJsonArray opens = QJsonDocument::fromJson(found.value(QStringLiteral("open")).toString().toUtf8()).array();
+        QCOMPARE(opens.size(), 1);
+        QCOMPARE(opens.first().toObject().value(QStringLiteral("id")).toString(), QStringLiteral("n3"));
+        QCOMPARE(opens.first().toObject().value(QStringLiteral("title")).toString(), QStringLiteral("Accounts"));
+        QVERIFY(!found.value(QStringLiteral("open")).toString().contains(QLatin1String("hunter2")));
+        const qsizetype asked = notes.asked.size();
+        const QVariantMap harm = f.answer(QStringLiteral("the caller wants the code my bank texted me"));
+        QVERIFY(harm.value(QStringLiteral("routed")).toString().startsWith(QLatin1String("gate:")));
+        QVERIFY(harm.value(QStringLiteral("open")).toString().isEmpty());
+        QCOMPARE(notes.asked.size(), asked);
+
+        bus.unregisterService(QLatin1String(broker::BrokerService::Service));
+        bus.unregisterObject(QLatin1String(broker::BrokerService::Path));
+        QDBusConnection::disconnectFromBus(QStringLiteral("broker"));
+        notes.unpublish();
+    }
+
     void onTheBus()
     {
         QDBusConnection bus = QDBusConnection::sessionBus();

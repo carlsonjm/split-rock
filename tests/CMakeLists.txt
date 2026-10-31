@@ -54,8 +54,9 @@ foreach(name test_protocol test_codex)
     target_link_libraries(${name} PRIVATE splitrock_codex)
     target_compile_definitions(${name} PRIVATE
         PRETEND_PROGRAM="$<TARGET_FILE:split-rock-pretend-assistant>"
-        SCRIPTS_DIR="${CMAKE_CURRENT_SOURCE_DIR}/pretend-scripts")
-    add_dependencies(${name} split-rock-pretend-assistant)
+        SCRIPTS_DIR="${CMAKE_CURRENT_SOURCE_DIR}/pretend-scripts"
+        TOOLS_ADAPTER="$<TARGET_FILE:split-rock-tools-mcp>")
+    add_dependencies(${name} split-rock-pretend-assistant split-rock-tools-mcp)
 endforeach()
 split_rock_test(test_codex_window PretendFixture.h)
 target_link_libraries(test_codex_window PRIVATE splitrock_codex Qt6::Gui Qt6::Quick)
@@ -91,12 +92,19 @@ add_test(NAME test_core COMMAND ${DBUS_RUN_SESSION}
 set(TEST_CORE_ENVIRONMENT ${TEST_ENVIRONMENT})
 list(FILTER TEST_CORE_ENVIRONMENT EXCLUDE REGEX "^DBUS_SESSION_BUS_ADDRESS=")
 set_tests_properties(test_core PROPERTIES ENVIRONMENT "${TEST_CORE_ENVIRONMENT}" TIMEOUT 60)
-add_executable(test_ask test_ask.cpp PretendModel.h)
-target_link_libraries(test_ask PRIVATE splitrock_ask Qt6::Test)
+add_executable(test_ask test_ask.cpp PretendModel.h NotesStandIn.h)
+target_link_libraries(test_ask PRIVATE splitrock_ask splitrock_broker Qt6::Test)
 target_compile_definitions(test_ask PRIVATE PROJECT_DIR="${PROJECT_SOURCE_DIR}")
 add_test(NAME test_ask COMMAND ${DBUS_RUN_SESSION}
     --config-file=${CMAKE_CURRENT_SOURCE_DIR}/bus/private-bus.conf -- $<TARGET_FILE:test_ask>)
 set_tests_properties(test_ask PROPERTIES ENVIRONMENT "${TEST_CORE_ENVIRONMENT}" TIMEOUT 60)
+# The Health check's Battery row, against a power supply folder of its own and
+# a stand-in UPower on a bus of its own.
+add_executable(test_battery test_battery.cpp)
+target_link_libraries(test_battery PRIVATE splitrock_core Qt6::DBus Qt6::Test)
+add_test(NAME test_battery COMMAND ${DBUS_RUN_SESSION}
+    --config-file=${CMAKE_CURRENT_SOURCE_DIR}/bus/private-bus.conf -- $<TARGET_FILE:test_battery>)
+set_tests_properties(test_battery PROPERTIES ENVIRONMENT "${TEST_CORE_ENVIRONMENT}" TIMEOUT 60)
 
 # The Helpers' window and its cards.
 split_rock_test(test_sheet)
@@ -150,6 +158,15 @@ add_dependencies(test_broker split-rock-pretend-assistant)
 add_test(NAME test_broker COMMAND ${DBUS_RUN_SESSION}
     --config-file=${CMAKE_CURRENT_SOURCE_DIR}/bus/private-bus.conf -- $<TARGET_FILE:test_broker>)
 set_tests_properties(test_broker PROPERTIES ENVIRONMENT "${TEST_CORE_ENVIRONMENT}" TIMEOUT 60)
+
+# The apps' tools through the broker, against a stand-in Notes on a bus of its
+# own.
+add_executable(test_tools test_tools.cpp NotesStandIn.h)
+target_link_libraries(test_tools PRIVATE splitrock_broker Qt6::Test)
+target_compile_definitions(test_tools PRIVATE FIXTURES_DIR="${CMAKE_CURRENT_SOURCE_DIR}/fixtures")
+add_test(NAME test_tools COMMAND ${DBUS_RUN_SESSION}
+    --config-file=${CMAKE_CURRENT_SOURCE_DIR}/bus/private-bus.conf -- $<TARGET_FILE:test_tools>)
+set_tests_properties(test_tools PROPERTIES ENVIRONMENT "${TEST_CORE_ENVIRONMENT}" TIMEOUT 60)
 
 # Split Rock Settings, against Ask on a bus of the test's own.
 add_executable(test_settings_window test_settings_window.cpp)

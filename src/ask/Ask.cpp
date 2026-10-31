@@ -1,15 +1,21 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 #include "ask/Ask.h"
 
+#include "app/Notebook.h"
 #include "ask/LocalModel.h"
 #include "desk/Gate.h"
 #include "desk/Model.h"
 
+#include <QDBusConnection>
+#include <QDBusConnectionInterface>
+#include <QDBusMessage>
+#include <QDBusPendingCallWatcher>
 #include <QFile>
 #include <QJsonDocument>
 #include <QRegularExpression>
 #include <QSettings>
 #include <QStandardPaths>
+#include <QSysInfo>
 
 namespace splitrock::ask {
 
@@ -164,6 +170,18 @@ QString facts(const QString &question)
         words += QStringLiteral(", which is based on Arch Linux, with KDE Plasma 6. Ubuntu's apt does not exist here.");
     else
         words += QStringLiteral(", with KDE Plasma 6.");
+    // What the computer says it is, read as the notebook reads it.
+    const DeviceFacts device = DeviceFacts::read();
+    const QString machine = QStringLiteral("%1 %2").arg(device.maker, device.model).simplified();
+    QStringList parts;
+    if (!machine.isEmpty())
+        parts.append(QStringLiteral("This computer: %1.").arg(machine));
+    if (!device.processor.isEmpty())
+        parts.append(QStringLiteral("Processor: %1.").arg(device.processor));
+    if (!device.memory.isEmpty())
+        parts.append(QStringLiteral("Memory: %1.").arg(device.memory));
+    if (!parts.isEmpty())
+        words += QLatin1Char('\n') + parts.join(QLatin1Char(' '));
     words += QLatin1Char('\n') + places(question);
     return words;
 }
@@ -229,6 +247,10 @@ desk::Context Ask::context() const
     // answer says where to sign in.
     if (m_setup.codex.unavailable.isEmpty() && m_setup.codex.signedIn())
         context.handOffTo = m_setup.codex.name;
+    context.appTools = m_appTools;
+    context.lastAnswer = m_lastAnswer;
+    context.hostName = QSysInfo::machineHostName();
+    context.addresses = desk::localAddresses();
     return context;
 }
 
@@ -268,6 +290,8 @@ uint Ask::ask(const QString &question)
     m_helpers.clear();
     m_query.clear();
     m_doIt = {};
+    m_read.clear();
+    m_opens.clear();
     // Answered once the caller has the id.
     QMetaObject::invokeMethod(this, [this, id] {
         if (m_current != id)
@@ -281,9 +305,25 @@ uint Ask::ask(const QString &question)
             finish({});
             return;
         }
+        // A plain question about this computer, such as its address, is
+        // answered from what Ask reads itself, before any download.
+        if (const std::optional<QString> words = desk::aboutThisComputer(m_question, context());
+            words && !desk::Gate::harmful(m_question)) {
+            m_routed = QStringLiteral("computer");
+            m_said = *words;
+            Q_EMIT said(id, m_said);
+            finish({});
+            return;
+        }
         // The safety check needs no model, so it answers before any download,
-        // as does an ask with nothing in it to answer.
-        if (const std::optional<QString> kind = desk::Gate::check(m_question)) {
+        // as does an ask with nothing in it to answer. A password of the
+        // person's own, rather than harm, waits for the desk once the model is
+        // here: the desk looks in their notes for where they wrote it first,
+        // and checks again after.
+        const bool deskIsHere = (!m_setup.server.isEmpty() || m_model->isReady())
+            && !(codexOnly() && m_setup.codex.unavailable.isEmpty());
+        if (const std::optional<QString> kind = desk::Gate::check(m_question);
+            kind && (desk::Gate::harmful(m_question) || !deskIsHere)) {
             m_routed = QStringLiteral("gate:") + *kind;
             m_said = desk::Gate::answer(*kind);
             Q_EMIT said(id, m_said);
@@ -352,9 +392,14 @@ void Ask::begin()
         }
     }
     if (m_desk) {
-        m_desk->forget();
-        m_desk->setContext(context());
-        m_desk->ask(m_question);
+        const uint id = m_current;
+        withTools([this, id] {
+            if (m_current != id || !m_desk)
+                return;
+            m_desk->forget();
+            m_desk->setContext(context());
+            m_desk->ask(m_question);
+        });
         return;
     }
     if (m_engine.isStarting())
@@ -380,6 +425,8 @@ void Ask::engineUp()
         m_routed = how;
         qInfo().noquote() << QStringLiteral("split-rock-ask: routed: ") + how;
     });
+    connect(m_desk.get(), &desk::FrontDesk::read, this, [this](const QStringList &names) { m_read = names; });
+    connect(m_desk.get(), &desk::FrontDesk::opens, this, [this](const QVariantList &notes) { m_opens = notes; });
     connect(m_desk.get(), &desk::FrontDesk::finished, this, [this](bool handOff) {
         if (!m_cancelling)
             finish({{QStringLiteral("handOff"), handOff}});
@@ -419,6 +466,17 @@ void Ask::finish(QVariantMap result)
                   m_doIt.isEmpty() ? QString() : QString::fromUtf8(QJsonDocument(m_doIt).toJson(QJsonDocument::Compact)));
     if (!result.contains(QStringLiteral("handOff")))
         result.insert(QStringLiteral("handOff"), false);
+    result.insert(QStringLiteral("read"), m_read);
+    // The notes named, by id and title, as JSON like "doIt": Search offers
+    // each as an Open pill. Never their words.
+    result.insert(QStringLiteral("open"),
+                  m_opens.isEmpty() ? QString()
+                                    : QString::fromUtf8(QJsonDocument(QJsonArray::fromVariantList(m_opens))
+                                                            .toJson(QJsonDocument::Compact)));
+    // An answer in words is what "save this answer" keeps next.
+    if (m_doIt.isEmpty() && !m_said.trimmed().isEmpty()
+        && (m_routed.startsWith(QLatin1String("answer")) || m_routed.startsWith(QLatin1String("tools: answered"))))
+        m_lastAnswer = m_said.trimmed();
     Q_EMIT answered(id, result);
 }
 
@@ -438,10 +496,63 @@ bool Ask::propose(const QJsonObject &proposal)
         m_query = proposal.value(QStringLiteral("query")).toString();
         return true;
     }
-    if (proposal.value(QStringLiteral("command")).toString().trimmed().isEmpty())
+    // A card from an app's tool runs through the broker with its token,
+    // after the tap; a settings skill's runs its command.
+    if (proposal.value(QStringLiteral("command")).toString().trimmed().isEmpty()
+        && proposal.value(QStringLiteral("token")).toString().isEmpty())
         return false;
     m_doIt = proposal;
     return true;
+}
+
+void Ask::withTools(const std::function<void()> &then)
+{
+    QDBusConnection bus = QDBusConnection::sessionBus();
+    const QString broker = m_setup.broker;
+    // Asked only where the broker is, or the bus can start it.
+    if (broker.isEmpty() || !bus.isConnected()
+        || !(bus.interface()->isServiceRegistered(broker).value()
+             || bus.interface()->activatableServiceNames().value().contains(broker))) {
+        m_appTools.clear();
+        then();
+        return;
+    }
+    const QDBusMessage request = QDBusMessage::createMethodCall(broker, QStringLiteral("/Broker"),
+                                                                QStringLiteral("io.github.carlsonjm.SplitRock.Broker"),
+                                                                QStringLiteral("Tools"));
+    auto *watcher = new QDBusPendingCallWatcher(bus.asyncCall(request, 5000), this);
+    connect(watcher, &QDBusPendingCallWatcher::finished, this, [this, then](QDBusPendingCallWatcher *watcher) {
+        watcher->deleteLater();
+        m_appTools.clear();
+        const QDBusMessage reply = watcher->reply();
+        if (reply.type() == QDBusMessage::ReplyMessage) {
+            for (const QVariant &value : tools::fromBus(reply.arguments().value(0)).toList()) {
+                const tools::Tool tool = tools::Tool::fromMap(value.toMap());
+                // Nothing that sends anything off the computer is offered.
+                if (!tool.name.isEmpty() && tool.risk != QLatin1String("outward"))
+                    m_appTools.append(tool);
+            }
+        }
+        then();
+    });
+}
+
+void Ask::callTool(const QString &tool, const QVariantMap &arguments, const std::function<void(const QVariantMap &)> &done)
+{
+    QDBusMessage request = QDBusMessage::createMethodCall(m_setup.broker, QStringLiteral("/Broker"),
+                                                          QStringLiteral("io.github.carlsonjm.SplitRock.Broker"),
+                                                          QStringLiteral("Call"));
+    request.setArguments({tool, arguments, QStringLiteral("ask")});
+    auto *watcher = new QDBusPendingCallWatcher(QDBusConnection::sessionBus().asyncCall(request, 15000), this);
+    connect(watcher, &QDBusPendingCallWatcher::finished, this, [done](QDBusPendingCallWatcher *watcher) {
+        watcher->deleteLater();
+        const QDBusMessage reply = watcher->reply();
+        if (reply.type() != QDBusMessage::ReplyMessage) {
+            done({{QStringLiteral("ok"), false}, {QStringLiteral("problem"), QStringLiteral("The broker didn't answer.")}});
+            return;
+        }
+        done(tools::fromBus(reply.arguments().value(0)).toMap());
+    });
 }
 
 } // namespace splitrock::ask

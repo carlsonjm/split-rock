@@ -2,6 +2,7 @@
 #pragma once
 
 #include <QDBusConnection>
+#include <QDBusContext>
 #include <QList>
 #include <QObject>
 #include <QVariantMap>
@@ -13,7 +14,7 @@ class Core;
 // Core's facts, offered on the session bus to the desktop's surfaces
 // (docs/CORE.md § On the bus). A surface that finds nothing here carries on as
 // it always does.
-class CoreService : public QObject
+class CoreService : public QObject, protected QDBusContext
 {
     Q_OBJECT
     Q_CLASSINFO("D-Bus Interface", "io.github.carlsonjm.SplitRock.Core")
@@ -45,11 +46,24 @@ public Q_SLOTS:
     // goes.
     Q_SCRIPTABLE void NotificationsSeen();
 
+    // Saved layouts (docs/CORE.md § Layouts). CurrentLayout and OpenLayout
+    // answer once Cards has.
+    Q_SCRIPTABLE QList<QVariantMap> Layouts() const;
+    Q_SCRIPTABLE QVariantMap CurrentLayout();
+    Q_SCRIPTABLE QString SaveLayout(const QString &name, const QString &groupsJson, bool atSignIn);
+    Q_SCRIPTABLE bool OpenLayout(const QString &id);
+    Q_SCRIPTABLE bool RemoveLayout(const QString &id);
+    Q_SCRIPTABLE bool SetLayoutAtSignIn(const QString &id, bool on);
+
 Q_SIGNALS:
     Q_SCRIPTABLE void FactChanged(const QVariantMap &fact);
     // The person asked to see the notifications that came in during Do Not
     // Disturb; whatever keeps them opens them.
     Q_SCRIPTABLE void OpenNotifications();
+    // A layout was saved, removed or switched.
+    Q_SCRIPTABLE void LayoutsChanged();
+    // A layout's run is over, with the names of the apps that didn't come.
+    Q_SCRIPTABLE void LayoutOpened(const QString &id, int placed, int missed, const QStringList &missedNames);
 
 private:
     Core *m_core;

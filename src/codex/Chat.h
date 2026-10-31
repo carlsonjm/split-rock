@@ -4,6 +4,7 @@
 #include "acp/Client.h"
 #include "app/Change.h"
 #include "codex/Agent.h"
+#include "codex/ToolDoor.h"
 
 #include <QObject>
 #include <QPointer>
@@ -54,6 +55,10 @@ class Chat : public QObject
     Q_PROPERTY(bool kept READ kept NOTIFY keptChanged)
     // The kept note can be opened in Notes, which outlives this window.
     Q_PROPERTY(bool keptOpens READ keptOpens NOTIFY keptChanged)
+    // What Codex read through the apps' tools in this conversation, each as
+    // "Connected testing, in Notes": the person sees each one that went to
+    // OpenAI.
+    Q_PROPERTY(QStringList read READ read NOTIFY readChanged)
 
 public:
     // What the window does with what Codex hands it: opens one of the
@@ -63,6 +68,13 @@ public:
         std::function<bool(const QString &card, const QString &query)> openCard;
         std::function<bool(const QString &title, const QString &text, QString *note, QString *error)> keep;
         std::function<bool(const QString &note)> openNote;
+        // The broker's apps' tools (docs/BROKER.md § Tools): its Tools(), its
+        // Call() with Codex as the caller, and its Run() for a card the
+        // person tapped. Without them Codex is given no tools.
+        std::function<QVariantList()> tools;
+        std::function<void(const QString &tool, const QVariantMap &arguments,
+                           const std::function<void(const QVariantMap &)> &reply)> callTool;
+        std::function<void(const QString &token, const std::function<void(const QVariantMap &)> &reply)> runCard;
     };
 
     Chat(const Agent &agent, ChangeRunner *runner, Notebook *notebook, Hands hands, QObject *parent = nullptr);
@@ -79,6 +91,7 @@ public:
     QString signInPage() const { return m_signInPage; }
     bool kept() const { return m_kept; }
     bool keptOpens() const { return m_kept && !m_keptNote.isEmpty() && m_hands.openNote; }
+    QStringList read() const { return m_read; }
 
     // Starts Codex, with a first question or, when empty, only to sign in.
     Q_INVOKABLE void begin(const QString &question);
@@ -103,6 +116,8 @@ public:
     void setFence(const QString &program) { m_fence = program; }
     // How long a sign-in may take before it is given up.
     void setSignInLimit(int ms) { m_signInLimit = ms; }
+    // The apps' tools' server Codex runs in its fence; empty gives it none.
+    void setToolAdapter(const QString &program) { m_toolAdapter = program; }
 
 Q_SIGNALS:
     void phaseChanged();
@@ -110,6 +125,7 @@ Q_SIGNALS:
     void proposalChanged();
     void noticeChanged();
     void keptChanged();
+    void readChanged();
     // The sign-in asked for its page: the window opens it in the browser.
     void openPage(const QString &page);
 
@@ -123,6 +139,8 @@ private:
     void setNotice(const QString &notice);
     void readRequests();
     void propose(const ChangeProposal &proposed);
+    // A write through an app's tool, as the broker's card.
+    void proposeCard(const QVariantMap &card);
     void report(const QString &text);
     bool writeStandIns();
 
@@ -159,6 +177,11 @@ private:
     QTimer m_signInTimer;
     int m_signInLimit = 10 * 60 * 1000;
     QString m_fence;
+    QString m_toolAdapter = toolAdapter();
+    std::unique_ptr<ToolDoor> m_door;
+    QStringList m_read;
+    // The broker's card on the Do it row, when the row is an app's write.
+    QVariantMap m_card;
 };
 
 } // namespace splitrock::codex

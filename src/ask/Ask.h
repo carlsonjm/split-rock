@@ -48,6 +48,9 @@ public:
         QStringList skillRoots;
         // Codex, which a bigger change is handed to once it is signed in.
         codex::Agent codex;
+        // The broker, whose apps' tools the desk may use (docs/BROKER.md §
+        // Tools), by its name on the session bus; empty for none.
+        QString broker = QStringLiteral("io.github.carlsonjm.splitrock.Broker");
     };
 
     Ask(LocalModel *model, const Setup &setup, QObject *parent = nullptr);
@@ -90,7 +93,9 @@ Q_SIGNALS:
     // The question is done. Keys: who ("computer"), text (every word said),
     // routed (how the desk handled it), helpers (the Helpers that fit, by
     // name), query (what the install Helper looks for), doIt (a Do it card
-    // from a settings skill, as JSON), handOff (Codex can take it), and
+    // from a settings skill, or a card from an app's tool with the token
+    // the broker runs it by, as JSON), read (what an app's tools read, by
+    // name), handOff (Codex can take it), and
     // needsModel (with needsEngine when llama-server is missing), codexOnly,
     // off, cancelled or problem when it wasn't answered here.
     void answered(uint id, const QVariantMap &result);
@@ -99,6 +104,10 @@ Q_SIGNALS:
 private:
     void openSkill(const QString &id, const std::function<void(const QString &)> &done) override;
     bool propose(const QJsonObject &proposal) override;
+    void callTool(const QString &tool, const QVariantMap &arguments,
+                  const std::function<void(const QVariantMap &)> &done) override;
+    // Asks the broker for the apps' tools, then goes on.
+    void withTools(const std::function<void()> &then);
 
     void begin();
     void finish(QVariantMap result);
@@ -119,6 +128,12 @@ private:
     QStringList m_helpers;
     QString m_query;
     QJsonObject m_doIt;
+    QStringList m_read;
+    QVariantList m_opens;
+    // The apps' tools as the broker gave them for this question.
+    QList<tools::Tool> m_appTools;
+    // The last answer in words, which "save this answer" keeps.
+    QString m_lastAnswer;
 };
 
 } // namespace splitrock::ask

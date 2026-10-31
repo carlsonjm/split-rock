@@ -23,6 +23,7 @@ add_library(splitrock_core STATIC
     src/app/Admin.cpp
     src/app/Appearance.cpp
     src/app/AnswerText.cpp
+    src/app/Battery.cpp
     src/app/Change.cpp
     src/app/ChangeRunner.cpp
     src/app/Helpers.cpp
@@ -112,13 +113,18 @@ install(DIRECTORY tour/plasma DESTINATION ${CMAKE_INSTALL_DATADIR}/split-rock/to
 # core and the bus.
 add_library(splitrock_core_watch STATIC
     src/core/Attention.cpp
+    src/core/Automations.cpp
     src/core/Core.cpp
+    src/core/CoreLayouts.cpp
     src/core/CoreService.cpp
     src/core/Devices.cpp
     src/core/Health.cpp
+    src/core/Layouts.cpp
+    src/core/Memory.cpp
     src/core/Storage.cpp
     src/core/Updates.cpp
     src/core/Windows.cpp
+    src/core/WorkspaceMemory.cpp
 )
 target_include_directories(splitrock_core_watch PUBLIC src)
 target_link_libraries(splitrock_core_watch PUBLIC Qt6::Core Qt6::DBus splitrock_settings)
@@ -188,6 +194,7 @@ add_library(splitrock_broker STATIC
     src/broker/Broker.cpp
     src/broker/BrokerService.cpp
     src/broker/CodexTask.cpp
+    src/broker/Toolbox.cpp
 )
 target_include_directories(splitrock_broker PUBLIC src)
 target_link_libraries(splitrock_broker PUBLIC splitrock_ask splitrock_codex Qt6::Core Qt6::DBus Qt6::Network)
@@ -204,6 +211,13 @@ configure_file(data/io.github.carlsonjm.splitrock.Broker.service.in
 install(FILES ${CMAKE_CURRENT_BINARY_DIR}/data/io.github.carlsonjm.splitrock.Broker.service
     DESTINATION ${CMAKE_INSTALL_DATADIR}/dbus-1/services)
 
+# The apps' tools (docs/BROKER.md § Tools): the files the apps describe them in,
+# and the checks each call passes, for the broker, Ask and Codex alike.
+add_library(splitrock_tools STATIC src/tools/Capabilities.cpp)
+target_include_directories(splitrock_tools PUBLIC src)
+target_link_libraries(splitrock_tools PUBLIC Qt6::Core Qt6::DBus)
+target_compile_options(splitrock_tools PRIVATE -Wall -Wextra)
+
 # Codex, for the bigger questions (docs/ASK.md, Codex): its Agent Client
 # Protocol client, and the conversation in its own window, in the fence Ask's
 # engine runs in.
@@ -214,13 +228,22 @@ add_library(splitrock_codex STATIC
     src/ask/Fence.cpp
     src/codex/Agent.cpp
     src/codex/Chat.cpp
+    src/codex/ToolDoor.cpp
 )
 target_include_directories(splitrock_codex PUBLIC src)
-target_link_libraries(splitrock_codex PUBLIC splitrock_core Qt6::Core)
+target_link_libraries(splitrock_codex PUBLIC splitrock_core splitrock_tools Qt6::Core Qt6::DBus Qt6::Network)
 target_compile_options(splitrock_codex PRIVATE -Wall -Wextra)
 target_compile_definitions(splitrock_codex PUBLIC
     # Where Shuffle's own copy of Codex's adapter is installed.
-    SPLIT_ROCK_CODEX_DIR="${CMAKE_INSTALL_FULL_LIBDIR}/split-rock/codex")
+    SPLIT_ROCK_CODEX_DIR="${CMAKE_INSTALL_FULL_LIBDIR}/split-rock/codex"
+    # The apps' tools' server, which Codex runs in its fence.
+    SPLIT_ROCK_TOOLS_ADAPTER="${CMAKE_INSTALL_FULL_LIBDIR}/split-rock/split-rock-tools-mcp")
+# The apps' tools for Codex (docs/BROKER.md § Codex): a tool server that only
+# forwards, from inside the fence to the door Split Rock holds outside it.
+qt_add_executable(split-rock-tools-mcp src/mcp/main.cpp)
+target_link_libraries(split-rock-tools-mcp PRIVATE Qt6::Core Qt6::Network)
+target_compile_options(split-rock-tools-mcp PRIVATE -Wall -Wextra)
+install(TARGETS split-rock-tools-mcp RUNTIME DESTINATION ${CMAKE_INSTALL_LIBDIR}/split-rock)
 
 # A package build leaves the tests out.
 option(BUILD_TESTING "Build the tests" ON)

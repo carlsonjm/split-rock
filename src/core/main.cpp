@@ -10,7 +10,8 @@
 //
 // It also looks over the computer's health once a week, with Split Rock's own
 // `split-rock --health-facts`, and, on the system bus, for a printer, a drive
-// or a Bluetooth device it hasn't seen before. It keeps a copy of the
+// or a Bluetooth device it hasn't seen before, and in the kernel's own folders
+// for a game controller or a screen. It keeps a copy of the
 // desktop's settings files, to tell What changed exactly what changed in them
 // and since when (src/settings/SettingsHistory.h).
 //
@@ -109,6 +110,8 @@ public:
                     QStringLiteral("Find the Linux version")}
             : topic == QLatin1String("tidy")
             ? Words{QStringLiteral("Downloads"), QStringLiteral("folder-download"), QStringLiteral("Tidy up Downloads")}
+            : topic == QLatin1String("memory")
+            ? Words{QStringLiteral("Workspace Memory"), QStringLiteral("window-restore"), QStringLiteral("Bring back")}
             : Words{QStringLiteral("Storage"), QStringLiteral("drive-harddisk"), QStringLiteral("Free up space")};
         QDBusMessage call = QDBusMessage::createMethodCall(Notifications, NotificationsPath, Notifications,
                                                            QStringLiteral("Notify"));
@@ -484,6 +487,11 @@ int main(int argc, char **argv)
 
     Core *core = nullptr;
     CoreService *offeredService = nullptr;
+    // Cards, from Kadunce, where it runs: Workspace Memory's saved session
+    // and the apps opened together.
+    KadunceMemory kadunce(bus);
+    // And its saved layouts: reading the desk and arranging one.
+    KadunceLayouts kadunceLayouts(bus);
     Ticker ticker(bus, [&core](const QString &topic) {
         if (core)
             core->act(topic, QStringLiteral("open"));
@@ -513,6 +521,25 @@ int main(int argc, char **argv)
             QProcess::startDetached(settings, {page});
         else
             QProcess::startDetached(QStringLiteral("kcmshell6"), {page});
+    };
+    hooks.bringBack = [&kadunce, &core] {
+        kadunce.bringBack([](const QString &id) { launchApp(id); },
+                          [&core](const BringBackRun &run) {
+                              if (core)
+                                  core->broughtBack(run);
+                          });
+    };
+    hooks.dismissSavedSession = [&kadunce] { kadunce.dismissSavedSession(); };
+    hooks.openApps = [](const QStringList &ids) {
+        for (const QString &id : ids)
+            launchApp(id);
+    };
+    hooks.currentLayout = [&kadunceLayouts](std::function<void(std::optional<CurrentDesk>)> answered) {
+        kadunceLayouts.currentLayout(std::move(answered));
+    };
+    hooks.arrangeLayout = [&kadunceLayouts](const QList<LayoutGroup> &groups, std::function<void(const LayoutPlan &)> armed,
+                                            std::function<void(const LayoutRun &)> done) {
+        kadunceLayouts.arrange(groups, std::move(armed), std::move(done));
     };
     Core desk(parser.isSet(folderOption) ? parser.value(folderOption) : Core::defaultFolder(),
               parser.isSet(settingsOption) ? parser.value(settingsOption) : Core::defaultSettings(), hooks);
@@ -682,6 +709,91 @@ int main(int argc, char **argv)
     QTimer::singleShot(std::chrono::seconds(30), &desk, [&devices, &desk] {
         if (desk.watchesDevices())
             devices.start();
+    });
+    // Game controllers and screens are read from the kernel's own folders,
+    // which cost a few small reads: when a node comes or goes in /dev/input,
+    // and every half minute, since a screen plugged in says so nowhere Core
+    // can watch without the desktop's own display service.
+    const auto listLocal = [&desk] {
+        if (!desk.watchesDevices())
+            return;
+        desk.seeDevices(DeviceKind::Controller, controllersIn());
+        desk.seeDevices(DeviceKind::Screen, screensIn());
+    };
+    QFileSystemWatcher inputWatcher;
+    if (QFileInfo(QStringLiteral("/dev/input")).isDir())
+        inputWatcher.addPath(QStringLiteral("/dev/input"));
+    QTimer inputSettled;
+    inputSettled.setSingleShot(true);
+    inputSettled.setInterval(std::chrono::seconds(3));
+    QObject::connect(&inputWatcher, &QFileSystemWatcher::directoryChanged, &desk, [&inputSettled] { inputSettled.start(); });
+    QObject::connect(&inputSettled, &QTimer::timeout, &desk, listLocal);
+    QTimer localEvery;
+    localEvery.setInterval(std::chrono::seconds(30));
+    QObject::connect(&localEvery, &QTimer::timeout, &desk, listLocal);
+    QTimer::singleShot(std::chrono::seconds(30), &desk, [&localEvery, listLocal] {
+        listLocal();
+        localEvery.start();
+    });
+
+    // Workspace Memory: after sign-in, once Cards has had time to start and
+    // read what it saved, the session it offers. Asked three times at most,
+    // until Cards answers; a session already offered is not offered again.
+    // Then the automations the person accepted open, but for the apps
+    // Always is bringing back, and the layouts switched on for sign-in open
+    // once the question is settled.
+    int memoryAsks = 0;
+    bool memoryAnswered = false;
+    bool automationsRan = false;
+    QTimer memoryAsk;
+    memoryAsk.setInterval(std::chrono::seconds(40));
+    const auto runAutomations = [&desk, &automationsRan](const QStringList &skip) {
+        if (automationsRan)
+            return;
+        automationsRan = true;
+        desk.runAutomations(skip);
+        desk.openLayoutsAtSignIn();
+    };
+    const auto askMemory = [&desk, &kadunce, &memoryAsks, &memoryAnswered, &memoryAsk, runAutomations] {
+        if (memoryAnswered)
+            return;
+        if (++memoryAsks > 3 || !desk.watchesMemory()) {
+            memoryAsk.stop();
+            runAutomations({});
+            return;
+        }
+        kadunce.savedSession([&desk, &memoryAnswered, &memoryAsk, runAutomations](const std::optional<SavedSession> &session) {
+            if (!session || memoryAnswered)
+                return;
+            memoryAnswered = true;
+            memoryAsk.stop();
+            const bool comingBack = session->available && desk.bringsBackAlways();
+            desk.seeSavedSession(*session);
+            runAutomations(comingBack ? session->apps : QStringList());
+        });
+    };
+    QObject::connect(&memoryAsk, &QTimer::timeout, &desk, askMemory);
+    QTimer::singleShot(std::chrono::seconds(20), &desk, [&memoryAsk, askMemory] {
+        askMemory();
+        memoryAsk.start();
+    });
+
+    // Automations: which apps were opened together after sign-in, once Cards
+    // has had its five minutes to see them, then every two hours.
+    const auto lookTogether = [&desk, &kadunce] {
+        if (!desk.watchesAutomations())
+            return;
+        kadunce.openTogether([&desk](const std::optional<QList<OpenSet>> &sets) {
+            if (sets)
+                desk.seeOpenTogether(*sets);
+        });
+    };
+    QTimer togetherEvery;
+    togetherEvery.setInterval(std::chrono::hours(2));
+    QObject::connect(&togetherEvery, &QTimer::timeout, &desk, lookTogether);
+    QTimer::singleShot(std::chrono::minutes(7), &desk, [&togetherEvery, lookTogether] {
+        lookTogether();
+        togetherEvery.start();
     });
 
     // Settings, such as how readily Core speaks, take effect when they are

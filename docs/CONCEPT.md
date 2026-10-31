@@ -27,9 +27,9 @@ Split Rock is two things:
   when it is done.
 - **Core.** A background program with no window. It notices when space runs
   low, updates have waited too long, the Health check finds a problem, a
-  Windows installer lands in Downloads, or a new printer, drive or Bluetooth
-  device appears, and says so once, without nagging. Tapping what it says
-  opens the Helper that fits. How Core decides when to speak is in `CORE.md`.
+  Windows installer lands in Downloads, or a new printer, drive, Bluetooth
+  device, game controller or screen appears, and says so once, without
+  nagging. Tapping what it says opens the Helper that fits. How Core decides when to speak is in `CORE.md`.
 
 A Helper opens from Search, by its name or by the Windows words Pat already
 knows (Add or remove programs, Disk Cleanup, Windows Update, System Restore),

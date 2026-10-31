@@ -1,0 +1,44 @@
+{
+  "version": 0,
+  "app": "notes",
+  "name": "Notes",
+  "bus": {
+    "service": "io.github.carlsonjm.gooseberry",
+    "path": "/QuickNote",
+    "interface": "io.github.carlsonjm.Gooseberry.QuickNote"
+  },
+  "tools": [
+    {
+      "name": "notes.search",
+      "method": "Find",
+      "risk": "read",
+      "codex": true,
+      "summary": "Find notes by words. Returns each note's id, title and the matching line.",
+      "args": [
+        {"name": "words", "type": "s", "required": true, "maxLength": 200},
+        {"name": "limit", "type": "u", "required": false, "default": 5, "min": 1, "max": 10}
+      ]
+    },
+    {
+      "name": "notes.read",
+      "method": "Read",
+      "risk": "read",
+      "codex": true,
+      "summary": "The whole text of one note, by the id notes.search gave.",
+      "args": [
+        {"name": "id", "type": "s", "required": true, "pattern": "^[A-Za-z0-9._-]{1,128}$"}
+      ]
+    },
+    {
+      "name": "notes.create",
+      "method": "Create",
+      "risk": "write",
+      "codex": true,
+      "summary": "Save a new note with this text, in this folder (empty for no folder).",
+      "args": [
+        {"name": "text", "type": "s", "required": true, "maxLength": 20000},
+        {"name": "folder", "type": "s", "required": false, "default": "", "maxLength": 80}
+      ]
+    }
+  ]
+}

@@ -2,86 +2,29 @@
 #include "broker/BrokerService.h"
 
 #include "broker/Broker.h"
+#include "broker/Toolbox.h"
+#include "tools/Capabilities.h"
 
 #include <QDBusArgument>
+#include <QDBusMessage>
 #include <QDBusMetaType>
 
 namespace splitrock::broker {
-
-namespace {
-
-// One element of a message from the bus, whatever its signature: a{sv}, an
-// array of them, as, or a plain value.
-QVariant element(const QDBusArgument &argument)
-{
-    switch (argument.currentType()) {
-    case QDBusArgument::MapType: {
-        QVariantMap map;
-        argument.beginMap();
-        while (!argument.atEnd()) {
-            argument.beginMapEntry();
-            const QString key = argument.asVariant().toString();
-            map.insert(key, element(argument));
-            argument.endMapEntry();
-        }
-        argument.endMap();
-        return map;
-    }
-    case QDBusArgument::ArrayType: {
-        QVariantList list;
-        argument.beginArray();
-        while (!argument.atEnd())
-            list.append(element(argument));
-        argument.endArray();
-        return list;
-    }
-    case QDBusArgument::StructureType: {
-        QVariantList fields;
-        argument.beginStructure();
-        while (!argument.atEnd())
-            fields.append(element(argument));
-        argument.endStructure();
-        return fields;
-    }
-    case QDBusArgument::VariantType: {
-        QDBusVariant variant;
-        argument >> variant;
-        return BrokerService::plain(variant.variant());
-    }
-    case QDBusArgument::BasicType:
-        return argument.asVariant();
-    default:
-        return {};
-    }
-}
-
-} // namespace
 
 // Nested messages arrive wrapped as QDBusArgument: Mail's conversation holds
 // its messages as aa{sv} and each mail its attachments as as.
 QVariant BrokerService::plain(const QVariant &value)
 {
-    if (value.canConvert<QDBusArgument>())
-        return element(value.value<QDBusArgument>());
-    if (value.typeId() == QMetaType::QVariantMap) {
-        QVariantMap map = value.toMap();
-        for (auto it = map.begin(); it != map.end(); ++it)
-            it.value() = plain(it.value());
-        return map;
-    }
-    if (value.typeId() == QMetaType::QVariantList) {
-        QVariantList list = value.toList();
-        for (QVariant &item : list)
-            item = plain(item);
-        return list;
-    }
-    return value;
+    return tools::fromBus(value);
 }
 
-BrokerService::BrokerService(Broker *broker, QObject *parent)
+BrokerService::BrokerService(Broker *broker, Toolbox *toolbox, QObject *parent)
     : QObject(parent)
     , m_broker(broker)
+    , m_toolbox(toolbox)
 {
+    if (!m_broker)
+        return;
     connect(m_broker, &Broker::sorted, this, &BrokerService::Sorted);
     connect(m_broker, &Broker::said, this, &BrokerService::Said);
     connect(m_broker, &Broker::drafted, this, &BrokerService::Drafted);
@@ -138,6 +81,37 @@ uint BrokerService::StyleNote(const QVariantList &sent)
 void BrokerService::Cancel(uint id)
 {
     m_broker->cancel(id);
+}
+
+QVariantList BrokerService::Tools()
+{
+    return m_toolbox ? m_toolbox->tools() : QVariantList();
+}
+
+QVariantMap BrokerService::Call(const QString &tool, const QVariantMap &args, const QString &caller)
+{
+    if (!m_toolbox || !calledFromDBus())
+        return {{QStringLiteral("ok"), false}, {QStringLiteral("problem"), QStringLiteral("No tools are offered here.")}};
+    // The app answers in its own time; the reply waits for it.
+    setDelayedReply(true);
+    m_toolbox->call(tool, plain(args).toMap(), caller, answerLater());
+    return {};
+}
+
+QVariantMap BrokerService::Run(const QString &cardToken)
+{
+    if (!m_toolbox || !calledFromDBus())
+        return {{QStringLiteral("ok"), false}, {QStringLiteral("problem"), QStringLiteral("No tools are offered here.")}};
+    setDelayedReply(true);
+    m_toolbox->run(cardToken, answerLater());
+    return {};
+}
+
+std::function<void(const QVariantMap &)> BrokerService::answerLater()
+{
+    return [bus = connection(), request = message()](const QVariantMap &result) mutable {
+        bus.send(request.createReply(QVariant(result)));
+    };
 }
 
 } // namespace splitrock::broker

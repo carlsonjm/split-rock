@@ -2,10 +2,13 @@
 #pragma once
 
 #include "core/Attention.h"
+#include "core/Automations.h"
 #include "core/Devices.h"
 #include "core/Health.h"
+#include "core/Layouts.h"
 #include "core/Storage.h"
 #include "core/Updates.h"
+#include "core/WorkspaceMemory.h"
 
 #include <QDateTime>
 #include <QHash>
@@ -52,6 +55,26 @@ public:
         std::function<void(const QString &page)> openSettings;
         // Opens the notifications that came in, where the desktop keeps them.
         std::function<void()> openNotifications;
+        // Workspace Memory: asks Cards to bring back the session it offers,
+        // after the person's yes or their Always; Core hears how it went
+        // through broughtBack(). And tells Cards the person said not now.
+        std::function<void()> bringBack;
+        std::function<void()> dismissSavedSession;
+        // Launches apps by their desktop file ids, as an automation the
+        // person accepted does at sign-in.
+        std::function<void(const QStringList &desktopIds)> openApps;
+        // This sign-in, so an automation runs once in it however often Core
+        // starts.
+        std::function<QString()> signIn = [] { return qEnvironmentVariable("XDG_SESSION_ID"); };
+        // Saved layouts: what Cards reads of the desk now, nothing without
+        // Cards; and arranging a layout's groups, where armed hears what
+        // Cards accepted and done how the run went.
+        std::function<void(std::function<void(std::optional<CurrentDesk>)> answered)> currentLayout;
+        std::function<void(const QList<LayoutGroup> &groups, std::function<void(const LayoutPlan &)> armed,
+                           std::function<void(const LayoutRun &)> done)>
+            arrangeLayout;
+        // What the app menu calls an app, by its desktop file id.
+        std::function<QString(const QString &desktopId)> appName = [](const QString &id) { return core::appName(id); };
     };
 
     // folder: where its files are kept. settings: the person's settings file,
@@ -105,6 +128,60 @@ public:
     void notificationsSeen();
     bool watchesFocus() const;
 
+    // Workspace Memory (docs/CORE.md § Workspace Memory): the session Cards
+    // offers after sign-in. Core asks once, on the island, "Bring back 4
+    // apps from yesterday?"; once the person chose Always, it asks Cards to
+    // bring them back with no island, and the ticker says so. A session
+    // already offered is not offered again.
+    void seeSavedSession(const SavedSession &session);
+    // Cards said how the bring-back went.
+    void broughtBack(const BringBackRun &run);
+    bool watchesMemory() const;
+    // The person chose Always: [WorkspaceMemory] Always in the settings file.
+    bool bringsBackAlways() const;
+    // A session older than this is not offered.
+    static constexpr int MemoryKeepDays = 14;
+
+    // Automations (docs/CORE.md § Automations): the sets of apps Cards saw
+    // opened together after sign-in. Once one has opened together
+    // AutomationOfferAfter times, Core offers once, on the island, to open
+    // them at each sign-in; never more than one offer at a time, and none
+    // during Do Not Disturb, which leaves it for the next look.
+    void seeOpenTogether(const QList<OpenSet> &sets);
+    // Opens the apps of each automation switched on, once a sign-in, but
+    // those already open or coming back. False when there was none to open.
+    bool runAutomations(const QStringList &skip = {});
+    bool watchesAutomations() const;
+    QList<Automation> automations() const;
+
+    // Saved layouts (docs/CORE.md § Layouts): named desks the person saved
+    // from Search, kept in the settings file as [Layout 1] and on. Opening
+    // one asks Cards to arrange it and launches what Cards names; it is
+    // refused while a layout or a bring-back is under way.
+    QList<Layout> layouts() const;
+    // Each layout for the bus: id, name, groups (apps, names, stack) and
+    // atSignIn.
+    QList<QVariantMap> layoutsForBus() const;
+    // The desk as Cards reads it now, with each group's app names added;
+    // available is false without Cards.
+    void currentLayout(std::function<void(const QVariantMap &)> answered);
+    // Saves under that name, replacing a layout of the same name; its id,
+    // or empty for an empty name or no groups.
+    QString saveLayout(const QString &name, const QString &groupsJson, bool atSignIn);
+    // False at once for an unknown id or while a run is under way; otherwise
+    // answered hears whether Cards accepted it, and layoutOpened follows
+    // when the run is over.
+    bool openLayout(const QString &id, std::function<void(bool accepted)> answered = {});
+    bool removeLayout(const QString &id);
+    bool setLayoutAtSignIn(const QString &id, bool on);
+    // Opens each layout switched to open at sign-in, one after another, once
+    // a sign-in, and only once the Workspace Memory question is settled.
+    // False when it already ran in this sign-in.
+    bool openLayoutsAtSignIn();
+    // Nothing of Workspace Memory is still to come: no bring-back under way
+    // and no question standing on the island.
+    bool memorySettled() const;
+
     // How readily Core speaks, the person's Notice setting, from 0 (Less) to
     // 100 (More), 50 by default; the words "quiet" and "eager" read as 0 and
     // 100. The limits each topic holds follow it.
@@ -138,6 +215,11 @@ public:
 
 Q_SIGNALS:
     void factChanged(const QVariantMap &fact);
+    // A layout was saved, removed or switched.
+    void layoutsChanged();
+    // A layout's run is over: how many apps went to their place, and the
+    // names of those that didn't.
+    void layoutOpened(const QString &id, int placed, int missed, const QStringList &missedNames);
 
 private:
     bool enabled(const QString &topic) const;
@@ -147,6 +229,20 @@ private:
 
     QVariantMap windowsFact() const;
     QVariantMap focusFact() const;
+    QVariantMap memoryFact() const;
+    QVariantMap automationsFact() const;
+    bool actAutomations(const QString &action);
+    bool actMemory(const QString &action);
+    // Asks Cards to bring back the saved session, and keeps layouts waiting
+    // until it is over.
+    void startBringBack();
+    // The logbook and, after Always, the ticker on how a bring-back went.
+    void tellBroughtBack(const BringBackRun &run);
+    // The next layout waiting to open at sign-in, when nothing is in its way.
+    void nextLayoutAtSignIn();
+    QList<QVariantMap> groupsWithNames(const QList<LayoutGroup> &groups) const;
+    // A settings key Core writes itself, after the person's choice.
+    void setSetting(const QString &key, const QVariant &value);
     // A fact that wanted the island while Do Not Disturb kept it to the
     // ticker, for Focus to name when Do Not Disturb ends.
     void hold(const QString &title, bool doNotDisturb, Level level, const Spoken &spoken);
@@ -203,6 +299,34 @@ private:
     QStringList m_focusHeld;
     int m_focusTimes = 0;
     Attention m_focusAttention;
+
+    // The session offered and not yet answered; when the last one Core saw
+    // was saved, so it is offered once; how many it has offered; and whether
+    // the bring-back under way came from Always, which the ticker reports.
+    SavedSession m_session;
+    bool m_sessionPending = false;
+    QDateTime m_sessionSeen;
+    int m_sessionOffers = 0;
+    bool m_memoryAlwaysRun = false;
+    Attention m_memoryAttention;
+
+    // The set offered and not yet answered, the sets offered before (by
+    // setKey), and the sign-in automations last ran in.
+    OpenSet m_offer;
+    bool m_offerPending = false;
+    QStringList m_offered;
+    QString m_automationsRanIn;
+    Attention m_automationsAttention;
+    // The apps automations opened this sign-in, which a layout doesn't launch
+    // again.
+    QStringList m_openedAtSignIn;
+
+    // A bring-back under way; the layout being opened; the layouts waiting
+    // to open at sign-in, and the sign-in they last opened in.
+    bool m_bringingBack = false;
+    QString m_layoutRunning;
+    QStringList m_layoutsWaiting;
+    QString m_layoutsRanIn;
 };
 
 } // namespace splitrock::core

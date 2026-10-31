@@ -97,6 +97,18 @@ Window {
                 }
             }
 
+            // Each item Codex read in the person's own apps, since its words
+            // went to OpenAI with the question.
+            Text {
+                objectName: "codex-read"
+                visible: chat.read.length > 0
+                width: frame.innerWidth
+                wrapMode: Text.WordWrap
+                text: "Codex read: " + chat.read.join("; ")
+                color: theme.quiet
+                font.pixelSize: 13
+            }
+
             // A change Codex proposed: nothing happens until Do it.
             CardRow {
                 objectName: "codex-proposal"

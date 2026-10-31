@@ -3,10 +3,15 @@
 
 #include "app/Chore.h"
 
+#include <optional>
+#include <functional>
+
 #include <QDateTime>
 #include <QVariantList>
 
 namespace splitrock {
+
+struct BatteryReading;
 
 // The Health check card: a look over the computer that only reads. Whether
 // every service started, the space left, what the drive and the battery
@@ -79,6 +84,15 @@ public:
 
     static QList<Item> readLook(const QString &output, const QDateTime &now = QDateTime::currentDateTime());
 
+    // The Battery row for what the battery reports: good, or a problem to
+    // copy for help when it is worn under BatteryWornBelow or reports a
+    // fault. Nothing when it reports nothing usable.
+    static std::optional<Item> batteryItem(const BatteryReading &battery);
+    // The look's battery section, read in-process from the kernel's power
+    // supply folder or UPower (app/Battery.h), appended to the script's
+    // output before it is read.
+    static QString batteryLook();
+
     // The look itself: a script that only reads, run as the person.
     static QString defaultLookScript();
     // Whether a look's output came through to its end.
@@ -91,6 +105,8 @@ public:
     static QString facts(const QList<Item> &items);
 
     void setLookScript(const QString &script) { m_lookScript = script; }
+    // The battery section a look appends, in place of reading the computer's.
+    void setBatteryLook(std::function<QString()> look) { m_batteryLook = std::move(look); }
     // Core's settings file, where its Health topic is switched off.
     void setCoreSettings(const QString &path) { m_coreSettings = path; }
 
@@ -102,6 +118,7 @@ private:
     int m_lastAttention = -1;
     bool m_quiet = false;
     QString m_lookScript;
+    std::function<QString()> m_batteryLook;
     QString m_coreSettings;
 };
 

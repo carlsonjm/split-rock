@@ -9,7 +9,12 @@ import QtQuick.Window
 Window {
     id: actionWindow
     objectName: "actionWindow"
-    title: {
+    // The Helper's name, then its one fact after a dot, "Update · 12
+    // waiting": Shuffle's Context Bar shows the piece after the dot beside
+    // the name, dimmed, so the bar says what the Helper found without the
+    // card being in front.
+    title: fact === "" ? helperName : helperName + " · " + fact
+    readonly property string helperName: {
         switch (helpers.chore) {
         case "update": return "Update"
         case "space": return "Free up space"
@@ -21,6 +26,21 @@ Window {
         case "tidy": return "Tidy up Downloads"
         }
         return productTitle
+    }
+    readonly property string fact: {
+        switch (helpers.chore) {
+        case "update": return helpers.update.waiting > 0 ? helpers.update.waiting + " waiting" : ""
+        case "space": return helpers.space.diskKb > 0 ? size(helpers.space.freeKb) + " free" : ""
+        case "health": return helpers.health.attention > 0 ? helpers.health.attention + " to look at" : ""
+        }
+        return ""
+    }
+
+    // "1.2 GB", "340 MB", as the Free up space card writes them.
+    function size(kb) {
+        if (kb >= 1024 * 1024)
+            return (kb / 1024 / 1024).toFixed(kb >= 10 * 1024 * 1024 ? 0 : 1) + " GB"
+        return Math.round(kb / 1024) + " MB"
     }
     color: theme.sheet
     width: 560

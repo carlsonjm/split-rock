@@ -43,6 +43,9 @@ public:
     // version other than the one Split Rock speaks.
     void initialize(const QString &clientVersion, const QString &clientTitle, Done done);
     void authenticate(const QString &methodId, Done done);
+    // The tool servers the agent is given with each new session, in the
+    // protocol's form: none unless set.
+    void setMcpServers(const QJsonArray &servers) { m_mcpServers = servers; }
     void newSession(const QString &workingDirectory, Done done);
     void setMode(const QString &modeId, Done done);
     void prompt(const QJsonArray &blocks, std::function<void(const QString &stopReason, const std::optional<RpcError> &error)> done);
@@ -87,6 +90,7 @@ private:
     QJsonObject m_lastPromptMeta;
     QHash<QString, ToolCall> m_toolCalls;
     Allow m_allow;
+    QJsonArray m_mcpServers;
 };
 
 } // namespace acp

@@ -1287,3 +1287,146 @@ Rejected: a time estimate from a guessed speed, which misleads on a slower
 connection; offering the download without the engine, which fetches 2.5 GB
 that can't run; and sending a question to Codex as typing pauses under Codex
 only, which would send words the person never meant to send.
+
+## The battery's wear is a Health row, and two more kinds of device are news
+
+Where the computer has a battery that says what it holds, the Health check
+shows a Battery row in plain words: "Holds 87% of its original charge". Under
+70%, or with a fault the battery reports itself, the row is a problem with
+Copy for help, and Core's weekly Health look speaks of it once on the ticker,
+as of any other problem. It never takes the island; a worn battery loses no
+files. The kernel's own power supply folder is read first, UPower where that
+folder says nothing. Devices also names a game controller and a screen the
+first time each is plugged in, with the same one ticker line, opening KDE's
+Game Controller or Display Configuration page.
+
+Why: the 20 Oct order put battery wear first among the wider Devices, as a
+Health row where the computer reports it, and then controllers and second
+screens. People leaving Windows on a laptop or a tablet notice a battery that
+runs down sooner, and nothing told them how worn it was. A row drawn like
+every other Health row, rather than a new surface, keeps it where they
+already look.
+
+Rejected: a ticker line of its own for battery wear, which would speak of a
+slow change as if it were news; a "worth a look" step between good and
+problem, which would make normal ageing sound like something to act on; the
+island; reading a controller or a screen through a desktop service, which
+would tie Core to one desktop's display server, where the kernel's folders
+say the same on any of them.
+
+## Workspace Memory asks once after sign-in, until the person chooses Always
+
+After sign-in, where Cards from Kadunce kept a session with apps in it, Core
+asks once on the island: "Bring back 4 apps from yesterday?", with Bring back,
+Always and Not now. Cards remembers where each window stood and puts it back;
+Core asks, and launches the apps Cards names, each the way the app menu does.
+Always is the person's stated preference, kept in `split-rock-corerc`, so from
+then on Core asks Cards with no island and the ticker says it happened. It is
+a topic of its own with its own switch, and each saved session is news once.
+
+Why: approved on 19 Oct as Shuffle's own way, each app back on its screen,
+card and pair, with the island asking first until Always. Cards never launches
+an app itself, since a program started from inside the compositor would belong
+to it rather than to the person's session, so the launching is Core's. Always
+lives in the settings file rather than in Core's own notes so Settings can show
+it and turn it off.
+
+Plasma's own "restore the previous session" stays on beside it (the product
+owner, 30 Oct, changing the earlier call to turn it off). Plasma reopens the
+apps it can; the island still asks, and brings back the ones Plasma didn't,
+each to its card and pair. An app already open is left where it stands, not
+opened twice.
+
+Rejected: a session from weeks ago, which is no longer what the person left;
+and asking during Do Not Disturb on the island, which the ticker carries
+instead like every other topic. Named setups to switch between, rejected here
+at first, came later as saved layouts (§ Layouts in `CORE.md`).
+
+## Automations are offered once, after three times, and kept with a switch each
+
+The first automation opens a set of apps at sign-in. Once Cards has seen the
+same apps opened together by hand after sign-in three times, Core offers it
+once on the island. Yes keeps it in `split-rock-corerc` as a group of its own
+with its own switch, which Settings lists; Not now is for good. An offer waits
+out Do Not Disturb and the topic's daily island rather than go to the ticker.
+The offer's words are a draft kept in one place until the product owner
+approves them.
+
+Why: approved on 19 Oct, "the usual?" after three times, never made on its
+own, each one listed in Settings with a switch, and "open these apps
+together" first because it shares its groundwork with Workspace Memory. The
+person's yes is the only way one is made, so a ticker line, whose tap would be
+a yes to words not read, is never used for it.
+
+Rejected: offering again once a declined set is seen more, which would make
+Not now mean "ask me later"; putting two apps side by side first, which needs
+Cards to report pairs; drafting email replies, which belong to Mail; and
+counting apps Workspace Memory brought back, which would turn one Always into
+an automation nobody asked for.
+
+## Apps describe their tools in a file; the broker checks every call
+
+Each Good Input app describes what it lets the models do in one JSON file
+beside its bus service: each tool, the method it calls, each argument's type
+and limits, its risk (read, write or outward) and whether its results may go
+to Codex (`BROKER.md`, Tools). The broker reads the files afresh on every
+request and checks every call against them before the app hears of it. A read
+runs and is named in the answer; a write is a Do it card, run only by the
+token the tap hands back; an outward tool is refused. The model on this
+computer fills one tool request at a time on a form the engine enforces,
+behind the front desk, with at most two reads a question; Codex reaches the
+same tools, generated from the same files, through a tool server that only
+forwards out of its fence, and only for a question the person handed it, with
+each note it read listed in its window. Notes is the first app; saving a note
+keeps its card, as "No change without a card, however small" holds.
+
+Why: the label on an appliance says what it does whether or not it's plugged
+in. An app that isn't running is still found, nothing has to remember to sign
+up, and uninstalling an app takes its tools with it. One checker in one place
+means the safety rules are never spread across the apps, and the small model,
+which in the October trials announced actions it never took when left to call
+tools on its own, only fills in a blank the desk asked for. What a note says
+reaches a model only as material in marks it can't close, and anything written
+after reading it still waits on a card that shows the exact words.
+
+Rejected: apps signing their tools in at runtime, which loses them whenever
+the app isn't running and leaves stale ones when it crashes; each app shipping
+its own Model Context Protocol server, which spreads the checks across every
+app; letting the local model call tools in a loop; Codex reaching the desktop
+bus from inside its fence; saving a note at once with Undo after, which would
+rewrite the card rule; and reading Notes' folder directly, which would make its
+layout a contract and hide what was read.
+
+## A question about this computer is answered, not refused
+
+Ask runs a model on the person's own computer, so a plain question about the
+computer or the person's own things is answered: its IP address, its name,
+its hardware, the Wi-Fi it is on, its disk, or where they wrote a password or
+a key down. Only real harm is refused: a scam or a code read out to a caller,
+a stranger taking control, payment or bank codes, deleting the system,
+pirated software, watching someone secretly, and switching protection off.
+The safety check's fixed patterns for those stay as they were. The sorting's
+definition of unsafe names only those, says a question about this computer is
+never unsafe, and no longer lists passwords as a kind of harm; the model's
+unsafe is honoured only when it names a kind of harm. Ask reads the
+computer's own name and addresses itself, read-only, through Qt, and answers
+"what is my IP address" with them, with no model and before the model is
+downloaded.
+
+Why: approved after a tablet test in which "what is my IP address" was
+refused as a risk. Nothing asked leaves the computer, so the person's own
+details are no more exposed by answering than by opening the settings page
+that shows them; a refusal there only teaches the person that Ask is no use
+for the computer it runs on. The harm worth refusing is the person being
+talked into giving control, codes or money to someone else, or doing damage
+that can't be undone, and those keep their fixed answers whatever the model
+says. A small model given the bare word "passwords" refused anything that
+mentioned one, and given only its own judgement it reads numbers wrongly, so
+the address is said by the desk from what it read.
+
+Rejected: keeping "passwords" as a kind of harm in the sorting, which refused
+asks about where a password was written down; letting the model write the
+address from the facts alone, which a 4B model can garble; answering with the
+address websites see, which needs a request to a service off the computer;
+and answering an ask that tells of a caller or a stranger wanting the
+address, which is left to the safety check and the sorting.

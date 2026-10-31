@@ -44,6 +44,7 @@
 #include "codex/Chat.h"
 #include "settings/AskSettings.h"
 #include "desktop/Entry.h"
+#include "tools/Capabilities.h"
 
 #include <QCommandLineParser>
 #include <QCoreApplication>
@@ -52,6 +53,7 @@
 #include <QDBusConnectionInterface>
 #include <QDBusMessage>
 #include <QDBusMetaType>
+#include <QDBusPendingCallWatcher>
 #include <QKeySequence>
 #include <QDBusReply>
 #include <QDesktopServices>
@@ -129,7 +131,7 @@ int healthReport(int argc, char **argv, bool facts)
         std::fputs("Health check: the look stopped before its end.\n", stderr);
         return 1;
     }
-    const auto items = splitrock::HealthCheck::readLook(output);
+    const auto items = splitrock::HealthCheck::readLook(output + splitrock::HealthCheck::batteryLook());
     const QString printed = facts ? splitrock::HealthCheck::facts(items) : splitrock::HealthCheck::report(items);
     std::fputs(printed.toUtf8().constData(), stdout);
     return 0;
@@ -263,6 +265,42 @@ bool keepNote(splitrock::Notebook &notebook, const QString &title, const QString
     return !notebook.keep(title, text, error).isEmpty();
 }
 
+// The broker's apps' tools (docs/BROKER.md § Tools), where the broker is on
+// the computer.
+const QString BrokerService = QStringLiteral("io.github.carlsonjm.splitrock.Broker");
+
+QDBusMessage brokerCall(const QString &method)
+{
+    return QDBusMessage::createMethodCall(BrokerService, QStringLiteral("/Broker"),
+                                          QStringLiteral("io.github.carlsonjm.SplitRock.Broker"), method);
+}
+
+QVariantList brokerTools()
+{
+    QDBusConnection bus = QDBusConnection::sessionBus();
+    if (!bus.isConnected()
+        || !(bus.interface()->isServiceRegistered(BrokerService).value()
+             || bus.interface()->activatableServiceNames().value().contains(BrokerService)))
+        return {};
+    const QDBusMessage reply = bus.call(brokerCall(QStringLiteral("Tools")), QDBus::Block, 5000);
+    return reply.type() == QDBusMessage::ReplyMessage ? splitrock::tools::fromBus(reply.arguments().value(0)).toList() : QVariantList();
+}
+
+void askBroker(const QString &method, const QVariantList &arguments, const std::function<void(const QVariantMap &)> &reply)
+{
+    QDBusMessage request = brokerCall(method);
+    request.setArguments(arguments);
+    auto *watcher = new QDBusPendingCallWatcher(QDBusConnection::sessionBus().asyncCall(request, 15000));
+    QObject::connect(watcher, &QDBusPendingCallWatcher::finished, watcher, [reply](QDBusPendingCallWatcher *watcher) {
+        watcher->deleteLater();
+        const QDBusMessage answer = watcher->reply();
+        if (answer.type() != QDBusMessage::ReplyMessage)
+            reply({{QStringLiteral("ok"), false}, {QStringLiteral("problem"), QStringLiteral("The broker didn't answer.")}});
+        else
+            reply(splitrock::tools::fromBus(answer.arguments().value(0)).toMap());
+    });
+}
+
 } // namespace
 
 int main(int argc, char **argv)
@@ -366,6 +404,15 @@ int main(int argc, char **argv)
                        request.setArguments({note, QString()});
                        const QDBusMessage reply = QDBusConnection::sessionBus().call(request, QDBus::Block, 5000);
                        return reply.type() == QDBusMessage::ReplyMessage && reply.arguments().value(0).toBool();
+                   },
+                   // The apps' tools, through the broker, with Codex as the
+                   // caller.
+                   [] { return brokerTools(); },
+                   [](const QString &tool, const QVariantMap &arguments, const std::function<void(const QVariantMap &)> &reply) {
+                       askBroker(QStringLiteral("Call"), {tool, arguments, QStringLiteral("codex")}, reply);
+                   },
+                   [](const QString &token, const std::function<void(const QVariantMap &)> &reply) {
+                       askBroker(QStringLiteral("Run"), {token}, reply);
                    }});
     QObject::connect(&chat, &splitrock::codex::Chat::openPage, &app,
                      [](const QString &page) { QDesktopServices::openUrl(QUrl(page)); });
