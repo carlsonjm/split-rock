@@ -119,8 +119,10 @@ public:
                                 {QStringLiteral("urgency"), QVariant::fromValue<uchar>(1)}};
         // Each topic replaces only its own last notification.
         const uint last = m_last.value(topic);
+        // A tap on the notice and its button do the same; the button shows
+        // where a surface lists actions but not the tap.
         call.setArguments({words.name, last, words.icon, summary, body,
-                           QStringList{QStringLiteral("default"), words.card}, hints, -1});
+                           QStringList{QStringLiteral("default"), words.card, QStringLiteral("open"), words.card}, hints, -1});
         const QDBusReply<uint> reply = m_bus.call(call, QDBus::Block, 2000);
         if (reply.isValid())
             m_last.insert(topic, reply.value());
@@ -139,7 +141,7 @@ public:
 private Q_SLOTS:
     void invoked(uint id, const QString &action)
     {
-        if (id == 0 || action != QLatin1String("default"))
+        if (id == 0 || (action != QLatin1String("default") && action != QLatin1String("open")))
             return;
         for (auto it = m_last.cbegin(); it != m_last.cend(); ++it) {
             if (it.value() == id)
@@ -736,65 +738,10 @@ int main(int argc, char **argv)
         localEvery.start();
     });
 
-    // Workspace Memory: after sign-in, once Cards has had time to start and
-    // read what it saved, the session it offers. Asked three times at most,
-    // until Cards answers; a session already offered is not offered again.
-    // Then the automations the person accepted open, but for the apps
-    // Always is bringing back, and the layouts switched on for sign-in open
-    // once the question is settled.
-    int memoryAsks = 0;
-    bool memoryAnswered = false;
-    bool automationsRan = false;
-    QTimer memoryAsk;
-    memoryAsk.setInterval(std::chrono::seconds(40));
-    const auto runAutomations = [&desk, &automationsRan](const QStringList &skip) {
-        if (automationsRan)
-            return;
-        automationsRan = true;
-        desk.runAutomations(skip);
-        desk.openLayoutsAtSignIn();
-    };
-    const auto askMemory = [&desk, &kadunce, &memoryAsks, &memoryAnswered, &memoryAsk, runAutomations] {
-        if (memoryAnswered)
-            return;
-        if (++memoryAsks > 3 || !desk.watchesMemory()) {
-            memoryAsk.stop();
-            runAutomations({});
-            return;
-        }
-        kadunce.savedSession([&desk, &memoryAnswered, &memoryAsk, runAutomations](const std::optional<SavedSession> &session) {
-            if (!session || memoryAnswered)
-                return;
-            memoryAnswered = true;
-            memoryAsk.stop();
-            const bool comingBack = session->available && desk.bringsBackAlways();
-            desk.seeSavedSession(*session);
-            runAutomations(comingBack ? session->apps : QStringList());
-        });
-    };
-    QObject::connect(&memoryAsk, &QTimer::timeout, &desk, askMemory);
-    QTimer::singleShot(std::chrono::seconds(20), &desk, [&memoryAsk, askMemory] {
-        askMemory();
-        memoryAsk.start();
-    });
-
-    // Automations: which apps were opened together after sign-in, once Cards
-    // has had its five minutes to see them, then every two hours.
-    const auto lookTogether = [&desk, &kadunce] {
-        if (!desk.watchesAutomations())
-            return;
-        kadunce.openTogether([&desk](const std::optional<QList<OpenSet>> &sets) {
-            if (sets)
-                desk.seeOpenTogether(*sets);
-        });
-    };
-    QTimer togetherEvery;
-    togetherEvery.setInterval(std::chrono::hours(2));
-    QObject::connect(&togetherEvery, &QTimer::timeout, &desk, lookTogether);
-    QTimer::singleShot(std::chrono::minutes(7), &desk, [&togetherEvery, lookTogether] {
-        lookTogether();
-        togetherEvery.start();
-    });
+    // Nothing opens apps at sign-in but the desktop's own session restore:
+    // Core neither offers Workspace Memory's bring-back, nor opens accepted
+    // automations or offers new ones, nor opens layouts marked for sign-in
+    // (docs/CORE.md § Workspace Memory). Layouts open when the person asks.
 
     // Settings, such as how readily Core speaks, take effect when they are
     // written. The folder is watched, since a settings file is replaced, not

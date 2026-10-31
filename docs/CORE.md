@@ -226,60 +226,22 @@ is no longer a fact.
 
 ## Workspace Memory
 
-Cards, from Kadunce, remembers at sign-out which apps were open and where each
-one stood: its screen, its card, its pair. After sign-in Core asks once, on
-Search's island: "Bring back 4 apps from yesterday?", "Each one goes back to
-its place", with Bring back, Always and Not now. Bring back asks Cards to
-expect them, then launches each app as the app menu would; Cards puts each one
-back in its place as its window arrives. Not now leaves the desktop as it is
-and tells Cards to stop offering that session. Always brings them back now
-and is kept as `[WorkspaceMemory] Always=true`: from the next sign-in Core
-asks Cards straight away with no island, and the ticker says "Brought back 4
-apps", "As you left them" once they are back, or how many didn't open in
-time. Turning Always off in Settings brings the question back.
+The desktop's own session restore is the only thing that reopens apps at
+sign-in (the product owner, 31 October). Core no longer asks Cards for the
+session it saved, offers no bring-back on the island or the ticker, and runs
+no automation. The calls below stay for a later release; nothing starts them.
 
-Core asks Cards twenty seconds after it starts, and twice more forty seconds
-apart until Cards answers, on Kadunce's Workspace Memory calls, version 1
-(`savedSession`, `bringBack`, `dismissSavedSession`, and the
-`bringBackFinished` signal), at `org.kde.KWin`, `/Kadunce`,
-`co.goodinput.Kadunce`. Without Cards, or with a version Core doesn't know,
-nothing is said. Core launches only the apps Cards names, each once, and stops
-waiting 90 seconds after the last one arrived if Cards never says the run is
-over.
-
-Each saved session is news once, by when Cards saved it, so a Core started
-again in the same session doesn't ask twice. A second sign-in the same day, or
-one during Do Not Disturb, goes to the ticker, whose tap brings the apps
-back. A session saved more than 14 days ago is not offered. The Notice setting
-does not move it.
+A notice in the ticker carries its button, such as Open, as well as the tap on
+the notice itself. Were Core to ask, it would offer and count only the apps
+Cards names in `missing`, the ones not running, on Kadunce's Workspace Memory
+calls, version 1 (`savedSession`, `bringBack`, `dismissSavedSession`), at
+`org.kde.KWin`, `/Kadunce`, `co.goodinput.Kadunce`.
 
 ## Automations
 
-An automation is only ever offered, never made on its own. The first kind
-opens a set of apps at sign-in. Cards records which apps the person opens by
-hand in the five minutes after the first window of each sign-in, and counts
-each set (apps it brought back don't count). Core asks Cards for the sets
-seven minutes after it starts and every two hours. Once the same set has
-opened together three times, Core offers once, on Search's island.
-
-> **The wording names the apps** (the product owner, 30 October). Every word
-> of the offer is in one place, `automationWords` in `src/core/Automations.h`:
-> "Open Firefox, Notes and Mail when you sign in?", "You've started with these
-> three times", with "Yes, each time" and "Not now". Past three apps the names
-> end "and 2 more".
-
-- Yes adds the automation to `split-rock-corerc`, in a group of its own that
-  Settings lists with a switch: `[Automation 1]` with `Kind=open-together`,
-  `Apps` (desktop file ids), `Names`, `Enabled` and `Added`. Nothing opens
-  until the next sign-in.
-- Not now, or dismissing it, is for good: that set is never offered again, and
-  neither is one already an automation.
-- One offer at a time. During Do Not Disturb, or once the topic's island has
-  shown today, an offer waits for a later look; it never goes to the ticker,
-  where a tap would be a yes to words nobody read.
-- At each sign-in, once Workspace Memory has had its answer from Cards, Core
-  opens the apps of every automation switched on, each once, but those Always
-  is bringing back. It runs once a sign-in, however often Core starts in it.
+Core makes no automation offer and opens none at sign-in, for the same
+reason. Groups already written as `[Automation N]` in `split-rock-corerc`
+are kept and ignored.
 
 ## Layouts
 
@@ -305,16 +267,10 @@ own, and Search shows what it says.
   by name; it stops waiting 90 seconds after Cards last said an app arrived.
 - One layout opens at a time, and none while Workspace Memory is bringing
   apps back; Cards refuses both, too.
-- At each sign-in, Core opens every layout switched to "Open when I sign in",
-  one after another, once the Workspace Memory question is settled: Cards had
-  nothing to offer, the person answered the island, or the apps Always or
-  Bring back asked for are back. It runs once a sign-in. An app an automation
-  opened in the same sign-in is not launched a second time.
+- No layout opens at sign-in; a saved `AtSignIn` is kept and ignored.
 - The logbook records each layout saved, removed and opened, with what
   missed.
 
-Folding accepted automations into layouts is later; `[Automation N]` keeps
-working as it does.
 
 ## Settings copies
 
@@ -412,7 +368,7 @@ can set these limits. Below the ticker's mark it writes nothing more.
 | `SaveLayout(s name, s groupsJson, b atSignIn) → s` | Saves the groups, the JSON array of `{apps, stack}`, under that name, and answers its id; empty for an empty name or no groups |
 | `OpenLayout(s id) → b` | Arranges it and launches what isn't running; false for an unknown id, while a layout or a bring-back is under way, or when Cards turns it down. It answers once Cards has |
 | `RemoveLayout(s id) → b` | Forgets it; false for an unknown id |
-| `SetLayoutAtSignIn(s id, b on) → b` | Its "Open when I sign in" switch; false for an unknown id |
+| `SetLayoutAtSignIn(s id, b on) → b` | Kept for older callers; no layout opens at sign-in. False for an unknown id |
 | `LayoutsChanged()` | A layout was saved, removed or switched |
 | `LayoutOpened(s id, i placed, i missed, as missedNames)` | A layout's run is over: how many apps went to their place, how many didn't, and their names |
 
