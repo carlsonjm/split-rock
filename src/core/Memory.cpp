@@ -43,6 +43,12 @@ void Core::setSetting(const QString &key, const QVariant &value)
 
 void Core::seeSavedSession(const SavedSession &session)
 {
+    if (watchesMemory() && session.allOpen) {
+        write(QStringLiteral("%1  Every app Cards remembers is open already; nothing to bring back.").arg(MemoryTitle));
+        if (m_hooks.dismissSavedSession)
+            m_hooks.dismissSavedSession();
+        return;
+    }
     if (!watchesMemory() || !session.available || session.count <= 0)
         return;
     // Each saved session is offered once, whatever Core did since.

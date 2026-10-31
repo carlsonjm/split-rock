@@ -1202,6 +1202,41 @@ private Q_SLOTS:
         QVERIFY(!d.core->bringsBackAlways());
     }
 
+    // The desktop's own restore reopened the apps: only the ones still
+    // missing are offered, and none missing is no offer at all.
+    void onlyTheAppsNotOpenAreOffered()
+    {
+        Desk d;
+        const QVariantMap answer{{QStringLiteral("available"), true},
+                                 {QStringLiteral("count"), 4},
+                                 {QStringLiteral("apps"), FourApps},
+                                 {QStringLiteral("missing"), QStringList{FourApps.at(1)}},
+                                 {QStringLiteral("when"), qlonglong(d.now.addSecs(-2 * 3600).toSecsSinceEpoch())}};
+        const SavedSession some = savedSessionFrom(answer);
+        QCOMPARE(some.count, 1);
+        QCOMPARE(some.apps, QStringList{FourApps.at(1)});
+        d.core->seeSavedSession(some);
+        QCOMPARE(d.fact(QStringLiteral("memory")).value(QStringLiteral("line")).toString(),
+                 QStringLiteral("Bring back 1 app from earlier today?"));
+
+        Desk e;
+        QVariantMap open = answer;
+        open.insert(QStringLiteral("missing"), QStringList{});
+        const SavedSession none = savedSessionFrom(open);
+        QVERIFY(none.allOpen);
+        QVERIFY(!none.available);
+        e.core->seeSavedSession(none);
+        QVERIFY(e.fact(QStringLiteral("memory")).isEmpty());
+        QVERIFY(e.ticker.isEmpty());
+        QCOMPARE(e.dismissed, 1);
+        QVERIFY(e.logbook().contains(QStringLiteral("Workspace Memory  Every app Cards remembers is open already; nothing to bring back.")));
+
+        // An older Cards that names nothing missing is offered as before.
+        QVariantMap older = answer;
+        older.remove(QStringLiteral("missing"));
+        QCOMPARE(savedSessionFrom(older).count, 4);
+    }
+
     void notNowLeavesTheDesktopAndTellsCards()
     {
         Desk d;

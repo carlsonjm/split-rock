@@ -34,6 +34,9 @@ struct SavedSession {
     // Written at sign-out; false when it is the last save before a crash.
     bool clean = true;
     int windows = 0;
+    // Every app it remembers is running already, as when the desktop's own
+    // session restore reopened them: nothing to bring back.
+    bool allOpen = false;
 };
 SavedSession savedSessionFrom(const QVariantMap &answer);
 

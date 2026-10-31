@@ -238,6 +238,12 @@ asks Cards straight away with no island, and the ticker says "Brought back 4
 apps", "As you left them" once they are back, or how many didn't open in
 time. Turning Always off in Settings brings the question back.
 
+The desktop's own session restore may have reopened some of the apps by the
+time Core asks. Core offers and counts only the ones not running, as Cards
+names them in `missing`; with every one open already it says nothing and
+tells Cards to stop offering that session. A notice in the ticker carries its
+button, such as Bring back, as well as the tap on the notice itself.
+
 Core asks Cards twenty seconds after it starts, and twice more forty seconds
 apart until Cards answers, on Kadunce's Workspace Memory calls, version 1
 (`savedSession`, `bringBack`, `dismissSavedSession`, and the

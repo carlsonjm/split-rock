@@ -119,8 +119,10 @@ public:
                                 {QStringLiteral("urgency"), QVariant::fromValue<uchar>(1)}};
         // Each topic replaces only its own last notification.
         const uint last = m_last.value(topic);
+        // A tap on the notice and its button do the same; the button shows
+        // where a surface lists actions but not the tap.
         call.setArguments({words.name, last, words.icon, summary, body,
-                           QStringList{QStringLiteral("default"), words.card}, hints, -1});
+                           QStringList{QStringLiteral("default"), words.card, QStringLiteral("open"), words.card}, hints, -1});
         const QDBusReply<uint> reply = m_bus.call(call, QDBus::Block, 2000);
         if (reply.isValid())
             m_last.insert(topic, reply.value());
@@ -139,7 +141,7 @@ public:
 private Q_SLOTS:
     void invoked(uint id, const QString &action)
     {
-        if (id == 0 || action != QLatin1String("default"))
+        if (id == 0 || (action != QLatin1String("default") && action != QLatin1String("open")))
             return;
         for (auto it = m_last.cbegin(); it != m_last.cend(); ++it) {
             if (it.value() == id)
