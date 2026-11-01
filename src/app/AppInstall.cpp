@@ -96,7 +96,7 @@ else
     "$@" --uninstall-app-id="$app" >/dev/null 2>&1 &
 fi
 i=0
-while [ -f "$file" ] && [ $i -lt 120 ]; do sleep 1; i=$((i + 1)); done
+while [ -f "$file" ] && [ $i -lt 240 ]; do sleep 1; i=$((i + 1)); done
 if [ -f "$file" ]; then
     echo "The browser didn't remove it: its own window wasn't answered yes in time."
     exit 1
@@ -691,7 +691,7 @@ void AppInstall::removeApp(const QString &desktopId)
     clearProgress();
     setStage(QStringLiteral("searching"));
     Q_EMIT changed();
-    run(asPerson(m_ownerScript, {desktopId}), 60000, [this](int, const QString &output) {
+    run(asPerson(m_ownerScript, {desktopId}), 60000, [this, desktopId](int, const QString &output) {
         const QStringList columns = output.trimmed().split(QLatin1Char('\n')).value(0).split(QLatin1Char('\t'));
         App app;
         if (columns.size() >= 2) {
