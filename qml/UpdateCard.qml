@@ -60,23 +60,10 @@ CardFrame {
     }
 
     // Looking: three soft bars where the plan will be.
-    Column {
+    CardLooking {
         visible: card.stage === "looking"
         width: card.innerWidth
-        spacing: 10
-        Repeater {
-            model: [0.9, 0.7, 0.45]
-            Rectangle {
-                width: card.innerWidth * modelData
-                height: 12; radius: 6
-                color: theme.chip
-                SequentialAnimation on opacity {
-                    loops: Animation.Infinite
-                    NumberAnimation { from: 0.5; to: 1; duration: 700; easing.type: Easing.InOutSine }
-                    NumberAnimation { from: 1; to: 0.5; duration: 700; easing.type: Easing.InOutSine }
-                }
-            }
-        }
+        bars: [0.9, 0.7, 0.45]
     }
 
     // Ready: the list changed under the person, then the big pieces of the

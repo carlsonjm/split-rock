@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 #pragma once
 
+#include <QHash>
 #include <QList>
 #include <QSet>
 #include <QString>
@@ -11,6 +12,19 @@ namespace splitrock {
 // The words of a text that say what it is about, folded so that "passwords"
 // meets "password", without the words too common to say so.
 QSet<QString> topicWords(const QString &text);
+
+// The header of a guide entry, a tour or a skill: the "key: value" lines
+// between the file's first two "---" lines, the items listed under "also",
+// and the line the header ends on. The last value given for a key holds.
+struct FileHeader {
+    QHash<QString, QString> fields;
+    QStringList also;
+    int end = 0;
+};
+
+// Reads the header at the top of lines into header; false, with *problem set,
+// when the file has none.
+bool readHeader(const QStringList &lines, FileHeader *header, QString *problem);
 
 // One entry of the troubleshooting guide, or one tour, as written in the format
 // docs/DECISIONS.md lays down.
