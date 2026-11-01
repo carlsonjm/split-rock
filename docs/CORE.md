@@ -355,7 +355,7 @@ can set these limits. Below the ticker's mark it writes nothing more.
 | `ProtocolVersion() → u` | The version, `1` |
 | `Facts() → aa{sv}` | Every fact Core has now; none for a topic switched off |
 | `Act(s topic, s action) → b` | The person answered a fact: `open` opens its Helper (for Automations, says yes to the offer), `not-now` and `dismiss` quiet it, `never`, for Windows programs, stops it for good, and `always`, for Workspace Memory, brings the apps back and stops asking. False for any other topic or action |
-| `Actions() → aa{sv}` | The Helpers Search can open by their words: `id`, `title`, `sub`, `icon` and `keywords` (`as`) each |
+| `Actions() → aa{sv}` | The Helpers Search can open by their words, in the order Search's Helpers row shows them: `id`, `title`, `sub`, `icon`, `keywords` (`as`) and `more` (`b`, shown behind the row's More) each |
 | `OpenAction(s id, s query) → b` | Opens that Helper on its own. `query` goes only to Install an app, which searches for it, or removes an app when it starts with "uninstall" or "remove". False for an id not listed |
 | `RemoveApp(s desktopId) → b` | Opens Install an app straight to removing the app with that desktop file id, such as `org.videolan.vlc.desktop`: it finds the package or Flatpak that owns it and waits for the person's yes. False for anything not shaped like a desktop file id |
 | `FocusEnded(u notifications)` | Do Not Disturb ended, and this many notifications came in meanwhile; whatever shows the notifications calls it |
@@ -370,6 +370,7 @@ can set these limits. Below the ticker's mark it writes nothing more.
 | `RemoveLayout(s id) → b` | Forgets it; false for an unknown id |
 | `SetLayoutAtSignIn(s id, b on) → b` | Kept for older callers; no layout opens at sign-in. False for an unknown id |
 | `LayoutsChanged()` | A layout was saved, removed or switched |
+| `ActionsChanged()` | The Helpers `Actions` lists changed, as when the app store came or went; a surface asks again |
 | `LayoutOpened(s id, i placed, i missed, as missedNames)` | A layout's run is over: how many apps went to their place, how many didn't, and their names |
 
 `Act("devices", "open")` opens the settings page for the kind of device Core
@@ -399,11 +400,22 @@ Each fact is a dictionary of strings to variants:
 
 ## Actions from Search
 
-Every Helper opens from Search on its own: Check for updates, Free up space,
-Tidy up Downloads, Install an app, Your apps, Health check, What changed,
-Restore points and Community apps. Core lists them with the words each is
-found by, and Search matches what is typed against them without asking Core
-anything.
+Every Helper opens from Search on its own. Core lists them in the order
+Search's Helpers row shows them, with the words each is found by, and Search
+matches what is typed against them without asking Core anything. The first
+row is Install an app, Your apps, Check for updates, Free up space, Health
+check and What changed; Tidy up Downloads, Restore points and Community apps
+are marked to show behind the row's More.
+
+A computer without an app store, missing Discover, Flatpak or Flathub, is
+offered Add the app store first, and What changed moves behind More so the
+first row stays six. Core looks at the files that say so each time it looks
+at the drive, never running anything, and says `ActionsChanged` when that
+changes. The Helper is Install an app's: it says what it adds, takes a restore
+point, and adds Discover and Flatpak from the system's shelf, then Flathub for
+everyone on the computer, through the administrator's `appstore` job. Install
+an app's results offer it too while the store is missing, since only the
+shelf is searched then.
 Windows's own words find them too: Add or remove programs opens Install an
 app, Disk Cleanup Free up space, Windows Update Check for updates and System
 Restore Restore points.

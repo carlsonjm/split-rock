@@ -343,6 +343,11 @@ private Q_SLOTS:
             {QStringLiteral("flatpak-back"), QStringLiteral("--system"), head + head.left(24)},
             {QStringLiteral("flatpak-back"), QStringLiteral("firefox"), head + head.left(24)},
             {QStringLiteral("flatpak-back"), QStringLiteral("org..x.y"), head + head.left(24)},
+            {QStringLiteral("appstore")},
+            {QStringLiteral("appstore"), name},
+            {QStringLiteral("appstore"), name, QStringLiteral("2")},
+            {QStringLiteral("appstore"), QStringLiteral("Anyone"), QStringLiteral("1")},
+            {QStringLiteral("appstore"), name, QStringLiteral("1"), QStringLiteral("vlc")},
         };
         for (const QStringList &arguments : refused)
             QVERIFY2(job(arguments) == 2, qPrintable(arguments.join(QLatin1Char('|'))));
@@ -438,6 +443,53 @@ private Q_SLOTS:
         QCOMPARE(apps.size(), 1);
         QCOMPARE(apps.first().key, QStringLiteral("shelf:llama-cpp"));
         QVERIFY(!apps.first().installed);
+    }
+
+    void theAppStoreIsAddedThroughTheTransaction()
+    {
+        // The real transaction, with pacman and flatpak stood in for.
+        StandIns standIns;
+        QVERIFY(standIns.add(QStringLiteral("pacman"), QStringLiteral(
+            "echo \"pacman $*\"\necho 'Packages (2) discover-6.5-1 flatpak-1.16-1'\necho 'installing discover...'\n")));
+        QVERIFY(standIns.add(QStringLiteral("flatpak"), QStringLiteral("echo \"flatpak $*\"\n")));
+        QTemporaryDir logs;
+        AppInstall install;
+        install.setElevate({});
+        install.setAdmin(adminInSource());
+        install.setLogFolder(logs.path());
+        bool missing = true;
+        install.setStoreProbe([&missing] { return missing; });
+        QString title;
+        install.setWriteDown([&title](const QString &, const QString &t, const QString &, QString *) {
+            title = t;
+            return true;
+        });
+        // A search without the app store offers it.
+        install.setSearchScript(printing(QStringLiteral("install-search.txt")));
+        install.search(QStringLiteral("pdf"));
+        QTRY_COMPARE(install.stage(), QStringLiteral("results"));
+        QVERIFY(install.storeMissing());
+        QVERIFY(!install.store());
+        install.askStore();
+        QCOMPARE(install.stage(), QStringLiteral("store"));
+        QVERIFY(install.store());
+        install.addStore();
+        QCOMPARE(install.stage(), QStringLiteral("adding"));
+        QVERIFY(install.busy());
+        missing = false;
+        QTRY_COMPARE(install.stage(), QStringLiteral("added"));
+        QCOMPARE(title, QStringLiteral("Added the app store"));
+        QVERIFY(install.log().contains(QStringLiteral("pacman -S --needed --noconfirm --noprogressbar --color never -- discover flatpak")));
+        QVERIFY(install.log().contains(QStringLiteral("flatpak remote-add --system --if-not-exists flathub")));
+        QVERIFY(!install.storeMissing());
+        // Where it is here already, the card says so and adds nothing.
+        install.askStore();
+        QCOMPARE(install.stage(), QStringLiteral("store"));
+        install.addStore();
+        QCOMPARE(install.stage(), QStringLiteral("store"));
+        // Another way in leaves Add the app store.
+        install.ask();
+        QVERIFY(!install.store());
     }
 
     void installRunsThroughTheTransaction()

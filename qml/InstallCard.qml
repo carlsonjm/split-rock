@@ -5,7 +5,8 @@ import "Icons.js" as Icons
 // The Install an app card: what the person needs, the apps for it with where
 // each comes from, and one tap to install one; or, asked to remove an app, the
 // installed apps that fit, and a yes before one is removed; or, as Your apps,
-// the apps the person added, biggest first (src/app/AppInstall.h).
+// the apps the person added, biggest first; or, as Add the app store, what
+// adding Discover and Flathub brings, and a yes (src/app/AppInstall.h).
 CardFrame {
     id: card
     objectName: "installCard"
@@ -15,6 +16,7 @@ CardFrame {
     readonly property var picked: card.job.picked
     readonly property bool removing: card.job.removing
     readonly property bool yours: card.job.yours
+    readonly property bool store: card.job.store
     hue: card.stage === "failed" ? "coral" : "violet"
 
     function search(text) {
@@ -25,7 +27,7 @@ CardFrame {
     CardHead {
         headingObjectName: "installHeading"
         tone: card.tone
-        icon: card.stage === "done" || card.stage === "removed" ? Icons.check : card.stage === "failed" ? Icons.alert
+        icon: card.stage === "done" || card.stage === "removed" || card.stage === "added" ? Icons.check : card.stage === "failed" ? Icons.alert
             : card.yours && card.stage !== "confirm" ? Icons.apps : card.removing ? Icons.trash : Icons.download
         spinning: false
         heading: {
@@ -44,7 +46,11 @@ CardFrame {
             case "removing": return "Removing " + card.picked.name
             case "done": return card.picked.name + " is installed"
             case "removed": return card.picked.name + " is removed"
-            case "failed": return card.removing ? "Removing didn't finish" : "Installing didn't finish"
+            case "store": return card.job.storeMissing ? "This computer has no app store yet" : "This computer has the app store"
+            case "adding": return "Adding the app store"
+            case "added": return "The app store is added"
+            case "failed": return card.store ? "Adding the app store didn't finish"
+                                : card.removing ? "Removing didn't finish" : "Installing didn't finish"
             }
             return card.removing ? "Remove an app" : "Install an app"
         }
@@ -73,6 +79,11 @@ CardFrame {
             case "done": return "It's in the app menu now."
             case "removed": return card.yours ? "To have it back, install it again from Install an app."
                                               : "To have it back, install it again from this card."
+            case "store": return card.job.storeMissing
+                                 ? "Adding it lets you get apps like Spotify, Zoom and Steam with one tap, here or in Discover."
+                                 : "Discover is in your apps, with Flathub's apps in it."
+            case "adding": return "This takes a minute or two on a good connection. You can keep working."
+            case "added": return "Discover is in your apps, and Install an app now finds Flathub's apps too."
             case "failed": return card.job.why
             }
             return ""
@@ -81,7 +92,7 @@ CardFrame {
 
     // What the person needs, in their words.
     Rectangle {
-        visible: !card.yours && (card.stage === "asking" || card.stage === "results" || card.stage === "failed")
+        visible: !card.yours && !card.store && (card.stage === "asking" || card.stage === "results" || card.stage === "failed")
         width: card.innerWidth
         height: 44
         radius: 22
@@ -208,6 +219,72 @@ CardFrame {
         }
     }
 
+    // What adding the app store brings.
+    Column {
+        objectName: "storeParts"
+        visible: card.stage === "store" && card.job.storeMissing
+        width: card.innerWidth
+        spacing: 8
+        CardRow {
+            tone: card.tone
+            icon: Icons.apps
+            title: "Discover"
+            detail: "The app store window, in your apps"
+        }
+        CardRow {
+            tone: theme.hue("teal")
+            icon: Icons.globe
+            title: "Flathub"
+            detail: "Where most apps come from, kept apart from the system"
+        }
+    }
+
+    CardFact {
+        visible: card.stage === "store" && card.job.storeMissing
+        icon: Icons.lock
+        label: "A restore point is taken first. The system asks for your password once."
+    }
+
+    // Without the app store only the system's own shelf is searched: most
+    // apps live on Flathub, so the results offer it.
+    Rectangle {
+        objectName: "storeOffer"
+        visible: card.stage === "results" && !card.removing && !card.yours && card.job.storeMissing
+        width: card.innerWidth
+        height: offerRow.implicitHeight + 24
+        radius: theme.cardRadius
+        color: theme.inset
+        Row {
+            id: offerRow
+            x: 16
+            anchors.verticalCenter: parent.verticalCenter
+            width: parent.width - 32
+            spacing: 12
+            Text {
+                width: parent.width - offerPill.width - parent.spacing
+                anchors.verticalCenter: parent.verticalCenter
+                wrapMode: Text.WordWrap
+                text: "Most apps come from the app store, and this computer doesn't have it yet."
+                color: theme.quiet
+                font.pixelSize: 14
+                lineHeight: 1.3
+            }
+            Pill {
+                id: offerPill
+                objectName: "storeOfferPill"
+                anchors.verticalCenter: parent.verticalCenter
+                implicitHeight: 40
+                padding: 16
+                fontSize: 15
+                filled: true
+                tone: card.tone
+                toneInk: theme.hueInk
+                text: "Add the app store"
+                onClicked: card.job.askStore()
+            }
+        }
+    }
+
     // The app a yes removes, as Your apps listed it.
     CardRow {
         objectName: "yoursPicked"
@@ -229,7 +306,7 @@ CardFrame {
     }
 
     CardProgress {
-        visible: card.stage === "installing" || card.stage === "removing"
+        visible: card.stage === "installing" || card.stage === "removing" || card.stage === "adding"
         barObjectName: "installProgress"
         tone: card.tone
         done: card.job.done
@@ -240,7 +317,7 @@ CardFrame {
     Fold {
         width: card.innerWidth
         title: "Show what it did"
-        body: card.stage === "done" || card.stage === "removed" || card.stage === "failed" ? card.job.log : ""
+        body: card.stage === "done" || card.stage === "removed" || card.stage === "added" || card.stage === "failed" ? card.job.log : ""
     }
 
     Flow {
@@ -259,6 +336,32 @@ CardFrame {
             iconPath: Icons.external
             text: "Open " + card.picked.name
             onClicked: card.job.openApp()
+        }
+        Pill {
+            objectName: "addStore"
+            visible: card.stage === "store" && card.job.storeMissing
+            implicitHeight: 44
+            padding: 16
+            fontSize: 16
+            filled: true
+            tone: card.tone
+            toneInk: theme.hueInk
+            iconPath: Icons.download
+            text: "Add the app store"
+            onClicked: card.job.addStore()
+        }
+        Pill {
+            objectName: "openStore"
+            visible: card.stage === "added" || (card.stage === "store" && !card.job.storeMissing)
+            implicitHeight: 44
+            padding: 16
+            fontSize: 16
+            filled: true
+            tone: card.tone
+            toneInk: theme.hueInk
+            iconPath: Icons.external
+            text: "Open Discover"
+            onClicked: card.job.openStore()
         }
         Pill {
             visible: card.stage === "asking"
@@ -326,7 +429,8 @@ CardFrame {
             padding: 16
             fontSize: 15
             visible: card.stage !== "confirm"
-            text: card.stage === "asking" || card.stage === "results" ? "Not now" : "Close"
+            text: card.stage === "asking" || card.stage === "results" || card.stage === "store" ? "Not now"
+                : card.stage === "added" ? "Done" : "Close"
             onClicked: card.job.close()
         }
     }

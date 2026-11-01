@@ -32,6 +32,7 @@
 //
 // Core runs once: a second start ends at once.
 
+#include "core/AppStore.h"
 #include "core/Core.h"
 #include "core/CoreService.h"
 #include "settings/SettingsHistory.h"
@@ -505,6 +506,7 @@ int main(int argc, char **argv)
         ticker.send(topic, summary, body);
     };
     hooks.openCard = openCard;
+    hooks.appStoreMissing = [] { return AppStore::look().missing(); };
     hooks.openNotifications = [&offeredService] {
         if (offeredService)
             Q_EMIT offeredService->OpenNotifications();
@@ -546,6 +548,9 @@ int main(int argc, char **argv)
     Core desk(parser.isSet(folderOption) ? parser.value(folderOption) : Core::defaultFolder(),
               parser.isSet(settingsOption) ? parser.value(settingsOption) : Core::defaultSettings(), hooks);
     core = &desk;
+    // Search's Helpers row offers the app store from the first, where the
+    // computer has none.
+    desk.lookAtAppStore();
 
     CoreService offered(&desk);
     offeredService = &offered;

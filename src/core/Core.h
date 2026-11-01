@@ -73,6 +73,9 @@ public:
         std::function<void(const QList<LayoutGroup> &groups, std::function<void(const LayoutPlan &)> armed,
                            std::function<void(const LayoutRun &)> done)>
             arrangeLayout;
+        // Whether this computer lacks an app store: Discover, Flatpak or
+        // Flathub (core/AppStore.h).
+        std::function<bool()> appStoreMissing = [] { return false; };
         // What the app menu calls an app, by its desktop file id.
         std::function<QString(const QString &desktopId)> appName = [](const QString &id) { return core::appName(id); };
     };
@@ -195,9 +198,16 @@ public:
     bool act(const QString &topic, const QString &action);
 
     // The upkeep cards Search can open by their words: id, title, sub,
-    // icon and keywords each. They act only after the person's yes, on the
-    // card.
-    static QList<QVariantMap> actions();
+    // icon, keywords and more (shown behind the Helpers row's More) each,
+    // in the order the row shows them. They act only after the person's
+    // yes, on the card. Add the app store leads them where the computer
+    // has no app store.
+    static QList<QVariantMap> actions(bool storeMissing = false);
+    // The cards as this computer has them now.
+    QList<QVariantMap> offeredActions() const;
+    // Looks again whether the computer has an app store, and says so when
+    // that changed; check() does it each time.
+    void lookAtAppStore();
     // Opens one; query is passed on only to the card that takes it, Install
     // an app. False for an action not listed.
     bool openAction(const QString &id, const QString &query);
@@ -215,6 +225,8 @@ public:
 
 Q_SIGNALS:
     void factChanged(const QVariantMap &fact);
+    // The upkeep cards offered changed, as when the app store came or went.
+    void actionsChanged();
     // A layout was saved, removed or switched.
     void layoutsChanged();
     // A layout's run is over: how many apps went to their place, and the
@@ -265,6 +277,8 @@ private:
     StorageFact m_storage;
     Attention m_attention;
     bool m_looked = false;
+    // The computer had no app store when last looked.
+    bool m_storeMissing = false;
     UpdatesLook m_updatesLook;
     QDateTime m_waitingSince;
     UpdatesFact m_updates;

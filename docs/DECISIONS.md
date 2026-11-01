@@ -1432,3 +1432,27 @@ address from the facts alone, which a 4B model can garble; answering with the
 address websites see, which needs a request to a service off the computer;
 and answering an ask that tells of a caller or a stranger wanting the
 address, which is left to the safety check and the sorting.
+
+## The Helpers row shows six, and the app store is a Helper while it is missing
+
+Search's Helpers row shows six Helpers at full size, in the order a person
+moving from Windows reaches for them, then More, which adds rows of the same
+tiles under the first rather than opening a list. A computer missing Discover,
+Flatpak or Flathub is offered Add the app store first in the row and from
+Install an app's results; the Helper adds what is missing through a named
+administrator job, `appstore`, with a restore point first. Where a package
+source's list was never fetched, that job fetches only that list first.
+
+Why: nine tiles squeezed into one row cut their names short, and Layouts had no
+way in from the row at all. A fresh install whose set-up step failed left its
+owner asking how to get apps, with no way back to that step and no store to
+find them in; the Helper makes that recoverable without a terminal, on any
+Plasma desktop, not only where Shuffle's own set-up is installed. Search's
+sheet is sized with care, and a list over it would cover the results and stop
+at a fixed length.
+
+Rejected: a drop-down list behind More, which floats over Search's sheet and
+fits no more Helpers later; calling Shuffle's own `shuffle-add` from Split
+Rock, which a component may not depend on; offering the app store everywhere,
+where it is already installed; and fetching every package list before adding
+the store, which makes the install a partial update.

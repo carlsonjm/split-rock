@@ -21,7 +21,8 @@ Split Rock is two things:
 
 - **The Helpers.** Small windows that each do one upkeep job: Check for
   updates, Free up space, Tidy up Downloads, Install an app (or remove one),
-  Your apps, Health check, What changed, Restore points and Community apps.
+  Your apps, Health check, What changed, Restore points and Community apps,
+  and Add the app store on a computer that has none.
   A Helper looks first, says in plain words what it found and what it would
   change, and changes nothing until Pat taps its button. Its window closes
   when it is done.

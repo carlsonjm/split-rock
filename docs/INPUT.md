@@ -16,7 +16,7 @@ on its own, in an ordinary window, from Core or Search (`DESKTOP.md`).
 
 | Input | What happens |
 | --- | --- |
-| Tap or click it in Search, or tap or click a notice from Core | The Helper opens in its window and looks first: Check for updates, Free up space, Tidy up Downloads, Install an app, Remove an app, Your apps, Health check, What changed, Restore points or Community apps. It changes nothing until you tap its own button, and asks for a password only in the system's own prompt, where one is needed. |
+| Tap or click it in Search, or tap or click a notice from Core | The Helper opens in its window and looks first: Check for updates, Free up space, Tidy up Downloads, Install an app, Remove an app, Your apps, Health check, What changed, Restore points, Community apps, or Add the app store where the computer has none. It changes nothing until you tap its own button, and asks for a password only in the system's own prompt, where one is needed. |
 
 ## Act on a Helper
 

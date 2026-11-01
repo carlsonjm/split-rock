@@ -28,6 +28,8 @@
 #                                           working, and only one that did
 #   flatpak-back APP COMMIT                 take a system Flathub app back to
 #                                           the commit it had before
+#   appstore NAME SNAP                      add the app store: Discover and
+#                                           Flatpak from the shelf, and Flathub
 #
 # NAME is the name the person knows Split Rock by, which restore points carry;
 # SNAP is 1 to take a restore point before and after, 0 not to; where
@@ -187,6 +189,30 @@ transaction() {
             && echo "split-rock-post=$post"
     fi
     return $status
+}
+
+# A package source the system lists whose package list was never fetched:
+# pacman then refuses every install, saying only that it could not find the
+# database. Only those lists are fetched, through a pacman.conf of their own,
+# so nothing else is updated alongside; the person's whole-system update stays
+# theirs to choose.
+fetch_missing_lists() {
+    conf=/etc/pacman.conf
+    [ -f "$conf" ] || return 0
+    dbpath=$(pacman-conf DBPath 2>/dev/null) || dbpath=
+    dbpath=${dbpath:-/var/lib/pacman/}
+    missing=
+    for repo in $(pacman-conf --repo-list 2>/dev/null); do
+        case $repo in ''|*[!A-Za-z0-9._-]*) continue ;; esac
+        [ -e "${dbpath%/}/sync/$repo.db" ] || missing="$missing $repo"
+    done
+    [ -n "$missing" ] || return 0
+    one=$(mktemp) || return 0
+    awk -v want="$missing " '/^\[/ { n = substr($0, 2, length($0) - 2); on = (n == "options" || index(want, " " n " ") > 0) } on' \
+        "$conf" > "$one"
+    echo "Fetching the package lists for$missing"
+    pacman -Sy --config "$one" --noconfirm --noprogressbar --color never
+    rm -f -- "$one"
 }
 
 job=${1-}
@@ -392,6 +418,15 @@ flatpak-back)
     [ ${#2} -eq 64 ] || refuse "flatpak-back takes a commit's full hash"
     flatpak info --system -- "$1" >/dev/null 2>&1 || refuse "$1 isn't installed for everyone"
     exec flatpak update --system -y --noninteractive --commit="$2" -- "$1"
+    ;;
+
+appstore)
+    [ $# -eq 2 ] && is_name "$1" && is_snap "$2" || refuse "appstore takes a name and 0 or 1"
+    fetch_missing_lists
+    # Only what is missing, from the system's own shelf, then Flathub's apps
+    # for everyone on the computer. Nothing here comes from the caller.
+    transaction "$1: Add the app store" "$2" "$logs/split-rock-install.log" sh -c \
+        'pacman -S --needed --noconfirm --noprogressbar --color never -- discover flatpak && flatpak remote-add --system --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo'
     ;;
 
 *)
