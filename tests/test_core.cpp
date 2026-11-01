@@ -74,6 +74,10 @@ struct Desk {
     std::function<void(const LayoutRun &)> runDone;
     // Anything the test wires differently, such as Cards on the bus.
     std::function<void(Core::Hooks &)> wire;
+    // The running kernel whose modules an update removed, and restart
+    // questions asked.
+    QString kernelGone;
+    int restartsAsked = 0;
     std::unique_ptr<Core> core;
 
     Desk() { make(); }
@@ -98,6 +102,8 @@ struct Desk {
         hooks.dismissSavedSession = [this] { ++dismissed; };
         hooks.openApps = [this](const QStringList &ids) { appsOpened.append(ids); };
         hooks.signIn = [this] { return signIn; };
+        hooks.restartNeeded = [this] { return kernelGone; };
+        hooks.promptRestart = [this] { ++restartsAsked; };
         hooks.appName = [](const QString &id) {
             return id == QLatin1String("org.mozilla.firefox") ? QStringLiteral("Firefox") : appName(id);
         };
@@ -951,6 +957,46 @@ private Q_SLOTS:
         d.core->seeInstaller(QStringLiteral("ZoomInstaller.exe"));
         QVERIFY(d.fact(QStringLiteral("windows")).isEmpty());
         QVERIFY(!d.core->act(QStringLiteral("windows"), QStringLiteral("open")));
+    }
+
+    void aReplacedKernelAsksForARestartOncePerKernel()
+    {
+        Desk d;
+        d.core->lookAtRestart();
+        QVERIFY(d.ticker.isEmpty());
+        QVERIFY(!d.core->act(QStringLiteral("restart"), QStringLiteral("open")));
+        // Do Not Disturb holds it until it is off.
+        d.kernelGone = QStringLiteral("6.17.5-arch1-1");
+        d.doNotDisturb = true;
+        d.core->lookAtRestart();
+        QVERIFY(d.ticker.isEmpty());
+        d.doNotDisturb = false;
+        d.core->lookAtRestart();
+        QCOMPARE(d.ticker, QStringList{QStringLiteral(
+                               "Restart to finish an update | USB drives and new devices work again after a restart")});
+        QCOMPARE(d.topics, QStringList{QStringLiteral("restart")});
+        QVERIFY(d.logbook().contains(QStringLiteral("Restart  An update replaced the running kernel (6.17.5-arch1-1)")));
+        // Said once for that kernel, through a restart of Core too.
+        d.core->lookAtRestart();
+        d.make();
+        d.core->lookAtRestart();
+        QCOMPARE(d.ticker.size(), 1);
+        // A tap asks Plasma's Restart question; nothing restarts by itself.
+        QVERIFY(d.core->act(QStringLiteral("restart"), QStringLiteral("open")));
+        QCOMPARE(d.restartsAsked, 1);
+        // The next kernel the update replaces is said again.
+        d.kernelGone = QStringLiteral("6.17.6-arch1-1");
+        d.core->lookAtRestart();
+        QCOMPARE(d.ticker.size(), 2);
+        // Switched off: silent.
+        {
+            QSettings settings(d.dir.filePath(QStringLiteral("corerc")), QSettings::IniFormat);
+            settings.setValue(QStringLiteral("Restart/Enabled"), false);
+        }
+        d.kernelGone = QStringLiteral("6.17.7-arch1-1");
+        d.core->lookAtRestart();
+        QCOMPARE(d.ticker.size(), 2);
+        QVERIFY(!d.core->act(QStringLiteral("restart"), QStringLiteral("open")));
     }
 
     void downloadsSpeakPastFiveGigabytesAndAgainFiveLater()

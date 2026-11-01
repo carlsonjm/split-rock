@@ -592,7 +592,11 @@ thing runs. Run by the prompt it keeps nothing of the caller's environment,
 uses a PATH of its own and builds a community recipe as the person the prompt
 asked. Split Rock hands it to the prompt only when it, and every folder above
 it, belongs to the administrator and no one else can write to it. The prompt
-then names `split-rock-admin` and the job, not `/bin/sh`.
+then names `split-rock-admin` and the job, not `/bin/sh`. A polkit action of its
+own, `io.github.carlsonjm.splitrock.admin`, installed under
+`/usr/share/polkit-1/actions` with the package, gives that prompt plain words,
+"Your password is needed to make this change to the computer", in place of the
+command line, and still asks for the password every time.
 
 Why: before, each Helper passed its own script to `pkexec /bin/sh`, so the
 prompt approved a shell and whatever text Split Rock gave it. With the jobs in
@@ -600,9 +604,9 @@ one checked, installed program, nothing running as the person can change what
 the administrator runs, and the prompt says what it is for.
 
 Rejected: a service that holds administrator rights between jobs, which Split
-Rock never holds; a polkit action of its own for each job, which would give
-each prompt its own words but needs a file under `/usr/share/polkit-1`, which
-Shuffle's install key doesn't place yet; and a job that takes a command.
+Rock never holds; a polkit action of its own for each job, since pkexec picks
+an action by the program alone, so one program has one prompt; and a job that
+takes a command.
 
 ## The assistant opens settings skills from a shelf
 

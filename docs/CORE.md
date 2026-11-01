@@ -150,6 +150,17 @@ Disturb, goes to the ticker. Once the person taps it or sets it aside, it is
 no longer a fact. `never` on the bus stops it for good. Core reads only the
 names of the files there, never what is in them.
 
+## Restart after an update
+
+An update that replaces the running kernel removes its modules, so a device
+plugged in afterwards, such as a USB drive, can't start until the computer
+restarts. With each check Core looks whether `/usr/lib/modules/<running
+kernel>` is gone and, once for that kernel, says so on the ticker: "Restart
+to finish an update", "USB drives and new devices work again after a
+restart". During Do Not Disturb it waits. Tapping it asks Plasma's own
+Restart question; nothing restarts without the person. It says nothing again
+until a later update replaces the next kernel. `Restart/Enabled` switches it.
+
 ## Tidy up Downloads
 
 With each look at the drive, and when a download has settled, Core adds up

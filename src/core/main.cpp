@@ -61,6 +61,8 @@
 
 #include <chrono>
 
+#include <sys/utsname.h>
+
 using namespace splitrock::core;
 
 namespace {
@@ -109,6 +111,8 @@ public:
             : topic == QLatin1String("windows")
             ? Words{QStringLiteral("Windows programs"), QStringLiteral("application-x-ms-dos-executable"),
                     QStringLiteral("Find the Linux version")}
+            : topic == QLatin1String("restart")
+            ? Words{QStringLiteral("Restart"), QStringLiteral("system-reboot"), QStringLiteral("Restart")}
             : topic == QLatin1String("tidy")
             ? Words{QStringLiteral("Downloads"), QStringLiteral("folder-download"), QStringLiteral("Tidy up Downloads")}
             : topic == QLatin1String("memory")
@@ -507,6 +511,18 @@ int main(int argc, char **argv)
     };
     hooks.openCard = openCard;
     hooks.appStoreMissing = [] { return AppStore::look().missing(); };
+    hooks.restartNeeded = [] {
+        struct utsname running {};
+        if (uname(&running) != 0)
+            return QString();
+        const QString kernel = QString::fromLocal8Bit(running.release);
+        return QFileInfo::exists(QStringLiteral("/usr/lib/modules/") + kernel) ? QString() : kernel;
+    };
+    hooks.promptRestart = [] {
+        QDBusMessage call = QDBusMessage::createMethodCall(QStringLiteral("org.kde.LogoutPrompt"), QStringLiteral("/LogoutPrompt"),
+                                                           QStringLiteral("org.kde.LogoutPrompt"), QStringLiteral("promptReboot"));
+        QDBusConnection::sessionBus().asyncCall(call);
+    };
     hooks.openNotifications = [&offeredService] {
         if (offeredService)
             Q_EMIT offeredService->OpenNotifications();
