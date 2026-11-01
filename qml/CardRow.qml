@@ -134,6 +134,7 @@ Rectangle {
             width: parent.width
             title: row.listTitle
             body: row.list
+            fromEnd: false
         }
     }
 
