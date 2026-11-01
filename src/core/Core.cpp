@@ -25,6 +25,7 @@ const QString Devices = QStringLiteral("devices");
 const QString Focus = QStringLiteral("focus");
 const QString Memory = QStringLiteral("memory");
 const QString Automations = QStringLiteral("automations");
+const QString Restart = QStringLiteral("restart");
 
 // How many of each kind of device are kept, the latest first.
 constexpr int DevicesKept = 200;
@@ -137,6 +138,7 @@ void Core::tell(const QString &topic, const QString &title, const Spoken &spoken
 void Core::check()
 {
     lookAtAppStore();
+    lookAtRestart();
     if (!enabled(Storage) || !m_hooks.look)
         return;
     const QDateTime now = m_hooks.now();
@@ -662,6 +664,14 @@ bool Core::act(const QString &topic, const QString &action)
         Q_EMIT factChanged(focusFact());
         return true;
     }
+    if (topic == Restart) {
+        if (!enabled(Restart) || m_restartSpoken.isEmpty() || action != QLatin1String("open"))
+            return false;
+        write(QStringLiteral("Restart  You opened the Restart question."));
+        if (m_hooks.promptRestart)
+            m_hooks.promptRestart();
+        return true;
+    }
     if (topic == Tidy) {
         if (!enabled(Tidy) || action != QLatin1String("open"))
             return false;
@@ -773,6 +783,21 @@ void Core::lookAtAppStore()
     write(missing ? QStringLiteral("Apps  This computer has no app store; Search offers Add the app store.")
                   : QStringLiteral("Apps  The app store is here now."));
     Q_EMIT actionsChanged();
+}
+
+void Core::lookAtRestart()
+{
+    if (!enabled(Restart) || !m_hooks.restartNeeded)
+        return;
+    const QString kernel = m_hooks.restartNeeded();
+    if (kernel.isEmpty() || kernel == m_restartSpoken || (m_hooks.doNotDisturb && m_hooks.doNotDisturb()))
+        return;
+    m_restartSpoken = kernel;
+    write(QStringLiteral("Restart  An update replaced the running kernel (%1); told the ticker a restart finishes it.").arg(kernel));
+    if (m_hooks.notify)
+        m_hooks.notify(Restart, QStringLiteral("Restart to finish an update"),
+                       QStringLiteral("USB drives and new devices work again after a restart"));
+    saveAttention(Restart);
 }
 
 bool Core::openAction(const QString &id, const QString &query)
@@ -951,6 +976,7 @@ void Core::loadAttention()
     m_installers = saved.value(QStringLiteral("Windows/Installers"), 0).toInt();
     m_windowsNever = saved.value(QStringLiteral("Windows/Never"), false).toBool();
     m_tidySpokenKb = saved.value(QStringLiteral("Tidy/SpokenKb"), 0).toLongLong();
+    m_restartSpoken = saved.value(QStringLiteral("Restart/Spoken")).toString();
     loadState(saved, QStringLiteral("Focus"), m_focusAttention);
     m_focusNotifications = saved.value(QStringLiteral("Focus/Notifications"), 0).toInt();
     m_focusHeld = saved.value(QStringLiteral("Focus/Held")).toStringList();
@@ -1025,6 +1051,10 @@ void Core::saveAttention(const QString &topic) const
     }
     if (topic == Tidy) {
         saved.setValue(QStringLiteral("Tidy/SpokenKb"), m_tidySpokenKb);
+        return;
+    }
+    if (topic == Restart) {
+        saved.setValue(QStringLiteral("Restart/Spoken"), m_restartSpoken);
         return;
     }
     if (topic == Automations) {

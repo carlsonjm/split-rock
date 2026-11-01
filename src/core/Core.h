@@ -76,6 +76,11 @@ public:
         // Whether this computer lacks an app store: Discover, Flatpak or
         // Flathub (core/AppStore.h).
         std::function<bool()> appStoreMissing = [] { return false; };
+        // The running kernel, when an update removed its modules so new
+        // devices such as USB drives can't start until a restart; empty
+        // otherwise. And Plasma's own question about restarting.
+        std::function<QString()> restartNeeded = [] { return QString(); };
+        std::function<void()> promptRestart;
         // What the app menu calls an app, by its desktop file id.
         std::function<QString(const QString &desktopId)> appName = [](const QString &id) { return core::appName(id); };
     };
@@ -111,6 +116,11 @@ public:
     void seeTidy(qint64 kb);
     bool watchesTidy() const;
     static constexpr qint64 TidyStepKb = 5LL * 1024 * 1024;
+
+    // An update replaced the running kernel: Core says once on the ticker,
+    // for that kernel, that a restart finishes it; a tap asks Plasma's
+    // Restart question. Looked at with each check.
+    void lookAtRestart();
 
     // Every device of one kind there is now. One Core has not seen before is
     // news once, at the ticker; the first time Core looks at a kind, what is
@@ -287,6 +297,8 @@ private:
     // What Downloads and the Desktop held when the ticker last said so, or
     // less since, when they were tidied.
     qint64 m_tidySpokenKb = 0;
+    // The kernel the restart notice was last given for.
+    QString m_restartSpoken;
     HealthLook m_healthLook;
     HealthFact m_health;
     Attention m_healthAttention;
