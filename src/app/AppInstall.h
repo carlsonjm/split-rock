@@ -25,7 +25,8 @@ namespace splitrock {
 // the system's own. What the system can't run without is never offered.
 //
 // As Your apps it lists the apps the person added themselves, from the shelf
-// or Flathub, biggest first with the room each takes, and removes one the
+// or Flathub, and the web apps and Android apps in their own app menu,
+// biggest first with the room each takes, and removes one the
 // same way; what the system runs on is never among them.
 //
 // As Add the app store it adds Discover, Flatpak and Flathub where any of
@@ -60,9 +61,12 @@ public:
         QString key;
         QString name;
         QString summary;
-        // "shelf", the system's own packages, or "flathub".
+        // "shelf", the system's own packages; "flathub"; "web", a site a
+        // Chromium-family browser installed as an app; or "android", an app
+        // inside Waydroid.
         QString source;
-        // The package's name, or the Flatpak app's id.
+        // The package's name, the Flatpak app's id, a web app's desktop file
+        // id, or an Android app's package name.
         QString package;
         QString remote;
         bool installed = false;
@@ -122,12 +126,16 @@ public:
     // offered for removal; the administrator's helper also keeps Plasma's
     // own groups and whatever another package needs (split-rock-admin kept).
     static bool keptBySystem(const QString &package);
+    // Android's own apps inside Waydroid, such as its Settings, which
+    // Android itself won't remove.
+    static bool keptByAndroid(const QString &package);
 
     // What the search printed, read into apps, best first, at most eight.
     static QList<App> readSearch(const QString &output, const QString &query);
     // What the person added themselves, as the Your apps script prints it,
     // biggest first: apps in the app menu whose package was installed on
-    // purpose, and Flathub's apps; never what the system runs on.
+    // purpose, Flathub's apps, web apps and Android apps; never what the
+    // system runs on.
     static QList<App> readYours(const QString &output);
     // The script that lists them, run as the person; Free up space runs it
     // too, to say how much room they take.
@@ -138,6 +146,8 @@ public:
     void setFlathubScript(const QString &script) { m_flathubScript = script; }
     void setOpenScript(const QString &script) { m_openScript = script; }
     void setFlathubRemoveScript(const QString &script) { m_flathubRemoveScript = script; }
+    void setWebRemoveScript(const QString &script) { m_webRemoveScript = script; }
+    void setAndroidRemoveScript(const QString &script) { m_androidRemoveScript = script; }
     void setOwnerScript(const QString &script) { m_ownerScript = script; }
     void setYoursScript(const QString &script) { m_yoursScript = script; }
     // Whether the computer lacks the app store; core/AppStore.h otherwise.
@@ -168,6 +178,8 @@ private:
     QString m_flathubScript;
     QString m_openScript;
     QString m_flathubRemoveScript;
+    QString m_webRemoveScript;
+    QString m_androidRemoveScript;
     QString m_ownerScript;
     QString m_yoursScript;
 };
