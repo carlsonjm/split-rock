@@ -605,7 +605,12 @@ private Q_SLOTS:
             keys.append(a.key);
         QCOMPARE(keys, (QStringList{QStringLiteral("flathub:com.valvesoftware.Steam"), QStringLiteral("flathub:us.zoom.Zoom"),
                                     QStringLiteral("shelf:obs-studio"), QStringLiteral("shelf:blender"),
-                                    QStringLiteral("shelf:okular"), QStringLiteral("flathub:org.example.Tiny")}));
+                                    QStringLiteral("shelf:okular"), QStringLiteral("flathub:org.example.Tiny"),
+                                    // Web apps and Android apps, size unknown, by name; never Android's own.
+                                    QStringLiteral("android:com.whatsapp"),
+                                    QStringLiteral("web:chrome-abcdefghijklmnopabcdefghijklmnop-Profile_1.desktop")}));
+        QCOMPARE(install.resultList().value(7).toMap().value(QStringLiteral("sourceName")).toString(), QStringLiteral("Web app"));
+        QCOMPARE(install.resultList().value(6).toMap().value(QStringLiteral("sourceName")).toString(), QStringLiteral("Android app"));
         const QVariantMap steam = install.resultList().value(0).toMap();
         QCOMPARE(steam.value(QStringLiteral("name")).toString(), QStringLiteral("Steam"));
         QCOMPARE(steam.value(QStringLiteral("size")).toString(), QStringLiteral("9.8 GB"));
@@ -703,6 +708,72 @@ private Q_SLOTS:
         install.removeApp(QStringLiteral("../../etc/passwd"));
         QCOMPARE(install.stage(), QStringLiteral("asking"));
         QVERIFY(install.removing());
+    }
+
+    void webAndAndroidAppsAreRemovedByWhatInstalledThem()
+    {
+        QTemporaryDir data;
+        const QString mine = data.filePath(QStringLiteral("home"));
+        const QString web = QStringLiteral("chrome-abcdefghijklmnopabcdefghijklmnop-Profile_1.desktop");
+        QVERIFY(write(mine + QStringLiteral("/applications/") + web,
+                      QStringLiteral("[Desktop Entry]\nName=YouTube\n"
+                                     "Exec=chromium --profile-directory=\"Profile 1\" --app-id=abcdefghijklmnopabcdefghijklmnop\n")));
+        QVERIFY(write(mine + QStringLiteral("/applications/waydroid.com.whatsapp.desktop"),
+                      QStringLiteral("[Desktop Entry]\nName=WhatsApp\nExec=waydroid app launch com.whatsapp\n")));
+        QVERIFY(write(mine + QStringLiteral("/applications/waydroid.com.android.settings.desktop"),
+                      QStringLiteral("[Desktop Entry]\nName=Settings\nExec=waydroid app launch com.android.settings\n")));
+        const QByteArray oldHome = qgetenv("XDG_DATA_HOME");
+        const QByteArray oldDirs = qgetenv("XDG_DATA_DIRS");
+        qputenv("XDG_DATA_HOME", mine.toUtf8());
+        qputenv("XDG_DATA_DIRS", data.filePath(QStringLiteral("none")).toUtf8());
+        const auto restore = qScopeGuard([&] {
+            oldHome.isNull() ? qunsetenv("XDG_DATA_HOME") : qputenv("XDG_DATA_HOME", oldHome);
+            oldDirs.isNull() ? qunsetenv("XDG_DATA_DIRS") : qputenv("XDG_DATA_DIRS", oldDirs);
+        });
+        // The browser removes its own entry, as Chromium does; Waydroid
+        // removes the app only while Android runs.
+        const QString marks = data.path();
+        StandIns standIns;
+        QVERIFY(standIns.add(QStringLiteral("chromium"), QStringLiteral(
+            "echo \"$*\" > '%1/browser'\nrm -f \"$XDG_DATA_HOME/applications/%2\"\n").arg(marks, web)));
+        QVERIFY(standIns.add(QStringLiteral("waydroid"), QStringLiteral(
+            "case \"$1 $2\" in\n"
+            "'status ') [ -f '%1/running' ] && echo 'Session:\tRUNNING' || echo 'Session:\tSTOPPED' ;;\n"
+            "'session start') touch '%1/running' ;;\n"
+            "'session stop') rm -f '%1/running'; touch '%1/stopped' ;;\n"
+            "'app list') [ -f '%1/removed' ] || echo 'packageName: com.whatsapp' ;;\n"
+            "'app remove') [ -f '%1/running' ] && touch '%1/removed' ;;\n"
+            "esac\n").arg(marks)));
+        QTemporaryDir logs;
+        AppInstall install;
+        install.setElevate({});
+        install.setLogFolder(logs.path());
+        install.setWriteDown([](const QString &, const QString &, const QString &, QString *) { return true; });
+
+        install.removeApp(web);
+        QTRY_COMPARE(install.stage(), QStringLiteral("confirm"));
+        QCOMPARE(install.pickedMap().value(QStringLiteral("source")).toString(), QStringLiteral("web"));
+        QCOMPARE(install.pickedMap().value(QStringLiteral("name")).toString(), QStringLiteral("YouTube"));
+        install.confirmRemove();
+        QTRY_COMPARE_WITH_TIMEOUT(install.stage(), QStringLiteral("removed"), 15000);
+        QFile browser(marks + QStringLiteral("/browser"));
+        QVERIFY(browser.open(QIODevice::ReadOnly));
+        QCOMPARE(browser.readAll().trimmed(),
+                 QByteArray("--profile-directory=Profile 1 --uninstall-app-id=abcdefghijklmnopabcdefghijklmnop"));
+
+        install.removeApp(QStringLiteral("waydroid.com.whatsapp.desktop"));
+        QTRY_COMPARE(install.stage(), QStringLiteral("confirm"));
+        QCOMPARE(install.pickedMap().value(QStringLiteral("package")).toString(), QStringLiteral("com.whatsapp"));
+        install.confirmRemove();
+        QTRY_COMPARE_WITH_TIMEOUT(install.stage(), QStringLiteral("removed"), 20000);
+        // Android was started for it, and stopped again after.
+        QVERIFY(QFile::exists(marks + QStringLiteral("/stopped")));
+        QVERIFY(!QFile::exists(mine + QStringLiteral("/applications/waydroid.com.whatsapp.desktop")));
+
+        // Android's own apps stay.
+        install.removeApp(QStringLiteral("waydroid.com.android.settings.desktop"));
+        QTRY_COMPARE(install.stage(), QStringLiteral("failed"));
+        QVERIFY(install.why().contains(QStringLiteral("is part of Android")));
     }
 
     void restorePointsSayWhatCameNext()
