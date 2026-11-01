@@ -68,9 +68,9 @@ echo "@@ local"
 
 // Run as the person: removes a web app, $1 its desktop file id, through the
 // browser that installed it, as the browser's own uninstall does; deleting
-// only the entry would see the browser write it again. The browser may still
-// be open, so it is asked and left running, and the entry going is what says
-// it's done.
+// only the entry would see the browser write it again. Chromium asks its own
+// "Remove?" in a window of its own and may stay open after, so it is left
+// running, and the entry going is what says it's done.
 const QString WebRemoveScript = QStringLiteral(R"SH(export LANG=C LC_ALL=C
 file=${XDG_DATA_HOME:-$HOME/.local/share}/applications/$1
 [ -f "$file" ] || exit 0
@@ -98,7 +98,7 @@ fi
 i=0
 while [ -f "$file" ] && [ $i -lt 120 ]; do sleep 1; i=$((i + 1)); done
 if [ -f "$file" ]; then
-    echo "The browser didn't remove it. It may be asking in its own window."
+    echo "The browser didn't remove it: its own window wasn't answered yes in time."
     exit 1
 fi
 echo "Removed"
@@ -919,7 +919,9 @@ void AppInstall::confirmRemove()
         return;
     }
     clearProgress();
-    setNow(shelf ? QStringLiteral("Waiting for your password") : QStringLiteral("Removing it"));
+    setNow(shelf ? QStringLiteral("Waiting for your password")
+           : web ? QStringLiteral("Say yes in the browser's own window")
+                 : QStringLiteral("Removing it"));
     setStage(QStringLiteral("removing"));
     Q_EMIT changed();
 
