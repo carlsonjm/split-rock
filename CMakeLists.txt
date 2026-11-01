@@ -49,6 +49,12 @@ target_compile_definitions(splitrock_core PUBLIC PROJECT_VERSION="${PROJECT_VERS
     # The only program Split Rock runs as the administrator.
     SPLIT_ROCK_ADMIN_HELPER="${CMAKE_INSTALL_FULL_LIBDIR}/split-rock/split-rock-admin")
 install(PROGRAMS src/admin/split-rock-admin DESTINATION ${CMAKE_INSTALL_LIBDIR}/split-rock)
+# Its password prompt says what it is for, not the command line.
+set(SPLIT_ROCK_ADMIN_PROGRAM "${CMAKE_INSTALL_FULL_LIBDIR}/split-rock/split-rock-admin")
+configure_file(data/io.github.carlsonjm.splitrock.admin.policy.in
+    ${CMAKE_CURRENT_BINARY_DIR}/data/io.github.carlsonjm.splitrock.admin.policy @ONLY)
+install(FILES ${CMAKE_CURRENT_BINARY_DIR}/data/io.github.carlsonjm.splitrock.admin.policy
+    DESTINATION ${CMAKE_INSTALL_DATADIR}/polkit-1/actions)
 
 qt_add_executable(split-rock src/main.cpp src/desktop/Entry.h)
 qt_add_resources(split-rock "sheet"

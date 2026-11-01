@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE policyconfig PUBLIC "-//freedesktop//DTD PolicyKit Policy Configuration 1.0//EN"
+ "http://www.freedesktop.org/standards/PolicyKit/1/policyconfig.dtd">
+<!-- The password prompt for split-rock-admin, the one program Split Rock runs
+     as the administrator (docs/DECISIONS.md). Without it, pkexec shows the
+     raw command line. The password is asked every time. -->
+<policyconfig>
+  <vendor>Split Rock</vendor>
+  <vendor_url>https://github.com/carlsonjm/split-rock</vendor_url>
+  <action id="io.github.carlsonjm.splitrock.admin">
+    <description>Make a change to this computer</description>
+    <message>Your password is needed to make this change to the computer</message>
+    <icon_name>io.github.carlsonjm.SplitRock</icon_name>
+    <defaults>
+      <allow_any>auth_admin</allow_any>
+      <allow_inactive>auth_admin</allow_inactive>
+      <allow_active>auth_admin</allow_active>
+    </defaults>
+    <annotate key="org.freedesktop.policykit.exec.path">@SPLIT_ROCK_ADMIN_PROGRAM@</annotate>
+  </action>
+</policyconfig>
