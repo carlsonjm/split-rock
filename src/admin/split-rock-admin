@@ -30,7 +30,8 @@
 #                                           the commit it had before
 #
 # NAME is the name the person knows Split Rock by, which restore points carry;
-# SNAP is 1 to take a restore point before and after, 0 not to.
+# SNAP is 1 to take a restore point before and after, 0 not to; where
+# pacman's snap-pac hook takes them itself, none is taken here.
 
 set -u
 export LANG=C LC_ALL=C
@@ -101,6 +102,15 @@ is_name() {
     return 1
 }
 
+# Whether Split Rock takes the restore points itself: asked to, on a computer
+# that takes them, and with no snap-pac hook, which takes a pair around every
+# pacman run by itself, so a second pair would only double the list.
+own_point() {
+    [ "${1-}" = 1 ] || return 1
+    command -v snapper >/dev/null 2>&1 && [ -f /etc/snapper/configs/root ] || return 1
+    ! ls /usr/share/libalpm/hooks 2>/dev/null | grep -q snap-pac
+}
+
 # What building software needs: compilers and build tools, and every package
 # that ships headers, CMake or pkg-config files, Qt's build files or protocol
 # descriptions. Nothing installed may need them, yet a build in the person's
@@ -157,7 +167,7 @@ transaction() {
     shift 3
     trap '' HUP PIPE
     pre=
-    if [ "$snap" = 1 ] && command -v snapper >/dev/null 2>&1 && [ -f /etc/snapper/configs/root ]; then
+    if own_point "$snap"; then
         pre=$(snapper -c root create --type pre --cleanup-algorithm number --print-number --description "$desc") || pre=
     fi
     [ -n "$pre" ] && echo "split-rock-pre=$pre"
@@ -239,7 +249,7 @@ free-space)
     done
     [ -n "$keep" ] || exit 0
     pre=
-    if [ "$snap" = 1 ] && command -v snapper >/dev/null 2>&1 && [ -f /etc/snapper/configs/root ]; then
+    if own_point "$snap"; then
         pre=$(snapper -c root create --type pre --cleanup-algorithm number --print-number --description "$name: Free up space") || pre=
     fi
     [ -n "$pre" ] && echo "split-rock-pre=$pre"
@@ -324,7 +334,7 @@ community)
     : > "$log"
     (
         pre=
-        if [ "$snap" = 1 ] && command -v snapper >/dev/null 2>&1 && [ -f /etc/snapper/configs/root ]; then
+        if own_point "$snap"; then
             pre=$(snapper -c root create --type pre --cleanup-algorithm number --print-number --description "$desc") || pre=
         fi
         [ -n "$pre" ] && echo "split-rock-pre=$pre"
