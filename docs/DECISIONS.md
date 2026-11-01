@@ -660,7 +660,9 @@ again first: the update installs what is newest when it runs, so a list that
 changed in between goes back to the person, said so, and nothing is installed.
 
 Update runs through the system's own password prompt with a snapper pair around
-it, unless pacman's own snap-pac hook takes one. It keeps the computer awake,
+it, unless pacman's own snap-pac hook takes one; the same holds for every
+Helper that changes packages, so a computer with snap-pac never lists two
+pairs for one change. It keeps the computer awake,
 is never stopped by a timer, and writes to its own log, which Split Rock follows
 for the progress the card shows, so the update finishes even if Split Rock
 stops partway. Flatpak apps update after it, as the person. Community (AUR)
