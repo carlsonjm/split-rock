@@ -520,9 +520,24 @@ private Q_SLOTS:
             QVERIFY(!action.value(QStringLiteral("title")).toString().isEmpty());
             QVERIFY(!action.value(QStringLiteral("keywords")).toStringList().isEmpty());
         }
-        QCOMPARE(ids, (QStringList{QStringLiteral("update"), QStringLiteral("space"), QStringLiteral("tidy"), QStringLiteral("install"),
-                                   QStringLiteral("apps"), QStringLiteral("health"), QStringLiteral("changes"), QStringLiteral("restore"),
+        // The Helpers row's order: six in the first row, the rest behind More.
+        QCOMPARE(ids, (QStringList{QStringLiteral("install"), QStringLiteral("apps"), QStringLiteral("update"), QStringLiteral("space"),
+                                   QStringLiteral("health"), QStringLiteral("changes"), QStringLiteral("tidy"), QStringLiteral("restore"),
                                    QStringLiteral("community")}));
+        QStringList more;
+        for (const QVariantMap &action : Core::actions()) {
+            if (action.value(QStringLiteral("more")).toBool())
+                more.append(action.value(QStringLiteral("id")).toString());
+        }
+        QCOMPARE(more, (QStringList{QStringLiteral("tidy"), QStringLiteral("restore"), QStringLiteral("community")}));
+        // Without an app store, Add the app store leads and What changed
+        // goes behind More, so the first row stays six.
+        const QList<QVariantMap> missing = Core::actions(true);
+        QCOMPARE(missing.first().value(QStringLiteral("id")).toString(), QStringLiteral("appstore"));
+        int first = 0;
+        for (const QVariantMap &action : missing)
+            first += action.value(QStringLiteral("more")).toBool() ? 0 : 1;
+        QCOMPARE(first, 6);
         QVERIFY(d.core->openAction(QStringLiteral("health"), QStringLiteral("health")));
         // Only Install an app takes what was typed.
         QVERIFY(d.core->openAction(QStringLiteral("install"), QStringLiteral(" install pdf editor ")));
@@ -981,6 +996,30 @@ private Q_SLOTS:
         d.core->seeTidy(40 * Gb);
         QCOMPARE(d.ticker.size(), 3);
         QVERIFY(!d.core->act(QStringLiteral("tidy"), QStringLiteral("open")));
+    }
+
+    void theAppStoreIsOfferedOnlyWhereMissing()
+    {
+        Desk d;
+        bool missing = true;
+        d.wire = [&missing](Core::Hooks &hooks) { hooks.appStoreMissing = [&missing] { return missing; }; };
+        d.make();
+        QSignalSpy changed(d.core.get(), &Core::actionsChanged);
+        QCOMPARE(d.core->offeredActions().first().value(QStringLiteral("id")).toString(), QStringLiteral("install"));
+        d.core->lookAtAppStore();
+        QCOMPARE(changed.size(), 1);
+        QCOMPARE(d.core->offeredActions().first().value(QStringLiteral("id")).toString(), QStringLiteral("appstore"));
+        // Looking again with nothing changed says nothing.
+        d.core->lookAtAppStore();
+        QCOMPARE(changed.size(), 1);
+        QVERIFY(d.core->openAction(QStringLiteral("appstore"), QStringLiteral("anything")));
+        QCOMPARE(d.opened.last(), QStringLiteral("appstore"));
+        missing = false;
+        d.core->check();
+        QCOMPARE(changed.size(), 2);
+        QCOMPARE(d.core->offeredActions().first().value(QStringLiteral("id")).toString(), QStringLiteral("install"));
+        // Its card still opens, to say the computer has one.
+        QVERIFY(d.core->openAction(QStringLiteral("appstore"), QString()));
     }
 
     void theHelpersAnswerToWindowsWords()

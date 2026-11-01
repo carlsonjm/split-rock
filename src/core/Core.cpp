@@ -136,6 +136,7 @@ void Core::tell(const QString &topic, const QString &title, const Spoken &spoken
 
 void Core::check()
 {
+    lookAtAppStore();
     if (!enabled(Storage) || !m_hooks.look)
         return;
     const QDateTime now = m_hooks.now();
@@ -710,9 +711,9 @@ bool Core::act(const QString &topic, const QString &action)
     return true;
 }
 
-QList<QVariantMap> Core::actions()
+QList<QVariantMap> Core::actions(bool storeMissing)
 {
-    const auto action = [](const char *id, const char *title, const char *sub, const char *icon,
+    const auto action = [](const char *id, const char *title, const char *sub, const char *icon, bool more,
                            std::initializer_list<const char *> words) {
         QStringList keywords;
         for (const char *word : words)
@@ -721,36 +722,64 @@ QList<QVariantMap> Core::actions()
                            {QStringLiteral("title"), QString::fromUtf8(title)},
                            {QStringLiteral("sub"), QString::fromUtf8(sub)},
                            {QStringLiteral("icon"), QString::fromUtf8(icon)},
+                           {QStringLiteral("more"), more},
                            {QStringLiteral("keywords"), keywords}};
     };
-    // The same cards, words and order as the upkeep shelf.
-    return {
-        action("update", "Check for updates", "Everything, with a restore point first", "system-software-update",
-               {"update", "updates", "upgrade", "check for updates", "windows update"}),
-        action("space", "Free up space", "Old copies and leftovers", "drive-harddisk",
-               {"free up space", "space", "storage", "disk", "clean up", "cleanup", "disk cleanup", "storage sense"}),
-        action("tidy", "Tidy up Downloads", "Old downloads and copies, to the Trash", "folder-download",
-               {"tidy up", "tidy", "tidy up downloads", "downloads", "clean downloads", "clean desktop", "copies",
-                "duplicates", "duplicate files", "old downloads", "old files"}),
-        action("install", "Install an app", "Say what you need, or remove one", "system-software-install",
+    // The order a person moving from Windows reaches for them, as Search's
+    // Helpers row shows them: the first row, then those behind its More. A
+    // computer without an app store is offered one first, and What changed
+    // moves behind More to keep the first row to six.
+    QList<QVariantMap> listed;
+    if (storeMissing)
+        listed.append(action("appstore", "Add the app store", "Discover, with Flathub's apps", "plasma-discover", false,
+                             {"app store", "add the app store", "discover", "flathub", "flatpak", "get apps",
+                              "microsoft store", "store"}));
+    listed += QList<QVariantMap>{
+        action("install", "Install an app", "Say what you need, or remove one", "system-software-install", false,
                {"install", "install an app", "uninstall", "remove an app", "get an app", "add or remove programs",
                 "programs and features", "uninstall a program", "microsoft store", "app store"}),
-        action("apps", "Your apps", "The apps you added, biggest first", "view-grid",
+        action("apps", "Your apps", "The apps you added, biggest first", "view-grid", false,
                {"your apps", "my apps", "installed apps", "uninstall", "remove apps", "apps taking space", "app sizes"}),
-        action("health", "Health check", "A look over the computer", "security-high",
+        action("update", "Check for updates", "Everything, with a restore point first", "system-software-update", false,
+               {"update", "updates", "upgrade", "check for updates", "windows update"}),
+        action("space", "Free up space", "Old copies and leftovers", "drive-harddisk", false,
+               {"free up space", "space", "storage", "disk", "clean up", "cleanup", "disk cleanup", "storage sense"}),
+        action("health", "Health check", "A look over the computer", "security-high", false,
                {"health", "health check", "check my computer", "diagnose", "troubleshoot", "troubleshooter"}),
-        action("changes", "What changed", "Undo, or go back to before", "edit-undo",
+        action("changes", "What changed", "Undo, or go back to before", "edit-undo", storeMissing,
                {"what changed", "changed", "undo", "something changed", "stopped working"}),
-        action("restore", "Restore points", "Go back to an earlier state", "document-revert",
+        action("tidy", "Tidy up Downloads", "Old downloads and copies, to the Trash", "folder-download", true,
+               {"tidy up", "tidy", "tidy up downloads", "downloads", "clean downloads", "clean desktop", "copies",
+                "duplicates", "duplicate files", "old downloads", "old files"}),
+        action("restore", "Restore points", "Go back to an earlier state", "document-revert", true,
                {"restore", "restore point", "restore points", "snapshot", "go back", "system restore"}),
-        action("community", "Community apps", "Read, then update, AUR apps", "applications-other",
+        action("community", "Community apps", "Read, then update, AUR apps", "applications-other", true,
                {"community apps", "aur", "community"}),
     };
+    return listed;
+}
+
+QList<QVariantMap> Core::offeredActions() const
+{
+    return actions(m_storeMissing);
+}
+
+void Core::lookAtAppStore()
+{
+    const bool missing = m_hooks.appStoreMissing && m_hooks.appStoreMissing();
+    if (missing == m_storeMissing)
+        return;
+    m_storeMissing = missing;
+    write(missing ? QStringLiteral("Apps  This computer has no app store; Search offers Add the app store.")
+                  : QStringLiteral("Apps  The app store is here now."));
+    Q_EMIT actionsChanged();
 }
 
 bool Core::openAction(const QString &id, const QString &query)
 {
-    for (const QVariantMap &action : actions()) {
+    // Add the app store opens even where it isn't listed: its card says the
+    // computer has one already.
+    for (const QVariantMap &action : actions(true)) {
         if (action.value(QStringLiteral("id")).toString() != id)
             continue;
         write(QStringLiteral("Search  You opened %1.").arg(action.value(QStringLiteral("title")).toString()));

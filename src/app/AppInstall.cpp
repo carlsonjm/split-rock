@@ -3,6 +3,7 @@
 
 #include "app/Product.h"
 #include "app/SpaceCleanup.h"
+#include "core/AppStore.h"
 
 #include <QDateTime>
 #include <QDebug>
@@ -158,13 +159,14 @@ AppInstall::AppInstall(QObject *parent)
     , m_flathubRemoveScript(FlathubRemoveScript)
     , m_ownerScript(OwnerScript)
     , m_yoursScript(YoursScript)
+    , m_storeProbe([] { return core::AppStore::look().missing(); })
 {
 }
 
 bool AppInstall::busy() const
 {
     return stage() == QLatin1String("searching") || stage() == QLatin1String("installing")
-        || stage() == QLatin1String("removing");
+        || stage() == QLatin1String("removing") || stage() == QLatin1String("adding");
 }
 
 QVariantList AppInstall::resultList() const
@@ -427,6 +429,7 @@ void AppInstall::listYours()
 {
     if (busy())
         return;
+    leaveStore();
     m_removing = true;
     m_yours = true;
     m_query.clear();
@@ -497,6 +500,7 @@ void AppInstall::removeApp(const QString &desktopId)
 {
     if (busy())
         return;
+    leaveStore();
     static const QRegularExpression shape(QStringLiteral("^[A-Za-z0-9_][A-Za-z0-9._+-]{0,200}\\.desktop$"));
     if (!shape.match(desktopId).hasMatch()) {
         askRemove();
@@ -574,6 +578,7 @@ void AppInstall::ask()
 {
     if (busy())
         return;
+    leaveStore();
     m_removing = false;
     m_yours = false;
     m_query.clear();
@@ -595,6 +600,10 @@ void AppInstall::search(const QString &query)
         removing ? askRemove() : ask();
         return;
     }
+    leaveStore();
+    // Without the app store, only the system's own shelf is searched; the
+    // results say so, and offer it.
+    m_storeMissing = m_storeProbe && m_storeProbe();
     m_removing = removing;
     m_yours = false;
     m_query = words;
@@ -781,6 +790,89 @@ void AppInstall::openApp(const QString &key)
         return;
     QStringList program = asPerson(m_openScript, {app.source, app.package});
     QProcess::startDetached(program.takeFirst(), program);
+}
+
+void AppInstall::leaveStore()
+{
+    m_store = false;
+}
+
+void AppInstall::askStore()
+{
+    if (busy())
+        return;
+    m_store = true;
+    m_removing = false;
+    m_yours = false;
+    m_query.clear();
+    m_results.clear();
+    m_picked = App();
+    m_why.clear();
+    clearProgress();
+    m_storeMissing = m_storeProbe && m_storeProbe();
+    setStage(QStringLiteral("store"));
+    Q_EMIT changed();
+}
+
+void AppInstall::addStore()
+{
+    if (!m_store || stage() != QLatin1String("store") || !m_storeMissing)
+        return;
+    m_id = QStringLiteral("appstore-%1").arg(QDateTime::currentDateTime().toString(QStringLiteral("yyyyMMdd-HHmmss")));
+    QString unrecorded;
+    if (!writeDown(m_id, QStringLiteral("Added the app store"),
+                   QStringLiteral("Remove Discover with Remove an app, or go back to the restore point taken before"),
+                   &unrecorded)) {
+        m_why = QStringLiteral("Nothing was changed: it couldn't be written in the notebook first. %1").arg(unrecorded);
+        m_id.clear();
+        setStage(QStringLiteral("failed"));
+        Q_EMIT changed();
+        return;
+    }
+    clearProgress();
+    setNow(QStringLiteral("Waiting for your password"));
+    setStage(QStringLiteral("adding"));
+    Q_EMIT changed();
+    const auto eachLine = [this](const QString &line) {
+        appendLog(line);
+        const Step step = pacmanStep(line, done(), total());
+        setProgress(done() + (step.counts ? 1 : 0), step.total > 0 ? step.total : total());
+        if (!step.now.isEmpty())
+            setNow(step.now);
+        else if (line.startsWith(QLatin1String("Fetching the package lists")))
+            setNow(QStringLiteral("Fetching the list of apps"));
+        else if (line.contains(QLatin1String("flathub")))
+            setNow(QStringLiteral("Adding Flathub's apps"));
+    };
+    run(asAdmin(QStringLiteral("appstore"), {productName(), QStringLiteral("1")}), -1,
+        [this](int exitCode, const QString &output) {
+            if (exitCode != 0)
+                m_why = whyFailed(output, exitCode, QStringLiteral("Adding the app store"));
+            finishStore(exitCode == 0, output);
+        },
+        eachLine);
+}
+
+void AppInstall::finishStore(bool ok, const QString &output)
+{
+    m_storeMissing = m_storeProbe && m_storeProbe();
+    setNow(QString());
+    setStage(ok ? QStringLiteral("added") : QStringLiteral("failed"));
+    Q_EMIT changed();
+    QString tail = output;
+    if (tail.size() > 2000)
+        tail = QStringLiteral("...") + tail.right(2000);
+    report(std::exchange(m_id, QString()), ok,
+           ok ? QStringLiteral("Added the app store") : QStringLiteral("Adding the app store didn't finish"),
+           QStringLiteral("%1 ran its own Add the app store card: Discover and Flatpak from the system's shelf, then "
+                          "Flathub. %2\nThe end of the output:\n%3\n\nTell the person in a sentence how it went.")
+               .arg(productName(), ok ? QStringLiteral("It finished.") : QStringLiteral("It failed: %1").arg(m_why),
+                    tail.isEmpty() ? QStringLiteral("(none)") : tail));
+}
+
+void AppInstall::openStore()
+{
+    QProcess::startDetached(QStringLiteral("plasma-discover"), {});
 }
 
 } // namespace splitrock

@@ -6,6 +6,8 @@
 #include <QVariantList>
 #include <QVariantMap>
 
+#include <functional>
+
 namespace splitrock {
 
 // The Install an app card: the person says what they need, such as "a PDF
@@ -26,8 +28,13 @@ namespace splitrock {
 // or Flathub, biggest first with the room each takes, and removes one the
 // same way; what the system runs on is never among them.
 //
+// As Add the app store it adds Discover, Flatpak and Flathub where any of
+// them is missing, after the person's yes, with a restore point first; and
+// while the computer lacks them, its results offer to.
+//
 // Its stages: asking, searching, results, installing, done, confirm (removing
-// one waits for a yes), removing, removed or failed.
+// one waits for a yes), removing, removed, store (adding the app store waits
+// for a yes), adding, added or failed.
 class AppInstall : public Chore
 {
     Q_OBJECT
@@ -43,6 +50,10 @@ class AppInstall : public Chore
     Q_PROPERTY(bool yours READ yours NOTIFY changed)
     // How much room the apps listed take, in words, such as "23 GB".
     Q_PROPERTY(QString yoursSize READ yoursSize NOTIFY changed)
+    // The card is Add the app store.
+    Q_PROPERTY(bool store READ store NOTIFY changed)
+    // This computer lacks Discover, Flatpak or Flathub, as last looked.
+    Q_PROPERTY(bool storeMissing READ storeMissing NOTIFY changed)
 
 public:
     struct App {
@@ -72,6 +83,8 @@ public:
     bool removing() const { return m_removing; }
     bool yours() const { return m_yours; }
     QString yoursSize() const;
+    bool store() const { return m_store; }
+    bool storeMissing() const { return m_storeMissing; }
 
     // Opens the card, empty, for the person to say what they need.
     Q_INVOKABLE void ask();
@@ -94,6 +107,11 @@ public:
     void removeApp(const QString &desktopId);
     // Opens the card as Your apps.
     Q_INVOKABLE void listYours();
+    // Opens the card as Add the app store, waiting for a yes; addStore()
+    // adds what is missing, and openStore() opens Discover.
+    Q_INVOKABLE void askStore();
+    Q_INVOKABLE void addStore();
+    Q_INVOKABLE void openStore();
 
     // Words that ask to remove an app rather than find one, and the words
     // that are left once those are taken out: "uninstall MaiN Keyboard" is
@@ -122,6 +140,8 @@ public:
     void setFlathubRemoveScript(const QString &script) { m_flathubRemoveScript = script; }
     void setOwnerScript(const QString &script) { m_ownerScript = script; }
     void setYoursScript(const QString &script) { m_yoursScript = script; }
+    // Whether the computer lacks the app store; core/AppStore.h otherwise.
+    void setStoreProbe(std::function<bool()> probe) { m_storeProbe = std::move(probe); }
 
 private:
     // Waits for the yes to remove app, once the administrator's helper has
@@ -129,6 +149,9 @@ private:
     void askToRemove(const App &app);
     void finish(bool ok, const QString &output);
     void finishRemoving(bool ok, const QString &output);
+    void finishStore(bool ok, const QString &output);
+    // Leaves Add the app store, as another way in is taken.
+    void leaveStore();
 
     QString m_query;
     QList<App> m_results;
@@ -137,6 +160,9 @@ private:
     QString m_why;
     bool m_removing = false;
     bool m_yours = false;
+    bool m_store = false;
+    bool m_storeMissing = false;
+    std::function<bool()> m_storeProbe;
 
     QString m_searchScript;
     QString m_flathubScript;

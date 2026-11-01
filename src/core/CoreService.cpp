@@ -15,6 +15,7 @@ CoreService::CoreService(Core *core, QObject *parent)
     qDBusRegisterMetaType<QList<QVariantMap>>();
     connect(m_core, &Core::factChanged, this, &CoreService::FactChanged);
     connect(m_core, &Core::layoutsChanged, this, &CoreService::LayoutsChanged);
+    connect(m_core, &Core::actionsChanged, this, &CoreService::ActionsChanged);
     connect(m_core, &Core::layoutOpened, this, &CoreService::LayoutOpened);
 }
 
@@ -40,7 +41,7 @@ bool CoreService::Act(const QString &topic, const QString &action)
 
 QList<QVariantMap> CoreService::Actions() const
 {
-    return Core::actions();
+    return m_core->offeredActions();
 }
 
 bool CoreService::OpenAction(const QString &id, const QString &query)

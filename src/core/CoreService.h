@@ -62,6 +62,9 @@ Q_SIGNALS:
     Q_SCRIPTABLE void OpenNotifications();
     // A layout was saved, removed or switched.
     Q_SCRIPTABLE void LayoutsChanged();
+    // The upkeep cards Actions lists changed, as when the app store came or
+    // went: a surface asks Actions again.
+    Q_SCRIPTABLE void ActionsChanged();
     // A layout's run is over, with the names of the apps that didn't come.
     Q_SCRIPTABLE void LayoutOpened(const QString &id, int placed, int missed, const QStringList &missedNames);
 
