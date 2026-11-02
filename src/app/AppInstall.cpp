@@ -84,19 +84,58 @@ file=${XDG_DATA_HOME:-$HOME/.local/share}/applications/$1
 shift
 command -v "$1" >/dev/null 2>&1 || { echo "$1 isn't on this computer any more."; exit 1; }
 echo "Opening the app"
+# A browser already running takes the app over and the command ends at
+# once; otherwise the command is the browser itself, and its ending, however
+# soon, means the app's window was closed. Whether one runs is looked at
+# before, by the names its programs run under; a Flatpak browser counts as
+# running. Either way the app's window is watched too, and Stop waiting is
+# there if neither can tell.
+names=${1##*/}
+case $names in
+google-chrome*) names="$names chrome" ;;
+brave*) names="$names brave" ;;
+microsoft-edge*) names="$names msedge" ;;
+vivaldi*) names="$names vivaldi-bin" ;;
+flatpak) names= ;;
+esac
+own=
+if [ -n "$names" ]; then
+    own=1
+    for name in $names; do
+        pgrep -u "$(id -u)" -x "$name" >/dev/null 2>&1 && own=
+    done
+fi
 "$@" >/dev/null 2>&1 &
 pid=$!
 alive() { [ -d "/proc/$pid" ] && ! grep -q '^State:[[:space:]]*Z' "/proc/$pid/status" 2>/dev/null; }
-# A browser already running takes the app over and the command ends at once;
-# one that is still running after a few seconds is the browser itself, and
-# its ending means the app's window was closed.
-own=
+# KWin's own window search finds the app's window by its desktop file id,
+# whichever browser process draws it: once seen, its going means closed.
+stem=${file##*/}
+stem=${stem%.desktop}
+qdbus=$(command -v qdbus6 || command -v qdbus)
+shown() {
+    [ -n "$qdbus" ] || return 2
+    found=$("$qdbus" --literal org.kde.KWin /WindowsRunner org.kde.krunner1.Match "$stem" 2>/dev/null) || return 2
+    case $found in
+    *'{}'*) return 1 ;;
+    *'['*) return 0 ;;
+    *) return 1 ;;
+    esac
+}
+seen=
 i=0
 while [ -f "$file" ] && [ $i -lt 240 ]; do
     sleep 1
     i=$((i + 1))
-    if [ -z "$own" ] && [ $i -ge 5 ] && alive; then own=1; fi
     if [ -n "$own" ] && ! alive; then sleep 2; break; fi
+    shown
+    state=$?
+    if [ $state -eq 0 ]; then
+        seen=1
+    elif [ -n "$seen" ] && [ $state -eq 1 ]; then
+        sleep 3
+        break
+    fi
 done
 if [ -f "$file" ]; then
     echo "The app was closed without picking Uninstall from its menu, so it stays."
