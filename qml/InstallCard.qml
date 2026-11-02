@@ -428,6 +428,15 @@ CardFrame {
             onClicked: card.job.askRemove()
         }
         Pill {
+            objectName: "stopWaiting"
+            visible: card.stage === "removing" && card.picked.source === "web"
+            implicitHeight: 44
+            padding: 16
+            fontSize: 15
+            text: "Stop waiting"
+            onClicked: card.job.stopWaiting()
+        }
+        Pill {
             objectName: "installClose"
             implicitHeight: 44
             padding: 16

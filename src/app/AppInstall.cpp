@@ -85,10 +85,21 @@ shift
 command -v "$1" >/dev/null 2>&1 || { echo "$1 isn't on this computer any more."; exit 1; }
 echo "Opening the app"
 "$@" >/dev/null 2>&1 &
+pid=$!
+alive() { [ -d "/proc/$pid" ] && ! grep -q '^State:[[:space:]]*Z' "/proc/$pid/status" 2>/dev/null; }
+# A browser already running takes the app over and the command ends at once;
+# one that is still running after a few seconds is the browser itself, and
+# its ending means the app's window was closed.
+own=
 i=0
-while [ -f "$file" ] && [ $i -lt 240 ]; do sleep 1; i=$((i + 1)); done
+while [ -f "$file" ] && [ $i -lt 240 ]; do
+    sleep 1
+    i=$((i + 1))
+    if [ -z "$own" ] && [ $i -ge 5 ] && alive; then own=1; fi
+    if [ -n "$own" ] && ! alive; then sleep 2; break; fi
+done
 if [ -f "$file" ]; then
-    echo "The browser didn't remove it: Uninstall wasn't picked from the app's menu in time."
+    echo "The app was closed without picking Uninstall from its menu, so it stays."
     exit 1
 fi
 echo "Removed"
@@ -1068,6 +1079,18 @@ void AppInstall::confirmRemove()
     } else {
         run(asPerson(m_flathubRemoveScript, {m_picked.package}), 30 * 60000, finished, eachLine);
     }
+}
+
+void AppInstall::stopWaiting()
+{
+    if (stage() != QLatin1String("removing") || m_picked.source != QLatin1String("web"))
+        return;
+    stopRunning();
+    const QString data = qEnvironmentVariable("XDG_DATA_HOME", QDir::homePath() + QStringLiteral("/.local/share"));
+    const bool gone = !QFile::exists(data + QStringLiteral("/applications/") + m_picked.package);
+    if (!gone)
+        m_why = QStringLiteral("%1 stays: Uninstall wasn't picked from its menu.").arg(m_picked.name);
+    finishRemoving(gone, QStringLiteral("Stopped waiting for the browser."));
 }
 
 void AppInstall::finishRemoving(bool ok, const QString &output)

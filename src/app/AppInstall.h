@@ -100,6 +100,9 @@ public:
     // Asks to remove the installed app with that key: the card waits for a
     // yes. confirmRemove() removes it; back() returns to the results.
     Q_INVOKABLE void remove(const QString &key);
+    // While a web app's own menu is waited for: stops waiting. It is
+    // removed if its entry has gone, and stays otherwise.
+    Q_INVOKABLE void stopWaiting();
     Q_INVOKABLE void confirmRemove();
     Q_INVOKABLE void back();
     // Opens the card to say which app to remove.
