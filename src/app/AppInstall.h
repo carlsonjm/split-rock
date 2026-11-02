@@ -131,8 +131,8 @@ public:
     static bool keptByAndroid(const QString &package);
     // The command that asks a web app's browser to remove it, from the
     // Exec= line of the app's entry, read by the desktop entry's own quoting
-    // rules: the browser's own command, its profile and the browser's
-    // own page for the app, chrome://app-settings/. Empty when the line names no app id or no browser.
+    // rules: the browser's own command, its profile and --app-id=, which
+    // opens the app, whose own menu removes it. Empty when the line names no app id or no browser.
     static QStringList webUninstall(const QString &exec);
     // The words of a desktop entry's Exec= value, its field codes left out.
     static QStringList execWords(const QString &exec);

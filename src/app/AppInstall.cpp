@@ -72,22 +72,23 @@ echo "@@ local"
 // browser that installed it, as the browser's own uninstall does; deleting
 // only the entry would see the browser write it again. The rest of the
 // arguments are that command, read from the entry by AppInstall::webUninstall:
-// it opens the browser's own page for the app, in the profile that installed
-// it, whether the browser is running or not, and the person taps Uninstall
-// there. Chromium's --uninstall-app-id isn't used: on Linux a running browser
-// ignores it. The browser stays open after, so it is left running, and the
-// entry going is what says it's done.
+// it opens the app itself, as its own entry does, and the person picks
+// Uninstall from the app window's own menu, which asks the browser's own
+// Remove. Chromium's --uninstall-app-id isn't used, since a running browser
+// ignores it, and it won't open chrome:// pages from a command. The browser
+// stays open after, so it is left running, and the entry going is what says
+// it's done.
 const QString WebRemoveScript = QStringLiteral(R"SH(export LANG=C LC_ALL=C
 file=${XDG_DATA_HOME:-$HOME/.local/share}/applications/$1
 [ -f "$file" ] || exit 0
 shift
 command -v "$1" >/dev/null 2>&1 || { echo "$1 isn't on this computer any more."; exit 1; }
-echo "Opening the app's page in ${1##*/}"
+echo "Opening the app"
 "$@" >/dev/null 2>&1 &
 i=0
 while [ -f "$file" ] && [ $i -lt 240 ]; do sleep 1; i=$((i + 1)); done
 if [ -f "$file" ]; then
-    echo "The browser didn't remove it: Uninstall wasn't tapped on its page in time."
+    echo "The browser didn't remove it: Uninstall wasn't picked from the app's menu in time."
     exit 1
 fi
 echo "Removed"
@@ -741,7 +742,7 @@ QStringList AppInstall::webUninstall(const QString &exec)
     QStringList command = browser;
     if (!inProfile.isEmpty())
         command.append(QStringLiteral("--profile-directory=") + inProfile);
-    command.append(QStringLiteral("chrome://app-settings/") + app);
+    command.append(QStringLiteral("--app-id=") + app);
     return command;
 }
 
@@ -1037,7 +1038,7 @@ void AppInstall::confirmRemove()
     }
     clearProgress();
     setNow(shelf ? QStringLiteral("Waiting for your password")
-           : web ? QStringLiteral("Tap Uninstall on the browser's page for it")
+           : web ? QStringLiteral("%1 opened: tap ⋮ at its top right, then Uninstall %1").arg(m_picked.name)
                  : QStringLiteral("Removing it"));
     setStage(QStringLiteral("removing"));
     Q_EMIT changed();
