@@ -6,6 +6,8 @@
 #include "core/AppStore.h"
 
 #include <QDateTime>
+#include <QDir>
+#include <QFile>
 #include <QDebug>
 #include <QHash>
 #include <QProcess>
@@ -18,6 +20,23 @@
 namespace splitrock {
 
 namespace {
+
+// Shell, run as the person: the web apps and Android apps in their own app
+// menu, as "web<TAB>desktop file id<TAB>name" and
+// "android<TAB>package<TAB>name". A Chromium-family browser writes a web
+// app's entry with --app-id= in its command; Waydroid writes an Android app's
+// as "waydroid app launch" and its package.
+#define SPLITROCK_LOCAL_APPS R"SH(for f in "${XDG_DATA_HOME:-$HOME/.local/share}"/applications/*.desktop; do
+    [ -f "$f" ] || continue
+    grep -qiE '^(NoDisplay|Hidden)=true' "$f" && continue
+    name=$(sed -n 's/^Name=//p' "$f" | head -n 1)
+    command=$(sed -n 's/^Exec=//p' "$f" | head -n 1)
+    case $command in
+    *--app-id=*) printf 'web\t%s\t%s\n' "${f##*/}" "$name" ;;
+    *"waydroid app launch "*) printf 'android\t%s\t%s\n' "${command##*waydroid app launch }" "$name" ;;
+    esac
+done
+)SH"
 
 // Run as the person, with what they asked for as $1: the apps the system's
 // shelf and Flathub describe for it, and what is installed already.
@@ -45,7 +64,121 @@ command -v flatpak >/dev/null 2>&1 && flatpak list --app --columns=application 2
 echo "@@ owned"
 pacman -Qqe 2>/dev/null
 command -v flatpak >/dev/null 2>&1 && flatpak list --app --columns=application,name 2>/dev/null
-echo "@@ end"
+echo "@@ local"
+)SH" SPLITROCK_LOCAL_APPS R"SH(echo "@@ end"
+)SH");
+
+// Run as the person: removes a web app, $1 its desktop file id, through the
+// browser that installed it, as the browser's own uninstall does; deleting
+// only the entry would see the browser write it again. The rest of the
+// arguments are that command, read from the entry by AppInstall::webUninstall:
+// it opens the app itself, as its own entry does, and the person picks
+// Uninstall from the app window's own menu, which asks the browser's own
+// Remove. Chromium's --uninstall-app-id isn't used, since a running browser
+// ignores it, and it won't open chrome:// pages from a command. The browser
+// stays open after, so it is left running, and the entry going is what says
+// it's done.
+const QString WebRemoveScript = QStringLiteral(R"SH(export LANG=C LC_ALL=C
+file=${XDG_DATA_HOME:-$HOME/.local/share}/applications/$1
+[ -f "$file" ] || exit 0
+shift
+command -v "$1" >/dev/null 2>&1 || { echo "$1 isn't on this computer any more."; exit 1; }
+echo "Opening the app"
+# A browser already running takes the app over and the command ends at
+# once; otherwise the command is the browser itself, and its ending, however
+# soon, means the app's window was closed. Whether one runs is looked at
+# before, by the names its programs run under; a Flatpak browser counts as
+# running. Either way the app's window is watched too, and Stop waiting is
+# there if neither can tell.
+names=${1##*/}
+case $names in
+google-chrome*) names="$names chrome" ;;
+brave*) names="$names brave" ;;
+microsoft-edge*) names="$names msedge" ;;
+vivaldi*) names="$names vivaldi-bin" ;;
+flatpak) names= ;;
+esac
+own=
+if [ -n "$names" ]; then
+    own=1
+    for name in $names; do
+        pgrep -u "$(id -u)" -x "$name" >/dev/null 2>&1 && own=
+    done
+fi
+"$@" >/dev/null 2>&1 &
+pid=$!
+alive() { [ -d "/proc/$pid" ] && ! grep -q '^State:[[:space:]]*Z' "/proc/$pid/status" 2>/dev/null; }
+# KWin's own window search finds the app's window by its desktop file id,
+# whichever browser process draws it: once seen, its going means closed.
+stem=${file##*/}
+stem=${stem%.desktop}
+qdbus=$(command -v qdbus6 || command -v qdbus)
+shown() {
+    [ -n "$qdbus" ] || return 2
+    found=$("$qdbus" --literal org.kde.KWin /WindowsRunner org.kde.krunner1.Match "$stem" 2>/dev/null) || return 2
+    found=$(printf '%s' "$found" | sed 's/^[[:space:]]*//; s/[[:space:]]*$//')
+    # A match row is printed as "[Argument: (sssida{sv}) ...]"; no match is
+    # exactly the empty list, "[Argument: a(sssida{sv}) {}]". Anything else is read as not knowing.
+    case $found in
+    *'[Argument: (sssida{sv})'*) return 0 ;;
+    '[Argument: a(sssida{sv}) {}]' | 'a(sssida{sv}) {}') return 1 ;;
+    *) return 2 ;;
+    esac
+}
+seen=
+i=0
+while [ -f "$file" ] && [ $i -lt 240 ]; do
+    sleep 1
+    i=$((i + 1))
+    if [ -n "$own" ] && ! alive; then sleep 2; break; fi
+    shown
+    state=$?
+    if [ $state -eq 0 ]; then
+        seen=1
+    elif [ -n "$seen" ] && [ $state -eq 1 ]; then
+        sleep 3
+        break
+    fi
+done
+if [ -f "$file" ]; then
+    echo "The app was closed without picking Uninstall from its menu, so it stays."
+    exit 1
+fi
+echo "Removed"
+)SH");
+
+// Run as the person: removes an Android app, $1 its package, from Waydroid.
+// Waydroid only removes one while Android runs, so Android is started for it
+// if it wasn't, and stopped again after.
+const QString AndroidRemoveScript = QStringLiteral(R"SH(export LANG=C LC_ALL=C
+command -v waydroid >/dev/null 2>&1 || { echo "Waydroid isn't on this computer any more."; exit 1; }
+running() { waydroid status 2>/dev/null | grep -q '^Session:.*RUNNING'; }
+installed() { waydroid app list 2>/dev/null | grep -qx "packageName: $1"; }
+started=
+if ! running; then
+    echo "Starting Android"
+    waydroid session start >/dev/null 2>&1 &
+    started=1
+    i=0
+    while ! running && [ $i -lt 90 ]; do sleep 1; i=$((i + 1)); done
+fi
+gone=
+i=0
+while [ $i -lt 12 ]; do
+    waydroid app remove "$1" 2>&1
+    sleep 2
+    if ! installed "$1"; then gone=1; break; fi
+    sleep 5
+    i=$((i + 1))
+done
+entry=${XDG_DATA_HOME:-$HOME/.local/share}/applications/waydroid.$1.desktop
+[ -n "$gone" ] && rm -f -- "$entry"
+[ -n "$started" ] && waydroid session stop >/dev/null 2>&1
+if [ -z "$gone" ]; then
+    echo "Android didn't remove it."
+    exit 1
+fi
+echo "Removed"
 )SH");
 
 // Run as the person: removes a Flatpak app, $1 its id. Flatpak asks for the
@@ -61,7 +194,9 @@ flatpak install -y --noninteractive "$1" "$2" 2>&1
 )SH");
 
 // Run as the person: what owns the app with the desktop file id $1, as
-// "shelf<TAB>package<TAB>name" or "flathub<TAB>id<TAB>name", or nothing. The
+// "shelf<TAB>package<TAB>name", "flathub<TAB>id<TAB>name",
+// "web<TAB>desktop file id<TAB>name" or "android<TAB>package<TAB>name", or
+// nothing. The
 // first copy of the file on the desktop's own search path is the one the app
 // menu shows; one of the person's own that no package owns, such as a menu
 // entry they edited, is passed over for the one beneath it.
@@ -71,6 +206,19 @@ for dir in "${XDG_DATA_HOME:-$HOME/.local/share}" ${XDG_DATA_DIRS:-/usr/local/sh
     file=$dir/applications/$1
     [ -f "$file" ] || continue
     name=$(sed -n 's/^Name=//p' "$file" | head -n 1)
+    if [ "$dir" = "${XDG_DATA_HOME:-$HOME/.local/share}" ]; then
+        command=$(sed -n 's/^Exec=//p' "$file" | head -n 1)
+        case $command in
+        *--app-id=*)
+            printf 'web\t%s\t%s\n' "$1" "$name"
+            exit 0
+            ;;
+        *"waydroid app launch "*)
+            printf 'android\t%s\t%s\n' "${command##*waydroid app launch }" "$name"
+            exit 0
+            ;;
+        esac
+    fi
     case $file in
     */flatpak/exports/share/applications/*)
         app=${1%.desktop}
@@ -89,21 +237,29 @@ done
 )SH");
 
 // Run as the person: opens an installed app by its package or its Flatpak
-// id, $1 shelf or flathub and $2 the name.
+// id, its web app's desktop file id or its Android package: $1 shelf,
+// flathub, web or android, and $2 the name.
 const QString OpenScript = QStringLiteral(R"SH(if [ "$1" = flathub ]; then
     exec flatpak run "$2"
 fi
-desktop=$(pacman -Qlq "$2" 2>/dev/null | grep '^/usr/share/applications/.*\.desktop$' | head -n 1)
-[ -n "$desktop" ] || exit 1
-id=$(basename "$desktop" .desktop)
+case $1 in
+web) id=${2%.desktop} ;;
+android) id=waydroid.$2 ;;
+*)
+    desktop=$(pacman -Qlq "$2" 2>/dev/null | grep '^/usr/share/applications/.*\.desktop$' | head -n 1)
+    [ -n "$desktop" ] || exit 1
+    id=$(basename "$desktop" .desktop)
+    ;;
+esac
 if command -v kstart >/dev/null 2>&1; then exec kstart --application "$id"; fi
 exec gtk-launch "$id"
 )SH");
 
 // Run as the person: what Your apps lists. Each section starts with a line
 // "@@ name": the packages installed on purpose, the app menu's entries as
-// "file<TAB>Name", who owns each entry, each package's size, and Flathub's
-// apps as "id<TAB>name<TAB>size". Nothing here changes anything.
+// "file<TAB>Name", who owns each entry, each package's size, Flathub's apps
+// as "id<TAB>name<TAB>size", and the person's web apps and Android apps.
+// Nothing here changes anything.
 const QString YoursScript = QStringLiteral(R"SH(export LANG=C LC_ALL=C
 echo "@@ explicit"
 pacman -Qqe 2>/dev/null
@@ -119,7 +275,8 @@ echo "@@ sizes"
 pacman -Qqe 2>/dev/null | xargs -r pacman -Qi 2>/dev/null | grep -E '^(Name|Installed Size) '
 echo "@@ flathub"
 command -v flatpak >/dev/null 2>&1 && flatpak list --app --columns=application,name,size 2>/dev/null
-echo "@@ end"
+echo "@@ local"
+)SH" SPLITROCK_LOCAL_APPS R"SH(echo "@@ end"
 )SH");
 
 const QRegularExpression &packageName()
@@ -134,6 +291,36 @@ const QRegularExpression &flatpakId()
     return id;
 }
 
+const QRegularExpression &desktopFileId()
+{
+    static const QRegularExpression id(QStringLiteral("^[A-Za-z0-9_][A-Za-z0-9._+-]{0,200}\\.desktop$"));
+    return id;
+}
+
+// A web app or an Android app, from its "web|android<TAB>id<TAB>name" line,
+// or an empty App when the line is neither or its id is shaped otherwise.
+AppInstall::App localApp(const QString &line)
+{
+    const QStringList columns = line.split(QLatin1Char('\t'));
+    AppInstall::App app;
+    if (columns.size() < 2)
+        return app;
+    const QString source = columns.at(0).trimmed();
+    const QString id = columns.at(1).trimmed();
+    const bool web = source == QLatin1String("web") && desktopFileId().match(id).hasMatch();
+    const bool android = source == QLatin1String("android") && flatpakId().match(id).hasMatch();
+    if (!web && !android)
+        return app;
+    app.source = source;
+    app.package = id;
+    app.name = columns.value(2).trimmed();
+    if (app.name.isEmpty())
+        app.name = web ? id.chopped(8) : id;
+    app.key = source + QLatin1Char(':') + id;
+    app.installed = true;
+    return app;
+}
+
 } // namespace
 
 QVariantMap AppInstall::App::toMap() const
@@ -142,8 +329,10 @@ QVariantMap AppInstall::App::toMap() const
             {QStringLiteral("name"), name},
             {QStringLiteral("summary"), summary},
             {QStringLiteral("source"), source},
-            {QStringLiteral("sourceName"), source == QLatin1String("flathub") ? QStringLiteral("Flathub")
-                                                                               : QStringLiteral("This system's shelf")},
+            {QStringLiteral("sourceName"), source == QLatin1String("flathub")  ? QStringLiteral("Flathub")
+                                           : source == QLatin1String("web")     ? QStringLiteral("Web app")
+                                           : source == QLatin1String("android") ? QStringLiteral("Android app")
+                                                                                : QStringLiteral("This system's shelf")},
             {QStringLiteral("package"), package},
             {QStringLiteral("installed"), installed},
             {QStringLiteral("alsoFlathub"), alsoFlathub},
@@ -157,6 +346,8 @@ AppInstall::AppInstall(QObject *parent)
     , m_flathubScript(FlathubScript)
     , m_openScript(OpenScript)
     , m_flathubRemoveScript(FlathubRemoveScript)
+    , m_webRemoveScript(WebRemoveScript)
+    , m_androidRemoveScript(AndroidRemoveScript)
     , m_ownerScript(OwnerScript)
     , m_yoursScript(YoursScript)
     , m_storeProbe([] { return core::AppStore::look().missing(); })
@@ -183,6 +374,7 @@ QList<AppInstall::App> AppInstall::readSearch(const QString &output, const QStri
     QStringList shelf;
     QStringList flathub;
     QStringList owned;
+    QStringList local;
     QSet<QString> installed;
     for (const QString &line : output.split(QLatin1Char('\n'))) {
         if (line.startsWith(QLatin1String("@@ "))) {
@@ -197,6 +389,8 @@ QList<AppInstall::App> AppInstall::readSearch(const QString &output, const QStri
             installed.insert(line.trimmed());
         else if (section == QLatin1String("owned") && !line.trimmed().isEmpty())
             owned.append(line);
+        else if (section == QLatin1String("local") && !line.trimmed().isEmpty())
+            local.append(line);
     }
 
     QList<App> apps;
@@ -311,6 +505,15 @@ QList<AppInstall::App> AppInstall::readSearch(const QString &output, const QStri
         if (std::none_of(apps.cbegin(), apps.cend(), [&o](const App &a) { return a.key == o.key; }))
             apps.append(o);
     }
+    // The person's web apps and Android apps, by the name the app menu shows.
+    for (const QString &line : std::as_const(local)) {
+        App o = localApp(line);
+        if (o.key.isEmpty() || !fits(o.name))
+            continue;
+        o.summary = QStringLiteral("Installed on this computer");
+        if (std::none_of(apps.cbegin(), apps.cend(), [&o](const App &a) { return a.key == o.key; }))
+            apps.append(o);
+    }
 
     // Best first: the words asked for in its name, then in its summary, then
     // the system's shelf ahead of Flathub.
@@ -416,6 +619,15 @@ QList<AppInstall::App> AppInstall::readYours(const QString &output)
         if (std::none_of(apps.cbegin(), apps.cend(), [&app](const App &a) { return a.key == app.key; }))
             apps.append(app);
     }
+    // Web apps and Android apps take room the list doesn't know; they sort
+    // with the other unknown sizes, by name.
+    for (const QString &line : found.value(QStringLiteral("local"))) {
+        const App app = localApp(line);
+        if (app.key.isEmpty() || (app.source == QLatin1String("android") && keptByAndroid(app.package)))
+            continue;
+        if (std::none_of(apps.cbegin(), apps.cend(), [&app](const App &a) { return a.key == app.key; }))
+            apps.append(app);
+    }
     // Biggest first; an unknown size last, then by name.
     std::stable_sort(apps.begin(), apps.end(), [](const App &a, const App &b) {
         if (a.kb != b.kb)
@@ -487,6 +699,113 @@ bool AppInstall::keptBySystem(const QString &package)
     return kept.contains(package) || family.match(package).hasMatch();
 }
 
+QStringList AppInstall::execWords(const QString &exec)
+{
+    // The value's own escapes first (\s, \n, \t, \r, \\), then the
+    // command's: words split at spaces outside double quotes; inside them a
+    // backslash keeps the next character as it is.
+    QString value;
+    for (qsizetype i = 0; i < exec.size(); ++i) {
+        const QChar c = exec.at(i);
+        if (c != QLatin1Char('\\') || i + 1 >= exec.size()) {
+            value += c;
+            continue;
+        }
+        const QChar next = exec.at(++i);
+        if (next == QLatin1Char('s'))
+            value += QLatin1Char(' ');
+        else if (next == QLatin1Char('n'))
+            value += QLatin1Char('\n');
+        else if (next == QLatin1Char('t'))
+            value += QLatin1Char('\t');
+        else if (next == QLatin1Char('r'))
+            value += QLatin1Char('\r');
+        else if (next == QLatin1Char('\\'))
+            value += QLatin1Char('\\');
+        else
+            value += QString(QLatin1Char('\\')) + next;
+    }
+    QStringList words;
+    QString word;
+    bool inWord = false;
+    bool quoted = false;
+    for (qsizetype i = 0; i < value.size(); ++i) {
+        const QChar c = value.at(i);
+        if (quoted) {
+            if (c == QLatin1Char('"'))
+                quoted = false;
+            else if (c == QLatin1Char('\\') && i + 1 < value.size())
+                word += value.at(++i);
+            else
+                word += c;
+        } else if (c == QLatin1Char('"')) {
+            quoted = true;
+            inWord = true;
+        } else if (c == QLatin1Char(' ') || c == QLatin1Char('\t')) {
+            if (inWord)
+                words.append(word);
+            word.clear();
+            inWord = false;
+        } else if (c == QLatin1Char('\\') && i + 1 < value.size()) {
+            word += value.at(++i);
+            inWord = true;
+        } else {
+            word += c;
+            inWord = true;
+        }
+    }
+    if (quoted)
+        return {};
+    if (inWord)
+        words.append(word);
+    // Field codes such as %U stand for what the app is opened with; %% is a
+    // percent sign.
+    static const QRegularExpression fieldCode(QStringLiteral("^%[A-Za-z]$"));
+    words.removeIf([](const QString &w) { return fieldCode.match(w).hasMatch(); });
+    for (QString &w : words)
+        w.replace(QStringLiteral("%%"), QStringLiteral("%"));
+    return words;
+}
+
+QStringList AppInstall::webUninstall(const QString &exec)
+{
+    static const QRegularExpression appId(QStringLiteral("^--app-id=([a-p]{32})$"));
+    static const QRegularExpression profile(QStringLiteral("^--profile-directory=([^/]+)$"));
+    const QStringList words = execWords(exec);
+    QStringList browser;
+    QString app;
+    QString inProfile;
+    bool flags = false;
+    for (const QString &w : words) {
+        const QRegularExpressionMatch a = appId.match(w);
+        const QRegularExpressionMatch p = profile.match(w);
+        if (a.hasMatch()) {
+            app = a.captured(1);
+            flags = true;
+        } else if (p.hasMatch()) {
+            inProfile = p.captured(1);
+            flags = true;
+        } else if (!flags && w != QLatin1String("@@u") && w != QLatin1String("@@")) {
+            // Flatpak's file forwarding marks carry no file here.
+            browser.append(w);
+        }
+    }
+    if (app.isEmpty() || browser.isEmpty())
+        return {};
+    QStringList command = browser;
+    if (!inProfile.isEmpty())
+        command.append(QStringLiteral("--profile-directory=") + inProfile);
+    command.append(QStringLiteral("--app-id=") + app);
+    return command;
+}
+
+bool AppInstall::keptByAndroid(const QString &package)
+{
+    static const QRegularExpression own(QStringLiteral(
+        "^(android|com\\.android\\..*|org\\.lineageos\\..*|com\\.lineageos\\..*|lineageos\\..*|id\\.waydro\\..*)$"));
+    return own.match(package).hasMatch();
+}
+
 void AppInstall::askRemove()
 {
     if (busy())
@@ -515,7 +834,7 @@ void AppInstall::removeApp(const QString &desktopId)
     clearProgress();
     setStage(QStringLiteral("searching"));
     Q_EMIT changed();
-    run(asPerson(m_ownerScript, {desktopId}), 60000, [this](int, const QString &output) {
+    run(asPerson(m_ownerScript, {desktopId}), 60000, [this, desktopId](int, const QString &output) {
         const QStringList columns = output.trimmed().split(QLatin1Char('\n')).value(0).split(QLatin1Char('\t'));
         App app;
         if (columns.size() >= 2) {
@@ -525,9 +844,15 @@ void AppInstall::removeApp(const QString &desktopId)
         }
         const bool shelf = app.source == QLatin1String("shelf") && packageName().match(app.package).hasMatch();
         const bool flathub = app.source == QLatin1String("flathub") && flatpakId().match(app.package).hasMatch();
+        const bool web = app.source == QLatin1String("web") && app.package == desktopId;
+        const bool android = app.source == QLatin1String("android") && flatpakId().match(app.package).hasMatch();
         if (app.name.isEmpty())
-            app.name = shelf || flathub ? app.package : m_query;
-        if (!shelf && !flathub) {
+            app.name = shelf || flathub || android ? app.package : m_query;
+        if (android && keptByAndroid(app.package)) {
+            m_picked.name = app.name;
+            m_why = QStringLiteral("%1 is part of Android, so it stays.").arg(app.name);
+            setStage(QStringLiteral("failed"));
+        } else if (!shelf && !flathub && !web && !android) {
             m_picked.name = app.name;
             m_why = QStringLiteral("No package on this computer owns %1, so nothing was removed.").arg(app.name);
             setStage(QStringLiteral("failed"));
@@ -617,7 +942,9 @@ void AppInstall::search(const QString &query)
         // Only what is installed can be removed, and never what the system
         // runs on.
         if (m_removing)
-            m_results.removeIf([](const App &a) { return !a.installed || keptBySystem(a.package); });
+            m_results.removeIf([](const App &a) {
+                return !a.installed || (a.source == QLatin1String("android") ? keptByAndroid(a.package) : keptBySystem(a.package));
+            });
         qInfo().noquote() << QStringLiteral("%1: %2 apps found").arg(productName()).arg(m_results.size());
         setStage(QStringLiteral("results"));
         Q_EMIT changed();
@@ -719,10 +1046,42 @@ void AppInstall::confirmRemove()
     if (stage() != QLatin1String("confirm"))
         return;
     const bool shelf = m_picked.source == QLatin1String("shelf");
+    const bool web = m_picked.source == QLatin1String("web");
+    const bool android = m_picked.source == QLatin1String("android");
+    // A web app's browser, read from its entry before anything is written
+    // down, so one that can't be told changes nothing.
+    QStringList uninstall;
+    if (web) {
+        const QString data = qEnvironmentVariable("XDG_DATA_HOME", QDir::homePath() + QStringLiteral("/.local/share"));
+        QFile entry(data + QStringLiteral("/applications/") + m_picked.package);
+        QString exec;
+        if (entry.open(QIODevice::ReadOnly | QIODevice::Text)) {
+            bool main = false;
+            while (!entry.atEnd()) {
+                const QString line = QString::fromUtf8(entry.readLine()).trimmed();
+                if (line.startsWith(QLatin1Char('[')))
+                    main = line == QLatin1String("[Desktop Entry]");
+                else if (main && line.startsWith(QLatin1String("Exec="))) {
+                    exec = line.mid(5);
+                    break;
+                }
+            }
+        }
+        uninstall = webUninstall(exec);
+        if (uninstall.isEmpty()) {
+            m_why = QStringLiteral("The browser that installed %1 couldn't be told from its entry, so nothing was removed.")
+                        .arg(m_picked.name);
+            setStage(QStringLiteral("failed"));
+            Q_EMIT changed();
+            return;
+        }
+    }
     m_id = QStringLiteral("remove-%1").arg(QDateTime::currentDateTime().toString(QStringLiteral("yyyyMMdd-HHmmss")));
     QString unrecorded;
-    const QString undo = shelf ? QStringLiteral("Install %1 again, or go back to the restore point taken before").arg(m_picked.package)
-                               : QStringLiteral("Install %1 again from Flathub").arg(m_picked.name);
+    const QString undo = shelf     ? QStringLiteral("Install %1 again, or go back to the restore point taken before").arg(m_picked.package)
+                         : web     ? QStringLiteral("Install %1 again from its website, in the browser's menu").arg(m_picked.name)
+                         : android ? QStringLiteral("Install %1 again from Android's app store").arg(m_picked.name)
+                                   : QStringLiteral("Install %1 again from Flathub").arg(m_picked.name);
     if (!writeDown(m_id, QStringLiteral("Removed %1").arg(m_picked.name), undo, &unrecorded)) {
         m_why = QStringLiteral("Nothing was changed: it couldn't be written in the notebook first. %1").arg(unrecorded);
         m_id.clear();
@@ -731,7 +1090,9 @@ void AppInstall::confirmRemove()
         return;
     }
     clearProgress();
-    setNow(shelf ? QStringLiteral("Waiting for your password") : QStringLiteral("Removing it"));
+    setNow(shelf ? QStringLiteral("Waiting for your password")
+           : web ? QStringLiteral("%1 opened: tap ⋮ at its top right, then Uninstall %1").arg(m_picked.name)
+                 : QStringLiteral("Removing it"));
     setStage(QStringLiteral("removing"));
     Q_EMIT changed();
 
@@ -753,9 +1114,25 @@ void AppInstall::confirmRemove()
         // it, and nothing is removed.
         run(asAdmin(QStringLiteral("remove"), {productName(), QStringLiteral("1"), m_picked.package}), -1, finished,
             eachLine);
+    } else if (web) {
+        run(asPerson(m_webRemoveScript, QStringList{m_picked.package} + uninstall), 5 * 60000, finished, eachLine);
+    } else if (android) {
+        run(asPerson(m_androidRemoveScript, {m_picked.package}), 10 * 60000, finished, eachLine);
     } else {
         run(asPerson(m_flathubRemoveScript, {m_picked.package}), 30 * 60000, finished, eachLine);
     }
+}
+
+void AppInstall::stopWaiting()
+{
+    if (stage() != QLatin1String("removing") || m_picked.source != QLatin1String("web"))
+        return;
+    stopRunning();
+    const QString data = qEnvironmentVariable("XDG_DATA_HOME", QDir::homePath() + QStringLiteral("/.local/share"));
+    const bool gone = !QFile::exists(data + QStringLiteral("/applications/") + m_picked.package);
+    if (!gone)
+        m_why = QStringLiteral("%1 stays: Uninstall wasn't picked from its menu.").arg(m_picked.name);
+    finishRemoving(gone, QStringLiteral("Stopped waiting for the browser."));
 }
 
 void AppInstall::finishRemoving(bool ok, const QString &output)

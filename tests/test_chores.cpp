@@ -605,7 +605,12 @@ private Q_SLOTS:
             keys.append(a.key);
         QCOMPARE(keys, (QStringList{QStringLiteral("flathub:com.valvesoftware.Steam"), QStringLiteral("flathub:us.zoom.Zoom"),
                                     QStringLiteral("shelf:obs-studio"), QStringLiteral("shelf:blender"),
-                                    QStringLiteral("shelf:okular"), QStringLiteral("flathub:org.example.Tiny")}));
+                                    QStringLiteral("shelf:okular"), QStringLiteral("flathub:org.example.Tiny"),
+                                    // Web apps and Android apps, size unknown, by name; never Android's own.
+                                    QStringLiteral("android:com.whatsapp"),
+                                    QStringLiteral("web:chrome-abcdefghijklmnopabcdefghijklmnop-Profile_1.desktop")}));
+        QCOMPARE(install.resultList().value(7).toMap().value(QStringLiteral("sourceName")).toString(), QStringLiteral("Web app"));
+        QCOMPARE(install.resultList().value(6).toMap().value(QStringLiteral("sourceName")).toString(), QStringLiteral("Android app"));
         const QVariantMap steam = install.resultList().value(0).toMap();
         QCOMPARE(steam.value(QStringLiteral("name")).toString(), QStringLiteral("Steam"));
         QCOMPARE(steam.value(QStringLiteral("size")).toString(), QStringLiteral("9.8 GB"));
@@ -703,6 +708,101 @@ private Q_SLOTS:
         install.removeApp(QStringLiteral("../../etc/passwd"));
         QCOMPARE(install.stage(), QStringLiteral("asking"));
         QVERIFY(install.removing());
+    }
+
+    void webAppsBrowserIsReadByTheEntrysQuoting()
+    {
+        // Chromium's own line: the quote opens before the flag.
+        QCOMPARE(AppInstall::webUninstall(QStringLiteral(
+                     "/usr/bin/chromium \"--profile-directory=Profile 1\" --app-id=fklnhlgfamfeknafaldenkmoeccpkmmf")),
+                 (QStringList{QStringLiteral("/usr/bin/chromium"), QStringLiteral("--profile-directory=Profile 1"),
+                              QStringLiteral("--app-id=fklnhlgfamfeknafaldenkmoeccpkmmf")}));
+        // Quoted after the flag, unquoted, and a browser path with a space.
+        QCOMPARE(AppInstall::webUninstall(QStringLiteral(
+                     "chromium --profile-directory=\"Profile 2\" --app-id=fklnhlgfamfeknafaldenkmoeccpkmmf %U")),
+                 (QStringList{QStringLiteral("chromium"), QStringLiteral("--profile-directory=Profile 2"),
+                              QStringLiteral("--app-id=fklnhlgfamfeknafaldenkmoeccpkmmf")}));
+        QCOMPARE(AppInstall::webUninstall(QStringLiteral(
+                     "\"/opt/My Browser/brave\" --profile-directory=Default --app-id=fklnhlgfamfeknafaldenkmoeccpkmmf")),
+                 (QStringList{QStringLiteral("/opt/My Browser/brave"), QStringLiteral("--profile-directory=Default"),
+                              QStringLiteral("--app-id=fklnhlgfamfeknafaldenkmoeccpkmmf")}));
+        // A Flatpak browser keeps its run command, without file forwarding.
+        QCOMPARE(AppInstall::webUninstall(QStringLiteral(
+                     "/usr/bin/flatpak run --command=chromium org.chromium.Chromium @@u %U @@ "
+                     "--profile-directory=Default --app-id=fklnhlgfamfeknafaldenkmoeccpkmmf")),
+                 (QStringList{QStringLiteral("/usr/bin/flatpak"), QStringLiteral("run"), QStringLiteral("--command=chromium"),
+                              QStringLiteral("org.chromium.Chromium"), QStringLiteral("--profile-directory=Default"),
+                              QStringLiteral("--app-id=fklnhlgfamfeknafaldenkmoeccpkmmf")}));
+        // No app id, no browser, or an open quote: nothing to run.
+        QVERIFY(AppInstall::webUninstall(QStringLiteral("chromium --profile-directory=Default")).isEmpty());
+        QVERIFY(AppInstall::webUninstall(QStringLiteral("--app-id=fklnhlgfamfeknafaldenkmoeccpkmmf")).isEmpty());
+        QVERIFY(AppInstall::webUninstall(QStringLiteral("chromium \"--app-id=fklnhlgfamfeknafaldenkmoeccpkmmf")).isEmpty());
+    }
+
+    void webAndAndroidAppsAreRemovedByWhatInstalledThem()
+    {
+        QTemporaryDir data;
+        const QString mine = data.filePath(QStringLiteral("home"));
+        const QString web = QStringLiteral("chrome-abcdefghijklmnopabcdefghijklmnop-Profile_1.desktop");
+        QVERIFY(write(mine + QStringLiteral("/applications/") + web,
+                      QStringLiteral("[Desktop Entry]\nName=YouTube\n"
+                                     "Exec=chromium \"--profile-directory=Profile 1\" --app-id=abcdefghijklmnopabcdefghijklmnop\n")));
+        QVERIFY(write(mine + QStringLiteral("/applications/waydroid.com.whatsapp.desktop"),
+                      QStringLiteral("[Desktop Entry]\nName=WhatsApp\nExec=waydroid app launch com.whatsapp\n")));
+        QVERIFY(write(mine + QStringLiteral("/applications/waydroid.com.android.settings.desktop"),
+                      QStringLiteral("[Desktop Entry]\nName=Settings\nExec=waydroid app launch com.android.settings\n")));
+        const QByteArray oldHome = qgetenv("XDG_DATA_HOME");
+        const QByteArray oldDirs = qgetenv("XDG_DATA_DIRS");
+        qputenv("XDG_DATA_HOME", mine.toUtf8());
+        qputenv("XDG_DATA_DIRS", data.filePath(QStringLiteral("none")).toUtf8());
+        const auto restore = qScopeGuard([&] {
+            oldHome.isNull() ? qunsetenv("XDG_DATA_HOME") : qputenv("XDG_DATA_HOME", oldHome);
+            oldDirs.isNull() ? qunsetenv("XDG_DATA_DIRS") : qputenv("XDG_DATA_DIRS", oldDirs);
+        });
+        // The browser removes its own entry, as Chromium does; Waydroid
+        // removes the app only while Android runs.
+        const QString marks = data.path();
+        StandIns standIns;
+        QVERIFY(standIns.add(QStringLiteral("chromium"), QStringLiteral(
+            "echo \"$*\" > '%1/browser'\nrm -f \"$XDG_DATA_HOME/applications/%2\"\n").arg(marks, web)));
+        QVERIFY(standIns.add(QStringLiteral("waydroid"), QStringLiteral(
+            "case \"$1 $2\" in\n"
+            "'status ') [ -f '%1/running' ] && echo 'Session:\tRUNNING' || echo 'Session:\tSTOPPED' ;;\n"
+            "'session start') touch '%1/running' ;;\n"
+            "'session stop') rm -f '%1/running'; touch '%1/stopped' ;;\n"
+            "'app list') [ -f '%1/removed' ] || echo 'packageName: com.whatsapp' ;;\n"
+            "'app remove') [ -f '%1/running' ] && touch '%1/removed' ;;\n"
+            "esac\n").arg(marks)));
+        QTemporaryDir logs;
+        AppInstall install;
+        install.setElevate({});
+        install.setLogFolder(logs.path());
+        install.setWriteDown([](const QString &, const QString &, const QString &, QString *) { return true; });
+
+        install.removeApp(web);
+        QTRY_COMPARE(install.stage(), QStringLiteral("confirm"));
+        QCOMPARE(install.pickedMap().value(QStringLiteral("source")).toString(), QStringLiteral("web"));
+        QCOMPARE(install.pickedMap().value(QStringLiteral("name")).toString(), QStringLiteral("YouTube"));
+        install.confirmRemove();
+        QTRY_COMPARE_WITH_TIMEOUT(install.stage(), QStringLiteral("removed"), 15000);
+        QFile browser(marks + QStringLiteral("/browser"));
+        QVERIFY(browser.open(QIODevice::ReadOnly));
+        QCOMPARE(browser.readAll().trimmed(),
+                 QByteArray("--profile-directory=Profile 1 --app-id=abcdefghijklmnopabcdefghijklmnop"));
+
+        install.removeApp(QStringLiteral("waydroid.com.whatsapp.desktop"));
+        QTRY_COMPARE(install.stage(), QStringLiteral("confirm"));
+        QCOMPARE(install.pickedMap().value(QStringLiteral("package")).toString(), QStringLiteral("com.whatsapp"));
+        install.confirmRemove();
+        QTRY_COMPARE_WITH_TIMEOUT(install.stage(), QStringLiteral("removed"), 20000);
+        // Android was started for it, and stopped again after.
+        QVERIFY(QFile::exists(marks + QStringLiteral("/stopped")));
+        QVERIFY(!QFile::exists(mine + QStringLiteral("/applications/waydroid.com.whatsapp.desktop")));
+
+        // Android's own apps stay.
+        install.removeApp(QStringLiteral("waydroid.com.android.settings.desktop"));
+        QTRY_COMPARE(install.stage(), QStringLiteral("failed"));
+        QVERIFY(install.why().contains(QStringLiteral("is part of Android")));
     }
 
     void restorePointsSayWhatCameNext()

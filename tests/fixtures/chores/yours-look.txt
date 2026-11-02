@@ -40,4 +40,10 @@ Installed Size  : 4.00 KiB
 com.valvesoftware.Steam	Steam	9.8 GB
 us.zoom.Zoom	Zoom	1.9 GB
 org.example.Tiny	Tiny	512 bytes
+@@ local
+web	chrome-abcdefghijklmnopabcdefghijklmnop-Profile_1.desktop	YouTube
+android	com.whatsapp	WhatsApp
+android	com.android.settings	Settings
+web	../escape.desktop	Not one
+android	not a package	Not one either
 @@ end
