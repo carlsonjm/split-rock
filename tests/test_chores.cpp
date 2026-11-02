@@ -710,6 +710,35 @@ private Q_SLOTS:
         QVERIFY(install.removing());
     }
 
+    void webAppsBrowserIsReadByTheEntrysQuoting()
+    {
+        // Chromium's own line: the quote opens before the flag.
+        QCOMPARE(AppInstall::webUninstall(QStringLiteral(
+                     "/usr/bin/chromium \"--profile-directory=Profile 1\" --app-id=fklnhlgfamfeknafaldenkmoeccpkmmf")),
+                 (QStringList{QStringLiteral("/usr/bin/chromium"), QStringLiteral("--profile-directory=Profile 1"),
+                              QStringLiteral("--uninstall-app-id=fklnhlgfamfeknafaldenkmoeccpkmmf")}));
+        // Quoted after the flag, unquoted, and a browser path with a space.
+        QCOMPARE(AppInstall::webUninstall(QStringLiteral(
+                     "chromium --profile-directory=\"Profile 2\" --app-id=fklnhlgfamfeknafaldenkmoeccpkmmf %U")),
+                 (QStringList{QStringLiteral("chromium"), QStringLiteral("--profile-directory=Profile 2"),
+                              QStringLiteral("--uninstall-app-id=fklnhlgfamfeknafaldenkmoeccpkmmf")}));
+        QCOMPARE(AppInstall::webUninstall(QStringLiteral(
+                     "\"/opt/My Browser/brave\" --profile-directory=Default --app-id=fklnhlgfamfeknafaldenkmoeccpkmmf")),
+                 (QStringList{QStringLiteral("/opt/My Browser/brave"), QStringLiteral("--profile-directory=Default"),
+                              QStringLiteral("--uninstall-app-id=fklnhlgfamfeknafaldenkmoeccpkmmf")}));
+        // A Flatpak browser keeps its run command, without file forwarding.
+        QCOMPARE(AppInstall::webUninstall(QStringLiteral(
+                     "/usr/bin/flatpak run --command=chromium org.chromium.Chromium @@u %U @@ "
+                     "--profile-directory=Default --app-id=fklnhlgfamfeknafaldenkmoeccpkmmf")),
+                 (QStringList{QStringLiteral("/usr/bin/flatpak"), QStringLiteral("run"), QStringLiteral("--command=chromium"),
+                              QStringLiteral("org.chromium.Chromium"), QStringLiteral("--profile-directory=Default"),
+                              QStringLiteral("--uninstall-app-id=fklnhlgfamfeknafaldenkmoeccpkmmf")}));
+        // No app id, no browser, or an open quote: nothing to run.
+        QVERIFY(AppInstall::webUninstall(QStringLiteral("chromium --profile-directory=Default")).isEmpty());
+        QVERIFY(AppInstall::webUninstall(QStringLiteral("--app-id=fklnhlgfamfeknafaldenkmoeccpkmmf")).isEmpty());
+        QVERIFY(AppInstall::webUninstall(QStringLiteral("chromium \"--app-id=fklnhlgfamfeknafaldenkmoeccpkmmf")).isEmpty());
+    }
+
     void webAndAndroidAppsAreRemovedByWhatInstalledThem()
     {
         QTemporaryDir data;
@@ -717,7 +746,7 @@ private Q_SLOTS:
         const QString web = QStringLiteral("chrome-abcdefghijklmnopabcdefghijklmnop-Profile_1.desktop");
         QVERIFY(write(mine + QStringLiteral("/applications/") + web,
                       QStringLiteral("[Desktop Entry]\nName=YouTube\n"
-                                     "Exec=chromium --profile-directory=\"Profile 1\" --app-id=abcdefghijklmnopabcdefghijklmnop\n")));
+                                     "Exec=chromium \"--profile-directory=Profile 1\" --app-id=abcdefghijklmnopabcdefghijklmnop\n")));
         QVERIFY(write(mine + QStringLiteral("/applications/waydroid.com.whatsapp.desktop"),
                       QStringLiteral("[Desktop Entry]\nName=WhatsApp\nExec=waydroid app launch com.whatsapp\n")));
         QVERIFY(write(mine + QStringLiteral("/applications/waydroid.com.android.settings.desktop"),

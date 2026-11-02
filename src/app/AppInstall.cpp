@@ -6,6 +6,8 @@
 #include "core/AppStore.h"
 
 #include <QDateTime>
+#include <QDir>
+#include <QFile>
 #include <QDebug>
 #include <QHash>
 #include <QProcess>
@@ -68,33 +70,17 @@ echo "@@ local"
 
 // Run as the person: removes a web app, $1 its desktop file id, through the
 // browser that installed it, as the browser's own uninstall does; deleting
-// only the entry would see the browser write it again. Chromium asks its own
-// "Remove?" in a window of its own and may stay open after, so it is left
-// running, and the entry going is what says it's done.
+// only the entry would see the browser write it again. The rest of the
+// arguments are that command, read from the entry by AppInstall::webUninstall.
+// Chromium asks its own "Remove?" in a window of its own and may stay open
+// after, so it is left running, and the entry going is what says it's done.
 const QString WebRemoveScript = QStringLiteral(R"SH(export LANG=C LC_ALL=C
 file=${XDG_DATA_HOME:-$HOME/.local/share}/applications/$1
 [ -f "$file" ] || exit 0
-command=$(sed -n 's/^Exec=//p' "$file" | head -n 1)
-app=$(printf '%s\n' "$command" | sed -n 's/.*--app-id=\([a-p]\{32\}\).*/\1/p')
-profile=$(printf '%s\n' "$command" | sed -n 's/.*--profile-directory="\([^"]*\)".*/\1/p; t; s/.*--profile-directory=\([^ "]*\).*/\1/p')
-browser=${command%% --profile-directory=*}
-browser=${browser%% --app-id=*}
-case $browser in
-''|*[!A-Za-z0-9._/=\ -]*) browser= ;;
-esac
-if [ -z "$app" ] || [ -z "$browser" ]; then
-    echo "The browser that installed it couldn't be told from its entry."
-    exit 1
-fi
-set -f
-set -- $browser
+shift
 command -v "$1" >/dev/null 2>&1 || { echo "$1 isn't on this computer any more."; exit 1; }
-echo "Asking $1 to remove it"
-if [ -n "$profile" ]; then
-    "$@" --profile-directory="$profile" --uninstall-app-id="$app" >/dev/null 2>&1 &
-else
-    "$@" --uninstall-app-id="$app" >/dev/null 2>&1 &
-fi
+echo "Asking ${1##*/} to remove it"
+"$@" >/dev/null 2>&1 &
 i=0
 while [ -f "$file" ] && [ $i -lt 240 ]; do sleep 1; i=$((i + 1)); done
 if [ -f "$file" ]; then
@@ -656,6 +642,106 @@ bool AppInstall::keptBySystem(const QString &package)
     return kept.contains(package) || family.match(package).hasMatch();
 }
 
+QStringList AppInstall::execWords(const QString &exec)
+{
+    // The value's own escapes first (\s, \n, \t, \r, \\), then the
+    // command's: words split at spaces outside double quotes; inside them a
+    // backslash keeps the next character as it is.
+    QString value;
+    for (qsizetype i = 0; i < exec.size(); ++i) {
+        const QChar c = exec.at(i);
+        if (c != QLatin1Char('\\') || i + 1 >= exec.size()) {
+            value += c;
+            continue;
+        }
+        const QChar next = exec.at(++i);
+        if (next == QLatin1Char('s'))
+            value += QLatin1Char(' ');
+        else if (next == QLatin1Char('n'))
+            value += QLatin1Char('\n');
+        else if (next == QLatin1Char('t'))
+            value += QLatin1Char('\t');
+        else if (next == QLatin1Char('r'))
+            value += QLatin1Char('\r');
+        else if (next == QLatin1Char('\\'))
+            value += QLatin1Char('\\');
+        else
+            value += QString(QLatin1Char('\\')) + next;
+    }
+    QStringList words;
+    QString word;
+    bool inWord = false;
+    bool quoted = false;
+    for (qsizetype i = 0; i < value.size(); ++i) {
+        const QChar c = value.at(i);
+        if (quoted) {
+            if (c == QLatin1Char('"'))
+                quoted = false;
+            else if (c == QLatin1Char('\\') && i + 1 < value.size())
+                word += value.at(++i);
+            else
+                word += c;
+        } else if (c == QLatin1Char('"')) {
+            quoted = true;
+            inWord = true;
+        } else if (c == QLatin1Char(' ') || c == QLatin1Char('\t')) {
+            if (inWord)
+                words.append(word);
+            word.clear();
+            inWord = false;
+        } else if (c == QLatin1Char('\\') && i + 1 < value.size()) {
+            word += value.at(++i);
+            inWord = true;
+        } else {
+            word += c;
+            inWord = true;
+        }
+    }
+    if (quoted)
+        return {};
+    if (inWord)
+        words.append(word);
+    // Field codes such as %U stand for what the app is opened with; %% is a
+    // percent sign.
+    static const QRegularExpression fieldCode(QStringLiteral("^%[A-Za-z]$"));
+    words.removeIf([](const QString &w) { return fieldCode.match(w).hasMatch(); });
+    for (QString &w : words)
+        w.replace(QStringLiteral("%%"), QStringLiteral("%"));
+    return words;
+}
+
+QStringList AppInstall::webUninstall(const QString &exec)
+{
+    static const QRegularExpression appId(QStringLiteral("^--app-id=([a-p]{32})$"));
+    static const QRegularExpression profile(QStringLiteral("^--profile-directory=([^/]+)$"));
+    const QStringList words = execWords(exec);
+    QStringList browser;
+    QString app;
+    QString inProfile;
+    bool flags = false;
+    for (const QString &w : words) {
+        const QRegularExpressionMatch a = appId.match(w);
+        const QRegularExpressionMatch p = profile.match(w);
+        if (a.hasMatch()) {
+            app = a.captured(1);
+            flags = true;
+        } else if (p.hasMatch()) {
+            inProfile = p.captured(1);
+            flags = true;
+        } else if (!flags && w != QLatin1String("@@u") && w != QLatin1String("@@")) {
+            // Flatpak's file forwarding marks carry no file here.
+            browser.append(w);
+        }
+    }
+    if (app.isEmpty() || browser.isEmpty())
+        return {};
+    QStringList command = browser;
+    if (!inProfile.isEmpty())
+        command.append(QStringLiteral("--profile-directory=") + inProfile);
+    command.append(QStringLiteral("--uninstall-app-id=") + app);
+    return command;
+}
+
 bool AppInstall::keptByAndroid(const QString &package)
 {
     static const QRegularExpression own(QStringLiteral(
@@ -905,6 +991,34 @@ void AppInstall::confirmRemove()
     const bool shelf = m_picked.source == QLatin1String("shelf");
     const bool web = m_picked.source == QLatin1String("web");
     const bool android = m_picked.source == QLatin1String("android");
+    // A web app's browser, read from its entry before anything is written
+    // down, so one that can't be told changes nothing.
+    QStringList uninstall;
+    if (web) {
+        const QString data = qEnvironmentVariable("XDG_DATA_HOME", QDir::homePath() + QStringLiteral("/.local/share"));
+        QFile entry(data + QStringLiteral("/applications/") + m_picked.package);
+        QString exec;
+        if (entry.open(QIODevice::ReadOnly | QIODevice::Text)) {
+            bool main = false;
+            while (!entry.atEnd()) {
+                const QString line = QString::fromUtf8(entry.readLine()).trimmed();
+                if (line.startsWith(QLatin1Char('[')))
+                    main = line == QLatin1String("[Desktop Entry]");
+                else if (main && line.startsWith(QLatin1String("Exec="))) {
+                    exec = line.mid(5);
+                    break;
+                }
+            }
+        }
+        uninstall = webUninstall(exec);
+        if (uninstall.isEmpty()) {
+            m_why = QStringLiteral("The browser that installed %1 couldn't be told from its entry, so nothing was removed.")
+                        .arg(m_picked.name);
+            setStage(QStringLiteral("failed"));
+            Q_EMIT changed();
+            return;
+        }
+    }
     m_id = QStringLiteral("remove-%1").arg(QDateTime::currentDateTime().toString(QStringLiteral("yyyyMMdd-HHmmss")));
     QString unrecorded;
     const QString undo = shelf     ? QStringLiteral("Install %1 again, or go back to the restore point taken before").arg(m_picked.package)
@@ -944,7 +1058,7 @@ void AppInstall::confirmRemove()
         run(asAdmin(QStringLiteral("remove"), {productName(), QStringLiteral("1"), m_picked.package}), -1, finished,
             eachLine);
     } else if (web) {
-        run(asPerson(m_webRemoveScript, {m_picked.package}), 5 * 60000, finished, eachLine);
+        run(asPerson(m_webRemoveScript, QStringList{m_picked.package} + uninstall), 5 * 60000, finished, eachLine);
     } else if (android) {
         run(asPerson(m_androidRemoveScript, {m_picked.package}), 10 * 60000, finished, eachLine);
     } else {
