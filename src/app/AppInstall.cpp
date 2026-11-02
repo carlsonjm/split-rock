@@ -116,11 +116,12 @@ qdbus=$(command -v qdbus6 || command -v qdbus)
 shown() {
     [ -n "$qdbus" ] || return 2
     found=$("$qdbus" --literal org.kde.KWin /WindowsRunner org.kde.krunner1.Match "$stem" 2>/dev/null) || return 2
+    found=$(printf '%s' "$found" | sed 's/^[[:space:]]*//; s/[[:space:]]*$//')
     # A match row is printed as "[Argument: (sssida{sv}) ...]"; no match is
-    # exactly the empty list. Anything else is read as not knowing.
+    # exactly the empty list, "[Argument: a(sssida{sv}) {}]". Anything else is read as not knowing.
     case $found in
     *'[Argument: (sssida{sv})'*) return 0 ;;
-    'a(sssida{sv}) {}') return 1 ;;
+    '[Argument: a(sssida{sv}) {}]' | 'a(sssida{sv}) {}') return 1 ;;
     *) return 2 ;;
     esac
 }
