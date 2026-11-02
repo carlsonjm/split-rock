@@ -15,8 +15,8 @@ checked against that file.
 Ask keeps its own rules on top, because they are written for questions about
 the computer. The broker has only the rules that hold for every app.
 
-This is version 0, for testing with Mail and Notes. It may still change. The
-tools were added within version 0, since Mail starts only a broker of the
+This is version 0, for testing with Mail, Notes and Slides. It may still change. The
+tools and the slide calls were added within version 0, since Mail starts only a broker of the
 version it knows.
 
 ## What holds
