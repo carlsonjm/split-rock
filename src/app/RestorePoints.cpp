@@ -393,15 +393,20 @@ void RestorePoints::back()
     Q_EMIT changed();
 }
 
-QList<int> RestorePoints::older() const
+QList<int> RestorePoints::olderIn(const Look &look)
 {
     QList<int> numbers;
     // The newest stay, as does the one the computer was started from.
-    for (qsizetype i = Kept; i < m_look.points.size(); ++i) {
-        if (m_look.points.at(i).number != m_look.bootedFrom)
-            numbers.append(m_look.points.at(i).number);
+    for (qsizetype i = Kept; i < look.points.size(); ++i) {
+        if (look.points.at(i).number != look.bootedFrom)
+            numbers.append(look.points.at(i).number);
     }
     return numbers;
+}
+
+QList<int> RestorePoints::older() const
+{
+    return olderIn(m_look);
 }
 
 void RestorePoints::askClearOlder()
