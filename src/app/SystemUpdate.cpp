@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 #include "app/SystemUpdate.h"
 
+#include "app/PackageNames.h"
 #include "app/Product.h"
 
 #include <QDebug>
@@ -24,14 +25,19 @@ namespace {
 // lists checkupdates fetched, without root and without fetching anything.
 const QString LookScript = QStringLiteral(R"SH(echo "@@ system"
 export CHECKUPDATES_DB="${XDG_CACHE_HOME:-$HOME/.cache}/split-rock/checkup-db"
+updates=
 if command -v checkupdates >/dev/null 2>&1; then
-    checkupdates 2>/dev/null
+    updates=$(checkupdates 2>/dev/null)
+    [ -n "$updates" ] && printf '%s\n' "$updates"
     echo "@@ download"
     [ -d "$CHECKUPDATES_DB/sync" ] && pacman -Sup --dbpath "$CHECKUPDATES_DB" --logfile /dev/null --noconfirm \
         --print-format '%n %v %s' 2>/dev/null
 else
     echo "@@ nochecker"
 fi
+echo "@@ launchers"
+# Each package the update changes, by the name its launcher gives it.
+[ -n "$updates" ] && printf '%s\n' "$updates" | awk '{ print $1 }' | @LAUNCHERS@
 echo "@@ community"
 if command -v paru >/dev/null 2>&1; then paru -Qua 2>/dev/null; elif command -v yay >/dev/null 2>&1; then yay -Qua 2>/dev/null; fi
 echo "@@ apps"
@@ -69,10 +75,16 @@ echo "@@ end"
 // newer in those lists, Flatpak its own cached ones. No community apps and
 // no news, which only the network has; the fresh look after it brings them.
 // "@@ stale" when no fetch has left lists yet.
+// The look, with how it reads launchers' names.
+QString lookScript()
+{
+    return QString(LookScript).replace(QStringLiteral("@LAUNCHERS@"), launcherNamesScript());
+}
+
 QString quickLookOf(QString script)
 {
-    script.replace(QStringLiteral("    checkupdates 2>/dev/null\n"),
-                   QStringLiteral("    pacman -Qu --dbpath \"$CHECKUPDATES_DB\" --logfile /dev/null 2>/dev/null\n"));
+    script.replace(QStringLiteral("$(checkupdates 2>/dev/null)"),
+                   QStringLiteral("$(pacman -Qu --dbpath \"$CHECKUPDATES_DB\" --logfile /dev/null 2>/dev/null)"));
     script.replace(QStringLiteral("if command -v paru >/dev/null 2>&1; then paru -Qua 2>/dev/null; elif command -v yay "
                                   ">/dev/null 2>&1; then yay -Qua 2>/dev/null; fi\n"),
                    QString());
@@ -206,6 +218,26 @@ QVariantMap SystemUpdate::Plan::toMap() const
 {
     QVariantList pieces;
     QVariantList rows;
+    // The apps people know by name, one row each, biggest first; the rest
+    // are the system's own parts, counted.
+    QList<std::pair<QString, qint64>> named;
+    int parts = 0;
+    for (const Package &p : list) {
+        if (p.known.isEmpty() || !p.piece.isEmpty()) {
+            if (p.piece.isEmpty())
+                ++parts;
+        } else if (auto it = std::find_if(named.begin(), named.end(), [&p](const auto &n) { return n.first == p.known; });
+                   it != named.end()) {
+            it->second += std::max<qint64>(0, p.size);
+        } else {
+            named.append({p.known, std::max<qint64>(0, p.size)});
+        }
+    }
+    std::stable_sort(named.begin(), named.end(), [](const auto &a, const auto &b) { return a.second > b.second; });
+    QVariantList namedRows;
+    for (const auto &[name, bytes] : std::as_const(named))
+        namedRows.append(QVariantMap{{QStringLiteral("name"), name},
+                                     {QStringLiteral("size"), bytes > 0 ? Chore::size(std::max<qint64>(1, bytes / 1024)) : QString()}});
     for (const Package &p : list) {
         const auto [from, to] = readable(p.from, p.to);
         const QVariantMap row{{QStringLiteral("name"), p.name},
@@ -221,6 +253,8 @@ QVariantMap SystemUpdate::Plan::toMap() const
     return {{QStringLiteral("system"), system},
             {QStringLiteral("list"), rows},
             {QStringLiteral("pieces"), pieces},
+            {QStringLiteral("named"), namedRows},
+            {QStringLiteral("parts"), parts},
             {QStringLiteral("appIds"), appIds},
             {QStringLiteral("download"), download > 0 ? Chore::size(std::max<qint64>(1, download / 1024)) : QString()},
             {QStringLiteral("desktopRisk"), desktopRisk},
@@ -251,8 +285,8 @@ QVariantMap SystemUpdate::Result::toMap() const
 
 SystemUpdate::SystemUpdate(QObject *parent)
     : Chore(parent)
-    , m_lookScript(LookScript)
-    , m_quickScript(quickLookOf(LookScript))
+    , m_lookScript(lookScript())
+    , m_quickScript(quickLookOf(lookScript()))
     , m_appsScript(AppsScript)
     , m_afterScript(AfterScript)
 {
@@ -260,7 +294,7 @@ SystemUpdate::SystemUpdate(QObject *parent)
 
 QString SystemUpdate::quickLook()
 {
-    return quickLookOf(LookScript);
+    return quickLookOf(lookScript());
 }
 
 bool SystemUpdate::busy() const
@@ -387,6 +421,11 @@ SystemUpdate::Plan SystemUpdate::readLook(const QString &output, const QDateTime
         if (any)
             plan.download = total;
     }
+    // Each by the name people know it by, where it has one.
+    const QMap<QString, QString> launchers = readLauncherNames(sections.value(QStringLiteral("launchers")));
+    for (Package &p : plan.list)
+        p.known = packageName(p.name, launchers);
+
     // The big pieces first, then by name.
     const auto order = [](const Package &p) {
         const qsizetype i = knownIndex(p.name);

@@ -56,6 +56,13 @@ private Q_SLOTS:
         // Shuffle is installed, and Plasma moves to 6.8.
         QVERIFY(plan.warnings.join(QLatin1Char(' ')).contains(QStringLiteral("Shuffle has its update for Plasma 6.8")));
         QVERIFY(plan.desktopRisk);
+        // Apps by the names people know, the system's own parts counted.
+        const QVariantMap map = plan.toMap();
+        const QVariantList named = map.value(QStringLiteral("named")).toList();
+        QCOMPARE(named.size(), 1);
+        QCOMPARE(named.first().toMap().value(QStringLiteral("name")).toString(), QStringLiteral("Firefox"));
+        QCOMPARE(named.first().toMap().value(QStringLiteral("size")).toString(), QStringLiteral("67 MB"));
+        QCOMPARE(map.value(QStringLiteral("parts")).toInt(), 2);
     }
 
     void theLookListsEveryPackageBigPiecesFirst()

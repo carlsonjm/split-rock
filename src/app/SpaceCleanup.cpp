@@ -2,6 +2,7 @@
 #include "app/SpaceCleanup.h"
 
 #include "app/AppInstall.h"
+#include "app/PackageNames.h"
 #include "app/Product.h"
 #include "app/RestorePoints.h"
 
@@ -44,13 +45,7 @@ echo "@@ installed"
 [ -n "$files" ] && pacman -Q 2>/dev/null
 echo "@@ launchers"
 # Each package with an old copy, by the name its launcher gives it.
-printf '%s\n' "$files" | grep -oE '[^ /]+\.pkg\.tar' | sed -E 's/-[^-]+-[^-]+-[^-]+\.pkg\.tar$//' | sort -u \
-    | while IFS= read -r p; do
-        d=$(pacman -Qlq "$p" 2>/dev/null | grep -m 1 -E '^/usr/share/applications/[^/]+\.desktop$')
-        [ -n "$d" ] || continue
-        n=$(sed -n 's/^Name=//p' "$d" 2>/dev/null | head -n 1)
-        [ -n "$n" ] && printf '%s\t%s\n' "$p" "$n"
-    done
+printf '%s\n' "$files" | grep -oE '[^ /]+\.pkg\.tar' | sed -E 's/-[^-]+-[^-]+-[^-]+\.pkg\.tar$//' | @LAUNCHERS@
 echo "@@ journal"
 journalctl --disk-usage 2>/dev/null
 echo "@@ journalfiles"
@@ -172,45 +167,6 @@ std::pair<QString, QString> nameAndVersion(const QString &file)
             parts.at(parts.size() - 3) + QLatin1Char('-') + parts.at(parts.size() - 2)};
 }
 
-// The names people know a package by when it has no launcher of its own,
-// for the few they would recognise; the rest are the system's own parts.
-QString knownName(const QString &package)
-{
-    static const QList<std::pair<QRegularExpression, QString>> names{
-        {QRegularExpression(QStringLiteral("^(man-pages|man-db)$")), QStringLiteral("Manual pages")},
-        {QRegularExpression(QStringLiteral("^limine$")), QStringLiteral("Startup menu (Limine)")},
-        {QRegularExpression(QStringLiteral("^grub$")), QStringLiteral("Startup menu (GRUB)")},
-        {QRegularExpression(QStringLiteral("^linux(-cachyos[a-z0-9-]*|-lts|-zen|-hardened)?$")),
-         QStringLiteral("The system's core (Linux)")},
-        {QRegularExpression(QStringLiteral("^linux-firmware")), QStringLiteral("Device firmware")},
-        {QRegularExpression(QStringLiteral("^hunspell")), QStringLiteral("Spell checking (Hunspell)")},
-        {QRegularExpression(QStringLiteral("^(lib32-)?mesa$")), QStringLiteral("Graphics drivers (Mesa)")},
-        {QRegularExpression(QStringLiteral("^(lib32-)?nvidia")), QStringLiteral("Graphics drivers (NVIDIA)")},
-        {QRegularExpression(QStringLiteral("^pipewire")), QStringLiteral("Sound (PipeWire)")},
-        {QRegularExpression(QStringLiteral("^networkmanager$")), QStringLiteral("Network connections")},
-        {QRegularExpression(QStringLiteral("^bluez")), QStringLiteral("Bluetooth")},
-        {QRegularExpression(QStringLiteral("^(plasma-workspace|plasma-desktop|kwin)$")), QStringLiteral("Plasma desktop")},
-    };
-    // The suite's own parts, by the names Shuffle gives them inside it.
-    static const QMap<QString, std::pair<QString, QString>> suite{
-        {QStringLiteral("kadunce"), {QStringLiteral("Shuffle Cards"), QStringLiteral("Kadunce")}},
-        {QStringLiteral("tettegouche"), {QStringLiteral("Shuffle Search"), QStringLiteral("Tettegouche")}},
-        {QStringLiteral("temperance"), {QStringLiteral("Shuffle Status"), QStringLiteral("Temperance")}},
-        {QStringLiteral("gooseberry"), {QStringLiteral("Shuffle Notes"), QStringLiteral("Gooseberry")}},
-        {QStringLiteral("shuffle-keyboard"), {QStringLiteral("Shuffle Keyboard"), QStringLiteral("Shuffle Keyboard")}},
-        {QStringLiteral("shuffle-plasma"), {QStringLiteral("Shuffle"), QStringLiteral("Shuffle")}},
-    };
-    if (const auto it = suite.constFind(package); it != suite.constEnd())
-        return insideShuffle() ? it->first : it->second;
-    if (package == QLatin1String("split-rock") || package.startsWith(QLatin1String("split-rock-")))
-        return productName();
-    for (const auto &[pattern, name] : names) {
-        if (pattern.match(package).hasMatch())
-            return name;
-    }
-    return QString();
-}
-
 // "kwin_wayland" from "core.kwin_wayland.1000.<boot>.<pid>.<time>.zst",
 // with systemd's \x2d escapes read back.
 QString crashedApp(const QString &file)
@@ -254,7 +210,7 @@ QString doing(const QString &id)
 
 SpaceCleanup::SpaceCleanup(QObject *parent)
     : Chore(parent)
-    , m_lookScript(LookScript)
+    , m_lookScript(QString(LookScript).replace(QStringLiteral("@LAUNCHERS@"), launcherNamesScript()))
     , m_personScript(PersonScript)
     , m_freeScript(FreeScript)
     , m_yoursScript(AppInstall::yoursScript())
@@ -308,12 +264,7 @@ SpaceCleanup::Look SpaceCleanup::readLook(const QString &output)
             if (f.size() == 2)
                 installed.insert(f.at(0), f.at(1));
         }
-        QMap<QString, QString> launchers;
-        for (const QString &text : found.value(QStringLiteral("launchers"))) {
-            const qsizetype tab = text.indexOf(QLatin1Char('\t'));
-            if (tab > 0 && !text.mid(tab + 1).trimmed().isEmpty())
-                launchers.insert(text.left(tab), text.mid(tab + 1).trimmed());
-        }
+        const QMap<QString, QString> launchers = readLauncherNames(found.value(QStringLiteral("launchers")));
         struct Named {
             qint64 kb = 0;
             bool sized = true;
@@ -342,7 +293,7 @@ SpaceCleanup::Look SpaceCleanup::readLook(const QString &output)
                     continue;
                 }
                 item.list.append(line(packageFile(file), kb));
-                const QString name = launchers.contains(package) ? launchers.value(package) : knownName(package);
+                const QString name = packageName(package, launchers);
                 Named &into = name.isEmpty() ? parts : named[name];
                 if (name.isEmpty())
                     partLines.append(line(packageFile(file), kb));

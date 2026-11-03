@@ -730,7 +730,8 @@ page and in the notebook opens each.
   version installed now, which paccache alone would take where a newer one was
   fetched and not yet installed; Show which names them as people know them,
   by their launcher or a short list of well-known parts, and folds the rest
-  into System parts. Where the restore points can be counted with no
+  into System parts, as Check for updates does with its list. Where the
+  restore points can be counted with no
   password, the older ones are a row too, unticked, keeping the newest 3; how
   much they held shows only once they're gone, since the computer can't say
   sooner without a slow count.

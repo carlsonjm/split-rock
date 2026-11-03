@@ -14,6 +14,9 @@ CardFrame {
     readonly property bool blocked: (plan.blockers || []).length > 0
     // The list is on the card while the person decides.
     readonly property bool reading: card.stage === "ready" || card.stage === "confirming"
+    // Only the system's own parts change: no app by name, no big piece.
+    readonly property bool onlyParts: card.plan.system > 0 && (card.plan.named || []).length === 0
+                                      && (card.plan.pieces || []).length === 0 && card.plan.apps === 0
     hue: card.stage === "failed" ? "coral" : card.stage === "done" ? "green" : "blue"
 
     // The heading: what the card is, and where it has got to.
@@ -34,6 +37,8 @@ CardFrame {
             }
             if (card.plan.system < 0)
                 return "Update this computer"
+            if (card.onlyParts)
+                return card.plan.system === 1 ? "1 system update is waiting" : card.plan.system + " system updates are waiting"
             const count = card.plan.system + card.plan.apps
             return count === 1 ? "1 update is waiting" : count + " updates are waiting"
         }
@@ -49,6 +54,8 @@ CardFrame {
             case "done": return card.result.installed > 0 ? card.result.installed + " packages were updated." : ""
             case "failed": return card.result.why
             }
+            if (card.onlyParts)
+                return (card.plan.download ? card.plan.download + " to download. " : "") + "No app you use changes."
             const parts = []
             if (card.plan.system > 0)
                 parts.push(card.plan.system + " for the system")
@@ -189,9 +196,79 @@ CardFrame {
                 WheelScroll { flickable: listScroller }
                 Column {
                     id: listColumn
+                    // Every package with its versions, once asked for.
+                    property bool partsOpen: false
                     width: listScroller.width
+                    // The apps people know, by name, and the Flatpak apps.
                     Repeater {
-                        model: card.reading ? (card.plan.list || []).concat((card.plan.appIds || []).map(id => ({ name: id, app: true }))) : []
+                        model: card.reading ? (card.plan.named || []).concat((card.plan.appIds || []).map(id => ({ name: id, size: "app" }))) : []
+                        Item {
+                            width: listColumn.width
+                            height: 32
+                            Text {
+                                anchors.left: parent.left
+                                anchors.right: namedSize.left
+                                anchors.rightMargin: 10
+                                anchors.verticalCenter: parent.verticalCenter
+                                elide: Text.ElideRight
+                                text: modelData.name
+                                color: theme.text
+                                font.pixelSize: 14
+                            }
+                            Text {
+                                id: namedSize
+                                anchors.right: parent.right
+                                anchors.verticalCenter: parent.verticalCenter
+                                text: modelData.size || ""
+                                color: theme.quiet
+                                font.pixelSize: 13
+                            }
+                        }
+                    }
+                    // The system's own parts in one line, which opens to
+                    // every package with its versions.
+                    Item {
+                        objectName: "updateParts"
+                        visible: card.reading && (card.plan.list || []).length > 0
+                        width: listColumn.width
+                        height: 32
+                        Text {
+                            anchors.left: parent.left
+                            anchors.verticalCenter: parent.verticalCenter
+                            textFormat: Text.StyledText
+                            text: ((card.plan.parts || 0) > 0
+                                   ? "System parts<font color=\"" + theme.quiet + "\"> · " + card.plan.parts
+                                     + (card.plan.parts === 1 ? " item" : " items") + "</font>"
+                                   : "Versions")
+                            color: theme.text
+                            font.pixelSize: 14
+                        }
+                    }
+                    Item {
+                        visible: card.reading && (card.plan.list || []).length > 0
+                        width: partsToggle.implicitWidth + 12
+                        height: 28
+                        activeFocusOnTab: true
+                        Accessible.role: Accessible.Button
+                        Accessible.name: partsToggle.text
+                        Keys.onReturnPressed: listColumn.partsOpen = !listColumn.partsOpen
+                        Keys.onSpacePressed: listColumn.partsOpen = !listColumn.partsOpen
+                        Text {
+                            id: partsToggle
+                            anchors.verticalCenter: parent.verticalCenter
+                            text: (listColumn.partsOpen ? "▾ " : "▸ ") + "Show what's included"
+                            color: theme.quiet
+                            font.pixelSize: 13
+                            font.weight: Font.Medium
+                        }
+                        MouseArea {
+                            anchors.fill: parent
+                            cursorShape: Qt.PointingHandCursor
+                            onClicked: listColumn.partsOpen = !listColumn.partsOpen
+                        }
+                    }
+                    Repeater {
+                        model: card.reading && listColumn.partsOpen ? card.plan.list || [] : []
                         Item {
                             width: listColumn.width
                             height: 28
