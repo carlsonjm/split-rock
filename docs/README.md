@@ -10,7 +10,8 @@ Paths are from the repository root.
 | `TRADEMARKS.md` | What the licence does not cover: the names and marks |
 | `docs/CONCEPT.md` | Who Split Rock is for, what the Helpers and Core do, and the rules they keep |
 | `docs/MEMORY.md` | The notebook: what Split Rock writes there, and what is never written down |
-| `assets/mark.svg` | Split Rock's mark, a lighthouse, and the file its icon is drawn from |
+| `assets/mark.svg` | Split Rock's mark, a lighthouse, drawn inside Split Rock |
+| `data/io.github.carlsonjm.SplitRock.svg` | Its app icon: an i with two glints, drawn as Shuffle's pearls are |
 | `docs/DECISIONS.md` | Every settled ruling and what it rejected |
 | `docs/LIMITATIONS.md` | What Split Rock does not do yet, and what it will not do |
 | `docs/INPUT.md` | Every input a Helper answers, opening with its controls map |

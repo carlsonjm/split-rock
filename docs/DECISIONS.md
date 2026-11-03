@@ -355,6 +355,11 @@ assistants are already called Genie.
 
 Rejected: the earlier working name.
 
+Since 2026-11-03 the app icon is no longer the mark on a blue tile. It is an
+i for help with two glints at its tip, like a magic wand, drawn as Shuffle's
+dock pearls are, on the tile every Shuffle app icon shares. The lighthouse
+stays the mark inside Split Rock.
+
 Since 2026-10-16 a Helper's window inside Shuffle is titled by the Helper
 alone ("Free up space"), centred in its title bar, and Split Rock's own window
 says Shuffle: Genie's chat is retired, and these windows are Shuffle's Helpers.

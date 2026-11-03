@@ -96,20 +96,12 @@ configure_file(data/io.github.carlsonjm.SplitRock.desktop.in
 # Split Rock Settings, in the app launcher by its name.
 configure_file(data/io.github.carlsonjm.SplitRock.Settings.desktop.in
     ${CMAKE_CURRENT_BINARY_DIR}/data/io.github.carlsonjm.SplitRock.Settings.desktop @ONLY)
-# The icon is the mark on its tile, drawn from the mark's one file.
-file(READ assets/mark.svg SPLIT_ROCK_MARK)
-string(REGEX MATCHALL "<path[^>]*/>" SPLIT_ROCK_MARK_PATHS "${SPLIT_ROCK_MARK}")
-# The tile sets the mark's ink, so the paths' own paint is dropped.
-string(REGEX REPLACE " (fill|stroke|fill-rule)=\"[^\"]*\"" "" SPLIT_ROCK_MARK_PATHS "${SPLIT_ROCK_MARK_PATHS}")
-string(JOIN "\n    " SPLIT_ROCK_MARK_PATHS ${SPLIT_ROCK_MARK_PATHS})
-configure_file(data/io.github.carlsonjm.SplitRock.svg.in
-    ${CMAKE_CURRENT_BINARY_DIR}/data/io.github.carlsonjm.SplitRock.svg @ONLY)
 
 install(TARGETS split-rock RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
 install(FILES ${CMAKE_CURRENT_BINARY_DIR}/data/io.github.carlsonjm.SplitRock.desktop
     ${CMAKE_CURRENT_BINARY_DIR}/data/io.github.carlsonjm.SplitRock.Settings.desktop
     DESTINATION ${CMAKE_INSTALL_DATADIR}/applications)
-install(FILES ${CMAKE_CURRENT_BINARY_DIR}/data/io.github.carlsonjm.SplitRock.svg
+install(FILES data/io.github.carlsonjm.SplitRock.svg
     DESTINATION ${CMAKE_INSTALL_DATADIR}/icons/hicolor/scalable/apps)
 install(DIRECTORY guide/plasma DESTINATION ${CMAKE_INSTALL_DATADIR}/split-rock/guide)
 install(DIRECTORY tour/plasma DESTINATION ${CMAKE_INSTALL_DATADIR}/split-rock/tour)
