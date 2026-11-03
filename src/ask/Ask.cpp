@@ -81,6 +81,10 @@ QString places(const QString &question)
             {"bright|dim|dark|screen",
              QStringLiteral("Brightness: the brightness slider in Control Center, opened with a tap on the network icon "
                             "at the top right.")},
+            {"wallpaper|background|desktop (picture|image|photo)|backdrop",
+             QStringLiteral("The wallpaper: Shuffle's own Settings (Meta+I), Appearance, then Your look. Tap one of the "
+                            "looks to use its picture, or Your picture to pick a photo of your own. It changes at once; "
+                            "there is no Apply button.")},
         };
     } else {
         list = {
@@ -88,6 +92,9 @@ QString places(const QString &question)
                                 "name. Files are in Dolphin, like File Explorer.")},
             {"wi-?fi|internet|network|hotspot|bluetooth|headphone|airpod|mouse|sound|volume|bright|dim",
              QStringLiteral("Wi-Fi, Bluetooth, volume and brightness: the icons at the bottom right.")},
+            {"wallpaper|background|desktop (picture|image|photo)|backdrop",
+             QStringLiteral("The wallpaper: right-click an empty part of the desktop and choose Desktop and Wallpaper, "
+                            "or the Wallpaper page of System Settings.")},
         };
     }
     list += {

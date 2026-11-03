@@ -2,6 +2,7 @@
 #include "core/Core.h"
 
 #include "core/Windows.h"
+#include "core/Notice.h"
 
 #include <QDir>
 #include <QFile>
@@ -74,39 +75,15 @@ bool Core::enabled(const QString &topic) const
 
 int Core::notice() const
 {
-    const QVariant stored = QSettings(m_settings, QSettings::IniFormat)
-                                .value(QStringLiteral("Notice"), 50);
-    const QString word = stored.toString().trimmed();
-    if (word == QLatin1String("quiet"))
-        return 0;
-    if (word == QLatin1String("eager"))
-        return 100;
-    bool number = false;
-    const double level = word.toDouble(&number);
-    if (!number)
-        return 50;
-    return qBound(0, qRound(level), 100);
+    return noticeLevel(m_settings);
 }
-
-namespace {
-
-// A mark along the Notice slider: the value at 0 (Less), 50 (the default) and
-// 100 (More), and straight lines between.
-int along(int level, int less, int balanced, int more)
-{
-    if (level <= 50)
-        return qRound(less + (balanced - less) * level / 50.0);
-    return qRound(balanced + (more - balanced) * (level - 50) / 50.0);
-}
-
-} // namespace
 
 StorageLimits Core::storageLimits() const
 {
     StorageLimits limits;
     const int n = notice();
-    limits.ticker = along(n, 85, 75, 70);
-    limits.island = along(n, 95, 90, 85);
+    limits.ticker = storageTickerAt(n);
+    limits.island = storageIslandAt(n);
     return limits;
 }
 
@@ -114,8 +91,8 @@ UpdatesLimits Core::updatesLimits() const
 {
     UpdatesLimits limits;
     const int n = notice();
-    limits.ticker = along(n, 21, 7, 3);
-    limits.island = along(n, 45, 21, 10);
+    limits.ticker = noticeMark(n, 21, 7, 3);
+    limits.island = noticeMark(n, 45, 21, 10);
     return limits;
 }
 

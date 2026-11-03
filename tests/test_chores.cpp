@@ -18,6 +18,7 @@
 #include <QDir>
 #include <QFile>
 #include <QProcess>
+#include <QRegularExpression>
 #include <QSettings>
 #include <QSignalSpy>
 #include <QStandardPaths>
@@ -841,6 +842,11 @@ private Q_SLOTS:
                  QStringLiteral("Before installing a community app"));
         QCOMPARE(RestorePoints::describe(QStringLiteral("pacman --sync --needed vlc"), QStringLiteral("number")),
                  QStringLiteral("Before installing vlc"));
+        // An option's value after it, as Install an app's own job writes it,
+        // is no app.
+        QCOMPARE(RestorePoints::describe(QStringLiteral("pacman -S --needed --noconfirm --noprogressbar --color never -- discover"),
+                                         QStringLiteral("number")),
+                 QStringLiteral("Before installing discover"));
         QVERIFY(RestorePoints::isOwn(QStringLiteral("Genie: Update")));
         QVERIFY(RestorePoints::isOwn(QStringLiteral("Shuffle Core: Update")));
         QVERIFY(!RestorePoints::isOwn(QStringLiteral("pacman -Syu")));
@@ -869,6 +875,203 @@ private Q_SLOTS:
         QCOMPARE(restore.stage(), QStringLiteral("ready"));
     }
 
+    void eachAdministratorJobHasAPromptOfItsOwn()
+    {
+        // pkexec picks the polkit action by the program and its first
+        // argument, the job; a job without one would show the raw command
+        // line, and one matching the program alone could be picked for any.
+        QFile admin(QStringLiteral(PROJECT_DIR "/src/admin/split-rock-admin"));
+        QVERIFY(admin.open(QIODevice::ReadOnly));
+        const QString script = QString::fromUtf8(admin.readAll());
+        QFile policy(QStringLiteral(PROJECT_DIR "/data/io.github.carlsonjm.splitrock.admin.policy.in"));
+        QVERIFY(policy.open(QIODevice::ReadOnly));
+        const QString actions = QString::fromUtf8(policy.readAll());
+        // The jobs that run as the person need no prompt.
+        const QStringList asPerson{QStringLiteral("unused"), QStringLiteral("kept")};
+        static const QRegularExpression job(QStringLiteral(R"(^([a-z|-]+)\)$)"), QRegularExpression::MultilineOption);
+        const qsizetype from = script.indexOf(QStringLiteral("case $job in"));
+        QVERIFY(from > 0);
+        QStringList jobs;
+        for (auto it = job.globalMatch(script, from); it.hasNext();)
+            jobs += it.next().captured(1).split(QLatin1Char('|'));
+        QVERIFY(jobs.contains(QStringLiteral("restore-list")));
+        QVERIFY(jobs.contains(QStringLiteral("appstore")));
+        for (const QString &name : jobs) {
+            if (asPerson.contains(name))
+                continue;
+            QVERIFY2(actions.contains(QStringLiteral("<action id=\"io.github.carlsonjm.splitrock.admin.%1\">").arg(name)),
+                     qPrintable(name));
+            QVERIFY2(actions.contains(QStringLiteral("exec.argv1\">%1</annotate>").arg(name)), qPrintable(name));
+        }
+        QCOMPARE(actions.count(QStringLiteral("exec.path")), actions.count(QStringLiteral("exec.argv1")));
+        // Reading the restore points is the only one without the password, and
+        // only in the person's own session at the computer.
+        QCOMPARE(actions.count(QStringLiteral("<allow_active>yes</allow_active>")), 1);
+        QCOMPARE(actions.count(QStringLiteral("<allow_any>auth_admin</allow_any>")), actions.count(QStringLiteral("<action ")));
+        QCOMPARE(actions.count(QStringLiteral("<allow_inactive>auth_admin</allow_inactive>")), actions.count(QStringLiteral("<action ")));
+        const qsizetype list = actions.indexOf(QStringLiteral("admin.restore-list\""));
+        QVERIFY(actions.indexOf(QStringLiteral("<allow_active>yes</allow_active>")) > list);
+        QVERIFY(actions.indexOf(QStringLiteral("<allow_active>yes</allow_active>")) < actions.indexOf(QStringLiteral("</action>"), list));
+    }
+
+    // Deleting restore points: each with the one taken after it, and never
+    // the one the computer runs on or starts from.
+    void theAdministratorDeletesOnlyRestorePointsThatMayGo()
+    {
+        StandIns standIns;
+        const QString ran = standIns.path() + QStringLiteral("/ran");
+        QVERIFY(standIns.add(QStringLiteral("snapper"), QStringLiteral(
+            "case \"$*\" in\n"
+            "*--csvout*) printf '%s\\n' number,type,pre-number,default,active 0,single,,no,no 4,pre,,no,no 5,post,4,no,no "
+            "6,single,,no,no 7,pre,,no,no 8,post,7,yes,yes ;;\n"
+            "*) echo \"snapper $*\" >> '%1' ;;\n"
+            "esac\n").arg(ran)));
+        const auto job = [](const QStringList &arguments) {
+            QProcess p;
+            p.setProcessChannelMode(QProcess::MergedChannels);
+            p.start(adminInSource().first(), arguments);
+            p.closeWriteChannel();
+            if (!p.waitForFinished(20000))
+                return -1;
+            return p.exitCode();
+        };
+        const auto said = [&ran] {
+            QFile file(ran);
+            const QString text = file.open(QIODevice::ReadOnly) ? QString::fromUtf8(file.readAll()) : QString();
+            file.remove();
+            return text;
+        };
+        QCOMPARE(job({QStringLiteral("restore-delete"), QStringLiteral("4"), QStringLiteral("6")}), 0);
+        QCOMPARE(said(), QStringLiteral("snapper -c root delete --sync 4 5 6\n"));
+        // The pair the computer starts from, a post alone, a number not
+        // there, and anything that isn't a number are refused, with nothing
+        // deleted.
+        for (const QStringList &refused : QList<QStringList>{{QStringLiteral("7")},
+                                                              {QStringLiteral("5")},
+                                                              {QStringLiteral("9")},
+                                                              {QStringLiteral("4"), QStringLiteral("0")},
+                                                              {QStringLiteral("4;reboot")},
+                                                              {}}) {
+            QCOMPARE(job(QStringList{QStringLiteral("restore-delete")} + refused), 2);
+            QCOMPARE(said(), QString());
+        }
+    }
+
+    void clearingOlderRestorePointsAsksFirstAndKeepsTheNewest()
+    {
+        QTemporaryDir dir;
+        const QString look = dir.filePath(QStringLiteral("look"));
+        const QString asked = dir.filePath(QStringLiteral("asked"));
+        const QString free = dir.filePath(QStringLiteral("free"));
+        QVERIFY(write(free, QStringLiteral("1000000\n")));
+        RestorePoints restore;
+        restore.setElevate({});
+        restore.setLookScript(printing(QStringLiteral("restore-look.txt")));
+        // Each look at the free space after a delete finds 2 GB more.
+        restore.setFreeScript(QStringLiteral("cat '%1'").arg(free));
+        restore.setAdmin({QStringLiteral("sh"), QStringLiteral("-c"),
+                          QStringLiteral("echo \"$*\" > '%1'; echo 3097152 > '%2'").arg(asked, free), QStringLiteral("admin")});
+        QStringList written;
+        restore.setWriteDown([&written](const QString &id, const QString &title, const QString &undo, QString *) {
+            written << id << title << undo;
+            return true;
+        });
+        restore.check();
+        QTRY_COMPARE(restore.stage(), QStringLiteral("ready"));
+        // Three in the fixture: all are among the newest three.
+        QCOMPARE(restore.olderCount(), 0);
+        restore.askClearOlder();
+        QCOMPARE(restore.stage(), QStringLiteral("ready"));
+
+        // One chosen: Delete asks first, and Cancel goes back with nothing done.
+        restore.choose(310);
+        restore.askDelete();
+        QCOMPARE(restore.stage(), QStringLiteral("confirmDelete"));
+        QCOMPARE(restore.deletingCount(), 1);
+        restore.cancelDelete();
+        QCOMPARE(restore.stage(), QStringLiteral("chosen"));
+        QVERIFY(!QFile::exists(asked));
+        QVERIFY(written.isEmpty());
+
+        restore.askDelete();
+        restore.confirmDelete();
+        QCOMPARE(restore.stage(), QStringLiteral("deleting"));
+        QVERIFY(restore.busy());
+        QTRY_COMPARE(restore.stage(), QStringLiteral("ready"));
+        QFile said(asked);
+        QVERIFY(said.open(QIODevice::ReadOnly));
+        QCOMPARE(QString::fromUtf8(said.readAll()).trimmed(), QStringLiteral("restore-delete 310"));
+        QCOMPARE(written.value(1), QStringLiteral("Deleted restore point 310"));
+        QCOMPARE(written.value(2), QString());
+        QCOMPARE(restore.points().size(), 2);
+        QVERIFY2(restore.note().contains(QStringLiteral("2.0 GB came free")), qPrintable(restore.note()));
+    }
+
+    void aClosedPasswordBoxDeletesNothing()
+    {
+        QTemporaryDir dir;
+        RestorePoints restore;
+        restore.setElevate({});
+        restore.setLookScript(printing(QStringLiteral("restore-look.txt")));
+        restore.setFreeScript(QStringLiteral("echo 1000000"));
+        restore.setAdmin({QStringLiteral("sh"), QStringLiteral("-c"), QStringLiteral("exit 126"), QStringLiteral("admin")});
+        restore.check();
+        QTRY_COMPARE(restore.stage(), QStringLiteral("ready"));
+        restore.choose(313);
+        restore.askDelete();
+        restore.confirmDelete();
+        QTRY_COMPARE(restore.stage(), QStringLiteral("chosen"));
+        QVERIFY(restore.note().contains(QStringLiteral("password box was closed")));
+        QCOMPARE(restore.points().size(), 3);
+    }
+
+    void restorePointsAreReadWithoutAPasswordWhereTheSystemAllows()
+    {
+        // The person's own look is refused by snapper, but the system lets
+        // them read the list through split-rock-admin: it is read at once.
+        QTemporaryDir dir;
+        const QString look = dir.filePath(QStringLiteral("look"));
+        const QString listed = dir.filePath(QStringLiteral("listed"));
+        QVERIFY(write(look, QStringLiteral("@@ snapper\nyes\n@@ list\nNo permissions.\n@@ free\nyes\n@@ end\n")));
+        RestorePoints restore;
+        restore.setElevate({});
+        restore.setAdmin({QStringLiteral("sh"), QStringLiteral("-c"),
+                          QStringLiteral("touch '%1'; cat '" FIXTURES_DIR "/chores/restore-look.txt'").arg(listed),
+                          QStringLiteral("admin")});
+        restore.setLookScript(QStringLiteral("cat '%1'").arg(look));
+        restore.check();
+        QTRY_COMPARE(restore.stage(), QStringLiteral("ready"));
+        QVERIFY(QFile::exists(listed));
+        QCOMPARE(restore.points().size(), 3);
+        QCOMPARE(restore.notShown(), QString());
+    }
+
+    void aClosedPasswordBoxLeavesRestorePointsAskingAgain()
+    {
+        QTemporaryDir dir;
+        const QString look = dir.filePath(QStringLiteral("look"));
+        QVERIFY(write(look, QStringLiteral("@@ snapper\nyes\n@@ list\nNo permissions.\n@@ end\n")));
+        RestorePoints restore;
+        restore.setElevate({});
+        // pkexec's own answer when its prompt is closed.
+        restore.setAdmin({QStringLiteral("sh"), QStringLiteral("-c"), QStringLiteral("exit 126"), QStringLiteral("admin")});
+        restore.setLookScript(QStringLiteral("cat '%1'").arg(look));
+        restore.check();
+        QTRY_COMPARE(restore.stage(), QStringLiteral("denied"));
+        QCOMPARE(restore.notShown(), QString());
+        restore.checkAsAdmin();
+        QCOMPARE(restore.stage(), QStringLiteral("looking"));
+        QTRY_COMPARE(restore.stage(), QStringLiteral("denied"));
+        QVERIFY(restore.notShown().contains(QStringLiteral("password box was closed")));
+        QVERIFY(restore.points().isEmpty());
+        // Shown at the second try.
+        restore.setAdmin({QStringLiteral("sh"), QStringLiteral("-c"),
+                          QStringLiteral("cat '" FIXTURES_DIR "/chores/restore-look.txt'"), QStringLiteral("admin")});
+        restore.checkAsAdmin();
+        QTRY_COMPARE(restore.stage(), QStringLiteral("ready"));
+        QCOMPARE(restore.notShown(), QString());
+    }
+
     void theHealthCheckReadsEachPart()
     {
         const QList<HealthCheck::Item> items = HealthCheck::readLook(fixture(QStringLiteral("health-look.txt")), Now);
@@ -886,9 +1089,32 @@ private Q_SLOTS:
         QCOMPARE(byId.value(QStringLiteral("updates")).state, QStringLiteral("warn"));
         QCOMPARE(byId.value(QStringLiteral("updates")).action, QStringLiteral("update"));
         QCOMPARE(byId.value(QStringLiteral("restore")).state, QStringLiteral("good"));
-        QCOMPARE(byId.value(QStringLiteral("settings")).state, QStringLiteral("warn"));
+        // Newer settings files from updates are listed, never counted as
+        // something to look at, and can still be copied for help.
+        QCOMPARE(byId.value(QStringLiteral("settings")).state, QStringLiteral("good"));
+        QVERIFY(byId.value(QStringLiteral("settings")).detail.contains(QStringLiteral("Yours stay in use")));
+        QVERIFY(!byId.value(QStringLiteral("settings")).question.isEmpty());
         QVERIFY(byId.value(QStringLiteral("crashes")).detail.contains(QStringLiteral("plasmashell (2)")));
         QCOMPARE(byId.value(QStringLiteral("pkgcache")).action, QStringLiteral("space"));
+
+        // The Space row follows the Notice setting, as Core's Storage does:
+        // 80% full is worth a look at the usual setting and not at Less, 90%
+        // is worth a look at Less too, and 96% is a problem.
+        const auto space = [](qint64 totalKb, qint64 freeKb, int notice) {
+            QString look = fixture(QStringLiteral("health-look.txt"));
+            look.replace(QStringLiteral("@@ disk\n500000000 48000000"),
+                         QStringLiteral("@@ disk\n%1 %2").arg(totalKb).arg(freeKb));
+            for (const HealthCheck::Item &i : HealthCheck::readLook(look, Now, notice)) {
+                if (i.id == QLatin1String("space"))
+                    return i.state;
+            }
+            return QString();
+        };
+        QCOMPARE(space(100000000, 30000000, 50), QStringLiteral("good"));
+        QCOMPARE(space(100000000, 20000000, 50), QStringLiteral("warn"));
+        QCOMPARE(space(100000000, 20000000, 0), QStringLiteral("good"));
+        QCOMPARE(space(100000000, 10000000, 0), QStringLiteral("warn"));
+        QCOMPARE(space(100000000, 4000000, 50), QStringLiteral("bad"));
 
         // Without restore points, it says so.
         QString none = fixture(QStringLiteral("health-look.txt"));

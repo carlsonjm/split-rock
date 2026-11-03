@@ -70,7 +70,7 @@ CardFrame {
                 height: parent.height
                 width: parent.width * Math.max(0, Math.min(1, 1 - card.job.freeKb / card.job.diskKb))
                 radius: 7
-                color: theme.chip
+                color: theme.edge
                 Behavior on width { NumberAnimation { duration: 400; easing.type: Easing.OutCubic } }
             }
             // The ticked ones, at the end of what is used, each in its colour.

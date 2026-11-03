@@ -1172,7 +1172,34 @@ private Q_SLOTS:
         put(QStringLiteral("input/js0/device/id/product"), "0b13\n");
         put(QStringLiteral("input/js0/device/uniq"), "98:7a:14:00:00:01\n");
         put(QStringLiteral("input/event3/device/name"), "AT Translated Set 2 keyboard\n");
-        const QList<Device> pads = controllersIn(sys.filePath(QStringLiteral("input")));
+        // The kernel gives a js node to an absolute pointer too, such as a
+        // virtual machine's mouse: left, right and middle buttons, X and Y,
+        // and a wheel. It is no controller.
+        put(QStringLiteral("input/js1/device/name"), "Demo absolute mouse\n");
+        put(QStringLiteral("input/js1/device/id/vendor"), "1234\n");
+        put(QStringLiteral("input/js1/device/id/product"), "5678\n");
+        put(QStringLiteral("input/js1/device/capabilities/key"), "70000 0 0 0 0\n");
+        put(QStringLiteral("input/js1/device/capabilities/abs"), "3\n");
+        // A game pad that lists its buttons: BTN_SOUTH and BTN_EAST, with the
+        // sticks.
+        put(QStringLiteral("input/js2/device/name"), "8BitDo Pro 2\n");
+        put(QStringLiteral("input/js2/device/id/vendor"), "2dc8\n");
+        put(QStringLiteral("input/js2/device/id/product"), "6003\n");
+        put(QStringLiteral("input/js2/device/capabilities/key"), "3000000000000 0 0 0 0\n");
+        put(QStringLiteral("input/js2/device/capabilities/abs"), "3003f\n");
+        // A wheel with pedals and no buttons the kernel names for a pad.
+        put(QStringLiteral("input/js3/device/name"), "Racing wheel\n");
+        put(QStringLiteral("input/js3/device/id/vendor"), "046d\n");
+        put(QStringLiteral("input/js3/device/id/product"), "c24f\n");
+        put(QStringLiteral("input/js3/device/capabilities/key"), "0\n");
+        put(QStringLiteral("input/js3/device/capabilities/abs"), "703\n");
+        const QList<Device> found = controllersIn(sys.filePath(QStringLiteral("input")));
+        QStringList names;
+        for (const Device &d : found)
+            names.append(d.name);
+        QCOMPARE(names, (QStringList{QStringLiteral("Xbox Wireless Controller"), QStringLiteral("8BitDo Pro 2"),
+                                     QStringLiteral("Racing wheel")}));
+        const QList<Device> pads = found.mid(0, 1);
         QCOMPARE(pads.size(), 1);
         QCOMPARE(pads.first().kind, DeviceKind::Controller);
         QCOMPARE(pads.first().name, QStringLiteral("Xbox Wireless Controller"));

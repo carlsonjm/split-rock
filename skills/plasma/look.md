@@ -1,6 +1,6 @@
 ---
 id: look
-title: The desktop's look - light or dark, the global theme, the colours
+title: The desktop's look - light or dark, the global theme, the colours (not the wallpaper)
 also:
   - Make it dark
   - Turn on dark mode

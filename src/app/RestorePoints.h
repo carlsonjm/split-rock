@@ -21,7 +21,8 @@ namespace splitrock {
 // (docs/DECISIONS.md, Upkeep has cards of its own).
 //
 // Its stages: looking, ready, nothing, denied (listing them needs the
-// password), chosen and booted.
+// password), chosen, booted, confirmClear and confirmDelete (asking before a
+// delete, which can't be undone) and deleting.
 class RestorePoints : public Chore
 {
     Q_OBJECT
@@ -49,6 +50,16 @@ class RestorePoints : public Chore
     Q_PROPERTY(int ownCount READ ownCount NOTIFY changed)
     // The steps to go back to the chosen one.
     Q_PROPERTY(QStringList steps READ steps NOTIFY changed)
+    // Why the list wasn't shown after Show them, in words; empty otherwise.
+    Q_PROPERTY(QString notShown READ notShown NOTIFY changed)
+    // How many restore points Clear older ones would delete: all but the
+    // newest Kept, and never the one the computer was started from.
+    Q_PROPERTY(int olderCount READ olderCount NOTIFY changed)
+    Q_PROPERTY(int kept READ kept CONSTANT)
+    // How many the confirm step is about to delete.
+    Q_PROPERTY(int deletingCount READ deletingCount NOTIFY changed)
+    // What the last delete did, or why it didn't, in words; empty otherwise.
+    Q_PROPERTY(QString note READ note NOTIFY changed)
 
 public:
     struct Point {
@@ -72,6 +83,8 @@ public:
         bool cleanup = false;
         int limit = 0;
         int limitImportant = 0;
+        // The system lets the person read the list without a password.
+        bool listFree = false;
     };
 
     explicit RestorePoints(QObject *parent = nullptr);
@@ -89,12 +102,26 @@ public:
     QString keeping() const;
     int ownCount() const;
     QStringList steps() const;
+    QString notShown() const { return m_notShown; }
+    int olderCount() const { return int(older().size()); }
+    int deletingCount() const { return int(m_deleting.size()); }
+    int kept() const { return Kept; }
+    QString note() const { return m_note; }
+
+    // The newest restore points Clear older ones always keeps.
+    static constexpr int Kept = 3;
 
     Q_INVOKABLE void check();
     // Lists them through the password prompt, where the person may not.
     Q_INVOKABLE void checkAsAdmin();
     Q_INVOKABLE void choose(int number);
     Q_INVOKABLE void back();
+    // Deleting, always asked first: Clear older ones from the list, or the
+    // chosen one alone; then the confirm step's Delete, or Cancel back.
+    Q_INVOKABLE void askClearOlder();
+    Q_INVOKABLE void askDelete();
+    Q_INVOKABLE void confirmDelete();
+    Q_INVOKABLE void cancelDelete();
     // Opens the computer's own tool for keeping the restore point it runs on.
     Q_INVOKABLE void openKeepTool();
 
@@ -107,13 +134,21 @@ public:
     static bool isOwn(const QString &description);
 
     void setLookScript(const QString &script) { m_lookScript = script; }
+    void setFreeScript(const QString &script) { m_freeScript = script; }
 
 private:
     void settle();
+    void listAsAdmin();
+    QList<int> older() const;
 
     Look m_look;
     Point m_chosen;
+    QString m_notShown;
+    QString m_note;
+    QList<int> m_deleting;
+    QString m_changeId;
     QString m_lookScript;
+    QString m_freeScript;
 };
 
 } // namespace splitrock
