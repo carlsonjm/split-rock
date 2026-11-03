@@ -1,10 +1,9 @@
 # The desktop
 
 How Split Rock meets the desktop it runs on. Split Rock is the Helpers: each
-opens on its own, in a window at its card's size, when Core or Search asks for
-it. What Shuffle adds switches on only where Shuffle is installed. On any other
-Plasma desktop, a Helper's window is placed like any other window of a fixed
-size.
+opens on its own, in an ordinary window, when Core or Search asks for it. What
+Shuffle adds switches on only where Shuffle is installed. On any other Plasma
+desktop, a Helper's window is placed like any other window.
 
 ## The entry
 

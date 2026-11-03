@@ -2,14 +2,10 @@
 import QtQuick
 import QtQuick.Window
 
-// One upkeep card on its own, as Core opens it (docs/CORE.md): a window at
-// the card's own size, as a dialog is, with the card inside and no helpers.
-// It is as tall as what the card shows and grows as rows arrive, up to a
-// height that keeps it on the screen; past that the card scrolls inside it.
-// Its size is fixed, so a card workspace floats it, centred, rather than
-// making a card of it (docs/DECISIONS.md, A Helper opens at its own size).
-// It closes itself when the card does, and the card can't be closed while it
-// is busy.
+// One upkeep card on its own, as Core opens it (docs/CORE.md): an ordinary
+// window, so a card workspace places it like any other, with the card inside
+// and no helpers. It closes itself when the card does, and the card
+// can't be closed while it is busy.
 Window {
     id: actionWindow
     objectName: "actionWindow"
@@ -48,24 +44,11 @@ Window {
         return Math.round(kb / 1024) + " MB"
     }
     color: theme.sheet
-    // Off, the window is free to size, as the sheet's screenshots set it.
-    property bool fitsContent: true
-    readonly property int cardWidth: 560
-    // The tallest it grows: as it opens centred, half of the room below it
-    // and half above, so growing down never runs off the screen.
-    property int tallest: 680
-    readonly property int fitted: Math.round(Math.min(Math.max(body.height, 240), actionWindow.tallest))
-    width: cardWidth
-    height: fitsContent ? fitted : 680
-    minimumWidth: fitsContent ? cardWidth : 360
-    maximumWidth: fitsContent ? cardWidth : 16777215
-    minimumHeight: fitsContent ? fitted : 360
-    maximumHeight: fitsContent ? fitted : 16777215
+    width: 560
+    height: 680
+    minimumWidth: 360
+    minimumHeight: 360
     visible: false
-    onVisibleChanged: {
-        if (visible && fitsContent && Screen.desktopAvailableHeight > 0)
-            actionWindow.tallest = Math.max(360, Math.floor((Screen.desktopAvailableHeight + actionWindow.fitted) / 2) - 24)
-    }
 
     Theme { id: theme }
 
