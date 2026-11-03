@@ -721,11 +721,17 @@ QList<QVariantMap> Core::actions(bool storeMissing)
                            {QStringLiteral("more"), more},
                            {QStringLiteral("keywords"), keywords}};
     };
-    // The order a person moving from Windows reaches for them, as Search's
-    // Helpers row shows them: the first row, then those behind its More. A
-    // computer without an app store is offered one first, and What changed
-    // moves behind More to keep the first row to six.
-    QList<QVariantMap> listed;
+    // The order the product owner set, the most important first: keeping
+    // the computer up to date, then looking it over. Search's Helpers row
+    // shows them so: the first row, then those behind its More. A computer
+    // without an app store is offered one next, and What changed moves
+    // behind More to keep the first row to six.
+    QList<QVariantMap> listed{
+        action("update", "Check for updates", "Everything, with a restore point first", "system-software-update", false,
+               {"update", "updates", "upgrade", "check for updates", "windows update"}),
+        action("health", "Health check", "A look over the computer", "security-high", false,
+               {"health", "health check", "check my computer", "diagnose", "troubleshoot", "troubleshooter"}),
+    };
     if (storeMissing)
         listed.append(action("appstore", "Add the app store", "Discover, with Flathub's apps", "plasma-discover", false,
                              {"app store", "add the app store", "discover", "flathub", "flatpak", "get apps",
@@ -736,12 +742,8 @@ QList<QVariantMap> Core::actions(bool storeMissing)
                 "programs and features", "uninstall a program", "microsoft store", "app store"}),
         action("apps", "Your apps", "The apps you added, biggest first", "view-grid", false,
                {"your apps", "my apps", "installed apps", "uninstall", "remove apps", "apps taking space", "app sizes"}),
-        action("update", "Check for updates", "Everything, with a restore point first", "system-software-update", false,
-               {"update", "updates", "upgrade", "check for updates", "windows update"}),
         action("space", "Free up space", "Old copies and leftovers", "drive-harddisk", false,
                {"free up space", "space", "storage", "disk", "clean up", "cleanup", "disk cleanup", "storage sense"}),
-        action("health", "Health check", "A look over the computer", "security-high", false,
-               {"health", "health check", "check my computer", "diagnose", "troubleshoot", "troubleshooter"}),
         action("changes", "What changed", "Undo, or go back to before", "edit-undo", storeMissing,
                {"what changed", "changed", "undo", "something changed", "stopped working"}),
         action("tidy", "Tidy up Downloads", "Old downloads and copies, to the Trash", "folder-download", true,

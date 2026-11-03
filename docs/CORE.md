@@ -427,14 +427,14 @@ Each fact is a dictionary of strings to variants:
 
 Every Helper opens from Search on its own. Core lists them in the order
 Search's Helpers row shows them, with the words each is found by, and Search
-matches what is typed against them without asking Core anything. The first
-row is Install an app, Your apps, Check for updates, Free up space, Health
-check and What changed; Tidy up Downloads, Restore points and Community apps
-are marked to show behind the row's More.
+matches what is typed against them without asking Core anything. The most
+important come first: the first row is Check for updates, Health check,
+Install an app, Your apps, Free up space and What changed; Tidy up Downloads,
+Restore points and Community apps are marked to show behind the row's More.
 
 A computer without an app store, missing Discover, Flatpak or Flathub, is
-offered Add the app store first, and What changed moves behind More so the
-first row stays six. Core looks at the files that say so each time it looks
+offered Add the app store next after Health check, and What changed moves
+behind More so the first row stays six. Core looks at the files that say so each time it looks
 at the drive, never running anything, and says `ActionsChanged` when that
 changes. The Helper is Install an app's: it says what it adds, takes a restore
 point, and adds Discover and Flatpak from the system's shelf, then Flathub for

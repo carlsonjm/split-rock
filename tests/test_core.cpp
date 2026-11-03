@@ -534,9 +534,10 @@ private Q_SLOTS:
             QVERIFY(!action.value(QStringLiteral("title")).toString().isEmpty());
             QVERIFY(!action.value(QStringLiteral("keywords")).toStringList().isEmpty());
         }
-        // The Helpers row's order: six in the first row, the rest behind More.
-        QCOMPARE(ids, (QStringList{QStringLiteral("install"), QStringLiteral("apps"), QStringLiteral("update"), QStringLiteral("space"),
-                                   QStringLiteral("health"), QStringLiteral("changes"), QStringLiteral("tidy"), QStringLiteral("restore"),
+        // The Helpers row's order, the most important first: six in the
+        // first row, the rest behind More.
+        QCOMPARE(ids, (QStringList{QStringLiteral("update"), QStringLiteral("health"), QStringLiteral("install"), QStringLiteral("apps"),
+                                   QStringLiteral("space"), QStringLiteral("changes"), QStringLiteral("tidy"), QStringLiteral("restore"),
                                    QStringLiteral("community")}));
         QStringList more;
         for (const QVariantMap &action : Core::actions()) {
@@ -544,10 +545,10 @@ private Q_SLOTS:
                 more.append(action.value(QStringLiteral("id")).toString());
         }
         QCOMPARE(more, (QStringList{QStringLiteral("tidy"), QStringLiteral("restore"), QStringLiteral("community")}));
-        // Without an app store, Add the app store leads and What changed
-        // goes behind More, so the first row stays six.
+        // Without an app store, Add the app store comes after Health check
+        // and What changed goes behind More, so the first row stays six.
         const QList<QVariantMap> missing = Core::actions(true);
-        QCOMPARE(missing.first().value(QStringLiteral("id")).toString(), QStringLiteral("appstore"));
+        QCOMPARE(missing.at(2).value(QStringLiteral("id")).toString(), QStringLiteral("appstore"));
         int first = 0;
         for (const QVariantMap &action : missing)
             first += action.value(QStringLiteral("more")).toBool() ? 0 : 1;
@@ -1099,10 +1100,19 @@ private Q_SLOTS:
         d.wire = [&missing](Core::Hooks &hooks) { hooks.appStoreMissing = [&missing] { return missing; }; };
         d.make();
         QSignalSpy changed(d.core.get(), &Core::actionsChanged);
-        QCOMPARE(d.core->offeredActions().first().value(QStringLiteral("id")).toString(), QStringLiteral("install"));
+        // The most important first: Check for updates, then Health check.
+        const auto ids = [&d] {
+            QStringList list;
+            for (const QVariantMap &action : d.core->offeredActions())
+                list.append(action.value(QStringLiteral("id")).toString());
+            return list;
+        };
+        QCOMPARE(ids().mid(0, 6), (QStringList{QStringLiteral("update"), QStringLiteral("health"), QStringLiteral("install"),
+                                               QStringLiteral("apps"), QStringLiteral("space"), QStringLiteral("changes")}));
         d.core->lookAtAppStore();
         QCOMPARE(changed.size(), 1);
-        QCOMPARE(d.core->offeredActions().first().value(QStringLiteral("id")).toString(), QStringLiteral("appstore"));
+        // The app store is offered next after them.
+        QCOMPARE(ids().mid(0, 3), (QStringList{QStringLiteral("update"), QStringLiteral("health"), QStringLiteral("appstore")}));
         // Looking again with nothing changed says nothing.
         d.core->lookAtAppStore();
         QCOMPARE(changed.size(), 1);
@@ -1111,7 +1121,7 @@ private Q_SLOTS:
         missing = false;
         d.core->check();
         QCOMPARE(changed.size(), 2);
-        QCOMPARE(d.core->offeredActions().first().value(QStringLiteral("id")).toString(), QStringLiteral("install"));
+        QVERIFY(!ids().contains(QStringLiteral("appstore")));
         // Its card still opens, to say the computer has one.
         QVERIFY(d.core->openAction(QStringLiteral("appstore"), QString()));
     }
