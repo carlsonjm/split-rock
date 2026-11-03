@@ -26,8 +26,6 @@ Helpers::Helpers(const QString &store, QObject *parent)
     addChore(QStringLiteral("restore"), m_restore);
     m_health = new HealthCheck(this);
     addChore(QStringLiteral("health"), m_health);
-    m_community = new CommunityApps(this);
-    addChore(QStringLiteral("community"), m_community);
     m_tidy = new TidyUp(this);
     addChore(QStringLiteral("tidy"), m_tidy);
     m_recent = new RecentChanges(this);
@@ -134,8 +132,6 @@ bool Helpers::openChore(const QString &asked, const QString &query)
         m_restore->check();
     else if (name == QLatin1String("health"))
         m_health->check();
-    else if (name == QLatin1String("community"))
-        m_community->check();
     else if (name == QLatin1String("changes"))
         m_recent->check();
     else if (name == QLatin1String("tidy"))

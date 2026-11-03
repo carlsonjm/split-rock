@@ -15,10 +15,10 @@ format: 1
 
 ```sh
 echo "Global theme now: $(kreadconfig6 --file kdeglobals --group KDE --key LookAndFeelPackage)"
-echo "Colours now: $(kreadconfig6 --file kdeglobals --group General --key ColorScheme)"
+echo "Colors now: $(kreadconfig6 --file kdeglobals --group General --key ColorScheme)"
 echo "Global themes installed:"
 plasma-apply-lookandfeel --list
-echo "Colour schemes installed:"
+echo "Color schemes installed:"
 plasma-apply-colorscheme --list-schemes
 ```
 

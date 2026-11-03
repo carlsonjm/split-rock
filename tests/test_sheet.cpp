@@ -5,6 +5,7 @@
 #include "app/ChangeRunner.h"
 #include "app/Helpers.h"
 #include "app/QmlContext.h"
+#include "desktop/AppIcons.h"
 #include "settings/SettingsHistory.h"
 
 #include <QDir>
@@ -65,6 +66,7 @@ class TestSheet : public QObject
     // The Helpers' window, made as Split Rock makes it, not yet shown.
     static QQuickWindow *open(QQmlApplicationEngine &engine, Helpers &helpers)
     {
+        engine.addImageProvider(QStringLiteral("appicon"), new AppIconProvider);
         engine.rootContext()->setContextProperty(QStringLiteral("helpers"), &helpers);
         exposeProduct(engine.rootContext());
         QQmlComponent component(&engine, QUrl(QStringLiteral("qrc:/qml/ActionWindow.qml")));
@@ -116,6 +118,29 @@ private Q_SLOTS:
         }
         // Any warning from the sheet is a fault in it.
         QTest::failOnWarning(QRegularExpression(QStringLiteral("qrc:/")));
+    }
+
+    void anAppsOwnIconIsFoundByItsNames()
+    {
+        // Flathub's catalogue names a picture by the app's id; the system's
+        // puts the package first.
+        QTemporaryDir catalogue;
+        QImage picture(64, 64, QImage::Format_ARGB32);
+        picture.fill(Qt::red);
+        QVERIFY(picture.save(catalogue.filePath(QStringLiteral("org.example.Viewer.png"))));
+        QVERIFY(picture.save(catalogue.filePath(QStringLiteral("viewer-pkg_org.example.Other.png"))));
+        AppIconProvider icons({catalogue.path()});
+        QSize size;
+        QCOMPARE(icons.requestPixmap(QStringLiteral("no-such-icon-anywhere|org.example.Viewer"), &size, QSize(32, 32)).size(),
+                 QSize(32, 32));
+        QCOMPARE(icons.requestPixmap(QStringLiteral("org.example.Other"), &size, QSize(32, 32)).size(), QSize(32, 32));
+        // A picture file by its path, as Waydroid's launchers give one.
+        QCOMPARE(icons.requestPixmap(QString::fromLatin1(QUrl::toPercentEncoding(catalogue.filePath(QStringLiteral("org.example.Viewer.png")))),
+                                     &size, QSize(32, 32)).size(),
+                 QSize(32, 32));
+        // None found: one pixel, and the row keeps its glyph.
+        QCOMPARE(icons.requestPixmap(QStringLiteral("no-such-icon-anywhere"), &size, QSize(32, 32)).size(), QSize(1, 1));
+        QCOMPARE(size, QSize(1, 1));
     }
 
     void theUpdateCardShowsEachStep()
@@ -222,15 +247,11 @@ private Q_SLOTS:
         c.healthCheck()->setReport({});
         c.restorePoints()->setLookScript(printing(QStringLiteral("restore-look.txt")));
         c.restorePoints()->setReport({});
-        c.communityApps()->setElevate({});
-        c.communityApps()->setLookScript(printing(QStringLiteral("community-look.txt")));
-        c.communityApps()->setReport({});
         const struct { const char *name; const char *query; const char *card; const char *stage; const char *title; } each[] = {
             {"update", "", "updateCard", "ready", "Update"},
             {"install", "pdf editor", "installCard", "results", "Install a new app"},
             {"health", "", "healthCard", "done", "Health check"},
             {"restore", "", "restoreCard", "ready", "Restore points"},
-            {"community", "", "communityCard", "ready", "Community apps"},
         };
         for (const auto &card : each) {
             const QString name = QString::fromLatin1(card.name);
@@ -302,11 +323,6 @@ private Q_SLOTS:
         restore->setLookScript(printing(QStringLiteral("restore-look.txt")));
         HealthCheck *health = c.healthCheck();
         health->setLookScript(printing(QStringLiteral("health-look.txt")));
-        CommunityApps *community = c.communityApps();
-        community->setElevate({});
-        community->setLookScript(printing(QStringLiteral("community-look.txt")));
-        community->setReviewScript(printing(QStringLiteral("community-review.txt")));
-        community->setAdmin(adminStandIn(QStringLiteral("echo '@@ step build'; echo '==> Making package: visual-studio-code-bin'")));
         QQmlApplicationEngine engine;
         std::unique_ptr<QQuickWindow> window(open(engine, c));
         QVERIFY(window);
@@ -510,13 +526,6 @@ private Q_SLOTS:
         QVERIFY(QGuiApplication::clipboard()->text().contains(QStringLiteral("bluetooth-autoconnect.service")));
         QVERIFY(QGuiApplication::clipboard()->text().contains(QStringLiteral("About my computer:")));
         shows(QStringLiteral("healthCard"), QStringLiteral("37b-health-copied"));
-
-        QVERIFY(opens(QStringLiteral("community")));
-        QTRY_COMPARE(community->stage(), QStringLiteral("ready"));
-        shows(QStringLiteral("communityCard"), QStringLiteral("38-community-ready"));
-        community->look(QStringLiteral("visual-studio-code-bin"));
-        QTRY_COMPARE(community->stage(), QStringLiteral("reviewed"));
-        shows(QStringLiteral("communityCard"), QStringLiteral("39-community-review"));
 
         // What changed, from a look written for today, so the days read as
         // they would on the computer.

@@ -22,7 +22,6 @@ Window {
                              : helpers.install.removing ? "Remove an app" : "Install a new app"
         case "restore": return "Restore points"
         case "health": return "Health check"
-        case "community": return "Community apps"
         case "changes": return "What changed"
         case "tidy": return "Tidy up Downloads"
         }
@@ -59,7 +58,6 @@ Window {
         case "install": return helpers.install
         case "restore": return helpers.restore
         case "health": return helpers.health
-        case "community": return helpers.community
         case "changes": return helpers.recent
         case "tidy": return helpers.tidy
         }
@@ -111,7 +109,6 @@ Window {
                 case "install": return installCard
                 case "restore": return restoreCard
                 case "health": return healthCard
-                case "community": return communityCard
                 case "changes": return changesCard
                 case "tidy": return tidyCard
                 }
@@ -125,7 +122,6 @@ Window {
     Component { id: installCard; InstallCard {} }
     Component { id: restoreCard; RestoreCard {} }
     Component { id: healthCard; HealthCard {} }
-    Component { id: communityCard; CommunityCard {} }
     Component { id: changesCard; ChangesCard {} }
     Component { id: tidyCard; TidyCard {} }
 }

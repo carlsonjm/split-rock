@@ -33,6 +33,43 @@ QString capitalised(QString text)
 
 // "blurEnabled" as "blur enabled", "TurnOffDisplayIdleTimeoutSec" as "turn
 // off display idle timeout sec".
+QString keyWords(const QString &key);
+
+// A theme's id as its name: "ShuffleDark" is "Shuffle Dark", and
+// "org.kde.breezedark.desktop" is "Breezedark".
+QString themeName(const QString &id)
+{
+    QString name = id;
+    if (name.count(QLatin1Char('.')) >= 2) {
+        name = name.section(QLatin1Char('.'), -2, -2);
+        if (name == QLatin1String("desktop") || name.isEmpty())
+            name = id.section(QLatin1Char('.'), -3, -3);
+    }
+    QString words;
+    for (qsizetype i = 0; i < name.size(); ++i) {
+        const QChar ch = name.at(i);
+        if (ch == QLatin1Char('-') || ch == QLatin1Char('_')) {
+            words += QLatin1Char(' ');
+            continue;
+        }
+        if (ch.isUpper() && i > 0 && name.at(i - 1).isLower())
+            words += QLatin1Char(' ');
+        words += i == 0 ? ch.toUpper() : ch;
+    }
+    return words.simplified();
+}
+
+// "Colors changed from Breeze Dark to Shuffle Dark", "Colors set to Shuffle
+// Dark", "Colors back to the default, from Shuffle Dark".
+QString themeChange(const QString &what, const SettingsChange &c)
+{
+    if (!c.wasSet)
+        return QStringLiteral("%1 set to %2").arg(what, themeName(c.after));
+    if (!c.isSet)
+        return QStringLiteral("%1 back to the default, from %2").arg(what, themeName(c.before));
+    return QStringLiteral("%1 changed from %2 to %3").arg(what, themeName(c.before), themeName(c.after));
+}
+
 QString keyWords(const QString &key)
 {
     QString words;
@@ -99,11 +136,13 @@ QString turnWords(const QString &transform)
 struct Shortcut {
     QString keys;
     QString name;
+    // The keys it has by default, as its app gives them.
+    QString defaults;
 };
 Shortcut shortcut(const QString &group, const QString &key, const QString &value)
 {
     if (group.startsWith(QLatin1String("services][")))
-        return {value == QLatin1String("none") ? QString() : value, SettingRows::appName(group.mid(10))};
+        return {value == QLatin1String("none") ? QString() : value, SettingRows::appName(group.mid(10)), QString()};
     // The name may hold commas; the keys and the default never do, except
     // as the key itself, which KDE writes as "\\,".
     const QStringList parts = value.split(QLatin1Char(','));
@@ -111,8 +150,14 @@ Shortcut shortcut(const QString &group, const QString &key, const QString &value
     if (keys == QLatin1String("none"))
         keys.clear();
     keys.replace(QLatin1Char('\t'), QStringLiteral(" or "));
-    const QString name = parts.size() >= 3 ? parts.mid(2).join(QLatin1Char(',')) : key;
-    return {keys, name.isEmpty() ? key : name};
+    QString defaults = parts.value(1);
+    if (defaults == QLatin1String("none"))
+        defaults.clear();
+    defaults.replace(QLatin1Char('\t'), QStringLiteral(" or "));
+    // With no name written, the action's own id in words: "MoveZoomDown" is
+    // "Move zoom down".
+    const QString name = parts.size() >= 3 ? parts.mid(2).join(QLatin1Char(',')).trimmed() : QString();
+    return {keys, name.isEmpty() ? capitalised(keyWords(key)) : name, defaults};
 }
 
 QString pluginName(const QString &plugin)
@@ -236,7 +281,7 @@ QString SettingRows::timeWords(const QDateTime &when)
 QString SettingRows::area(const QString &file)
 {
     static const QMap<QString, QString> areas{
-        {QStringLiteral("kdeglobals"), QStringLiteral("Look, colours and fonts")},
+        {QStringLiteral("kdeglobals"), QStringLiteral("Look, colors and fonts")},
         {QStringLiteral("kwinrc"), QStringLiteral("Windows and effects")},
         {QStringLiteral("kwinrulesrc"), QStringLiteral("Window rules")},
         {Applets, QStringLiteral("Panels and desktop widgets")},
@@ -251,7 +296,7 @@ QString SettingRows::area(const QString &file)
         {QStringLiteral("bluedevilglobalrc"), QStringLiteral("Bluetooth")},
         {QStringLiteral("plasmanotifyrc"), QStringLiteral("Notifications")},
         {QStringLiteral("mimeapps.list"), QStringLiteral("Default apps")},
-        {QStringLiteral("kcmfonts"), QStringLiteral("Look, colours and fonts")},
+        {QStringLiteral("kcmfonts"), QStringLiteral("Look, colors and fonts")},
         {QStringLiteral("baloofilerc"), QStringLiteral("File search")},
         {QStringLiteral("kaccessrc"), QStringLiteral("Accessibility")},
         {QStringLiteral("ktimezonedrc"), QStringLiteral("Date and time")},
@@ -287,10 +332,18 @@ SettingRows::Words SettingRows::words(const SettingsChange &c)
     }
 
     if (c.file == Shortcuts) {
+        // KWin's own list of which action undoes which, written again in
+        // either order whenever it starts: no key changes.
+        if (c.group == QLatin1String("$InverseAction") || c.group.endsWith(QLatin1String("][$InverseAction")))
+            return {{}, {}, false};
         const Shortcut before = shortcut(c.group, c.key, c.before);
         const Shortcut after = shortcut(c.group, c.key, c.after);
         // Only the name or the default written again: nobody changed it.
         if (before.keys == after.keys)
+            return {{}, {}, false};
+        // An app's own shortcut at its own keys coming or going, as when it
+        // starts or stops offering it: nobody changed it either.
+        if ((!c.wasSet && after.keys == after.defaults) || (!c.isSet && before.keys == before.defaults))
             return {{}, {}, false};
         const QString name = after.name.isEmpty() ? before.name : after.name;
         if (before.keys.isEmpty())
@@ -331,20 +384,20 @@ SettingRows::Words SettingRows::words(const SettingsChange &c)
 
     if (c.file == QLatin1String("kdeglobals")) {
         if (c.key == QLatin1String("ColorScheme"))
-            return {QStringLiteral("Colours: %1 to %2").arg(was, now), {}};
+            return {themeChange(QStringLiteral("Colors"), c), {}};
         if (c.key == QLatin1String("LookAndFeelPackage"))
-            return {QStringLiteral("Global theme: %1 to %2").arg(was, now), {}};
+            return {themeChange(QStringLiteral("Global theme"), c), {}};
         if (c.group == QLatin1String("Icons") && c.key == QLatin1String("Theme"))
-            return {QStringLiteral("Icons: %1 to %2").arg(was, now), {}};
+            return {themeChange(QStringLiteral("Icons"), c), {}};
         if (c.key == QLatin1String("AccentColor"))
-            return {QStringLiteral("Accent colour changed"), genericWasNow};
+            return {QStringLiteral("Accent color changed"), genericWasNow};
         if (c.key == QLatin1String("font") || c.key == QLatin1String("fixed") || c.key.endsWith(QLatin1String("Font")))
             return {QStringLiteral("Font changed"), QStringLiteral("Was %1, now %2").arg(c.before.section(QLatin1Char(','), 0, 1),
                                                                                         c.after.section(QLatin1Char(','), 0, 1))};
     }
 
     if (c.file == QLatin1String("plasmarc") && c.group == QLatin1String("Theme") && c.key == QLatin1String("name"))
-        return {QStringLiteral("Plasma style: %1 to %2").arg(was, now), {}};
+        return {themeChange(QStringLiteral("Plasma style"), c), {}};
 
     if (c.file == QLatin1String("kcminputrc") && c.group == QLatin1String("Mouse")) {
         if (c.key == QLatin1String("cursorTheme"))
@@ -564,6 +617,29 @@ QList<SettingRow> SettingRows::rows(const QList<SettingsChange> &changes, const 
             sorted.append(change);
     }
     std::stable_sort(sorted.begin(), sorted.end(), [](const SettingsChange &a, const SettingsChange &b) { return a.when < b.when; });
+
+    // A shortcut taken out and written back as it was within the day, as
+    // happens when the desktop restarts: nobody changed it.
+    for (qsizetype i = 0; i < sorted.size(); ++i) {
+        const SettingsChange &gone = sorted.at(i);
+        if (gone.file != Shortcuts || gone.isSet || !gone.wasSet)
+            continue;
+        for (qsizetype j = i + 1; j < sorted.size(); ++j) {
+            const SettingsChange &back = sorted.at(j);
+            if (gone.when.secsTo(back.when) > 24 * 3600)
+                break;
+            if (back.file == Shortcuts && back.group == gone.group && back.key == gone.key && !back.wasSet
+                && back.isSet && back.after == gone.before) {
+                sorted.removeAt(j);
+                sorted.removeAt(i);
+                --i;
+                break;
+            }
+            // Changed in between: what came back is a change of its own.
+            if (back.group == gone.group && back.key == gone.key)
+                break;
+        }
+    }
 
     // A screen's changes are one place each; any other file is one.
     const auto place = [](const SettingsChange &c) { return c.file == Outputs ? c.file + QLatin1Char('/') + c.group : c.file; };

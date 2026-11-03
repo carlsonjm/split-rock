@@ -40,6 +40,9 @@ class AppInstall : public Chore
 {
     Q_OBJECT
     Q_PROPERTY(QString query READ query NOTIFY changed)
+    // The system's own name for its shelf, as "CachyOS"; "this system" where
+    // it gives none.
+    Q_PROPERTY(QString shelf READ shelfName CONSTANT)
     // Each: key, name, summary, source (shelf or flathub), sourceName,
     // package, installed and alsoFlathub.
     Q_PROPERTY(QVariantList results READ resultList NOTIFY changed)
@@ -69,6 +72,9 @@ public:
         // id, or an Android app's package name.
         QString package;
         QString remote;
+        // Names its icon may go by, best first: its launcher's Icon=, its
+        // appstream or Flatpak id, its package (src/desktop/AppIcons.h).
+        QStringList icons;
         bool installed = false;
         bool alsoFlathub = false;
         // The room it takes, in kilobytes; -1 when unknown.
@@ -77,6 +83,9 @@ public:
     };
 
     explicit AppInstall(QObject *parent = nullptr);
+
+    // An app made for GNOME, by its id, its name or its description.
+    static bool madeForGnome(const App &app);
 
     bool busy() const override;
     QString query() const { return m_query; }
@@ -120,11 +129,16 @@ public:
     Q_INVOKABLE void addStore();
     Q_INVOKABLE void openStore();
 
+    // The search in what was asked, without the Helper's own name at its
+    // start: "install an app spotify" is a search for "spotify", and "install
+    // an app" alone for nothing, so the card asks.
+    static QString withoutInstallWords(const QString &words);
     // Words that ask to remove an app rather than find one, and the words
     // that are left once those are taken out: "uninstall MaiN Keyboard" is
     // MaiN Keyboard.
     static bool asksToRemove(const QString &words);
     static QString withoutRemoveWords(const QString &words);
+    static QString shelfName();
     // Packages the system can't do without, by name, which are never
     // offered for removal; the administrator's helper also keeps Plasma's
     // own groups and whatever another package needs (split-rock-admin kept).

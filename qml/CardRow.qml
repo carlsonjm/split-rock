@@ -14,6 +14,9 @@ Rectangle {
     property string action
     property color tone: theme.accent
     property string icon
+    // The app's own icon, as image://appicon/ draws it (src/desktop/AppIcons.h);
+    // the glyph stays where it has none.
+    property string appIcon
     // A box to tick, instead of the icon.
     property bool checkable: false
     property bool checked: false
@@ -86,8 +89,18 @@ Rectangle {
                 color: theme.hueInk
             }
         }
+        Image {
+            id: appPicture
+            visible: !row.checkable && row.standing === "" && status === Image.Ready && implicitWidth > 1
+            anchors.fill: parent
+            source: row.appIcon
+            sourceSize: Qt.size(64, 64)
+            fillMode: Image.PreserveAspectFit
+            smooth: true
+            mipmap: true
+        }
         Rectangle {
-            visible: !row.checkable && row.standing === "" && row.icon !== ""
+            visible: !row.checkable && row.standing === "" && row.icon !== "" && !appPicture.visible
             anchors.fill: parent
             radius: theme.cardRadius
             color: theme.inset
@@ -144,14 +157,15 @@ Rectangle {
     Row {
         id: trailingRow
         anchors.right: parent.right
-        anchors.rightMargin: row.opens ? 36 : 12
-        y: 18
+        anchors.rightMargin: (row.opens ? 36 : 12) + (rowButton.visible ? rowButton.width + 12 : 0)
+        // Centred on the button beside it, where it has one.
+        y: rowButton.visible ? rowButton.y + (rowButton.height - height) / 2 : 18
         spacing: 12
         Text {
             id: trailingText
             visible: text !== ""
             text: row.trailing
-            color: row.checkable && !row.checked ? theme.quiet : row.tone
+            color: (row.checkable && !row.checked) || row.button !== "" ? theme.quiet : row.tone
             font.pixelSize: 13
             font.weight: row.action !== "" ? Font.DemiBold : Font.Medium
         }

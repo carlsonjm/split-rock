@@ -534,24 +534,18 @@ private Q_SLOTS:
             QVERIFY(!action.value(QStringLiteral("title")).toString().isEmpty());
             QVERIFY(!action.value(QStringLiteral("keywords")).toStringList().isEmpty());
         }
-        // The Helpers row's order: six in the first row, the rest behind More.
-        QCOMPARE(ids, (QStringList{QStringLiteral("install"), QStringLiteral("apps"), QStringLiteral("update"), QStringLiteral("space"),
-                                   QStringLiteral("health"), QStringLiteral("changes"), QStringLiteral("tidy"), QStringLiteral("restore"),
-                                   QStringLiteral("community")}));
-        QStringList more;
-        for (const QVariantMap &action : Core::actions()) {
-            if (action.value(QStringLiteral("more")).toBool())
-                more.append(action.value(QStringLiteral("id")).toString());
-        }
-        QCOMPARE(more, (QStringList{QStringLiteral("tidy"), QStringLiteral("restore"), QStringLiteral("community")}));
-        // Without an app store, Add the app store leads and What changed
-        // goes behind More, so the first row stays six.
+        // The Helpers row's order, as the product owner set it; Search's row
+        // holds what fits and keeps the rest behind More.
+        QCOMPARE(ids, (QStringList{QStringLiteral("update"), QStringLiteral("health"), QStringLiteral("changes"),
+                                   QStringLiteral("restore"), QStringLiteral("apps"), QStringLiteral("install"),
+                                   QStringLiteral("space"), QStringLiteral("tidy")}));
+        for (const QVariantMap &action : Core::actions())
+            QVERIFY(!action.value(QStringLiteral("more")).toBool());
+        // Without an app store, Add the app store comes just before Install
+        // an app.
         const QList<QVariantMap> missing = Core::actions(true);
-        QCOMPARE(missing.first().value(QStringLiteral("id")).toString(), QStringLiteral("appstore"));
-        int first = 0;
-        for (const QVariantMap &action : missing)
-            first += action.value(QStringLiteral("more")).toBool() ? 0 : 1;
-        QCOMPARE(first, 6);
+        QCOMPARE(missing.at(5).value(QStringLiteral("id")).toString(), QStringLiteral("appstore"));
+        QCOMPARE(missing.at(6).value(QStringLiteral("id")).toString(), QStringLiteral("install"));
         QVERIFY(d.core->openAction(QStringLiteral("health"), QStringLiteral("health")));
         // Only Install an app takes what was typed.
         QVERIFY(d.core->openAction(QStringLiteral("install"), QStringLiteral(" install pdf editor ")));
@@ -1099,10 +1093,17 @@ private Q_SLOTS:
         d.wire = [&missing](Core::Hooks &hooks) { hooks.appStoreMissing = [&missing] { return missing; }; };
         d.make();
         QSignalSpy changed(d.core.get(), &Core::actionsChanged);
-        QCOMPARE(d.core->offeredActions().first().value(QStringLiteral("id")).toString(), QStringLiteral("install"));
+        const auto ids = [&d] {
+            QStringList list;
+            for (const QVariantMap &action : d.core->offeredActions())
+                list.append(action.value(QStringLiteral("id")).toString());
+            return list;
+        };
+        QVERIFY(!ids().contains(QStringLiteral("appstore")));
         d.core->lookAtAppStore();
         QCOMPARE(changed.size(), 1);
-        QCOMPARE(d.core->offeredActions().first().value(QStringLiteral("id")).toString(), QStringLiteral("appstore"));
+        // The app store is offered just before Install an app.
+        QCOMPARE(ids().indexOf(QStringLiteral("appstore")) + 1, ids().indexOf(QStringLiteral("install")));
         // Looking again with nothing changed says nothing.
         d.core->lookAtAppStore();
         QCOMPARE(changed.size(), 1);
@@ -1111,7 +1112,7 @@ private Q_SLOTS:
         missing = false;
         d.core->check();
         QCOMPARE(changed.size(), 2);
-        QCOMPARE(d.core->offeredActions().first().value(QStringLiteral("id")).toString(), QStringLiteral("install"));
+        QVERIFY(!ids().contains(QStringLiteral("appstore")));
         // Its card still opens, to say the computer has one.
         QVERIFY(d.core->openAction(QStringLiteral("appstore"), QString()));
     }
@@ -2286,7 +2287,7 @@ private Q_SLOTS:
             = bus.call(QDBusMessage::createMethodCall(QLatin1String(CoreService::Service), QLatin1String(CoreService::Path),
                                                       QStringLiteral("io.github.carlsonjm.SplitRock.Core"), QStringLiteral("Actions")));
         QVERIFY2(actions.isValid(), qPrintable(actions.error().message()));
-        QCOMPARE(actions.value().size(), 9);
+        QCOMPARE(actions.value().size(), 8);
         // Do Not Disturb ended, as the notifications tell it.
         QDBusMessage ended = QDBusMessage::createMethodCall(QLatin1String(CoreService::Service), QLatin1String(CoreService::Path),
                                                             QStringLiteral("io.github.carlsonjm.SplitRock.Core"),

@@ -311,7 +311,7 @@ private Q_SLOTS:
         const QJsonObject framing = f.ask->framing();
         QVERIFY(framing.value(QStringLiteral("words")).toString().contains(QStringLiteral("- tidy: ")));
         QVERIFY(framing.value(QStringLiteral("words")).toString().contains(QStringLiteral("- look: ")));
-        QCOMPARE(framing.value(QStringLiteral("cards")).toArray().size(), 8);
+        QCOMPARE(framing.value(QStringLiteral("cards")).toArray().size(), 7);
     }
 
     // llama-server runs in the fence: it reads the model, and the home folder

@@ -740,8 +740,11 @@ page and in the notebook opens each.
   password, the older ones are a row too, unticked, keeping the newest 3; how
   much they held shows only once they're gone, since the computer can't say
   sooner without a slow count.
-- **Install an app** searches the official shelf and Flathub, the shelf first,
-  and installs with a restore point. Community (AUR) packages are never offered
+- **Install an app** searches the official shelf and Flathub, the best match
+  first and the shelf first on a tie, with an app made for GNOME after the
+  rest unless GNOME is asked for, and installs with a restore point. Each app
+  shows by its own icon and the name its launcher gives it, and what a tap
+  does is a button at the row's end, as in Your apps. Community (AUR) packages are never offered
   there.
 - **Restore points** lists the snapper pairs in words and says how to start
   from one, through the boot menu, and how to keep it with Btrfs Assistant
@@ -757,11 +760,11 @@ page and in the notebook opens each.
   at, which follows the Notice setting, so the two never disagree; settings
   files an update left beside the person's own are listed but not counted as
   something to look at, as the person has nothing to do about them.
-- **Community apps** compares the installed community packages with the AUR,
-  shows what changed in each recipe since the installed version, flagging new
-  download addresses, install scripts and commands that reach the network, and
-  builds an update only after the person has seen it: as the person, at the
-  exact commit shown, with a restore point.
+- **Community apps** is retired: the product owner judged it not worth its
+  place. Search, Ask and the assistant no longer offer it, and Check for
+  updates says how many AUR apps have updates of their own and leaves them to
+  the person. Its engine (`src/app/CommunityApps`) is no longer opened by any
+  Helper.
 
 Rejected: running `snapper rollback` from the card; mixing community packages
 into Install an app or the update; building a community update from the latest
@@ -1198,7 +1201,14 @@ new, where the old ones still are, and the errors since. The administrator's
 part of starting a service or taking a system app back is two jobs of
 `split-rock-admin`, each taking only a checked name: `start-service` starts
 only a service that stopped working, and `flatpak-back` takes only a full
-commit.
+commit. What nobody did makes no row: an app's own shortcut arriving or going
+at its own keys, as KWin's do when an effect loads or unloads, and a shortcut
+taken out and written back as it was within the day, as at a restart, and
+KWin's own list of which action undoes which (`[$InverseAction]`), which it
+writes again in either order at every start. A
+setting is said by the name a person knows, never its id: a shortcut with no
+name written is its id in words, and a theme its name ("Colors set to Shuffle
+Dark"). What the person reads is spelled as Shuffle spells it, "color".
 
 Why: on the tablet, What changed named settings files and copied only their
 names, which nobody can act on. The product owner asked what a person needs to
