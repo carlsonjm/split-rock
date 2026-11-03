@@ -13,8 +13,13 @@ Column {
     // Opens at its end, as for what an update printed; a list of what a row
     // holds opens at its start instead, so its first names show.
     property bool fromEnd: true
+    // The same list by the names people know, where there are some: each
+    // {name, note, size}, and for the system's own parts their list as parts,
+    // shown in place of the body.
+    property var entries: []
+    readonly property bool named: !fold.fromEnd && fold.entries.length > 0
     spacing: 8
-    visible: body !== ""
+    visible: body !== "" || fold.entries.length > 0
 
     Item {
         width: summary.implicitWidth + 24
@@ -64,7 +69,7 @@ Column {
             width: parent.width - 28
             height: parent.height - 24
             contentWidth: width
-            contentHeight: fold.fromEnd ? detail.implicitHeight : names.implicitHeight
+            contentHeight: fold.fromEnd ? detail.implicitHeight : fold.named ? entryColumn.implicitHeight : names.implicitHeight
             clip: true
             boundsBehavior: Flickable.StopAtBounds
             interactive: contentHeight > height
@@ -87,9 +92,81 @@ Column {
                 font.family: theme.mono
                 font.pixelSize: 13
             }
+            Column {
+                id: entryColumn
+                visible: fold.named
+                width: scroller.width
+                Repeater {
+                    model: fold.named ? fold.entries : []
+                    Column {
+                        id: entry
+                        property bool partsOpen: false
+                        width: entryColumn.width
+                        Item {
+                            width: entry.width
+                            height: Math.max(32, entryName.implicitHeight + 10)
+                            Text {
+                                id: entryName
+                                anchors.left: parent.left
+                                anchors.right: entrySize.left
+                                anchors.rightMargin: 12
+                                anchors.verticalCenter: parent.verticalCenter
+                                wrapMode: Text.WordWrap
+                                textFormat: Text.StyledText
+                                text: modelData.name.replace(/&/g, "&amp;").replace(/</g, "&lt;")
+                                      + (modelData.note ? "<font color=\"" + theme.quiet + "\"> · " + modelData.note + "</font>" : "")
+                                color: theme.text
+                                font.pixelSize: 13
+                            }
+                            Text {
+                                id: entrySize
+                                anchors.right: parent.right
+                                anchors.verticalCenter: parent.verticalCenter
+                                text: modelData.size || ""
+                                color: theme.quiet
+                                font.pixelSize: 13
+                            }
+                        }
+                        // The system's own parts open to their full list.
+                        Item {
+                            visible: (modelData.parts || "") !== ""
+                            width: partsToggle.implicitWidth + 12
+                            height: 26
+                            Accessible.role: Accessible.Button
+                            Accessible.name: partsToggle.text
+                            Text {
+                                id: partsToggle
+                                anchors.verticalCenter: parent.verticalCenter
+                                text: (entry.partsOpen ? "▾ " : "▸ ") + "Show what's included"
+                                color: theme.quiet
+                                font.pixelSize: 13
+                                font.weight: Font.Medium
+                            }
+                            MouseArea {
+                                anchors.fill: parent
+                                cursorShape: Qt.PointingHandCursor
+                                onClicked: entry.partsOpen = !entry.partsOpen
+                            }
+                        }
+                        Text {
+                            visible: entry.partsOpen
+                            width: entry.width
+                            topPadding: 4
+                            bottomPadding: 6
+                            text: modelData.parts || ""
+                            textFormat: Text.PlainText
+                            wrapMode: Text.WrapAnywhere
+                            color: theme.text
+                            font.family: theme.mono
+                            font.pixelSize: 12
+                            lineHeight: 1.4
+                        }
+                    }
+                }
+            }
             Text {
                 id: names
-                visible: !fold.fromEnd
+                visible: !fold.fromEnd && !fold.named
                 width: scroller.width
                 text: fold.fromEnd ? "" : fold.body
                 textFormat: Text.PlainText

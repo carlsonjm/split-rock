@@ -32,6 +32,7 @@ add_library(splitrock_core STATIC
     src/app/SystemUpdate.cpp
     src/app/Chore.cpp
     src/app/SpaceCleanup.cpp
+    src/app/PackageNames.cpp
     src/app/TidyUp.cpp
     src/app/AppInstall.cpp
     src/app/RestorePoints.cpp

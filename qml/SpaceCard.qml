@@ -12,6 +12,8 @@ CardFrame {
     readonly property string stage: card.job.stage
     readonly property var items: card.job.items
     readonly property bool anyChosen: card.items.some(i => i.chosen)
+    // Older restore points, ticked: how much they hold shows only once gone.
+    readonly property bool restoresChosen: card.items.some(i => i.id === "restores" && i.chosen)
     hue: card.stage === "failed" ? "coral" : "teal"
 
     // "1.2 GB", "340 MB".
@@ -34,7 +36,9 @@ CardFrame {
             case "done": return "Freed up " + card.job.freed
             case "failed": return "Freeing up space didn't finish"
             }
-            return card.job.chosenKb > 0 ? "Up to " + card.job.chosenSize + " can come free" : "Pick what to clear"
+            if (card.job.chosenKb > 0)
+                return "Up to " + card.job.chosenSize + " can come free" + (card.restoresChosen ? ", and more from restore points" : "")
+            return card.restoresChosen ? "Older restore points can be cleared" : "Pick what to clear"
         }
         sub: {
             switch (card.stage) {
@@ -127,6 +131,7 @@ CardFrame {
                 detail: modelData.detail
                 trailing: modelData.size
                 list: modelData.list
+                entries: modelData.entries || []
                 listTitle: "Show which"
                 onClicked: card.job.choose(modelData.id, !modelData.chosen)
             }
@@ -268,7 +273,7 @@ CardFrame {
             toneInk: theme.hueInk
             enabled: card.anyChosen
             iconPath: Icons.drive
-            text: card.job.chosenKb > 0 ? "Free up " + card.job.chosenSize : "Free up space"
+            text: card.job.chosenKb > 0 && !card.restoresChosen ? "Free up " + card.job.chosenSize : "Free up space"
             onClicked: card.job.start()
         }
         Pill {

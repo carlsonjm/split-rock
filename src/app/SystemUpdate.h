@@ -55,6 +55,9 @@ public:
         // Its version moves a step, such as Plasma 6.7 to 6.8, not only a
         // fix.
         bool step = false;
+        // The name people know it by, from its launcher or a well-known
+        // part's; empty for one of the system's own parts.
+        QString known;
     };
 
     struct News {

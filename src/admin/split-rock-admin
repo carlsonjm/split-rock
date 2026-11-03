@@ -13,8 +13,10 @@
 #   install NAME SNAP PACKAGE               one package from the system's shelf
 #   remove NAME SNAP PACKAGE                one package, with what only it needed
 #   free-space NAME SNAP [JOB...] -- [PACKAGE...]
-#                                           pkgcache, journal, crashes; then the
-#                                           parts nothing uses, of those named
+#                                           pkgcache, journal, crashes, restores
+#                                           (all but the newest 3 restore
+#                                           points); then the parts nothing
+#                                           uses, of those named
 #   unused                                  the parts nothing uses that may go,
 #                                           read only, and needs no password
 #   kept PACKAGE                            whether the system runs on it,
@@ -55,8 +57,10 @@ if [ -n "${PKEXEC_UID+set}" ]; then
     PATH=/usr/local/sbin:/usr/local/bin:/usr/bin:/usr/sbin:/bin:/sbin
     export PATH
     logs=/var/log
+    pkgcache=/var/cache/pacman/pkg
 else
     logs=${SPLIT_ROCK_ADMIN_LOGS:-/var/log}
+    pkgcache=${SPLIT_ROCK_ADMIN_PKGCACHE:-/var/cache/pacman/pkg}
 fi
 
 is_snap() {
@@ -115,6 +119,67 @@ own_point() {
     [ "${1-}" = 1 ] || return 1
     command -v snapper >/dev/null 2>&1 && [ -f /etc/snapper/configs/root ] || return 1
     ! ls /usr/share/libalpm/hooks 2>/dev/null | grep -q snap-pac
+}
+
+# Old copies of packages, as paccache finds them keeping the newest of each
+# and none of a removed one; never the copy of a version installed now, which
+# paccache would take where a newer one was fetched and not yet installed.
+clear_pkgcache() {
+    installed=$(pacman -Q 2>/dev/null | tr ' ' '-')
+    for keep in -dvk1 -dvuk0; do
+        paccache "$keep" 2>/dev/null
+    done | grep -oE '[^ /]+\.pkg\.tar(\.[a-z0-9]+)?' | sort -u | while IFS= read -r f; do
+        v=${f%%.pkg.tar*}
+        v=${v%-*}
+        printf '%s\n' "$installed" | grep -qxF -- "$v" && continue
+        rm -f -- "$pkgcache/$f" "$pkgcache/$f.sig" && echo "removed $f"
+    done
+}
+
+# The restore points, as snapper lists them: "number,type,pre-number,
+# default,active", a heading line first.
+points() {
+    snapper --csvout -c root list --columns number,type,pre-number,default,active
+}
+
+# The ones that always stay: the system as it is now, the one the computer
+# runs on or starts from next, and the one it was started from.
+held_points() {
+    printf '%s\n' "$1" | awk -F, 'NR > 1 && ($1 == 0 || $4 == "yes" || $5 == "yes") { print $1 }'
+    sed -n 's|.*\.snapshots/\([0-9][0-9]*\)/snapshot.*|\1|p' /proc/cmdline 2>/dev/null | head -n 1
+}
+
+# The older restore points, all but the newest 3, a pair counted once by
+# the number taken before; never one held, nor a pair half of which is.
+older_points() {
+    held=$(held_points "$1" | tr '\n' ' ')
+    printf '%s\n' "$1" | awk -F, -v held="$held" '
+        BEGIN { n = split(held, h, " "); for (i = 1; i <= n; i++) keep[h[i]] = 1 }
+        NR > 1 { if ($2 == "post") after[$1] = $3; else if ($1 != 0) point[++count] = $1 }
+        END {
+            for (p in after) if (p in keep) keep[after[p]] = 1
+            for (i = 1; i <= count; i++) print point[i], (point[i] in keep) ? 1 : 0
+        }' | sort -n | head -n -3 | awk '$2 == 0 { print $1 }'
+}
+
+# Deletes the restore points named in the list given first, each with the
+# one taken after it, so a pair never goes by half; if any is not a restore
+# point or is held, none goes.
+delete_points() {
+    list=$1
+    shift
+    held=$(held_points "$list")
+    targets=
+    for n in "$@"; do
+        printf '%s\n' "$list" | awk -F, -v n="$n" 'NR > 1 && $1 == n && $2 != "post" { found = 1 } END { exit !found }' \
+            || refuse "$n isn't a restore point on this computer"
+        targets="$targets $n $(printf '%s\n' "$list" | awk -F, -v n="$n" 'NR > 1 && $2 == "post" && $3 == n { print $1 }')"
+    done
+    for t in $targets; do
+        printf '%s\n' "$held" | grep -qx -- "$t" && refuse "$t is the one this computer runs on or starts from"
+    done
+    # shellcheck disable=SC2086 # each number is its own word
+    snapper -c root delete --sync $targets
 }
 
 # What building software needs: compilers and build tools, and every package
@@ -251,7 +316,7 @@ free-space)
     jobs=
     while [ $# -gt 0 ] && [ "$1" != "--" ]; do
         case $1 in
-            pkgcache|journal|crashes) jobs="$jobs $1" ;;
+            pkgcache|journal|crashes|restores) jobs="$jobs $1" ;;
             *) refuse "free-space has no job $1" ;;
         esac
         shift
@@ -262,9 +327,15 @@ free-space)
     done
     for one in $jobs; do
         case $one in
-            pkgcache) echo "@@ step pkgcache"; paccache -rk1; paccache -ruk0 ;;
+            pkgcache) echo "@@ step pkgcache"; clear_pkgcache ;;
             journal) echo "@@ step journal"; journalctl --vacuum-size=200M ;;
             crashes) echo "@@ step crashes"; find /var/lib/systemd/coredump -type f -delete ;;
+            restores) echo "@@ step restores"
+                # Before the parts nothing uses take a new pair, so the
+                # newest 3 are the ones the person saw.
+                # shellcheck disable=SC2086 # each number is its own word
+                list=$(points) && older=$(older_points "$list") && [ -n "$older" ] \
+                    && (delete_points "$list" $older) ;;
         esac
     done
     [ $# -gt 0 ] || exit 0
@@ -325,29 +396,8 @@ restore-delete)
     for n in "$@"; do
         is_number "$n" && [ "$n" -gt 0 ] || refuse "restore-delete takes restore point numbers"
     done
-    list=$(snapper --csvout -c root list --columns number,type,pre-number,default,active) || exit 1
-    # The one the computer runs on now, starts from next, or was started
-    # from always stays.
-    held=$(printf '%s\n' "$list" | awk -F, 'NR > 1 && ($4 == "yes" || $5 == "yes") { print $1 }')
-    booted=$(sed -n 's|.*\.snapshots/\([0-9][0-9]*\)/snapshot.*|\1|p' /proc/cmdline 2>/dev/null | head -n 1)
-    targets=
-    for n in "$@"; do
-        printf '%s\n' "$list" | awk -F, -v n="$n" 'NR > 1 && $1 == n && $2 != "post" { found = 1 } END { exit !found }' \
-            || refuse "$n isn't a restore point on this computer"
-        # A pair is one restore point: the one taken after goes with it.
-        targets="$targets $n $(printf '%s\n' "$list" | awk -F, -v n="$n" 'NR > 1 && $2 == "post" && $3 == n { print $1 }')"
-    done
-    for t in $targets; do
-        for h in $held $booted; do
-            [ "$t" = "$h" ] && refuse "$t is the one this computer runs on or starts from"
-        done
-    done
-    echo "@@ deleting"
-    # shellcheck disable=SC2086 # each number is its own word
-    snapper -c root delete --sync $targets
-    status=$?
-    echo "@@ end"
-    exit $status
+    list=$(points) || exit 1
+    delete_points "$list" "$@"
     ;;
 
 restore-undo)
