@@ -29,6 +29,8 @@ Rectangle {
     property string standing
     // What it holds, folded under it.
     property string list
+    // The list by the names people know, where it has them (Fold.entries).
+    property var entries: []
     property string listTitle: "Show which"
     // Room kept at its end for controls of the card's own, such as Do it.
     property real reserve: 0
@@ -134,6 +136,7 @@ Rectangle {
             width: parent.width
             title: row.listTitle
             body: row.list
+            entries: row.entries
             fromEnd: false
         }
     }

@@ -146,7 +146,8 @@ private Q_SLOTS:
         const auto item = [&look](const QString &id) {
             return *std::find_if(look.items.cbegin(), look.items.cend(), [&id](const auto &i) { return i.id == id; });
         };
-        QCOMPARE(item(QStringLiteral("pkgcache")).count, 47);
+        // The copy of the version installed now is never counted.
+        QCOMPARE(item(QStringLiteral("pkgcache")).count, 46);
         // 200 MB of logs stay.
         QCOMPARE(item(QStringLiteral("journal")).kb, qint64(1.4 * 1024 * 1024) - 200 * 1024);
         // Parts nothing uses and the trash wait for the person to pick them.
@@ -158,8 +159,22 @@ private Q_SLOTS:
                  (QStringList{QStringLiteral("org.kde.Platform"), QStringLiteral("org.freedesktop.Platform")}));
         // Every row says exactly what is in it.
         QCOMPARE(item(QStringLiteral("pkgcache")).list,
-                 (QStringList{QStringLiteral("firefox 131.0-1 · 70 MB"),
-                              QStringLiteral("lib32-gcc-libs 14.2.1+r134+gab884fffe3fc-1")}));
+                 (QStringList{QStringLiteral("firefox 131.0-1 · 70 MB"), QStringLiteral("kadunce 20261031.r394-1 · 2 MB"),
+                              QStringLiteral("lib32-gcc-libs 14.2.1+r134+gab884fffe3fc-1"),
+                              QStringLiteral("man-pages 6.19-1 · 6 MB")}));
+        // By the names people know: a launcher's, or one known; the rest are
+        // the system's own parts, in one line that opens to the full list.
+        QStringList entries;
+        for (const QVariant &entry : item(QStringLiteral("pkgcache")).entries) {
+            const QVariantMap e = entry.toMap();
+            entries.append(QStringList{e.value(QStringLiteral("name")).toString(), e.value(QStringLiteral("note")).toString(),
+                                       e.value(QStringLiteral("size")).toString(), e.value(QStringLiteral("parts")).toString()}
+                               .join(QLatin1Char('|')));
+        }
+        QCOMPARE(entries, (QStringList{QStringLiteral("Firefox|an older copy|70 MB|"),
+                                       QStringLiteral("Manual pages|an older copy|6 MB|"),
+                                       QStringLiteral("Kadunce|an older copy|2 MB|"),
+                                       QStringLiteral("System parts|1 item||lib32-gcc-libs 14.2.1+r134+gab884fffe3fc-1")}));
         // The oldest finished logs go until the most recent 200 MB is left.
         QCOMPARE(item(QStringLiteral("journal")).list.size(), 2);
         QVERIFY2(item(QStringLiteral("journal")).list.first().startsWith(QStringLiteral("System log · 700 MB · ")),
@@ -224,10 +239,18 @@ private Q_SLOTS:
 
         // The administrator's real job, with what it runs stood in for.
         StandIns standIns;
-        QVERIFY(standIns.add(QStringLiteral("paccache"), QStringLiteral("echo \"paccache $*\"\n")));
+        // Two old copies, one of them the version installed now.
+        QTemporaryDir pkgcache;
+        const QString old = pkgcache.filePath(QStringLiteral("firefox-131.0-1-x86_64.pkg.tar.zst"));
+        const QString inUse = pkgcache.filePath(QStringLiteral("kadunce-20261101.r409-1-x86_64.pkg.tar.zst"));
+        QVERIFY(write(old, QStringLiteral("x")) && write(old + QStringLiteral(".sig"), QStringLiteral("s")));
+        QVERIFY(write(inUse, QStringLiteral("x")));
+        qputenv("SPLIT_ROCK_ADMIN_PKGCACHE", pkgcache.path().toUtf8());
+        QVERIFY(standIns.add(QStringLiteral("paccache"), QStringLiteral(
+            "case $1 in -dvk1) echo '==> candidate packages:'; echo '%1'; echo '%2' ;; esac\n").arg(old, inUse)));
         QVERIFY(standIns.add(QStringLiteral("snapper"), QStringLiteral("exit 1\n")));
         QVERIFY(standIns.add(QStringLiteral("pacman"), QStringLiteral(
-            "case $1 in -Qdtq) echo python-pip ;; *) echo \"pacman $*\" ;; esac\n")));
+            "case $1 in -Qdtq) echo python-pip ;; -Q) echo 'kadunce 20261101.r409-1' ;; *) echo \"pacman $*\" ;; esac\n")));
         SpaceCleanup space;
         space.setElevate({});
         space.setAdmin(adminInSource());
@@ -270,7 +293,12 @@ private Q_SLOTS:
         QVERIFY(written.value(1).startsWith(QStringLiteral("Freed up space: ")));
         QVERIFY(written.value(2).contains(QStringLiteral("python-pip")));
         // The jobs, then of the parts the person saw only those still unused.
-        QVERIFY(space.log().contains(QStringLiteral("paccache -rk1")));
+        // Old copies go, with their signatures; the copy of the version
+        // installed now stays.
+        QVERIFY2(space.log().contains(QStringLiteral("removed firefox-131.0-1-x86_64.pkg.tar.zst")), qPrintable(space.log()));
+        QVERIFY(!QFile::exists(old) && !QFile::exists(old + QStringLiteral(".sig")));
+        QVERIFY(QFile::exists(inUse));
+        qunsetenv("SPLIT_ROCK_ADMIN_PKGCACHE");
         QVERIFY2(space.log().contains(QStringLiteral("pacman -Rn --noconfirm --noprogressbar --color never -- python-pip\n")),
                  qPrintable(space.log()));
         // Unused for a month goes; the rest, and community build files kept

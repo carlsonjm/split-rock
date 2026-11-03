@@ -27,7 +27,8 @@ class SpaceCleanup : public Chore
 {
     Q_OBJECT
     // Each: id, title, detail, size (in words), kb, count, admin, chosen,
-    // list (what it holds, for the fold) and tone, a colour's name.
+    // list (what it holds, for the fold), entries (the same by the names
+    // people know, where a row has them) and tone, a colour's name.
     Q_PROPERTY(QVariantList items READ itemList NOTIFY changed)
     Q_PROPERTY(QString chosenSize READ chosenSize NOTIFY changed)
     Q_PROPERTY(qint64 chosenKb READ chosenKb NOTIFY changed)
@@ -54,6 +55,9 @@ public:
         bool chosen = false;
         QStringList list;
         QString tone;
+        // The list by the names people know, where a row has them: each
+        // name, note and size, and for the system's own parts, their list.
+        QVariantList entries = {};
     };
 
     struct Look {

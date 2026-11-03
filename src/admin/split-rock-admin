@@ -57,8 +57,10 @@ if [ -n "${PKEXEC_UID+set}" ]; then
     PATH=/usr/local/sbin:/usr/local/bin:/usr/bin:/usr/sbin:/bin:/sbin
     export PATH
     logs=/var/log
+    pkgcache=/var/cache/pacman/pkg
 else
     logs=${SPLIT_ROCK_ADMIN_LOGS:-/var/log}
+    pkgcache=${SPLIT_ROCK_ADMIN_PKGCACHE:-/var/cache/pacman/pkg}
 fi
 
 is_snap() {
@@ -117,6 +119,21 @@ own_point() {
     [ "${1-}" = 1 ] || return 1
     command -v snapper >/dev/null 2>&1 && [ -f /etc/snapper/configs/root ] || return 1
     ! ls /usr/share/libalpm/hooks 2>/dev/null | grep -q snap-pac
+}
+
+# Old copies of packages, as paccache finds them keeping the newest of each
+# and none of a removed one; never the copy of a version installed now, which
+# paccache would take where a newer one was fetched and not yet installed.
+clear_pkgcache() {
+    installed=$(pacman -Q 2>/dev/null | tr ' ' '-')
+    for keep in -dvk1 -dvuk0; do
+        paccache "$keep" 2>/dev/null
+    done | grep -oE '[^ /]+\.pkg\.tar(\.[a-z0-9]+)?' | sort -u | while IFS= read -r f; do
+        v=${f%%.pkg.tar*}
+        v=${v%-*}
+        printf '%s\n' "$installed" | grep -qxF -- "$v" && continue
+        rm -f -- "$pkgcache/$f" "$pkgcache/$f.sig" && echo "removed $f"
+    done
 }
 
 # The restore points, as snapper lists them: "number,type,pre-number,
@@ -310,7 +327,7 @@ free-space)
     done
     for one in $jobs; do
         case $one in
-            pkgcache) echo "@@ step pkgcache"; paccache -rk1; paccache -ruk0 ;;
+            pkgcache) echo "@@ step pkgcache"; clear_pkgcache ;;
             journal) echo "@@ step journal"; journalctl --vacuum-size=200M ;;
             crashes) echo "@@ step crashes"; find /var/lib/systemd/coredump -type f -delete ;;
             restores) echo "@@ step restores"

@@ -332,6 +332,21 @@ private Q_SLOTS:
         QVERIFY(opens(QStringLiteral("space")));
         QTRY_COMPARE(space->stage(), QStringLiteral("ready"));
         shows(QStringLiteral("spaceCard"), QStringLiteral("31-space-ready"));
+        {
+            // Show which, by the names people know.
+            QQuickItem *fold = nullptr;
+            std::function<void(QQuickItem *)> walk = [&](QQuickItem *item) {
+                if (!fold && item->property("named").isValid() && item->property("named").toBool())
+                    fold = item;
+                for (QQuickItem *child : item->childItems())
+                    walk(child);
+            };
+            walk(find(full, QStringLiteral("space-pkgcache")));
+            QVERIFY(fold);
+            fold->setProperty("open", true);
+            shows(QStringLiteral("spaceCard"), QStringLiteral("31b-space-show-which"));
+            fold->setProperty("open", false);
+        }
         QMetaObject::invokeMethod(find(full, QStringLiteral("spaceButton")), "clicked");
         QTRY_COMPARE(space->stage(), QStringLiteral("done"));
         shows(QStringLiteral("spaceCard"), QStringLiteral("32-space-done"));

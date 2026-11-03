@@ -27,19 +27,30 @@ const QString LookScript = QStringLiteral(R"SH(export LANG=C LC_ALL=C
 echo "@@ disk"
 df -Pk / 2>/dev/null | awk 'NR==2 {print $2, $4}'
 echo "@@ pkgcache"
+files=
 if command -v paccache >/dev/null 2>&1; then
+    files=$(for keep in -dvk1 -dvuk0; do paccache "$keep" 2>/dev/null; done)
     # Each copy it would clear, as "file BYTES NAME", then its total.
-    for keep in -dvk1 -dvuk0; do
-        paccache "$keep" 2>/dev/null | while IFS= read -r line; do
-            f=$(printf '%s\n' "$line" | grep -oE '[^ /]+\.pkg\.tar(\.[a-z0-9]+)?' | head -n 1)
-            if [ -n "$f" ]; then
-                echo "file $(stat -c %s "/var/cache/pacman/pkg/$f" 2>/dev/null || echo -1) $f"
-            else
-                printf '%s\n' "$line"
-            fi
-        done
+    printf '%s\n' "$files" | while IFS= read -r line; do
+        f=$(printf '%s\n' "$line" | grep -oE '[^ /]+\.pkg\.tar(\.[a-z0-9]+)?' | head -n 1)
+        if [ -n "$f" ]; then
+            echo "file $(stat -c %s "/var/cache/pacman/pkg/$f" 2>/dev/null || echo -1) $f"
+        else
+            printf '%s\n' "$line"
+        fi
     done
 fi
+echo "@@ installed"
+[ -n "$files" ] && pacman -Q 2>/dev/null
+echo "@@ launchers"
+# Each package with an old copy, by the name its launcher gives it.
+printf '%s\n' "$files" | grep -oE '[^ /]+\.pkg\.tar' | sed -E 's/-[^-]+-[^-]+-[^-]+\.pkg\.tar$//' | sort -u \
+    | while IFS= read -r p; do
+        d=$(pacman -Qlq "$p" 2>/dev/null | grep -m 1 -E '^/usr/share/applications/[^/]+\.desktop$')
+        [ -n "$d" ] || continue
+        n=$(sed -n 's/^Name=//p' "$d" 2>/dev/null | head -n 1)
+        [ -n "$n" ] && printf '%s\t%s\n' "$p" "$n"
+    done
 echo "@@ journal"
 journalctl --disk-usage 2>/dev/null
 echo "@@ journalfiles"
@@ -151,6 +162,55 @@ QString packageFile(const QString &file)
                                           parts.at(parts.size() - 3), parts.at(parts.size() - 2));
 }
 
+// The package's name and its version from a cached file's name.
+std::pair<QString, QString> nameAndVersion(const QString &file)
+{
+    const QStringList parts = file.section(QStringLiteral(".pkg.tar"), 0, 0).split(QLatin1Char('-'));
+    if (parts.size() < 4)
+        return {file, QString()};
+    return {parts.mid(0, parts.size() - 3).join(QLatin1Char('-')),
+            parts.at(parts.size() - 3) + QLatin1Char('-') + parts.at(parts.size() - 2)};
+}
+
+// The names people know a package by when it has no launcher of its own,
+// for the few they would recognise; the rest are the system's own parts.
+QString knownName(const QString &package)
+{
+    static const QList<std::pair<QRegularExpression, QString>> names{
+        {QRegularExpression(QStringLiteral("^(man-pages|man-db)$")), QStringLiteral("Manual pages")},
+        {QRegularExpression(QStringLiteral("^limine$")), QStringLiteral("Startup menu (Limine)")},
+        {QRegularExpression(QStringLiteral("^grub$")), QStringLiteral("Startup menu (GRUB)")},
+        {QRegularExpression(QStringLiteral("^linux(-cachyos[a-z0-9-]*|-lts|-zen|-hardened)?$")),
+         QStringLiteral("The system's core (Linux)")},
+        {QRegularExpression(QStringLiteral("^linux-firmware")), QStringLiteral("Device firmware")},
+        {QRegularExpression(QStringLiteral("^hunspell")), QStringLiteral("Spell checking (Hunspell)")},
+        {QRegularExpression(QStringLiteral("^(lib32-)?mesa$")), QStringLiteral("Graphics drivers (Mesa)")},
+        {QRegularExpression(QStringLiteral("^(lib32-)?nvidia")), QStringLiteral("Graphics drivers (NVIDIA)")},
+        {QRegularExpression(QStringLiteral("^pipewire")), QStringLiteral("Sound (PipeWire)")},
+        {QRegularExpression(QStringLiteral("^networkmanager$")), QStringLiteral("Network connections")},
+        {QRegularExpression(QStringLiteral("^bluez")), QStringLiteral("Bluetooth")},
+        {QRegularExpression(QStringLiteral("^(plasma-workspace|plasma-desktop|kwin)$")), QStringLiteral("Plasma desktop")},
+    };
+    // The suite's own parts, by the names Shuffle gives them inside it.
+    static const QMap<QString, std::pair<QString, QString>> suite{
+        {QStringLiteral("kadunce"), {QStringLiteral("Shuffle Cards"), QStringLiteral("Kadunce")}},
+        {QStringLiteral("tettegouche"), {QStringLiteral("Shuffle Search"), QStringLiteral("Tettegouche")}},
+        {QStringLiteral("temperance"), {QStringLiteral("Shuffle Status"), QStringLiteral("Temperance")}},
+        {QStringLiteral("gooseberry"), {QStringLiteral("Shuffle Notes"), QStringLiteral("Gooseberry")}},
+        {QStringLiteral("shuffle-keyboard"), {QStringLiteral("Shuffle Keyboard"), QStringLiteral("Shuffle Keyboard")}},
+        {QStringLiteral("shuffle-plasma"), {QStringLiteral("Shuffle"), QStringLiteral("Shuffle")}},
+    };
+    if (const auto it = suite.constFind(package); it != suite.constEnd())
+        return insideShuffle() ? it->first : it->second;
+    if (package == QLatin1String("split-rock") || package.startsWith(QLatin1String("split-rock-")))
+        return productName();
+    for (const auto &[pattern, name] : names) {
+        if (pattern.match(package).hasMatch())
+            return name;
+    }
+    return QString();
+}
+
 // "kwin_wayland" from "core.kwin_wayland.1000.<boot>.<pid>.<time>.zst",
 // with systemd's \x2d escapes read back.
 QString crashedApp(const QString &file)
@@ -239,9 +299,33 @@ SpaceCleanup::Look SpaceCleanup::readLook(const QString &output)
     {
         static const QRegularExpression dry(QStringLiteral(R"(dry run: (\d+) candidates? \(disk space saved: ([^)]+)\))"));
         Item item{QStringLiteral("pkgcache"), QStringLiteral("Old versions of installed apps"),
-                  QStringLiteral("Copies kept from earlier updates. The newest copy of each app stays."),
+                  QStringLiteral("Copies kept from earlier updates. The copy of each app you're using now always stays."),
                   0, 0, true, true, {}, QStringLiteral("teal")};
+        // The version installed of each package, whose copy always stays.
+        QMap<QString, QString> installed;
+        for (const QString &text : found.value(QStringLiteral("installed"))) {
+            const QStringList f = text.split(QLatin1Char(' '), Qt::SkipEmptyParts);
+            if (f.size() == 2)
+                installed.insert(f.at(0), f.at(1));
+        }
+        QMap<QString, QString> launchers;
+        for (const QString &text : found.value(QStringLiteral("launchers"))) {
+            const qsizetype tab = text.indexOf(QLatin1Char('\t'));
+            if (tab > 0 && !text.mid(tab + 1).trimmed().isEmpty())
+                launchers.insert(text.left(tab), text.mid(tab + 1).trimmed());
+        }
+        struct Named {
+            qint64 kb = 0;
+            bool sized = true;
+            int copies = 0;
+            bool gone = true;
+        };
+        QMap<QString, Named> named;
+        Named parts;
+        QStringList partLines;
         QStringList seen;
+        qint64 keptKb = 0;
+        int kept = 0;
         for (const QString &text : found.value(QStringLiteral("pkgcache"))) {
             if (text.startsWith(QLatin1String("file "))) {
                 const QString file = text.section(QLatin1Char(' '), 2);
@@ -249,7 +333,23 @@ SpaceCleanup::Look SpaceCleanup::readLook(const QString &output)
                     continue;
                 seen.append(file);
                 const qint64 bytes = text.section(QLatin1Char(' '), 1, 1).toLongLong();
-                item.list.append(line(packageFile(file), bytes < 0 ? -1 : bytes / 1024));
+                const qint64 kb = bytes < 0 ? -1 : bytes / 1024;
+                const auto [package, version] = nameAndVersion(file);
+                if (!version.isEmpty() && installed.value(package) == version) {
+                    // The copy of what runs now: never listed, never cleared.
+                    keptKb += std::max<qint64>(0, kb);
+                    ++kept;
+                    continue;
+                }
+                item.list.append(line(packageFile(file), kb));
+                const QString name = launchers.contains(package) ? launchers.value(package) : knownName(package);
+                Named &into = name.isEmpty() ? parts : named[name];
+                if (name.isEmpty())
+                    partLines.append(line(packageFile(file), kb));
+                into.kb += std::max<qint64>(0, kb);
+                into.sized = into.sized && kb >= 0;
+                ++into.copies;
+                into.gone = into.gone && !installed.contains(package);
                 continue;
             }
             const QRegularExpressionMatch m = dry.match(text);
@@ -258,8 +358,30 @@ SpaceCleanup::Look SpaceCleanup::readLook(const QString &output)
             item.count += m.captured(1).toInt();
             item.kb += std::max<qint64>(0, readSize(m.captured(2)));
         }
+        item.count = std::max(0, item.count - kept);
+        item.kb = std::max<qint64>(0, item.kb - keptKb);
         item.list.sort(Qt::CaseInsensitive);
         item.list = capped(item.list);
+        // By the names people know, biggest first; the system's own parts
+        // last, in one line that opens to the full list.
+        QList<std::pair<QString, Named>> byName(named.keyValueBegin(), named.keyValueEnd());
+        std::stable_sort(byName.begin(), byName.end(), [](const auto &a, const auto &b) { return a.second.kb > b.second.kb; });
+        for (const auto &[name, each] : byName) {
+            const QString note = each.gone ? QStringLiteral("no longer installed")
+                               : each.copies == 1 ? QStringLiteral("an older copy")
+                                                  : QStringLiteral("%1 older copies").arg(each.copies);
+            item.entries.append(QVariantMap{{QStringLiteral("name"), name},
+                                            {QStringLiteral("note"), note},
+                                            {QStringLiteral("size"), each.sized ? size(each.kb) : QString()}});
+        }
+        if (parts.copies > 0) {
+            partLines.sort(Qt::CaseInsensitive);
+            item.entries.append(QVariantMap{
+                {QStringLiteral("name"), QStringLiteral("System parts")},
+                {QStringLiteral("note"), parts.copies == 1 ? QStringLiteral("1 item") : QStringLiteral("%1 items").arg(parts.copies)},
+                {QStringLiteral("size"), parts.sized || parts.kb > 0 ? size(parts.kb) : QString()},
+                {QStringLiteral("parts"), capped(partLines).join(QLatin1Char('\n'))}});
+        }
         if (item.count > 0)
             look.items.append(item);
     }
@@ -443,6 +565,7 @@ QVariantList SpaceCleanup::itemList() const
                                 {QStringLiteral("admin"), item.admin},
                                 {QStringLiteral("chosen"), item.chosen},
                                 {QStringLiteral("list"), item.list.join(QLatin1Char('\n'))},
+                                {QStringLiteral("entries"), item.entries},
                                 {QStringLiteral("tone"), item.tone}});
     }
     return list;

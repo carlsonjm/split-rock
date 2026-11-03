@@ -131,6 +131,7 @@ CardFrame {
                 detail: modelData.detail
                 trailing: modelData.size
                 list: modelData.list
+                entries: modelData.entries || []
                 listTitle: "Show which"
                 onClicked: card.job.choose(modelData.id, !modelData.chosen)
             }
