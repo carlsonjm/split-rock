@@ -335,6 +335,21 @@ private Q_SLOTS:
         QMetaObject::invokeMethod(find(full, QStringLiteral("spaceButton")), "clicked");
         QTRY_COMPARE(space->stage(), QStringLiteral("done"));
         shows(QStringLiteral("spaceCard"), QStringLiteral("32-space-done"));
+        // Where restore points can be counted, the older ones are a row of
+        // their own, unticked, with no size until they're gone.
+        space->setLookScript(printing(QStringLiteral("space-look-restores.txt")));
+        space->setAdmin(adminStandIn(QStringLiteral("case $1 in restore-list) cat '%1' ;; *) echo '@@ step restores' ;; esac")
+                                         .arg(chores + QStringLiteral("restore-look-many.txt"))));
+        space->check();
+        QTRY_COMPARE(space->stage(), QStringLiteral("ready"));
+        QTRY_VERIFY(find(full, QStringLiteral("space-restores")));
+        space->choose(QStringLiteral("restores"), true);
+        full->setGeometry(0, 0, 560, 1500);
+        shows(QStringLiteral("spaceCard"), QStringLiteral("32b-space-restores"));
+        full->setGeometry(0, 0, 560, 800);
+        space->close();
+        space->setAdmin(adminStandIn(QStringLiteral("echo '@@ step pkgcache'; sleep 0.3; echo '@@ step journal'")));
+        space->setLookScript(printing(QStringLiteral("space-look.txt")));
 
         QVERIFY(opens(QStringLiteral("install"), QStringLiteral("pdf editor")));
         QTRY_COMPARE(install->stage(), QStringLiteral("results"));

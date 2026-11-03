@@ -126,6 +126,9 @@ public:
     Q_INVOKABLE void openKeepTool();
 
     static Look readLook(const QString &output);
+    // The ones Clear older ones deletes from what a look found: all but the
+    // newest Kept, and never the one the computer was started from.
+    static QList<int> olderIn(const Look &look);
     // snapper's JSON list, pairs joined, newest first.
     static QList<Point> readList(const QString &json);
     // What a restore point's description says was about to happen.

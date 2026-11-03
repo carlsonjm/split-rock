@@ -726,7 +726,10 @@ page and in the notebook opens each.
   reports, the person's cache and leftover app builds, Flatpak runtimes nothing
   uses, the Trash and packages nothing needs, each with its size. Packages
   nothing needs and the Trash start unticked, and removing packages takes a
-  restore point first.
+  restore point first. Where the restore points can be counted with no
+  password, the older ones are a row too, unticked, keeping the newest 3; how
+  much they held shows only once they're gone, since the computer can't say
+  sooner without a slow count.
 - **Install an app** searches the official shelf and Flathub, the shelf first,
   and installs with a restore point. Community (AUR) packages are never offered
   there.
@@ -955,7 +958,7 @@ itself, with how many it keeps, read from its own settings.
 The card can also delete them, since the system's own limit can hold more than
 the drive has room for: on a test computer 45 restore points held 11.5 GB.
 Tapping a point offers Delete beside going back to it; with more than 3, the
-list offers to clear the older ones, and the newest 3 always stay, so the
+list offers to clear the older ones, as Free up space does in a row of its own, and the newest 3 always stay, so the
 person can still go back to before the last change. Each asks first, says it
 can't be undone and has Cancel, then asks for the password once and says how
 much space came back. The `restore-delete` job checks every number itself: it

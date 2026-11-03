@@ -3,6 +3,7 @@
 
 #include "app/AppInstall.h"
 #include "app/Product.h"
+#include "app/RestorePoints.h"
 
 #include <QDateTime>
 #include <QLocale>
@@ -65,6 +66,15 @@ echo "@@ apps"
 command -v flatpak >/dev/null 2>&1 && printf 'n\n' | flatpak uninstall --unused 2>/dev/null
 echo "@@ snapshots"
 ls /usr/share/libalpm/hooks 2>/dev/null | grep -q snap-pac && echo snap-pac
+echo "@@ restorefree"
+# Whether the restore points can be counted without a password, as Restore
+# points reads them; pkcheck asks without showing a prompt.
+command -v snapper >/dev/null 2>&1 && [ -f /etc/snapper/configs/root ] && command -v pkcheck >/dev/null 2>&1 \
+    && pkcheck --action-id io.github.carlsonjm.splitrock.admin.restore-list --process $$ >/dev/null 2>&1 \
+    && echo yes
+echo "@@ root"
+findmnt -no OPTIONS / 2>/dev/null
+cat /proc/cmdline 2>/dev/null
 echo "@@ end"
 )SH");
 
@@ -175,6 +185,7 @@ QString doing(const QString &id)
         {QStringLiteral("builds"), QStringLiteral("Clearing community apps' build files")},
         {QStringLiteral("trash"), QStringLiteral("Emptying the trash")},
         {QStringLiteral("apps"), QStringLiteral("Removing app parts nothing uses")},
+        {QStringLiteral("restores"), QStringLiteral("Clearing older restore points")},
     };
     return words.value(id);
 }
@@ -398,12 +409,30 @@ SpaceCleanup::Look SpaceCleanup::readLook(const QString &output)
     return look;
 }
 
+SpaceCleanup::Item SpaceCleanup::olderRestorePoints(const QString &list, const QString &output)
+{
+    // The list as Restore points reads it, with how the computer was started.
+    QString both = list.section(QStringLiteral("@@ end"), 0, 0);
+    both += QStringLiteral("\n@@ root\n") + sections(output).value(QStringLiteral("root")).join(QLatin1Char('\n'))
+          + QStringLiteral("\n@@ end\n");
+    const RestorePoints::Look look = RestorePoints::readLook(both);
+    const qsizetype older = RestorePoints::olderIn(look).size();
+    const QString detail = QStringLiteral("%1 of %2. The newest %3 always stay, so you can still go back to before the "
+                                          "last change. How much comes free shows once they're gone.")
+                               .arg(older)
+                               .arg(look.points.size())
+                               .arg(RestorePoints::Kept);
+    return {QStringLiteral("restores"), QStringLiteral("Older restore points"), detail, -1, int(older), true, false, {},
+            QStringLiteral("amber")};
+}
+
 QVariantList SpaceCleanup::itemList() const
 {
     QVariantList list;
     for (const Item &item : m_look.items) {
         QString words = item.kb >= 0 ? size(item.kb) : QString();
-        if (item.kb < 0)
+        // How much an older restore point holds shows only once it's gone.
+        if (item.kb < 0 && item.id != QLatin1String("restores"))
             words = item.count == 1 ? QStringLiteral("1 part") : QStringLiteral("%1 parts").arg(item.count);
         list.append(QVariantMap{{QStringLiteral("id"), item.id},
                                 {QStringLiteral("title"), item.title},
@@ -454,15 +483,28 @@ void SpaceCleanup::check()
             // row that opens Your apps.
             run(asPerson(m_yoursScript), 120000, [this, look](int, const QString &yours) {
                 m_yoursKb = AppInstall::totalKb(AppInstall::readYours(yours));
-                looked(look);
+                // Then the restore points, where the system lets them be
+                // read with no password; none are offered where it doesn't.
+                if (!sections(look).value(QStringLiteral("restorefree")).contains(QStringLiteral("yes"))) {
+                    looked(look, QString());
+                    return;
+                }
+                run(asAdmin(QStringLiteral("restore-list")), 60000, [this, look](int code, const QString &list) {
+                    looked(look, code == 0 ? list : QString());
+                });
             });
         });
     });
 }
 
-void SpaceCleanup::looked(const QString &output)
+void SpaceCleanup::looked(const QString &output, const QString &restoreList)
 {
     m_look = readLook(output);
+    if (!restoreList.isEmpty()) {
+        const Item older = olderRestorePoints(restoreList, output);
+        if (older.count > 0)
+            m_look.items.append(older);
+    }
     qInfo().noquote() << QStringLiteral("%1: %2 kinds of leftovers, %3").arg(productName()).arg(m_look.items.size())
                              .arg(size(chosenKb()));
     setStage(m_look.items.isEmpty() ? QStringLiteral("nothing") : QStringLiteral("ready"));
@@ -577,7 +619,10 @@ void SpaceCleanup::runPerson(const QString &output)
         m_freed = size(kb);
         // Restore points keep their own copy of what they saw, so what was
         // cleared under them comes free only as the computer clears them.
-        m_heldBack = ok && kb * 10 < chosenKb() * 7
+        const bool restores = std::any_of(m_look.items.cbegin(), m_look.items.cend(), [](const Item &i) {
+            return i.id == QLatin1String("restores") && i.chosen;
+        });
+        m_heldBack = ok && !restores && kb * 10 < chosenKb() * 7
             ? QStringLiteral("Some of it is still held by restore points, which keep their own copy of what they saw. "
                              "It comes free as the computer clears old ones by itself.")
             : QString();

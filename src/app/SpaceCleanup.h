@@ -19,6 +19,8 @@ namespace splitrock {
 // listed by name on the card, removed one by one and nothing with them,
 // between two restore points, and are off until the person picks them, as is
 // the trash. Tools and files for building software are never among them.
+// Where the system lets the restore points be counted with no password, the
+// older ones are offered too, unticked, and the newest 3 always stay.
 //
 // Its stages: looking, ready, nothing, clearing, done or failed.
 class SpaceCleanup : public Chore
@@ -83,6 +85,9 @@ public:
 
     // What the look printed, read into the card's list, biggest first.
     static Look readLook(const QString &output);
+    // The Older restore points row, from restore-list's output and the
+    // look's: all but the newest few, unticked; its count 0 when none.
+    static Item olderRestorePoints(const QString &list, const QString &output);
     // "1.2G", "340.5M" or "12.3 MiB" as kilobytes; -1 when it's neither.
     static qint64 readSize(const QString &text);
 
@@ -92,7 +97,7 @@ public:
     void setYoursScript(const QString &script) { m_yoursScript = script; }
 
 private:
-    void looked(const QString &output);
+    void looked(const QString &output, const QString &restoreList);
     void runPerson(const QString &adminOutput);
     void finish(bool ok, const QString &output);
     void eachLine(const QString &line);

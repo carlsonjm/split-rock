@@ -255,6 +255,11 @@ private Q_SLOTS:
         space.choose(QStringLiteral("crashes"), false);
         space.choose(QStringLiteral("apps"), false);
         space.choose(QStringLiteral("orphans"), true);
+        // Where restore points can't be counted with no password, none are
+        // offered.
+        const QList<SpaceCleanup::Item> items = space.items();
+        QVERIFY(std::none_of(items.cbegin(), items.cend(),
+                             [](const SpaceCleanup::Item &i) { return i.id == QLatin1String("restores"); }));
         space.start();
         QCOMPARE(space.stage(), QStringLiteral("clearing"));
         space.close();
@@ -955,6 +960,93 @@ private Q_SLOTS:
             QCOMPARE(job(QStringList{QStringLiteral("restore-delete")} + refused), 2);
             QCOMPARE(said(), QString());
         }
+    }
+
+    void freeUpSpaceOffersOlderRestorePointsUnticked()
+    {
+        QTemporaryDir dir;
+        const QString asked = dir.filePath(QStringLiteral("asked"));
+        const QString many = QStringLiteral(FIXTURES_DIR "/chores/restore-look-many.txt");
+        SpaceCleanup space;
+        space.setElevate({});
+        space.setAdmin(adminStandIn(QStringLiteral(
+            "case $1 in\n"
+            "restore-list) cat '%1' ;;\n"
+            "free-space) echo \"$*\" > '%2'; echo '@@ step restores' ;;\n"
+            "unused) echo '@@ orphans'; echo '@@ end' ;;\n"
+            "esac\n").arg(many, asked)));
+        space.setLookScript(printing(QStringLiteral("space-look-restores.txt")));
+        space.setYoursScript(QStringLiteral("true"));
+        space.setPersonScript(QStringLiteral("true"));
+        space.setFreeScript(QStringLiteral("echo 49048576"));
+        space.setWriteDown([](const QString &, const QString &, const QString &, QString *) { return true; });
+        space.setReport({});
+        space.check();
+        QTRY_COMPARE(space.stage(), QStringLiteral("ready"));
+        const QList<SpaceCleanup::Item> items = space.items();
+        const auto older = std::find_if(items.cbegin(), items.cend(),
+                                        [](const SpaceCleanup::Item &i) { return i.id == QLatin1String("restores"); });
+        QVERIFY(older != items.cend());
+        // Six restore points: the newest 3 stay, and the row starts unticked
+        // with no size, since that shows only once they're gone.
+        QCOMPARE(older->count, 3);
+        QVERIFY(!older->chosen);
+        QVERIFY(older->admin);
+        QVERIFY2(older->detail.startsWith(QStringLiteral("3 of 6. The newest 3 always stay")), qPrintable(older->detail));
+        const QVariantMap row = space.itemList().at(int(older - items.cbegin())).toMap();
+        QCOMPARE(row.value(QStringLiteral("size")).toString(), QString());
+
+        for (const SpaceCleanup::Item &item : items)
+            space.choose(item.id, item.id == QLatin1String("restores"));
+        QVERIFY(space.needsPassword());
+        space.start();
+        QTRY_COMPARE(space.stage(), QStringLiteral("done"));
+        QFile file(asked);
+        QVERIFY(file.open(QIODevice::ReadOnly));
+        const QString job = QString::fromUtf8(file.readAll()).trimmed();
+        QVERIFY2(job.startsWith(QStringLiteral("free-space ")) && job.endsWith(QStringLiteral(" restores --")), qPrintable(job));
+        QCOMPARE(space.heldBack(), QString());
+    }
+
+    void freeingUpSpaceClearsAllButTheNewestThreeRestorePoints()
+    {
+        StandIns standIns;
+        const QString ran = standIns.path() + QStringLiteral("/ran");
+        const QString rows = standIns.path() + QStringLiteral("/rows");
+        QVERIFY(standIns.add(QStringLiteral("snapper"), QStringLiteral(
+            "case \"$*\" in\n"
+            "*--csvout*) echo number,type,pre-number,default,active; tr ' ' '\\n' < '%2' ;;\n"
+            "*) echo \"snapper $*\" >> '%1' ;;\n"
+            "esac\n").arg(ran, rows)));
+        const auto clears = [&](const QString &list) {
+            QFile r(rows);
+            if (!r.open(QIODevice::WriteOnly) || r.write(list.toUtf8()) < 0)
+                return QStringLiteral("(not written)");
+            r.close();
+            QProcess p;
+            p.setProcessChannelMode(QProcess::MergedChannels);
+            p.start(adminInSource().first(),
+                    {QStringLiteral("free-space"), QStringLiteral("Split Rock"), QStringLiteral("0"), QStringLiteral("restores")});
+            p.closeWriteChannel();
+            if (!p.waitForFinished(20000) || p.exitCode() != 0)
+                return QStringLiteral("(failed) ") + QString::fromUtf8(p.readAll());
+            QFile file(ran);
+            const QString text = file.open(QIODevice::ReadOnly) ? QString::fromUtf8(file.readAll()) : QString();
+            file.remove();
+            return text;
+        };
+        // A pair goes whole; the newest 3 and the pair the computer starts
+        // from stay.
+        QCOMPARE(clears(QStringLiteral("0,single,,no,no 2,single,,no,no 3,pre,,no,no 4,post,3,no,no 6,single,,no,no "
+                                       "7,pre,,no,no 8,post,7,yes,yes 9,single,,no,no 10,single,,no,no")),
+                 QStringLiteral("snapper -c root delete --sync 2 3 4 6\n"));
+        // An older pair the computer starts from stays, and then nothing is
+        // left to clear.
+        QCOMPARE(clears(QStringLiteral("0,single,,no,no 2,pre,,no,no 3,post,2,yes,yes 5,single,,no,no "
+                                       "6,single,,no,no 7,single,,no,no")),
+                 QString());
+        // Three or fewer: nothing goes.
+        QCOMPARE(clears(QStringLiteral("0,single,,no,no 5,single,,no,no 6,single,,no,no 7,single,,no,no")), QString());
     }
 
     void clearingOlderRestorePointsAsksFirstAndKeepsTheNewest()
