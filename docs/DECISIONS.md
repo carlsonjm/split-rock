@@ -737,6 +737,10 @@ page and in the notebook opens each.
   update, the newest restore point, settings files beside the person's own and
   crashes this week, each with the card or question that helps. It looks once a
   day by itself, quietly, and the notebook and the tiles show what it found.
+  Its Space row turns worth a look at the fullness Core's Storage first speaks
+  at, which follows the Notice setting, so the two never disagree; settings
+  files an update left beside the person's own are listed but not counted as
+  something to look at, as the person has nothing to do about them.
 - **Community apps** compares the installed community packages with the AUR,
   shows what changed in each recipe since the installed version, flagging new
   download addresses, install scripts and commands that reach the network, and

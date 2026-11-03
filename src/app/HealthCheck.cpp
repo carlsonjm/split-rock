@@ -4,8 +4,10 @@
 #include "app/Battery.h"
 #include "app/Product.h"
 #include "app/RestorePoints.h"
+#include "core/Notice.h"
 
 #include <QDebug>
+#include <cmath>
 #include <QProcess>
 #include <QStandardPaths>
 #include <QJsonArray>
@@ -243,7 +245,7 @@ QString HealthCheck::batteryLook()
     return batterySection(readBatteries(QStringLiteral("/sys/class/power_supply"), QDBusConnection::systemBus()));
 }
 
-QList<HealthCheck::Item> HealthCheck::readLook(const QString &output, const QDateTime &now)
+QList<HealthCheck::Item> HealthCheck::readLook(const QString &output, const QDateTime &now, int notice)
 {
     const QMap<QString, QStringList> found = sections(output);
     QList<Item> items;
@@ -272,11 +274,14 @@ QList<HealthCheck::Item> HealthCheck::readLook(const QString &output, const QDat
         if (disk.size() == 2 && disk.at(0).toLongLong() > 0) {
             const qint64 total = disk.at(0).toLongLong();
             const qint64 free = disk.at(1).toLongLong();
-            const double share = double(free) / double(total);
+            // Full as Core counts it, whole percent rounded down, so the row
+            // turns worth a look at the same point Core first says so. A
+            // drive all but full is a problem whatever the setting.
+            const int full = int(std::floor(100.0 * double(total - free) / double(total)));
             const QString words = QStringLiteral("%1 free of %2.").arg(size(free), size(total));
-            const QString state = share < 0.05 || free < 2 * 1024 * 1024 ? QStringLiteral("bad")
-                                : share < 0.15                           ? QStringLiteral("warn")
-                                                                         : QStringLiteral("good");
+            const QString state = full >= 95 || free < 2 * 1024 * 1024    ? QStringLiteral("bad")
+                                : full >= core::storageTickerAt(notice) ? QStringLiteral("warn")
+                                                                        : QStringLiteral("good");
             items.append({QStringLiteral("space"), QStringLiteral("Space"), state, words,
                           state == QLatin1String("good") ? QString() : QStringLiteral("space"),
                           state == QLatin1String("good") ? QString() : QStringLiteral("Free up space"), {}});
@@ -370,9 +375,13 @@ QList<HealthCheck::Item> HealthCheck::readLook(const QString &output, const QDat
     {
         const QStringList files = found.value(QStringLiteral("pacnew"));
         if (!files.isEmpty())
-            items.append({QStringLiteral("settings"), QStringLiteral("Settings files"), QStringLiteral("warn"),
-                          files.size() == 1 ? QStringLiteral("1 has a new version waiting beside yours.")
-                                            : QStringLiteral("%1 have new versions waiting beside yours.").arg(files.size()),
+            // Usual after updates, and nothing the person can do: their own
+            // files stay in use. Listed, not counted as something to look at;
+            // Copy for help hands the names to whoever helps.
+            items.append({QStringLiteral("settings"), QStringLiteral("Settings files"), QStringLiteral("good"),
+                          (files.size() == 1 ? QStringLiteral("An update brought a newer version of 1 system settings file. ")
+                                             : QStringLiteral("Updates brought newer versions of %1 system settings files. ").arg(files.size()))
+                              + QStringLiteral("Yours stay in use, which is usual; it matters only if something stops working."),
                           QStringLiteral("ask"), QStringLiteral("Ask about them"),
                           QStringLiteral("Updates left new versions of these settings files beside mine: %1. Which "
                                          "ones matter, and what should I do?").arg(files.join(QStringLiteral(", ")))});
@@ -631,7 +640,8 @@ void HealthCheck::look(bool open)
     run(asPerson(m_lookScript), 60000, [this](int, const QString &output) {
         // The output comes back trimmed, so the battery starts on a line of
         // its own.
-        m_items = readLook(output + QLatin1Char('\n') + (m_batteryLook ? m_batteryLook() : batteryLook()));
+        m_items = readLook(output + QLatin1Char('\n') + (m_batteryLook ? m_batteryLook() : batteryLook()),
+                           QDateTime::currentDateTime(), core::noticeLevel(m_coreSettings));
         m_checked = QDateTime::currentDateTime();
         m_lastAttention = attention();
         QSettings settings(Organization, Settings);

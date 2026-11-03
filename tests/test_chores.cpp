@@ -978,9 +978,32 @@ private Q_SLOTS:
         QCOMPARE(byId.value(QStringLiteral("updates")).state, QStringLiteral("warn"));
         QCOMPARE(byId.value(QStringLiteral("updates")).action, QStringLiteral("update"));
         QCOMPARE(byId.value(QStringLiteral("restore")).state, QStringLiteral("good"));
-        QCOMPARE(byId.value(QStringLiteral("settings")).state, QStringLiteral("warn"));
+        // Newer settings files from updates are listed, never counted as
+        // something to look at, and can still be copied for help.
+        QCOMPARE(byId.value(QStringLiteral("settings")).state, QStringLiteral("good"));
+        QVERIFY(byId.value(QStringLiteral("settings")).detail.contains(QStringLiteral("Yours stay in use")));
+        QVERIFY(!byId.value(QStringLiteral("settings")).question.isEmpty());
         QVERIFY(byId.value(QStringLiteral("crashes")).detail.contains(QStringLiteral("plasmashell (2)")));
         QCOMPARE(byId.value(QStringLiteral("pkgcache")).action, QStringLiteral("space"));
+
+        // The Space row follows the Notice setting, as Core's Storage does:
+        // 80% full is worth a look at the usual setting and not at Less, 90%
+        // is worth a look at Less too, and 96% is a problem.
+        const auto space = [](qint64 totalKb, qint64 freeKb, int notice) {
+            QString look = fixture(QStringLiteral("health-look.txt"));
+            look.replace(QStringLiteral("@@ disk\n500000000 48000000"),
+                         QStringLiteral("@@ disk\n%1 %2").arg(totalKb).arg(freeKb));
+            for (const HealthCheck::Item &i : HealthCheck::readLook(look, Now, notice)) {
+                if (i.id == QLatin1String("space"))
+                    return i.state;
+            }
+            return QString();
+        };
+        QCOMPARE(space(100000000, 30000000, 50), QStringLiteral("good"));
+        QCOMPARE(space(100000000, 20000000, 50), QStringLiteral("warn"));
+        QCOMPARE(space(100000000, 20000000, 0), QStringLiteral("good"));
+        QCOMPARE(space(100000000, 10000000, 0), QStringLiteral("warn"));
+        QCOMPARE(space(100000000, 4000000, 50), QStringLiteral("bad"));
 
         // Without restore points, it says so.
         QString none = fixture(QStringLiteral("health-look.txt"));
