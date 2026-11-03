@@ -48,6 +48,7 @@
 #include <QDBusReply>
 #include <QDBusVariant>
 #include <QDir>
+#include <QDateTime>
 #include <QDirIterator>
 #include <QFile>
 #include <QFileInfo>
@@ -62,6 +63,7 @@
 #include <chrono>
 
 #include <sys/utsname.h>
+#include <unistd.h>
 
 using namespace splitrock::core;
 
@@ -69,6 +71,75 @@ namespace {
 
 const QString Notifications = QStringLiteral("org.freedesktop.Notifications");
 const QString NotificationsPath = QStringLiteral("/org/freedesktop/Notifications");
+
+// When the desktop's own compositor started for this person: this sign-in.
+QDateTime signedIn()
+{
+    QFile stat(QStringLiteral("/proc/stat"));
+    qint64 boot = 0;
+    if (stat.open(QIODevice::ReadOnly)) {
+        for (const QByteArray &line : stat.readAll().split('\n')) {
+            if (line.startsWith("btime "))
+                boot = line.mid(6).trimmed().toLongLong();
+        }
+    }
+    const long ticks = sysconf(_SC_CLK_TCK);
+    if (boot <= 0 || ticks <= 0)
+        return {};
+    const uint me = getuid();
+    QDateTime earliest;
+    const QStringList pids = QDir(QStringLiteral("/proc")).entryList(QDir::Dirs | QDir::NoDotAndDotDot);
+    for (const QString &pid : pids) {
+        if (pid.isEmpty() || !pid.at(0).isDigit() || QFileInfo(QStringLiteral("/proc/") + pid).ownerId() != me)
+            continue;
+        QFile comm(QStringLiteral("/proc/%1/comm").arg(pid));
+        if (!comm.open(QIODevice::ReadOnly) || comm.readAll().trimmed() != "kwin_wayland")
+            continue;
+        QFile procStat(QStringLiteral("/proc/%1/stat").arg(pid));
+        if (!procStat.open(QIODevice::ReadOnly))
+            continue;
+        // The fields after the name in parentheses; the start is the 22nd.
+        const QByteArray text = procStat.readAll();
+        const QList<QByteArray> fields = text.mid(text.lastIndexOf(')') + 2).split(' ');
+        if (fields.size() < 20)
+            continue;
+        const QDateTime started = QDateTime::fromSecsSinceEpoch(boot + fields.at(19).toLongLong() / ticks);
+        if (!earliest.isValid() || started < earliest)
+            earliest = started;
+    }
+    return earliest;
+}
+
+// Whether an update changed the desktop itself since this sign-in: KWin,
+// Plasma's shell, their plugins, and the widgets and effects Shuffle adds
+// among them. A package update replaces files, which changes their status
+// time (their own times are the package's).
+QString desktopChangedSinceSignIn()
+{
+    const QDateTime since = signedIn();
+    if (!since.isValid())
+        return {};
+    const QString mark = QString::number(since.toSecsSinceEpoch());
+    const auto changed = [&since](const QString &path) {
+        const QFileInfo info(path);
+        return info.exists() && info.metadataChangeTime() > since.addSecs(60);
+    };
+    for (const QString &program : {QStringLiteral("/usr/bin/kwin_wayland"), QStringLiteral("/usr/bin/plasmashell")}) {
+        if (changed(program))
+            return mark;
+    }
+    for (const QString &root : {QStringLiteral("/usr/lib/qt6/plugins/kwin"), QStringLiteral("/usr/share/kwin"),
+                                QStringLiteral("/usr/share/plasma/plasmoids"), QStringLiteral("/usr/share/plasma/shells")}) {
+        if (changed(root))
+            return mark;
+        QDirIterator each(root, QDir::Dirs | QDir::NoDotAndDotDot, QDirIterator::Subdirectories);
+        while (each.hasNext()) {
+            if (changed(each.next()))
+                return mark;
+        }
+    }
+    return {};
+}
 
 // Split Rock's own program, which opens a card on its own: beside Core in a
 // build, where it was installed otherwise.
@@ -113,6 +184,8 @@ public:
                     QStringLiteral("Find the Linux version")}
             : topic == QLatin1String("restart")
             ? Words{QStringLiteral("Restart"), QStringLiteral("system-reboot"), QStringLiteral("Restart")}
+            : topic == QLatin1String("signout")
+            ? Words{QStringLiteral("Sign out"), QStringLiteral("system-log-out"), QStringLiteral("Sign out")}
             : topic == QLatin1String("tidy")
             ? Words{QStringLiteral("Downloads"), QStringLiteral("folder-download"), QStringLiteral("Tidy up Downloads")}
             : topic == QLatin1String("memory")
@@ -522,6 +595,18 @@ int main(int argc, char **argv)
         QDBusMessage call = QDBusMessage::createMethodCall(QStringLiteral("org.kde.LogoutPrompt"), QStringLiteral("/LogoutPrompt"),
                                                            QStringLiteral("org.kde.LogoutPrompt"), QStringLiteral("promptReboot"));
         QDBusConnection::sessionBus().asyncCall(call);
+    };
+    hooks.signOutNeeded = [] { return desktopChangedSinceSignIn(); };
+    hooks.promptSignOut = [] {
+        QDBusMessage call = QDBusMessage::createMethodCall(QStringLiteral("org.kde.LogoutPrompt"), QStringLiteral("/LogoutPrompt"),
+                                                           QStringLiteral("org.kde.LogoutPrompt"), QStringLiteral("promptLogout"));
+        QDBusConnection::sessionBus().asyncCall(call);
+    };
+    // Shuffle's bottom surface is the one part every Shuffle install has.
+    hooks.shuffle = [] {
+        return !QStandardPaths::locate(QStandardPaths::GenericDataLocation,
+                                       QStringLiteral("plasma/plasmoids/co.goodinput.shuffle.bottomsurface"),
+                                       QStandardPaths::LocateDirectory).isEmpty();
     };
     hooks.openNotifications = [&offeredService] {
         if (offeredService)

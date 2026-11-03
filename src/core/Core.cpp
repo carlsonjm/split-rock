@@ -27,6 +27,7 @@ const QString Focus = QStringLiteral("focus");
 const QString Memory = QStringLiteral("memory");
 const QString Automations = QStringLiteral("automations");
 const QString Restart = QStringLiteral("restart");
+const QString SignOut = QStringLiteral("signout");
 
 // How many of each kind of device are kept, the latest first.
 constexpr int DevicesKept = 200;
@@ -649,6 +650,14 @@ bool Core::act(const QString &topic, const QString &action)
             m_hooks.promptRestart();
         return true;
     }
+    if (topic == SignOut) {
+        if (!enabled(Restart) || m_signOutSpoken.isEmpty() || action != QLatin1String("open"))
+            return false;
+        write(QStringLiteral("Restart  You opened the Sign Out question."));
+        if (m_hooks.promptSignOut)
+            m_hooks.promptSignOut();
+        return true;
+    }
     if (topic == Tidy) {
         if (!enabled(Tidy) || action != QLatin1String("open"))
             return false;
@@ -767,13 +776,34 @@ void Core::lookAtRestart()
     if (!enabled(Restart) || !m_hooks.restartNeeded)
         return;
     const QString kernel = m_hooks.restartNeeded();
-    if (kernel.isEmpty() || kernel == m_restartSpoken || (m_hooks.doNotDisturb && m_hooks.doNotDisturb()))
+    if (kernel.isEmpty()) {
+        lookAtSignOut();
+        return;
+    }
+    if (kernel == m_restartSpoken || (m_hooks.doNotDisturb && m_hooks.doNotDisturb()))
         return;
     m_restartSpoken = kernel;
     write(QStringLiteral("Restart  An update replaced the running kernel (%1); told the ticker a restart finishes it.").arg(kernel));
     if (m_hooks.notify)
         m_hooks.notify(Restart, QStringLiteral("Restart to finish an update"),
                        QStringLiteral("USB drives and new devices work again after a restart"));
+    saveAttention(Restart);
+}
+
+void Core::lookAtSignOut()
+{
+    if (!m_hooks.signOutNeeded)
+        return;
+    const QString signIn = m_hooks.signOutNeeded();
+    if (signIn.isEmpty() || signIn == m_signOutSpoken || (m_hooks.doNotDisturb && m_hooks.doNotDisturb()))
+        return;
+    m_signOutSpoken = signIn;
+    const bool shuffle = m_hooks.shuffle && m_hooks.shuffle();
+    write(QStringLiteral("Restart  An update changed the desktop since this sign-in; told the ticker signing out finishes it."));
+    if (m_hooks.notify)
+        m_hooks.notify(SignOut,
+                       shuffle ? QStringLiteral("Sign out to finish the Shuffle update") : QStringLiteral("Sign out to finish an update"),
+                       QStringLiteral("Your desktop picks up its new parts when you sign back in"));
     saveAttention(Restart);
 }
 
@@ -954,6 +984,7 @@ void Core::loadAttention()
     m_windowsNever = saved.value(QStringLiteral("Windows/Never"), false).toBool();
     m_tidySpokenKb = saved.value(QStringLiteral("Tidy/SpokenKb"), 0).toLongLong();
     m_restartSpoken = saved.value(QStringLiteral("Restart/Spoken")).toString();
+    m_signOutSpoken = saved.value(QStringLiteral("Restart/SignOutSpoken")).toString();
     loadState(saved, QStringLiteral("Focus"), m_focusAttention);
     m_focusNotifications = saved.value(QStringLiteral("Focus/Notifications"), 0).toInt();
     m_focusHeld = saved.value(QStringLiteral("Focus/Held")).toStringList();
@@ -1032,6 +1063,7 @@ void Core::saveAttention(const QString &topic) const
     }
     if (topic == Restart) {
         saved.setValue(QStringLiteral("Restart/Spoken"), m_restartSpoken);
+        saved.setValue(QStringLiteral("Restart/SignOutSpoken"), m_signOutSpoken);
         return;
     }
     if (topic == Automations) {
