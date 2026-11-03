@@ -255,10 +255,11 @@ private Q_SLOTS:
             settle();
             QVERIFY2(overflowing(window.get()).isEmpty(), card.name);
             QVERIFY2(window->height() <= window->property("tallest").toInt(), card.name);
-            // A short one is only as tall as what it shows.
+            // A short one is only as tall as what it shows, where that fits
+            // under the tallest; the screen and its fonts say which.
             if (name == QLatin1String("restore")) {
                 QQuickItem *shown = find(window.get(), QString::fromLatin1(card.card));
-                QTRY_COMPARE(window->height(), qRound(shown->height()));
+                QTRY_COMPARE(window->height(), std::min(qRound(shown->height()), window->property("tallest").toInt()));
             }
             shoot(window.get(), QStringLiteral("61-") + name + QStringLiteral("-on-its-own"));
             QMetaObject::invokeMethod(job, "close");
