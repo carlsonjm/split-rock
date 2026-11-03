@@ -8,7 +8,7 @@
 <g transform="translate(50 50) scale(6.5)">
 <circle cx="12" cy="6.6" r="2.6" fill="url(#pearl)"/>
 <rect x="9.6" y="11" width="4.8" height="11" rx="2.4" fill="url(#pearl)"/>
-<g opacity="0.5"><path d="M15.97 0.63 Q16.414 2.186 17.97 2.63 Q16.414 3.074 15.97 4.63 Q15.526 3.074 13.97 2.63 Q15.526 2.186 15.97 0.63Z" fill="#F8F8FF" stroke="#F8F8FF" stroke-width="0.44" stroke-linejoin="round"/></g>
-<g opacity="0.5"><path d="M18.75 3.8 Q19.072 4.928 20.2 5.25 Q19.072 5.572 18.75 6.7 Q18.428 5.572 17.3 5.25 Q18.428 4.928 18.75 3.8Z" fill="#F8F8FF" stroke="#F8F8FF" stroke-width="0.32" stroke-linejoin="round"/></g>
+<g opacity="0.5"><path d="M17.25 -1.45 Q17.872 0.728 20.05 1.35 Q17.872 1.972 17.25 4.15 Q16.628 1.972 14.45 1.35 Q16.628 0.728 17.25 -1.45Z" fill="#F8F8FF" stroke="#F8F8FF" stroke-width="0.62" stroke-linejoin="round"/></g>
+<g opacity="0.5"><path d="M19.5 4.2 Q19.9 5.6 21.3 6 Q19.9 6.4 19.5 7.8 Q19.1 6.4 17.7 6 Q19.1 5.6 19.5 4.2Z" fill="#F8F8FF" stroke="#F8F8FF" stroke-width="0.40" stroke-linejoin="round"/></g>
 </g>
 </svg>
