@@ -1198,7 +1198,14 @@ new, where the old ones still are, and the errors since. The administrator's
 part of starting a service or taking a system app back is two jobs of
 `split-rock-admin`, each taking only a checked name: `start-service` starts
 only a service that stopped working, and `flatpak-back` takes only a full
-commit.
+commit. What nobody did makes no row: an app's own shortcut arriving or going
+at its own keys, as KWin's do when an effect loads or unloads, and a shortcut
+taken out and written back as it was within the day, as at a restart, and
+KWin's own list of which action undoes which (`[$InverseAction]`), which it
+writes again in either order at every start. A
+setting is said by the name a person knows, never its id: a shortcut with no
+name written is its id in words, and a theme its name ("Colors set to Shuffle
+Dark"). What the person reads is spelled as Shuffle spells it, "color".
 
 Why: on the tablet, What changed named settings files and copied only their
 names, which nobody can act on. The product owner asked what a person needs to

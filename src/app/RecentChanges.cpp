@@ -331,7 +331,7 @@ QStringList RecentChanges::noticeable(const QMap<QString, QString> &updated)
 QString RecentChanges::settingsName(const QString &file)
 {
     static const QMap<QString, QString> names{
-        {QStringLiteral("kdeglobals"), QStringLiteral("Look, colours and fonts")},
+        {QStringLiteral("kdeglobals"), QStringLiteral("Look, colors and fonts")},
         {QStringLiteral("kwinrc"), QStringLiteral("Windows and effects")},
         {QStringLiteral("kwinrulesrc"), QStringLiteral("Window rules")},
         {QStringLiteral("plasma-org.kde.plasma.desktop-appletsrc"), QStringLiteral("Panels and desktop widgets")},
@@ -346,7 +346,7 @@ QString RecentChanges::settingsName(const QString &file)
         {QStringLiteral("bluedevilglobalrc"), QStringLiteral("Bluetooth")},
         {QStringLiteral("plasmanotifyrc"), QStringLiteral("Notifications")},
         {QStringLiteral("mimeapps.list"), QStringLiteral("Default apps")},
-        {QStringLiteral("kcmfonts"), QStringLiteral("Look, colours and fonts")},
+        {QStringLiteral("kcmfonts"), QStringLiteral("Look, colors and fonts")},
         {QStringLiteral("baloofilerc"), QStringLiteral("File search")},
         {QStringLiteral("kwalletrc"), QStringLiteral("Password storage")},
         {QStringLiteral("kaccessrc"), QStringLiteral("Accessibility")},

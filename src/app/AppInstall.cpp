@@ -323,6 +323,23 @@ AppInstall::App localApp(const QString &line)
 
 } // namespace
 
+QString AppInstall::shelfName()
+{
+    // The system's name, as its own release file gives it: "CachyOS" from
+    // "CachyOS Linux".
+    static const QString name = [] {
+        QFile file(QStringLiteral("/etc/os-release"));
+        if (!file.open(QIODevice::ReadOnly))
+            return QStringLiteral("this system");
+        static const QRegularExpression line(QStringLiteral("^NAME=\"?([^\"\n]+)\"?$"), QRegularExpression::MultilineOption);
+        QString found = line.match(QString::fromUtf8(file.readAll())).captured(1).trimmed();
+        if (found.endsWith(QLatin1String(" Linux")))
+            found.chop(6);
+        return found.isEmpty() ? QStringLiteral("this system") : found;
+    }();
+    return name;
+}
+
 QVariantMap AppInstall::App::toMap() const
 {
     return {{QStringLiteral("key"), key},
@@ -332,7 +349,7 @@ QVariantMap AppInstall::App::toMap() const
             {QStringLiteral("sourceName"), source == QLatin1String("flathub")  ? QStringLiteral("Flathub")
                                            : source == QLatin1String("web")     ? QStringLiteral("Web app")
                                            : source == QLatin1String("android") ? QStringLiteral("Android app")
-                                                                                : QStringLiteral("This system's shelf")},
+                                                                                : AppInstall::shelfName()},
             {QStringLiteral("package"), package},
             {QStringLiteral("installed"), installed},
             {QStringLiteral("alsoFlathub"), alsoFlathub},
@@ -680,6 +697,22 @@ QString AppInstall::withoutRemoveWords(const QString &words)
     return left.simplified();
 }
 
+QString AppInstall::withoutInstallWords(const QString &words)
+{
+    // The Helper's own name, or a way of saying it, at the start: "install an
+    // app", "install a new app", "add an app"; what follows is the search.
+    static const QRegularExpression name(QStringLiteral(
+        "^\\s*(?:please\\s+)?(?:install|add|get|download|find)\\b"
+        "(?:\\s+(?:a|an|some)\\b)?(?:\\s+new\\b)?(?:\\s+(?:app|apps|application|applications|program|programs)\\b)?"
+        "[\\s:,.-]*"),
+        QRegularExpression::CaseInsensitiveOption);
+    QString left = words.simplified();
+    const QRegularExpressionMatch m = name.match(left);
+    if (m.hasMatch())
+        left = left.mid(m.capturedLength());
+    return left.simplified();
+}
+
 bool AppInstall::keptBySystem(const QString &package)
 {
     static const QSet<QString> kept{
@@ -920,7 +953,7 @@ void AppInstall::search(const QString &query)
     if (busy())
         return;
     const bool removing = m_removing || asksToRemove(query);
-    const QString words = (removing ? withoutRemoveWords(query) : query.simplified()).left(80);
+    const QString words = (removing ? withoutRemoveWords(query) : withoutInstallWords(query)).left(80);
     if (words.isEmpty()) {
         removing ? askRemove() : ask();
         return;

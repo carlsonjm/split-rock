@@ -559,6 +559,26 @@ private Q_SLOTS:
         QVERIFY(QFile::exists(logs.filePath(QStringLiteral("split-rock-install.log"))));
     }
 
+    void theHelpersOwnNameIsNoSearch()
+    {
+        // Typing the Helper's name opens it asking; only words after it search.
+        QCOMPARE(AppInstall::withoutInstallWords(QStringLiteral("install an app")), QString());
+        QCOMPARE(AppInstall::withoutInstallWords(QStringLiteral("Install a new app")), QString());
+        QCOMPARE(AppInstall::withoutInstallWords(QStringLiteral("install an app spotify")), QStringLiteral("spotify"));
+        QCOMPARE(AppInstall::withoutInstallWords(QStringLiteral("install spotify")), QStringLiteral("spotify"));
+        QCOMPARE(AppInstall::withoutInstallWords(QStringLiteral("add an app: Krita")), QStringLiteral("Krita"));
+        // A name that only starts like one of those words stays whole.
+        QCOMPARE(AppInstall::withoutInstallWords(QStringLiteral("address book")), QStringLiteral("address book"));
+        QCOMPARE(AppInstall::withoutInstallWords(QStringLiteral("a pdf editor")), QStringLiteral("a pdf editor"));
+        QCOMPARE(AppInstall::withoutInstallWords(QStringLiteral("getting things gnome")), QStringLiteral("getting things gnome"));
+        AppInstall install;
+        install.setElevate({});
+        install.setSearchScript(QStringLiteral("echo searched"));
+        install.setReport({});
+        install.search(QStringLiteral("install an app"));
+        QCOMPARE(install.stage(), QStringLiteral("asking"));
+    }
+
     void anAppIsRemovedAfterAYes()
     {
         QCOMPARE(AppInstall::withoutRemoveWords(QStringLiteral("Please uninstall the MaiN Keyboard app")),
@@ -1556,7 +1576,7 @@ private Q_SLOTS:
         QVERIFY2(byId.value(QStringLiteral("apps-2026-10-07")).detail.startsWith(QStringLiteral("Installed Spotify") + QStringLiteral(" · ")), qPrintable(byId.value(QStringLiteral("apps-2026-10-07")).detail));
 
         // Settings by what they hold; a file a person wouldn't know is left out.
-        QCOMPARE(byId.value(QStringLiteral("settings-2026-10-09")).detail, QStringLiteral("Look, colours and fonts · Windows and effects"));
+        QCOMPARE(byId.value(QStringLiteral("settings-2026-10-09")).detail, QStringLiteral("Look, colors and fonts · Windows and effects"));
         QCOMPARE(byId.value(QStringLiteral("settings-2026-10-08")).detail, QStringLiteral("Displays · Mouse, touchpad and pointer"));
 
         const RecentChanges::Item bluetooth = byId.value(QStringLiteral("service-bluetooth.service"));
@@ -1680,11 +1700,47 @@ private Q_SLOTS:
 
         // The look opens its own page in Settings, until putting it back live
         // is proven; its help says exactly what changed.
-        const SettingRow look = byArea.value(QStringLiteral("Look, colours and fonts"));
-        QCOMPARE(look.title, QStringLiteral("Colours: BreezeDark to BreezeLight"));
+        const SettingRow look = byArea.value(QStringLiteral("Look, colors and fonts"));
+        QCOMPARE(look.title, QStringLiteral("Colors changed from Breeze Dark to Breeze Light"));
         QCOMPARE(look.way, QStringLiteral("settings"));
         QCOMPARE(look.page, QStringLiteral("kcm_colors"));
-        QVERIFY(look.question.contains(QLatin1String("Colours: BreezeDark to BreezeLight")));
+        QVERIFY(look.question.contains(QLatin1String("Colors changed from Breeze Dark to Breeze Light")));
+
+        // A color scheme set for the first time says so, by its name.
+        SettingsChange scheme{at, QStringLiteral("kdeglobals"), QStringLiteral("General"), QStringLiteral("ColorScheme"),
+                              QString(), QStringLiteral("ShuffleDark"), false, true};
+        QCOMPARE(SettingRows::words(scheme).title, QStringLiteral("Colors set to Shuffle Dark"));
+
+        // An app's own shortcut at its own keys coming or going, as KWin's
+        // do when an effect is loaded or unloaded, is nobody's change; one
+        // set away from its keys is.
+        SettingsChange arrives{at, QStringLiteral("kglobalshortcutsrc"), QStringLiteral("kwin"), QStringLiteral("Cycle Overview"),
+                               QString(), QStringLiteral("Meta+Tab,Meta+Tab,"), false, true};
+        QVERIFY(!SettingRows::words(arrives).meaningful);
+        SettingsChange leaves{at, QStringLiteral("kglobalshortcutsrc"), QStringLiteral("kwin"), QStringLiteral("MoveZoomDown"),
+                              QStringLiteral("Meta+Down,Meta+Down,"), QString(), true, false};
+        QVERIFY(!SettingRows::words(leaves).meaningful);
+        SettingsChange set{at, QStringLiteral("kglobalshortcutsrc"), QStringLiteral("kwin"), QStringLiteral("MoveZoomDown"),
+                           QStringLiteral("none,none,"), QStringLiteral("Meta+Down,none,"), true, true};
+        QCOMPARE(SettingRows::words(set).title, QStringLiteral("Shortcut added for Move zoom down"));
+
+        // KWin's list of which action undoes which, swapped at every start,
+        // is no key binding at all.
+        SettingsChange inverse{at, QStringLiteral("kglobalshortcutsrc"), QStringLiteral("kwin][$InverseAction"),
+                               QStringLiteral("MoveZoomDown"), QStringLiteral("MoveZoomUp"), QString(), true, false};
+        QVERIFY(!SettingRows::words(inverse).meaningful);
+        SettingsChange inverseIn{at, QStringLiteral("kglobalshortcutsrc"), QStringLiteral("kwin][$InverseAction"),
+                                 QStringLiteral("Cycle Overview"), QString(), QStringLiteral("Cycle Overview Opposite"), false, true};
+        QVERIFY(SettingRows::rows({inverse, inverseIn}, QStringLiteral("split-rock")).isEmpty());
+
+        // A shortcut of one's own taken out at a restart and written back as
+        // it was makes no row.
+        SettingsChange out{at, QStringLiteral("kglobalshortcutsrc"), QStringLiteral("kwin"), QStringLiteral("Tile windows"),
+                           QStringLiteral("Meta+T,none,Tile windows"), QString(), true, false};
+        SettingsChange in{at.addSecs(600), QStringLiteral("kglobalshortcutsrc"), QStringLiteral("kwin"), QStringLiteral("Tile windows"),
+                          QString(), QStringLiteral("Meta+T,none,Tile windows"), false, true};
+        QVERIFY(SettingRows::rows({out, in}, QStringLiteral("split-rock")).isEmpty());
+        QCOMPARE(SettingRows::rows({out}, QStringLiteral("split-rock")).size(), 1);
 
         // The screen lock's 0 minutes is never.
         SettingsChange lock{at, QStringLiteral("kscreenlockerrc"), QStringLiteral("Daemon"), QStringLiteral("Timeout"),
@@ -1744,7 +1800,7 @@ private Q_SLOTS:
         QCOMPARE(scaleItem.confirmTitle, QStringLiteral("Put it back as it was?"));
         QVERIFY(scaleItem.confirmSub.contains(QLatin1String("No password needed")));
         QVERIFY(scaleItem.help.contains(QLatin1String("kwinoutputconfig.json [eDP-1] scale: 1.75 to 1.5")));
-        QCOMPARE(items.value(QStringLiteral("Colours: BreezeDark to BreezeLight")).action, QStringLiteral("settings"));
+        QCOMPARE(items.value(QStringLiteral("Colors changed from Breeze Dark to Breeze Light")).action, QStringLiteral("settings"));
     }
 
     void whatChangedOpensByNameAndUndoesFromTheCard()
