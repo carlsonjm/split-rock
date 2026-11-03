@@ -109,7 +109,7 @@ struct Desk {
         hooks.signIn = [this] { return signIn; };
         hooks.restartNeeded = [this] { return kernelGone; };
         hooks.promptRestart = [this] { ++restartsAsked; };
-        hooks.signOutNeeded = [this] { return desktopChanged; };
+        hooks.signOutNeeded = [this] { return desktopChanged ? signIn : QString(); };
         hooks.promptSignOut = [this] { ++signOutsAsked; };
         hooks.shuffle = [this] { return shuffle; };
         hooks.appName = [](const QString &id) {

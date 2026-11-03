@@ -81,10 +81,11 @@ public:
         // otherwise. And Plasma's own question about restarting.
         std::function<QString()> restartNeeded = [] { return QString(); };
         std::function<void()> promptRestart;
-        // Whether an update changed the desktop itself (KWin, Plasma or
+        // When an update changed the desktop itself (KWin, Plasma or
         // Shuffle's parts) since this sign-in, so it runs its old parts until
-        // the person signs out; and Plasma's own question about signing out.
-        std::function<bool()> signOutNeeded = [] { return false; };
+        // the person signs out: a mark for this sign-in, its KWin's start;
+        // empty otherwise. And Plasma's own question about signing out.
+        std::function<QString()> signOutNeeded = [] { return QString(); };
         std::function<void()> promptSignOut;
         // Whether Shuffle is the desktop, for the notice's words.
         std::function<bool()> shuffle = [] { return false; };

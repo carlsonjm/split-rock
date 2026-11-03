@@ -114,30 +114,31 @@ QDateTime signedIn()
 // Plasma's shell, their plugins, and the widgets and effects Shuffle adds
 // among them. A package update replaces files, which changes their status
 // time (their own times are the package's).
-bool desktopChangedSinceSignIn()
+QString desktopChangedSinceSignIn()
 {
     const QDateTime since = signedIn();
     if (!since.isValid())
-        return false;
+        return {};
+    const QString mark = QString::number(since.toSecsSinceEpoch());
     const auto changed = [&since](const QString &path) {
         const QFileInfo info(path);
         return info.exists() && info.metadataChangeTime() > since.addSecs(60);
     };
     for (const QString &program : {QStringLiteral("/usr/bin/kwin_wayland"), QStringLiteral("/usr/bin/plasmashell")}) {
         if (changed(program))
-            return true;
+            return mark;
     }
     for (const QString &root : {QStringLiteral("/usr/lib/qt6/plugins/kwin"), QStringLiteral("/usr/share/kwin"),
                                 QStringLiteral("/usr/share/plasma/plasmoids"), QStringLiteral("/usr/share/plasma/shells")}) {
         if (changed(root))
-            return true;
+            return mark;
         QDirIterator each(root, QDir::Dirs | QDir::NoDotAndDotDot, QDirIterator::Subdirectories);
         while (each.hasNext()) {
             if (changed(each.next()))
-                return true;
+                return mark;
         }
     }
-    return false;
+    return {};
 }
 
 // Split Rock's own program, which opens a card on its own: beside Core in a

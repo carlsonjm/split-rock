@@ -792,11 +792,10 @@ void Core::lookAtRestart()
 
 void Core::lookAtSignOut()
 {
-    if (!m_hooks.signOutNeeded || !m_hooks.signIn)
+    if (!m_hooks.signOutNeeded)
         return;
-    const QString signIn = m_hooks.signIn();
-    if (signIn.isEmpty() || signIn == m_signOutSpoken || !m_hooks.signOutNeeded()
-        || (m_hooks.doNotDisturb && m_hooks.doNotDisturb()))
+    const QString signIn = m_hooks.signOutNeeded();
+    if (signIn.isEmpty() || signIn == m_signOutSpoken || (m_hooks.doNotDisturb && m_hooks.doNotDisturb()))
         return;
     m_signOutSpoken = signIn;
     const bool shuffle = m_hooks.shuffle && m_hooks.shuffle();
