@@ -134,7 +134,6 @@ qt_add_resources(test_sheet "sheet_for_test"
         ${PROJECT_SOURCE_DIR}/qml/RestoreCard.qml
         ${PROJECT_SOURCE_DIR}/qml/HealthCard.qml
         ${PROJECT_SOURCE_DIR}/qml/ChangesCard.qml
-        ${PROJECT_SOURCE_DIR}/qml/CommunityCard.qml
         ${PROJECT_SOURCE_DIR}/qml/WheelScroll.qml
 )
 

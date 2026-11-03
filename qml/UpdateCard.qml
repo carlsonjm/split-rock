@@ -48,7 +48,7 @@ CardFrame {
             case "rechecking": return "Making sure nothing new arrived since you read it."
             case "confirming": return "Read the note below. Updating anyway is your call."
             case "nothing": return card.plan.community > 0
-                                   ? "Your community apps have " + card.plan.community + " updates; open Community apps to look at each one."
+                                   ? "Nothing else needs doing. " + card.plan.community + (card.plan.community === 1 ? " app from the AUR has an update" : " apps from the AUR have updates") + ", which " + productName + " leaves to you."
                                    : "Nothing needs doing."
             case "updating": return "You can keep working. The computer stays awake until it's done."
             case "done": return card.result.installed > 0 ? card.result.installed + " packages were updated." : ""

@@ -33,7 +33,6 @@ const QList<std::pair<QString, QString>> &upkeep()
         {QStringLiteral("install"), QStringLiteral("install an app or find one for a job, or remove (uninstall) an app")},
         {QStringLiteral("restore"), QStringLiteral("go back to a restore point, as things were before")},
         {QStringLiteral("health"), QStringLiteral("a health check, when the computer is slow, hot or something seems wrong")},
-        {QStringLiteral("community"), QStringLiteral("update apps from the AUR, the community's own apps")},
         {QStringLiteral("changes"), QStringLiteral("what changed on this computer lately, with Undo: for \"undo that\", "
                                                    "\"put it back\", \"something changed\", \"it worked yesterday\" or "
                                                    "\"why did this stop working?\"")},

@@ -179,7 +179,7 @@ QString Chat::framing()
         "For upkeep, %1 has Helpers of its own, which look first, take restore points and show progress: propose "
         "{\"title\": a short instruction, \"card\": one of update (update the whole computer), space (free up "
         "space), install (install an app, with \"query\": what the person needs, such as \"pdf editor\"), restore "
-        "(go back to a restore point), health (a health check), community (update apps from the AUR), tidy (tidy up "
+        "(go back to a restore point), health (a health check), tidy (tidy up "
         "the Downloads folder) or changes (what changed on this computer lately, each with its way back)} instead of "
         "a command for those. A change only the administrator can make, other than those, is one %1 can't make: say "
         "so in plain words and offer no card. Propose one change at a time, with a short, specific command that "
@@ -618,7 +618,7 @@ void Chat::propose(const ChangeProposal &proposed)
     if (!elevation.isEmpty()) {
         report(QStringLiteral("Your proposed change \"%1\" needs the administrator (%2), so it was not shown to the "
                               "person. %3 never runs your command as the administrator. Changes to the system are made "
-                              "only by its own Helpers: update, space, install, restore and community. Propose one of "
+                              "only by its own Helpers: update, space, install and restore. Propose one of "
                               "those with \"card\" when it fits; otherwise tell the person in one or two plain sentences "
                               "that this is a change %3 can't make for them.")
                    .arg(proposed.title, elevation == QLatin1String("admin") ? QStringLiteral("\"admin\": true") : elevation,

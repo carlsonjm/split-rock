@@ -106,7 +106,6 @@ QString cardTitle(const QString &card)
         {QStringLiteral("health"), QStringLiteral("Health check")},
         {QStringLiteral("changes"), QStringLiteral("What changed")},
         {QStringLiteral("restore"), QStringLiteral("Restore points")},
-        {QStringLiteral("community"), QStringLiteral("Community apps")},
     };
     for (const auto &[name, title] : titles) {
         if (name == card)
@@ -126,7 +125,6 @@ QString helperDoes(const QString &card)
         {QStringLiteral("health"), QStringLiteral("looks the computer over and says what needs a look")},
         {QStringLiteral("changes"), QStringLiteral("shows what changed lately, each with Undo")},
         {QStringLiteral("restore"), QStringLiteral("lists the restore points to go back to")},
-        {QStringLiteral("community"), QStringLiteral("updates the community's own apps")},
     };
     for (const auto &[name, words] : does) {
         if (name == card)

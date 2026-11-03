@@ -760,11 +760,11 @@ page and in the notebook opens each.
   at, which follows the Notice setting, so the two never disagree; settings
   files an update left beside the person's own are listed but not counted as
   something to look at, as the person has nothing to do about them.
-- **Community apps** compares the installed community packages with the AUR,
-  shows what changed in each recipe since the installed version, flagging new
-  download addresses, install scripts and commands that reach the network, and
-  builds an update only after the person has seen it: as the person, at the
-  exact commit shown, with a restore point.
+- **Community apps** is retired: the product owner judged it not worth its
+  place. Search, Ask and the assistant no longer offer it, and Check for
+  updates says how many AUR apps have updates of their own and leaves them to
+  the person. Its engine (`src/app/CommunityApps`) is no longer opened by any
+  Helper.
 
 Rejected: running `snapper rollback` from the card; mixing community packages
 into Install an app or the update; building a community update from the latest

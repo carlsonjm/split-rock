@@ -721,16 +721,21 @@ QList<QVariantMap> Core::actions(bool storeMissing)
                            {QStringLiteral("more"), more},
                            {QStringLiteral("keywords"), keywords}};
     };
-    // The order the product owner set, the most important first: keeping
-    // the computer up to date, then looking it over. Search's Helpers row
-    // shows them so: the first row, then those behind its More. A computer
-    // without an app store is offered one next, and What changed moves
-    // behind More to keep the first row to six.
+    // The order the product owner set, the most important first. Search's
+    // Helpers row shows them so, as many as fit in its first row and the rest
+    // behind its More, Layouts last. A computer without an app store is
+    // offered one just before Install an app.
     QList<QVariantMap> listed{
         action("update", "Check for updates", "Everything, with a restore point first", "system-software-update", false,
                {"update", "updates", "upgrade", "check for updates", "windows update"}),
         action("health", "Health check", "A look over the computer", "security-high", false,
                {"health", "health check", "check my computer", "diagnose", "troubleshoot", "troubleshooter"}),
+        action("changes", "What changed", "Undo, or go back to before", "edit-undo", false,
+               {"what changed", "changed", "undo", "something changed", "stopped working"}),
+        action("restore", "Restore points", "Go back to an earlier state", "document-revert", false,
+               {"restore", "restore point", "restore points", "snapshot", "go back", "system restore"}),
+        action("apps", "Your apps", "The apps you added, biggest first", "view-grid", false,
+               {"your apps", "my apps", "installed apps", "uninstall", "remove apps", "apps taking space", "app sizes"}),
     };
     if (storeMissing)
         listed.append(action("appstore", "Add the app store", "Discover, with Flathub's apps", "plasma-discover", false,
@@ -740,19 +745,11 @@ QList<QVariantMap> Core::actions(bool storeMissing)
         action("install", "Install an app", "Say what you need, or remove one", "system-software-install", false,
                {"install", "install an app", "uninstall", "remove an app", "get an app", "add or remove programs",
                 "programs and features", "uninstall a program", "microsoft store", "app store"}),
-        action("apps", "Your apps", "The apps you added, biggest first", "view-grid", false,
-               {"your apps", "my apps", "installed apps", "uninstall", "remove apps", "apps taking space", "app sizes"}),
         action("space", "Free up space", "Old copies and leftovers", "drive-harddisk", false,
                {"free up space", "space", "storage", "disk", "clean up", "cleanup", "disk cleanup", "storage sense"}),
-        action("changes", "What changed", "Undo, or go back to before", "edit-undo", storeMissing,
-               {"what changed", "changed", "undo", "something changed", "stopped working"}),
-        action("tidy", "Tidy up Downloads", "Old downloads and copies, to the Trash", "folder-download", true,
+        action("tidy", "Tidy up Downloads", "Old downloads and copies, to the Trash", "folder-download", false,
                {"tidy up", "tidy", "tidy up downloads", "downloads", "clean downloads", "clean desktop", "copies",
                 "duplicates", "duplicate files", "old downloads", "old files"}),
-        action("restore", "Restore points", "Go back to an earlier state", "document-revert", true,
-               {"restore", "restore point", "restore points", "snapshot", "go back", "system restore"}),
-        action("community", "Community apps", "Read, then update, AUR apps", "applications-other", true,
-               {"community apps", "aur", "community"}),
     };
     return listed;
 }

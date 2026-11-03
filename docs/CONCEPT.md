@@ -20,9 +20,9 @@ someone who already understands Linux is not a Split Rock feature.
 Split Rock is two things:
 
 - **The Helpers.** Small windows that each do one upkeep job: Check for
-  updates, Free up space, Tidy up Downloads, Install an app (or remove one),
-  Your apps, Health check, What changed, Restore points and Community apps,
-  and Add the app store on a computer that has none.
+  updates, Health check, What changed, Restore points, Your apps, Install an
+  app (or remove one), Free up space and Tidy up Downloads, and Add the app
+  store on a computer that has none.
   A Helper looks first, says in plain words what it found and what it would
   change, and changes nothing until Pat taps its button. Its window closes
   when it is done.
@@ -74,7 +74,7 @@ Nothing is sent anywhere by Split Rock itself.
 
 | Need | Approach |
 | --- | --- |
-| Updates and apps | pacman and Flatpak; the AUR for Community apps |
+| Updates and apps | pacman and Flatpak |
 | A way to undo system changes | snapper restore points, where the disk is Btrfs and set up for them |
 | Administrator rights | The system's own password prompt, through `split-rock-admin`, which runs only Split Rock's named jobs |
 | A record of what changed | `This computer.md` in the notebook, and each change's own folder (`MEMORY.md`) |

@@ -2,7 +2,6 @@
 #pragma once
 
 #include "app/AppInstall.h"
-#include "app/CommunityApps.h"
 #include "app/HealthCheck.h"
 #include "app/RecentChanges.h"
 #include "app/RestorePoints.h"
@@ -19,7 +18,7 @@ class Notebook;
 
 // Split Rock's Helpers, Core's temporary cards (src/app/Chore.h): updating the
 // computer, freeing up space, installing or removing an app, restore points,
-// the health check, community apps, what changed and tidying up Downloads. One is open at a time,
+// the health check, what changed and tidying up Downloads. One is open at a time,
 // in a window of its own (qml/ActionWindow.qml).
 //
 // Each Helper writes what it is about to change in the notebook, with how to
@@ -34,7 +33,6 @@ class Helpers : public QObject
     Q_PROPERTY(QObject *restore READ restoreObject CONSTANT)
     Q_PROPERTY(QObject *recent READ recentObject CONSTANT)
     Q_PROPERTY(QObject *health READ healthObject CONSTANT)
-    Q_PROPERTY(QObject *community READ communityObject CONSTANT)
     Q_PROPERTY(QObject *tidy READ tidyObject CONSTANT)
     // The Helper open now, by its name, or empty; and whether one is looking
     // or changing something, when no other may start.
@@ -59,7 +57,6 @@ public:
     RestorePoints *restorePoints() const { return m_restore; }
     HealthCheck *healthCheck() const { return m_health; }
     RecentChanges *recentChanges() const { return m_recent; }
-    CommunityApps *communityApps() const { return m_community; }
     TidyUp *tidyUp() const { return m_tidy; }
     ChangeRunner *changeRunner() const { return m_runner; }
     QObject *systemUpdateObject() const { return m_update; }
@@ -68,7 +65,6 @@ public:
     QObject *restoreObject() const { return m_restore; }
     QObject *recentObject() const { return m_recent; }
     QObject *healthObject() const { return m_health; }
-    QObject *communityObject() const { return m_community; }
     QObject *tidyObject() const { return m_tidy; }
 
     QString chore() const;
@@ -102,7 +98,6 @@ private:
     RestorePoints *m_restore = nullptr;
     RecentChanges *m_recent = nullptr;
     HealthCheck *m_health = nullptr;
-    CommunityApps *m_community = nullptr;
     TidyUp *m_tidy = nullptr;
 };
 

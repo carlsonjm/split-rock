@@ -80,7 +80,6 @@ qt_add_resources(split-rock "sheet"
         qml/RestoreCard.qml
         qml/HealthCard.qml
         qml/ChangesCard.qml
-        qml/CommunityCard.qml
         qml/ActionWindow.qml
         qml/CodexWindow.qml
         qml/SettingsWindow.qml

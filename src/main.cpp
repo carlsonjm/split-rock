@@ -82,7 +82,7 @@ const QCommandLineOption queryOption(QStringLiteral("query"),
                                      QStringLiteral("text"));
 const QCommandLineOption cardOption(QStringLiteral("card"),
                                     QStringLiteral("Open one Helper: update, space, install, uninstall, apps, health, "
-                                                   "changes, restore or community."),
+                                                   "changes, restore or tidy."),
                                     QStringLiteral("name"));
 const QCommandLineOption codexOption(QStringLiteral("codex"),
                                      QStringLiteral("Open Ask Codex, with --question, or only to sign in."));

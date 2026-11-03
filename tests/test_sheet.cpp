@@ -247,15 +247,11 @@ private Q_SLOTS:
         c.healthCheck()->setReport({});
         c.restorePoints()->setLookScript(printing(QStringLiteral("restore-look.txt")));
         c.restorePoints()->setReport({});
-        c.communityApps()->setElevate({});
-        c.communityApps()->setLookScript(printing(QStringLiteral("community-look.txt")));
-        c.communityApps()->setReport({});
         const struct { const char *name; const char *query; const char *card; const char *stage; const char *title; } each[] = {
             {"update", "", "updateCard", "ready", "Update"},
             {"install", "pdf editor", "installCard", "results", "Install a new app"},
             {"health", "", "healthCard", "done", "Health check"},
             {"restore", "", "restoreCard", "ready", "Restore points"},
-            {"community", "", "communityCard", "ready", "Community apps"},
         };
         for (const auto &card : each) {
             const QString name = QString::fromLatin1(card.name);
@@ -327,11 +323,6 @@ private Q_SLOTS:
         restore->setLookScript(printing(QStringLiteral("restore-look.txt")));
         HealthCheck *health = c.healthCheck();
         health->setLookScript(printing(QStringLiteral("health-look.txt")));
-        CommunityApps *community = c.communityApps();
-        community->setElevate({});
-        community->setLookScript(printing(QStringLiteral("community-look.txt")));
-        community->setReviewScript(printing(QStringLiteral("community-review.txt")));
-        community->setAdmin(adminStandIn(QStringLiteral("echo '@@ step build'; echo '==> Making package: visual-studio-code-bin'")));
         QQmlApplicationEngine engine;
         std::unique_ptr<QQuickWindow> window(open(engine, c));
         QVERIFY(window);
@@ -535,13 +526,6 @@ private Q_SLOTS:
         QVERIFY(QGuiApplication::clipboard()->text().contains(QStringLiteral("bluetooth-autoconnect.service")));
         QVERIFY(QGuiApplication::clipboard()->text().contains(QStringLiteral("About my computer:")));
         shows(QStringLiteral("healthCard"), QStringLiteral("37b-health-copied"));
-
-        QVERIFY(opens(QStringLiteral("community")));
-        QTRY_COMPARE(community->stage(), QStringLiteral("ready"));
-        shows(QStringLiteral("communityCard"), QStringLiteral("38-community-ready"));
-        community->look(QStringLiteral("visual-studio-code-bin"));
-        QTRY_COMPARE(community->stage(), QStringLiteral("reviewed"));
-        shows(QStringLiteral("communityCard"), QStringLiteral("39-community-review"));
 
         // What changed, from a look written for today, so the days read as
         // they would on the computer.
