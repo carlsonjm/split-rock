@@ -13,6 +13,7 @@
 #include <QProcess>
 #include <QRegularExpression>
 #include <QSet>
+#include <QUrl>
 
 #include <algorithm>
 #include <utility>
@@ -22,18 +23,30 @@ namespace splitrock {
 namespace {
 
 // Shell, run as the person: the web apps and Android apps in their own app
-// menu, as "web<TAB>desktop file id<TAB>name" and
-// "android<TAB>package<TAB>name". A Chromium-family browser writes a web
+// menu, as "web<TAB>desktop file id<TAB>name<TAB>icon" and
+// "android<TAB>package<TAB>name<TAB>icon". A Chromium-family browser writes a web
 // app's entry with --app-id= in its command; Waydroid writes an Android app's
 // as "waydroid app launch" and its package.
+// The system's launchers, as "file<TAB>Name<TAB>Icon", then who owns each.
+#define SPLITROCK_MENU R"SH(echo "@@ menu"
+for f in /usr/share/applications/*.desktop; do
+    [ -f "$f" ] || continue
+    grep -qiE '^(NoDisplay|Hidden)=true' "$f" && continue
+    printf '%s\t%s\t%s\n' "${f##*/}" "$(sed -n 's/^Name=//p' "$f" | head -n 1)" "$(sed -n 's/^Icon=//p' "$f" | head -n 1)"
+done
+echo "@@ owners"
+pacman -Qo /usr/share/applications/*.desktop 2>/dev/null
+)SH"
+
 #define SPLITROCK_LOCAL_APPS R"SH(for f in "${XDG_DATA_HOME:-$HOME/.local/share}"/applications/*.desktop; do
     [ -f "$f" ] || continue
     grep -qiE '^(NoDisplay|Hidden)=true' "$f" && continue
     name=$(sed -n 's/^Name=//p' "$f" | head -n 1)
+    icon=$(sed -n 's/^Icon=//p' "$f" | head -n 1)
     command=$(sed -n 's/^Exec=//p' "$f" | head -n 1)
     case $command in
-    *--app-id=*) printf 'web\t%s\t%s\n' "${f##*/}" "$name" ;;
-    *"waydroid app launch "*) printf 'android\t%s\t%s\n' "${command##*waydroid app launch }" "$name" ;;
+    *--app-id=*) printf 'web\t%s\t%s\t%s\n' "${f##*/}" "$name" "$icon" ;;
+    *"waydroid app launch "*) printf 'android\t%s\t%s\t%s\n' "${command##*waydroid app launch }" "$name" "$icon" ;;
     esac
 done
 )SH"
@@ -64,7 +77,7 @@ command -v flatpak >/dev/null 2>&1 && flatpak list --app --columns=application 2
 echo "@@ owned"
 pacman -Qqe 2>/dev/null
 command -v flatpak >/dev/null 2>&1 && flatpak list --app --columns=application,name 2>/dev/null
-echo "@@ local"
+)SH" SPLITROCK_MENU R"SH(echo "@@ local"
 )SH" SPLITROCK_LOCAL_APPS R"SH(echo "@@ end"
 )SH");
 
@@ -257,21 +270,13 @@ exec gtk-launch "$id"
 
 // Run as the person: what Your apps lists. Each section starts with a line
 // "@@ name": the packages installed on purpose, the app menu's entries as
-// "file<TAB>Name", who owns each entry, each package's size, Flathub's apps
+// "file<TAB>Name<TAB>Icon", who owns each entry, each package's size, Flathub's apps
 // as "id<TAB>name<TAB>size", and the person's web apps and Android apps.
 // Nothing here changes anything.
 const QString YoursScript = QStringLiteral(R"SH(export LANG=C LC_ALL=C
 echo "@@ explicit"
 pacman -Qqe 2>/dev/null
-echo "@@ menu"
-for f in /usr/share/applications/*.desktop; do
-    [ -f "$f" ] || continue
-    grep -qiE '^(NoDisplay|Hidden)=true' "$f" && continue
-    printf '%s\t%s\n' "${f##*/}" "$(sed -n 's/^Name=//p' "$f" | head -n 1)"
-done
-echo "@@ owners"
-pacman -Qo /usr/share/applications/*.desktop 2>/dev/null
-echo "@@ sizes"
+)SH" SPLITROCK_MENU R"SH(echo "@@ sizes"
 pacman -Qqe 2>/dev/null | xargs -r pacman -Qi 2>/dev/null | grep -E '^(Name|Installed Size) '
 echo "@@ flathub"
 command -v flatpak >/dev/null 2>&1 && flatpak list --app --columns=application,name,size 2>/dev/null
@@ -317,11 +322,63 @@ AppInstall::App localApp(const QString &line)
     if (app.name.isEmpty())
         app.name = web ? id.chopped(8) : id;
     app.key = source + QLatin1Char(':') + id;
+    app.icons = QStringList{columns.value(3).trimmed(), web ? id.chopped(8) : id};
+    app.icons.removeAll(QString());
     app.installed = true;
     return app;
 }
 
+// The system's launchers, from SPLITROCK_MENU's "menu" and "owners" lines:
+// each package's first launcher in the menu, by file, name and icon.
+struct Launcher {
+    QString file;
+    QString name;
+    QString icon;
+};
+QHash<QString, Launcher> launchersByPackage(const QStringList &menu, const QStringList &owners)
+{
+    QHash<QString, Launcher> byFile;
+    for (const QString &line : menu) {
+        const QStringList columns = line.split(QLatin1Char('\t'));
+        if (columns.size() >= 2 && !columns.at(0).isEmpty())
+            byFile.insert(columns.at(0), {columns.at(0), columns.at(1).trimmed(), columns.value(2).trimmed()});
+    }
+    // "/usr/share/applications/org.kde.okular.desktop is owned by okular 25.08.1-1"
+    static const QRegularExpression owner(QStringLiteral(R"(^/usr/share/applications/(\S+\.desktop) is owned by (\S+) )"));
+    QHash<QString, Launcher> byPackage;
+    for (const QString &line : owners) {
+        const QRegularExpressionMatch m = owner.match(line);
+        if (!m.hasMatch() || byPackage.contains(m.captured(2)))
+            continue;
+        const Launcher launcher = byFile.value(m.captured(1));
+        if (!launcher.name.isEmpty())
+            byPackage.insert(m.captured(2), launcher);
+    }
+    return byPackage;
+}
+
+// The names an app's icon may go by, best first, without repeats or blanks.
+QStringList iconNames(std::initializer_list<QString> names)
+{
+    QStringList list;
+    for (const QString &name : names) {
+        if (!name.trimmed().isEmpty() && !list.contains(name.trimmed()))
+            list.append(name.trimmed());
+    }
+    return list;
+}
+
 } // namespace
+
+bool AppInstall::madeForGnome(const App &app)
+{
+    static const QRegularExpression gnome(QStringLiteral("\\bgnome\\b"), QRegularExpression::CaseInsensitiveOption);
+    const auto gnomeId = [](const QString &id) {
+        return id.startsWith(QLatin1String("org.gnome.")) || id.startsWith(QLatin1String("gnome-"));
+    };
+    return gnomeId(app.package) || std::any_of(app.icons.cbegin(), app.icons.cend(), gnomeId)
+        || gnome.match(app.name).hasMatch() || gnome.match(app.summary).hasMatch();
+}
 
 QString AppInstall::shelfName()
 {
@@ -351,6 +408,10 @@ QVariantMap AppInstall::App::toMap() const
                                            : source == QLatin1String("android") ? QStringLiteral("Android app")
                                                                                 : AppInstall::shelfName()},
             {QStringLiteral("package"), package},
+            // Drawn by the program's app icon provider (src/desktop/AppIcons.h).
+            {QStringLiteral("icon"), icons.isEmpty() ? QString()
+                                                     : QStringLiteral("image://appicon/")
+                                                           + QString::fromLatin1(QUrl::toPercentEncoding(icons.join(QLatin1Char('|'))))},
             {QStringLiteral("installed"), installed},
             {QStringLiteral("alsoFlathub"), alsoFlathub},
             {QStringLiteral("kb"), kb},
@@ -392,6 +453,8 @@ QList<AppInstall::App> AppInstall::readSearch(const QString &output, const QStri
     QStringList flathub;
     QStringList owned;
     QStringList local;
+    QStringList menu;
+    QStringList owners;
     QSet<QString> installed;
     for (const QString &line : output.split(QLatin1Char('\n'))) {
         if (line.startsWith(QLatin1String("@@ "))) {
@@ -408,23 +471,33 @@ QList<AppInstall::App> AppInstall::readSearch(const QString &output, const QStri
             owned.append(line);
         else if (section == QLatin1String("local") && !line.trimmed().isEmpty())
             local.append(line);
+        else if (section == QLatin1String("menu") && !line.trimmed().isEmpty())
+            menu.append(line);
+        else if (section == QLatin1String("owners") && !line.trimmed().isEmpty())
+            owners.append(line);
     }
+    const QHash<QString, Launcher> launchers = launchersByPackage(menu, owners);
 
     QList<App> apps;
     // appstreamcli's blocks: "Identifier: org.kde.okular [desktop-application]",
     // "Name:", "Summary:", "Package:", each ended by "---".
     App app;
     bool desktopApp = false;
+    QString identifier;
+    QString cachedIcon;
     const auto endBlock = [&] {
         if (desktopApp && !app.name.isEmpty() && packageName().match(app.package).hasMatch()) {
             app.source = QStringLiteral("shelf");
             app.key = QStringLiteral("shelf:") + app.package;
             app.installed = installed.contains(app.package);
+            app.icons = iconNames({launchers.value(app.package).icon, cachedIcon, identifier, app.package});
             if (std::none_of(apps.cbegin(), apps.cend(), [&](const App &a) { return a.key == app.key; }))
                 apps.append(app);
         }
         app = App();
         desktopApp = false;
+        identifier.clear();
+        cachedIcon.clear();
     };
     for (const QString &line : std::as_const(shelf)) {
         const QString trimmed = line.trimmed();
@@ -441,6 +514,11 @@ QList<AppInstall::App> AppInstall::readSearch(const QString &output, const QStri
             if (!app.name.isEmpty())
                 endBlock();
             desktopApp = value.contains(QLatin1String("[desktop-application]")) || !value.contains(QLatin1Char('['));
+            identifier = value.section(QLatin1Char(' '), 0, 0);
+            if (identifier.endsWith(QLatin1String(".desktop")))
+                identifier.chop(8);
+        } else if (key == QLatin1String("Icon")) {
+            cachedIcon = value;
         } else if (key == QLatin1String("Name")) {
             app.name = value;
         } else if (key == QLatin1String("Summary")) {
@@ -466,6 +544,7 @@ QList<AppInstall::App> AppInstall::readSearch(const QString &output, const QStri
             continue;
         f.source = QStringLiteral("flathub");
         f.key = QStringLiteral("flathub:") + f.package;
+        f.icons = {f.package};
         f.installed = installed.contains(f.package);
         // The shelf's copy is kept when both have it.
         const auto same = std::find_if(apps.begin(), apps.end(), [&f](const App &a) {
@@ -510,12 +589,16 @@ QList<AppInstall::App> AppInstall::readSearch(const QString &output, const QStri
             o.source = QStringLiteral("flathub");
             if (!flatpakId().match(o.package).hasMatch() || !(fits(o.name) || fits(o.package)))
                 continue;
+            o.icons = {o.package};
         } else {
+            // By its launcher's name and icon, where it has a launcher.
             o.package = line.trimmed();
-            o.name = o.package;
+            const Launcher launcher = launchers.value(o.package);
+            o.name = launcher.name.isEmpty() ? o.package : launcher.name;
             o.source = QStringLiteral("shelf");
-            if (!packageName().match(o.package).hasMatch() || !fits(o.package))
+            if (!packageName().match(o.package).hasMatch() || !(fits(o.package) || fits(o.name)))
                 continue;
+            o.icons = iconNames({launcher.icon, launcher.file.chopped(qMin<qsizetype>(launcher.file.size(), 8)), o.package});
         }
         o.key = o.source + QLatin1Char(':') + o.package;
         o.summary = QStringLiteral("Installed on this computer");
@@ -544,7 +627,15 @@ QList<AppInstall::App> AppInstall::readSearch(const QString &output, const QStri
         }
         return s + (a.source == QLatin1String("shelf") ? 1 : 0);
     };
-    std::stable_sort(apps.begin(), apps.end(), [&score](const App &a, const App &b) { return score(a) > score(b); });
+    // An app made for GNOME, such as a GNOME extension tool, goes after the
+    // rest on this desktop, unless GNOME is what was asked for.
+    const bool askedGnome = words.contains(QStringLiteral("gnome"));
+    const auto gnome = [askedGnome](const App &a) { return !askedGnome && madeForGnome(a); };
+    std::stable_sort(apps.begin(), apps.end(), [&score, &gnome](const App &a, const App &b) {
+        if (gnome(a) != gnome(b))
+            return gnome(b);
+        return score(a) > score(b);
+    });
     if (apps.size() > 8)
         apps.resize(8);
     return apps;
@@ -581,10 +672,13 @@ QList<AppInstall::App> AppInstall::readYours(const QString &output)
     for (const QString &line : found.value(QStringLiteral("explicit")))
         explicitly.insert(line);
     QHash<QString, QString> menuNames;
+    QHash<QString, QString> menuIcons;
     for (const QString &line : found.value(QStringLiteral("menu"))) {
-        const qsizetype tab = line.indexOf(QLatin1Char('\t'));
-        if (tab > 0)
-            menuNames.insert(line.left(tab), line.mid(tab + 1).trimmed());
+        const QStringList columns = line.split(QLatin1Char('\t'));
+        if (columns.size() >= 2 && !columns.at(0).isEmpty()) {
+            menuNames.insert(columns.at(0), columns.at(1).trimmed());
+            menuIcons.insert(columns.at(0), columns.value(2).trimmed());
+        }
     }
     QHash<QString, qint64> sizes;
     QString named;
@@ -618,6 +712,7 @@ QList<AppInstall::App> AppInstall::readYours(const QString &output)
             continue;
         app.installed = true;
         app.kb = sizes.value(app.package, -1);
+        app.icons = iconNames({menuIcons.value(file), file.chopped(8), app.package});
         apps.append(app);
     }
     for (const QString &line : found.value(QStringLiteral("flathub"))) {
@@ -631,6 +726,7 @@ QList<AppInstall::App> AppInstall::readYours(const QString &output)
             app.name = app.package;
         app.source = QStringLiteral("flathub");
         app.key = QStringLiteral("flathub:") + app.package;
+        app.icons = {app.package};
         app.installed = true;
         app.kb = kbOf(columns.value(2));
         if (std::none_of(apps.cbegin(), apps.cend(), [&app](const App &a) { return a.key == app.key; }))

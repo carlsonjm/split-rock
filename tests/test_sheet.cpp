@@ -5,6 +5,7 @@
 #include "app/ChangeRunner.h"
 #include "app/Helpers.h"
 #include "app/QmlContext.h"
+#include "desktop/AppIcons.h"
 #include "settings/SettingsHistory.h"
 
 #include <QDir>
@@ -65,6 +66,7 @@ class TestSheet : public QObject
     // The Helpers' window, made as Split Rock makes it, not yet shown.
     static QQuickWindow *open(QQmlApplicationEngine &engine, Helpers &helpers)
     {
+        engine.addImageProvider(QStringLiteral("appicon"), new AppIconProvider);
         engine.rootContext()->setContextProperty(QStringLiteral("helpers"), &helpers);
         exposeProduct(engine.rootContext());
         QQmlComponent component(&engine, QUrl(QStringLiteral("qrc:/qml/ActionWindow.qml")));
@@ -116,6 +118,29 @@ private Q_SLOTS:
         }
         // Any warning from the sheet is a fault in it.
         QTest::failOnWarning(QRegularExpression(QStringLiteral("qrc:/")));
+    }
+
+    void anAppsOwnIconIsFoundByItsNames()
+    {
+        // Flathub's catalogue names a picture by the app's id; the system's
+        // puts the package first.
+        QTemporaryDir catalogue;
+        QImage picture(64, 64, QImage::Format_ARGB32);
+        picture.fill(Qt::red);
+        QVERIFY(picture.save(catalogue.filePath(QStringLiteral("org.example.Viewer.png"))));
+        QVERIFY(picture.save(catalogue.filePath(QStringLiteral("viewer-pkg_org.example.Other.png"))));
+        AppIconProvider icons({catalogue.path()});
+        QSize size;
+        QCOMPARE(icons.requestPixmap(QStringLiteral("no-such-icon-anywhere|org.example.Viewer"), &size, QSize(32, 32)).size(),
+                 QSize(32, 32));
+        QCOMPARE(icons.requestPixmap(QStringLiteral("org.example.Other"), &size, QSize(32, 32)).size(), QSize(32, 32));
+        // A picture file by its path, as Waydroid's launchers give one.
+        QCOMPARE(icons.requestPixmap(QString::fromLatin1(QUrl::toPercentEncoding(catalogue.filePath(QStringLiteral("org.example.Viewer.png")))),
+                                     &size, QSize(32, 32)).size(),
+                 QSize(32, 32));
+        // None found: one pixel, and the row keeps its glyph.
+        QCOMPARE(icons.requestPixmap(QStringLiteral("no-such-icon-anywhere"), &size, QSize(32, 32)).size(), QSize(1, 1));
+        QCOMPARE(size, QSize(1, 1));
     }
 
     void theUpdateCardShowsEachStep()

@@ -740,8 +740,11 @@ page and in the notebook opens each.
   password, the older ones are a row too, unticked, keeping the newest 3; how
   much they held shows only once they're gone, since the computer can't say
   sooner without a slow count.
-- **Install an app** searches the official shelf and Flathub, the shelf first,
-  and installs with a restore point. Community (AUR) packages are never offered
+- **Install an app** searches the official shelf and Flathub, the best match
+  first and the shelf first on a tie, with an app made for GNOME after the
+  rest unless GNOME is asked for, and installs with a restore point. Each app
+  shows by its own icon and the name its launcher gives it, and what a tap
+  does is a button at the row's end, as in Your apps. Community (AUR) packages are never offered
   there.
 - **Restore points** lists the snapper pairs in words and says how to start
   from one, through the boot menu, and how to keep it with Btrfs Assistant

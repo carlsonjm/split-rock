@@ -43,6 +43,7 @@
 #include "app/QmlContext.h"
 #include "codex/Chat.h"
 #include "settings/AskSettings.h"
+#include "desktop/AppIcons.h"
 #include "desktop/Entry.h"
 #include "tools/Capabilities.h"
 
@@ -365,6 +366,7 @@ int main(int argc, char **argv)
                                        + QStringLiteral("/split-rock-corerc"));
 
     QQmlApplicationEngine engine;
+    engine.addImageProvider(QStringLiteral("appicon"), new splitrock::AppIconProvider);
     engine.rootContext()->setContextProperty(QStringLiteral("askSettings"), &askSettings);
     engine.rootContext()->setContextProperty(QStringLiteral("helpers"), &helpers);
     engine.rootContext()->setContextProperty(QStringLiteral("chat"), &chat);

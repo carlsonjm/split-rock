@@ -108,6 +108,7 @@ set_tests_properties(test_battery PROPERTIES ENVIRONMENT "${TEST_CORE_ENVIRONMEN
 
 # The Helpers' window and its cards.
 split_rock_test(test_sheet)
+target_sources(test_sheet PRIVATE ${PROJECT_SOURCE_DIR}/src/desktop/AppIcons.cpp)
 target_link_libraries(test_sheet PRIVATE Qt6::Gui Qt6::Quick)
 qt_add_resources(test_sheet "sheet_for_test"
     PREFIX "/"

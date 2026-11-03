@@ -196,6 +196,26 @@ CardFrame {
         }
     }
 
+    // A slow search says it is still at it, after a few seconds.
+    Text {
+        objectName: "stillLooking"
+        visible: card.stage === "searching" && stillTimer.slow
+        width: card.innerWidth
+        wrapMode: Text.WordWrap
+        text: card.yours || card.removing ? "Still looking at the apps on this computer…"
+                                          : "Still looking in " + card.job.shelf + " and Flathub…"
+        color: theme.quiet
+        font.pixelSize: 13
+        Timer {
+            id: stillTimer
+            property bool slow: false
+            interval: 3000
+            running: card.stage === "searching"
+            onRunningChanged: slow = false
+            onTriggered: slow = true
+        }
+    }
+
     Column {
         objectName: "installResults"
         visible: card.stage === "results" && card.results.length > 0
@@ -207,15 +227,17 @@ CardFrame {
                 objectName: "install-" + index
                 tone: modelData.source === "shelf" ? card.tone : theme.hue("teal")
                 icon: modelData.source === "shelf" ? Icons.box : modelData.source === "android" ? Icons.phone : Icons.globe
+                appIcon: modelData.icon
                 title: modelData.name
                 // Where each came from, only when they don't all come from
                 // the same place.
                 detail: card.yours ? (card.results.some(r => r.source !== card.results[0].source) ? modelData.sourceName : "")
                       : modelData.summary + (modelData.summary !== "" ? "\n" : "") + modelData.sourceName
                         + (modelData.alsoFlathub ? " · also on Flathub" : "")
-                trailing: card.yours ? modelData.size : card.removing ? "Remove" : modelData.installed ? "Open" : "Install"
-                action: card.yours ? "Remove" : ""
-                opens: true
+                // What a tap does, as a button; Your apps' size in quiet
+                // words before it. The whole row is the button's tap.
+                trailing: card.yours ? modelData.size : ""
+                button: card.removing ? "Remove" : modelData.installed ? "Open" : "Install"
                 Accessible.name: (card.removing ? "Remove " : modelData.installed ? "Open " : "Install ") + modelData.name
                 onClicked: card.removing ? card.job.remove(modelData.key)
                          : modelData.installed ? card.job.openApp(modelData.key) : card.job.install(modelData.key)
@@ -295,6 +317,7 @@ CardFrame {
         visible: card.yours && card.stage === "confirm"
         tone: card.picked.source === "shelf" ? card.tone : theme.hue("teal")
         icon: card.picked.source === "shelf" ? Icons.box : card.picked.source === "android" ? Icons.phone : Icons.globe
+        appIcon: card.picked.icon || ""
         title: card.picked.name || ""
         detail: card.picked.source === "shelf"
                 ? "A restore point is taken first, and only this app is removed. If another app needs it, nothing is removed."

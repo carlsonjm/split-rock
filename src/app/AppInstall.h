@@ -72,6 +72,9 @@ public:
         // id, or an Android app's package name.
         QString package;
         QString remote;
+        // Names its icon may go by, best first: its launcher's Icon=, its
+        // appstream or Flatpak id, its package (src/desktop/AppIcons.h).
+        QStringList icons;
         bool installed = false;
         bool alsoFlathub = false;
         // The room it takes, in kilobytes; -1 when unknown.
@@ -80,6 +83,9 @@ public:
     };
 
     explicit AppInstall(QObject *parent = nullptr);
+
+    // An app made for GNOME, by its id, its name or its description.
+    static bool madeForGnome(const App &app);
 
     bool busy() const override;
     QString query() const { return m_query; }

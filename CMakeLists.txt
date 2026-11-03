@@ -57,7 +57,7 @@ configure_file(data/io.github.carlsonjm.splitrock.admin.policy.in
 install(FILES ${CMAKE_CURRENT_BINARY_DIR}/data/io.github.carlsonjm.splitrock.admin.policy
     DESTINATION ${CMAKE_INSTALL_DATADIR}/polkit-1/actions)
 
-qt_add_executable(split-rock src/main.cpp src/desktop/Entry.h)
+qt_add_executable(split-rock src/main.cpp src/desktop/Entry.h src/desktop/AppIcons.cpp)
 qt_add_resources(split-rock "sheet"
     PREFIX "/"
     FILES

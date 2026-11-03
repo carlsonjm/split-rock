@@ -8,7 +8,7 @@ linux
 git
 @@ menu
 blender.desktop	Blender
-org.kde.okular.desktop	Okular
+org.kde.okular.desktop	Okular	okular
 com.obsproject.Studio.desktop	OBS Studio
 org.kde.plasmashell.desktop	Plasma
 org.kde.kmenuedit.desktop	Menu Editor

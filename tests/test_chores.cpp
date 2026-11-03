@@ -466,6 +466,41 @@ private Q_SLOTS:
         QVERIFY(!apps.at(1).installed);
     }
 
+    // An app installed already is named as its launcher names it, not by its
+    // package; one made for GNOME goes after the rest, unless GNOME is asked
+    // for; each comes with the names its icon goes by.
+    void installNamesAppsAsPeopleKnowThem()
+    {
+        const QString output = QStringLiteral(
+            "@@ shelf\n"
+            "Identifier: org.gnome.Kooha.desktop [desktop-application]\nName: Kooha Screen Recorder\n"
+            "Summary: Screen recorder for GNOME\nPackage: kooha\nIcon: kooha_io.github.seadve.Kooha.png\n---\n"
+            "Identifier: simplescreenrecorder [desktop-application]\nName: SimpleScreenRecorder\n"
+            "Summary: A feature-rich screen recorder\nPackage: simplescreenrecorder\n---\n"
+            "@@ flathub\n"
+            "com.dec05eba.gpu_screen_recorder\tGPU Screen Recorder\tRecord your screen with almost no slowdown\tflathub\n"
+            "@@ installed\ncachyos-packageinstaller\n"
+            "@@ owned\ncachyos-packageinstaller\n"
+            "@@ menu\norg.cachyos.packageinstaller.desktop\tPackage Installer for screen recorder apps\tpackage-installer\n"
+            "@@ owners\n/usr/share/applications/org.cachyos.packageinstaller.desktop is owned by cachyos-packageinstaller 1.0-1\n"
+            "@@ local\n@@ end\n");
+        const QList<AppInstall::App> apps = AppInstall::readSearch(output, QStringLiteral("screen recorder"));
+        QStringList names;
+        for (const AppInstall::App &a : apps)
+            names.append(a.name);
+        QCOMPARE(names, (QStringList{QStringLiteral("SimpleScreenRecorder"), QStringLiteral("GPU Screen Recorder"),
+                                     QStringLiteral("Package Installer for screen recorder apps"), QStringLiteral("Kooha Screen Recorder")}));
+        QCOMPARE(apps.at(2).icons, (QStringList{QStringLiteral("package-installer"), QStringLiteral("org.cachyos.packageinstaller"),
+                                                QStringLiteral("cachyos-packageinstaller")}));
+        QCOMPARE(apps.at(3).icons, (QStringList{QStringLiteral("kooha_io.github.seadve.Kooha.png"), QStringLiteral("org.gnome.Kooha"),
+                                                QStringLiteral("kooha")}));
+        QCOMPARE(apps.at(1).icons, QStringList{QStringLiteral("com.dec05eba.gpu_screen_recorder")});
+        QVERIFY(AppInstall::madeForGnome(apps.at(3)));
+        // Asked for by GNOME's name, it isn't put last.
+        QCOMPARE(AppInstall::readSearch(output, QStringLiteral("gnome screen recorder")).first().name,
+                 QStringLiteral("Kooha Screen Recorder"));
+    }
+
     // A package asked for by its exact name, such as the engine Ask runs its
     // model with, is found though no app description lists it.
     void installFindsAPackageByItsName()
@@ -671,6 +706,12 @@ private Q_SLOTS:
         QCOMPARE(install.resultList().value(1).toMap().value(QStringLiteral("size")).toString(), QStringLiteral("1.9 GB"));
         QCOMPARE(install.resultList().value(3).toMap().value(QStringLiteral("size")).toString(), QStringLiteral("412 MB"));
         QCOMPARE(install.yoursSize(), QStringLiteral("13 GB"));
+        // Each by its own icon: its launcher's, then its launcher's id and its
+        // package; a Flatpak by its id.
+        QCOMPARE(install.results().at(4).icons, (QStringList{QStringLiteral("okular"), QStringLiteral("org.kde.okular")}));
+        QCOMPARE(install.results().at(2).icons, (QStringList{QStringLiteral("com.obsproject.Studio"), QStringLiteral("obs-studio")}));
+        QCOMPARE(install.results().at(0).icons, QStringList{QStringLiteral("com.valvesoftware.Steam")});
+        QCOMPARE(steam.value(QStringLiteral("icon")).toString(), QStringLiteral("image://appicon/com.valvesoftware.Steam"));
         // A yes before one goes, and back to the list without it.
         install.remove(QStringLiteral("flathub:us.zoom.Zoom"));
         QTRY_COMPARE(install.stage(), QStringLiteral("confirm"));
