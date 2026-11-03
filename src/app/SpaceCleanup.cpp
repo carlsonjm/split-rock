@@ -228,7 +228,7 @@ SpaceCleanup::Look SpaceCleanup::readLook(const QString &output)
     {
         static const QRegularExpression dry(QStringLiteral(R"(dry run: (\d+) candidates? \(disk space saved: ([^)]+)\))"));
         Item item{QStringLiteral("pkgcache"), QStringLiteral("Old versions of installed apps"),
-                  QStringLiteral("Copies kept from earlier updates. The one before each app's newest stays."),
+                  QStringLiteral("Copies kept from earlier updates. The newest copy of each app stays."),
                   0, 0, true, true, {}, QStringLiteral("teal")};
         QStringList seen;
         for (const QString &text : found.value(QStringLiteral("pkgcache"))) {

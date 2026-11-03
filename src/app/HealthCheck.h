@@ -82,7 +82,10 @@ public:
     // or empty when the item needs nothing.
     static QString tile(const Item &item);
 
-    static QList<Item> readLook(const QString &output, const QDateTime &now = QDateTime::currentDateTime());
+    // notice is the person's Notice setting (core/Notice.h): the Space row
+    // turns worth a look once the drive is as full as Core first says so.
+    static QList<Item> readLook(const QString &output, const QDateTime &now = QDateTime::currentDateTime(),
+                                int notice = 50);
 
     // The Battery row for what the battery reports: good, or a problem to
     // copy for help when it is worn under BatteryWornBelow or reports a

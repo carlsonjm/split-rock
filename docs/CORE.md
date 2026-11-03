@@ -198,8 +198,11 @@ what arrives afterwards is new. A drive is known by its id, a Bluetooth device
 by its address and a printer by its model; Core keeps the last 200 of each.
 
 Game controllers and screens are read from the kernel's own folders instead:
-each joystick in `/sys/class/input`, known by its maker's and model's numbers
-and its serial, and each connector in `/sys/class/drm` that says it is
+each joystick in `/sys/class/input` with a controller's buttons, or a stick's
+or a wheel's axes and no mouse buttons, known by its maker's and model's
+numbers and its serial. The kernel names an absolute pointer, such as a
+virtual machine's mouse, a joystick too; its mouse buttons set it aside. Each
+connector in `/sys/class/drm` that says it is
 connected, known by the maker, model and serial in the screen's EDID and named
 by the name the screen gives itself there. Core lists both when a device
 comes or goes in `/dev/input`, and every half minute, which costs a few small

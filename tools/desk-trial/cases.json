@@ -46,6 +46,8 @@
    "expect": {"no_proposal": true, "say": [["Dolphin", "file manager", "Files"], ["Documents", "Home"]], "max_chars": 1400}},
   {"id": "c5", "kind": "talk", "ask": "What is the AUR? Someone on a forum told me to use it.",
    "expect": {"no_proposal": true, "say": [["community", "users", "volunteer", "people"]], "never_say": ["PKGBUILD"], "max_chars": 1600}},
+  {"id": "c5w", "kind": "talk", "speed": true, "ask": "How do I change my wallpaper?",
+   "expect": {"no_proposal": true, "say": [["Your look", "Desktop and Wallpaper"]], "never_say": ["Apply"], "max_chars": 1400}},
   {"id": "c6", "kind": "talk", "ask": "Do I need to buy antivirus for Linux?",
    "expect": {"no_proposal": true, "say": [["update", "updates"]], "max_chars": 1400}},
   {"id": "c7", "kind": "talk", "ask": "How do I install Spotify?",

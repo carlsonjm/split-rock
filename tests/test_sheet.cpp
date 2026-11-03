@@ -446,8 +446,27 @@ private Q_SLOTS:
         QVERIFY(opens(QStringLiteral("restore")));
         QTRY_COMPARE(restore->stage(), QStringLiteral("ready"));
         shows(QStringLiteral("restoreCard"), QStringLiteral("35-restore-ready"));
+        // Three restore points or fewer leave nothing to clear.
+        QVERIFY(!find(full, QStringLiteral("restoreClearOlder"))->isVisible());
+        restore->setLookScript(printing(QStringLiteral("restore-look-many.txt")));
+        restore->check();
+        QTRY_COMPARE(restore->stage(), QStringLiteral("ready"));
+        QTRY_VERIFY(find(full, QStringLiteral("restoreClearOlder"))->isVisible());
+        shows(QStringLiteral("restoreCard"), QStringLiteral("35a-restore-older"));
+        restore->askClearOlder();
+        QCOMPARE(restore->stage(), QStringLiteral("confirmClear"));
+        QVERIFY(find(full, QStringLiteral("restoreCancelDelete"))->isVisible());
+        shows(QStringLiteral("restoreCard"), QStringLiteral("35b-restore-confirm-clear"));
+        restore->cancelDelete();
+        QCOMPARE(restore->stage(), QStringLiteral("ready"));
         restore->choose(313);
         shows(QStringLiteral("restoreCard"), QStringLiteral("36-restore-chosen"));
+        restore->askDelete();
+        QCOMPARE(restore->stage(), QStringLiteral("confirmDelete"));
+        QVERIFY(find(full, QStringLiteral("restoreCancelDelete"))->isVisible());
+        shows(QStringLiteral("restoreCard"), QStringLiteral("36b-restore-confirm-delete"));
+        restore->cancelDelete();
+        QCOMPARE(restore->stage(), QStringLiteral("chosen"));
 
         QVERIFY(opens(QStringLiteral("health")));
         QTRY_COMPARE(health->stage(), QStringLiteral("done"));

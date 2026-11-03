@@ -11,6 +11,7 @@
 #include <QRegularExpression>
 
 #include <algorithm>
+#include <utility>
 
 namespace splitrock {
 
@@ -32,11 +33,34 @@ echo "@@ home"
 findmnt -no OPTIONS /home 2>/dev/null
 echo "@@ limits"
 grep -E '^(NUMBER_CLEANUP|NUMBER_LIMIT|NUMBER_LIMIT_IMPORTANT)=' /etc/snapper/configs/root 2>/dev/null
+echo "@@ free"
+# Whether the system lets the person read the list through split-rock-admin
+# without a password, as its polkit action does in their own session at the
+# computer; pkcheck asks without showing a prompt.
+command -v pkcheck >/dev/null 2>&1 \
+    && pkcheck --action-id io.github.carlsonjm.splitrock.admin.restore-list --process $$ >/dev/null 2>&1 \
+    && echo yes
 echo "@@ tools"
 command -v btrfs-assistant-launcher >/dev/null 2>&1 && echo btrfs-assistant-launcher
 command -v btrfs-assistant >/dev/null 2>&1 && echo btrfs-assistant
 echo "@@ end"
 )SH");
+
+// pacman's long options that take their value as the next word, as a helper
+// writes "--color never": the value is no package's name.
+bool takesValue(const QString &word)
+{
+    static const QStringList options{
+        QStringLiteral("--color"), QStringLiteral("--config"), QStringLiteral("--dbpath"), QStringLiteral("--root"),
+        QStringLiteral("--cachedir"), QStringLiteral("--hookdir"), QStringLiteral("--gpgdir"), QStringLiteral("--logfile"),
+        QStringLiteral("--arch"), QStringLiteral("--sysroot"), QStringLiteral("--overwrite"),
+        QStringLiteral("--assume-installed"), QStringLiteral("--ignore"), QStringLiteral("--ignoregroup"),
+        QStringLiteral("--print-format")};
+    return options.contains(word);
+}
+
+// The free space once the drive has given back what was deleted.
+const QString FreeScript = QStringLiteral("sync -f / 2>/dev/null; sleep 3; df -Pk / 2>/dev/null | awk 'NR==2 {print $4}'");
 
 QString when(const QDateTime &date)
 {
@@ -68,12 +92,13 @@ QVariantMap RestorePoints::Point::toMap() const
 RestorePoints::RestorePoints(QObject *parent)
     : Chore(parent)
     , m_lookScript(LookScript)
+    , m_freeScript(FreeScript)
 {
 }
 
 bool RestorePoints::busy() const
 {
-    return stage() == QLatin1String("looking");
+    return stage() == QLatin1String("looking") || stage() == QLatin1String("deleting");
 }
 
 QString RestorePoints::describe(const QString &description, const QString &cleanup, QString *kind)
@@ -126,6 +151,8 @@ QString RestorePoints::describe(const QString &description, const QString &clean
                 op += QLatin1Char('u');
             else if (w.startsWith(QLatin1Char('-')) && !w.startsWith(QLatin1String("--")) && w.size() > 1 && w.at(1).isUpper())
                 op = op.isEmpty() ? w : op;
+            else if (takesValue(w))
+                ++i;
             else if (w.startsWith(QLatin1Char('-')))
                 continue;
             else if (w.contains(QLatin1Char('/'))) {
@@ -219,6 +246,7 @@ RestorePoints::Look RestorePoints::readLook(const QString &output)
         else if (key == QLatin1String("NUMBER_LIMIT_IMPORTANT"))
             look.limitImportant = top;
     }
+    look.listFree = found.value(QStringLiteral("free")).contains(QStringLiteral("yes"));
     const QStringList tools = found.value(QStringLiteral("tools"));
     look.keepTool = tools.value(0);
     // Started from a restore point: / is mounted from its snapshot.
@@ -244,7 +272,7 @@ QString RestorePoints::keeping() const
     const QString kept = m_look.limitImportant > 0
         ? QStringLiteral("the newest %1, plus %2 marked important, such as those before a new kernel").arg(m_look.limit).arg(m_look.limitImportant)
         : QStringLiteral("the newest %1").arg(m_look.limit);
-    return QStringLiteral("You don't need to delete any. The computer clears old ones by itself and keeps %1.").arg(kept);
+    return QStringLiteral("The computer clears old ones by itself and keeps %1.").arg(kept);
 }
 
 int RestorePoints::ownCount() const
@@ -280,10 +308,19 @@ void RestorePoints::check()
     if (busy())
         return;
     m_chosen = Point();
+    m_notShown.clear();
+    m_note.clear();
+    m_deleting.clear();
     clearProgress();
     setStage(QStringLiteral("looking"));
     run(asPerson(m_lookScript), 30000, [this](int, const QString &output) {
         m_look = readLook(output);
+        // Where the system lets the person read the list without a password,
+        // it is read straight away, with no prompt and no tap.
+        if (m_look.denied && m_look.listFree) {
+            listAsAdmin();
+            return;
+        }
         settle();
     });
 }
@@ -292,11 +329,29 @@ void RestorePoints::checkAsAdmin()
 {
     if (stage() != QLatin1String("denied"))
         return;
+    listAsAdmin();
+}
+
+void RestorePoints::listAsAdmin()
+{
+    m_notShown.clear();
     setStage(QStringLiteral("looking"));
-    run(asAdmin(QStringLiteral("restore-list")), 60000, [this](int, const QString &output) {
+    // No time limit: the password prompt waits for the person, who may be
+    // away, and closing it ends the job.
+    run(asAdmin(QStringLiteral("restore-list")), -1, [this](int exitCode, const QString &output) {
         const Look listed = readLook(output);
-        m_look.denied = listed.denied;
-        m_look.points = listed.points;
+        // A prompt closed or refused, or a list that didn't come, leaves the
+        // card where it was, saying so, with Show them to try again.
+        if (exitCode != 0 || !output.contains(QLatin1String("@@ list"))) {
+            m_look.denied = true;
+            m_look.points.clear();
+            m_notShown = exitCode == 126 || exitCode == 127
+                ? QStringLiteral("The list wasn't shown, because the password box was closed. Nothing changed.")
+                : QStringLiteral("The list couldn't be read just now. Nothing changed.");
+        } else {
+            m_look.denied = listed.denied;
+            m_look.points = listed.points;
+        }
         settle();
     });
 }
@@ -324,6 +379,7 @@ void RestorePoints::choose(int number)
     if (found == m_look.points.cend())
         return;
     m_chosen = *found;
+    m_note.clear();
     setStage(QStringLiteral("chosen"));
     Q_EMIT changed();
 }
@@ -335,6 +391,108 @@ void RestorePoints::back()
     m_chosen = Point();
     setStage(QStringLiteral("ready"));
     Q_EMIT changed();
+}
+
+QList<int> RestorePoints::older() const
+{
+    QList<int> numbers;
+    // The newest stay, as does the one the computer was started from.
+    for (qsizetype i = Kept; i < m_look.points.size(); ++i) {
+        if (m_look.points.at(i).number != m_look.bootedFrom)
+            numbers.append(m_look.points.at(i).number);
+    }
+    return numbers;
+}
+
+void RestorePoints::askClearOlder()
+{
+    if (stage() != QLatin1String("ready") || older().isEmpty())
+        return;
+    m_note.clear();
+    m_deleting = older();
+    setStage(QStringLiteral("confirmClear"));
+    Q_EMIT changed();
+}
+
+void RestorePoints::askDelete()
+{
+    if (stage() != QLatin1String("chosen") || m_chosen.number <= 0 || m_chosen.number == m_look.bootedFrom)
+        return;
+    m_note.clear();
+    m_deleting = {m_chosen.number};
+    setStage(QStringLiteral("confirmDelete"));
+    Q_EMIT changed();
+}
+
+void RestorePoints::cancelDelete()
+{
+    if (stage() == QLatin1String("confirmDelete")) {
+        m_deleting.clear();
+        setStage(QStringLiteral("chosen"));
+    } else if (stage() == QLatin1String("confirmClear")) {
+        m_deleting.clear();
+        setStage(QStringLiteral("ready"));
+    }
+    Q_EMIT changed();
+}
+
+void RestorePoints::confirmDelete()
+{
+    if ((stage() != QLatin1String("confirmClear") && stage() != QLatin1String("confirmDelete")) || m_deleting.isEmpty())
+        return;
+    const bool one = stage() == QLatin1String("confirmDelete");
+    QStringList numbers;
+    for (int n : std::as_const(m_deleting))
+        numbers.append(QString::number(n));
+    m_changeId = QStringLiteral("restore-delete-%1").arg(QDateTime::currentDateTime().toString(QStringLiteral("yyyyMMdd-HHmmss")));
+    const QString title = one ? QStringLiteral("Deleted restore point %1").arg(numbers.first())
+                              : QStringLiteral("Deleted %1 older restore points").arg(numbers.size());
+    QString unrecorded;
+    // Nothing brings a deleted restore point back, so there is no undo to
+    // write down; the record says what went.
+    if (!writeDown(m_changeId, title, QString(), &unrecorded)) {
+        m_note = QStringLiteral("Nothing was deleted: it couldn't be written in the notebook first. %1").arg(unrecorded);
+        m_changeId.clear();
+        m_deleting.clear();
+        setStage(one ? QStringLiteral("chosen") : QStringLiteral("ready"));
+        Q_EMIT changed();
+        return;
+    }
+    setStage(QStringLiteral("deleting"));
+    run(asPerson(m_freeScript), 15000, [this, numbers, one](int, const QString &before) {
+        const qint64 freeBefore = before.trimmed().toLongLong();
+        // Never stopped by a timer: the system gives the space back as it
+        // deletes, which takes a while for many.
+        run(asAdmin(QStringLiteral("restore-delete"), numbers), -1, [this, numbers, one, freeBefore](int exitCode, const QString &output) {
+            if (exitCode != 0) {
+                m_note = exitCode == 126 || exitCode == 127
+                    ? QStringLiteral("Nothing was deleted, because the password box was closed.")
+                    : QStringLiteral("The restore points couldn't be deleted. Nothing more was changed.");
+                report(std::exchange(m_changeId, QString()), false, QStringLiteral("Deleting restore points didn't finish"),
+                       output.right(2000));
+                m_deleting.clear();
+                setStage(one ? QStringLiteral("chosen") : QStringLiteral("ready"));
+                Q_EMIT changed();
+                return;
+            }
+            run(asPerson(m_freeScript), 30000, [this, numbers, one, freeBefore](int, const QString &after) {
+                const qint64 freeAfter = after.trimmed().toLongLong();
+                const QString came = freeBefore > 0 && freeAfter > freeBefore
+                    ? QStringLiteral(" %1 came free.").arg(size(freeAfter - freeBefore)) : QString();
+                m_note = (one ? QStringLiteral("Restore point %1 is deleted.").arg(numbers.first())
+                              : QStringLiteral("%1 older restore points are deleted.").arg(numbers.size()))
+                    + came;
+                m_look.points.erase(std::remove_if(m_look.points.begin(), m_look.points.end(),
+                                                   [this](const Point &p) { return m_deleting.contains(p.number); }),
+                                    m_look.points.end());
+                m_deleting.clear();
+                m_chosen = Point();
+                report(std::exchange(m_changeId, QString()), true, m_note, QString());
+                setStage(m_look.points.isEmpty() ? QStringLiteral("nothing") : QStringLiteral("ready"));
+                Q_EMIT changed();
+            });
+        });
+    });
 }
 
 void RestorePoints::openKeepTool()
