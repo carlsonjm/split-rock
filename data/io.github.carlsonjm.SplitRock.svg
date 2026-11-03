@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256">
+<!-- SPDX-License-Identifier: GPL-2.0-or-later -->
+<!-- Split Rock's app icon on a Shuffle install, Helpers' and Ask's windows: an i, for help, with two glints at its tip like a magic wand. It is drawn as Shuffle's dock pearls are (Ghost White pieces on their 24 unit grid, one pearl gradient) on Shuffle's app tile, a step above Piano so an app never reads as a pearl on the dark band. The tile sits inside the margin icon themes leave around app artwork (42 of 48 in Colloid), so it is drawn the size of the apps beside it. The assistant's mark inside Split Rock stays assets/mark.svg. -->
+<defs><linearGradient id="pearl" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#FFFFFF"/><stop offset=".55" stop-color="#F4F4FA"/><stop offset="1" stop-color="#DCDCE4"/></linearGradient>
+<linearGradient id="tile" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2E2E30"/><stop offset="1" stop-color="#202022"/></linearGradient>
+</defs>
+<rect x="16" y="16" width="224" height="224" rx="35" fill="url(#tile)"/>
+<g transform="translate(50 50) scale(6.5)">
+<circle cx="12" cy="6.6" r="2.6" fill="url(#pearl)"/>
+<rect x="9.6" y="11" width="4.8" height="11" rx="2.4" fill="url(#pearl)"/>
+<g opacity="0.5"><path d="M17.25 -1.45 Q17.872 0.728 20.05 1.35 Q17.872 1.972 17.25 4.15 Q16.628 1.972 14.45 1.35 Q16.628 0.728 17.25 -1.45Z" fill="#F8F8FF" stroke="#F8F8FF" stroke-width="0.62" stroke-linejoin="round"/></g>
+<g opacity="0.5"><path d="M19.5 4.2 Q19.9 5.6 21.3 6 Q19.9 6.4 19.5 7.8 Q19.1 6.4 17.7 6 Q19.1 5.6 19.5 4.2Z" fill="#F8F8FF" stroke="#F8F8FF" stroke-width="0.40" stroke-linejoin="round"/></g>
+</g>
+</svg>
