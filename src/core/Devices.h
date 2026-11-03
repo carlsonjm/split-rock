@@ -55,7 +55,8 @@ std::optional<Device> bluetoothFrom(const QVariantMap &device);
 std::optional<Device> printerFrom(const QString &description);
 
 // The game controllers the kernel lists under root, /sys/class/input: each
-// joystick device, known by its maker's and model's numbers and its own
+// joystick device with a controller's buttons or axes, never a pointer with a
+// mouse's buttons, known by its maker's and model's numbers and its own
 // serial where it gives one.
 QList<Device> controllersIn(const QString &root = QStringLiteral("/sys/class/input"));
 // The screens plugged in under root, /sys/class/drm: each connector that

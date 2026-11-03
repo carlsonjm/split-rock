@@ -131,14 +131,62 @@ std::optional<Device> printerFrom(const QString &description)
     return Device{DeviceKind::Printer, name, name};
 }
 
+namespace {
+
+// A capabilities bitmap as the kernel prints it under capabilities/: words in
+// hex, the highest first, each as wide as the kernel's own long.
+QList<quint64> bitmap(const QString &path)
+{
+    QList<quint64> words;
+    const QStringList parts = firstLine(path).split(QLatin1Char(' '), Qt::SkipEmptyParts);
+    for (auto it = parts.crbegin(); it != parts.crend(); ++it)
+        words.append(it->toULongLong(nullptr, 16));
+    return words;
+}
+
+bool anyBit(const QList<quint64> &words, int from, int to)
+{
+    for (int bit = from; bit <= to; ++bit) {
+        const qsizetype word = bit / 64;
+        if (word < words.size() && (words.at(word) >> (bit % 64)) & 1)
+            return true;
+    }
+    return false;
+}
+
+// Whether the device behind a js node is a game controller. The kernel gives
+// a js node to anything with an absolute X axis and buttons, which includes
+// the absolute pointer a virtual machine, a remote desktop or a test rig
+// presents, so a node alone isn't enough. A controller has a joystick's or a
+// game pad's buttons (BTN_JOYSTICK to BTN_THUMBR, or the extra
+// BTN_TRIGGER_HAPPY ones), or, with no mouse button at all, a stick's or a
+// wheel's own axes. Where the kernel's folders give no buttons to read, the
+// node counts, as before.
+bool isController(const QString &device)
+{
+    const QList<quint64> keys = bitmap(device + QStringLiteral("/capabilities/key"));
+    if (keys.isEmpty())
+        return true;
+    if (anyBit(keys, 0x120, 0x13e) || anyBit(keys, 0x2c0, 0x2e7))
+        return true;
+    if (anyBit(keys, 0x110, 0x117))
+        return false;
+    // ABS_RX to ABS_BRAKE: the second stick, throttle, rudder, wheel, pedals.
+    return anyBit(bitmap(device + QStringLiteral("/capabilities/abs")), 0x03, 0x0a);
+}
+
+} // namespace
+
 QList<Device> controllersIn(const QString &root)
 {
     QList<Device> found;
     const QDir input(root);
     // The kernel gives each joystick a js node of its own beside its event
-    // node; js is only ever a joystick or a game pad.
+    // node; isController sets aside the pointers it gives one too.
     for (const QString &node : input.entryList({QStringLiteral("js*")}, QDir::Dirs | QDir::System | QDir::NoDotAndDotDot, QDir::Name)) {
         const QString device = input.filePath(node + QStringLiteral("/device"));
+        if (!isController(device))
+            continue;
         const QString name = tidy(firstLine(device + QStringLiteral("/name")));
         const QString vendor = firstLine(device + QStringLiteral("/id/vendor"));
         const QString product = firstLine(device + QStringLiteral("/id/product"));
