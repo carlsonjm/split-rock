@@ -45,6 +45,19 @@ command -v btrfs-assistant >/dev/null 2>&1 && echo btrfs-assistant
 echo "@@ end"
 )SH");
 
+// pacman's long options that take their value as the next word, as a helper
+// writes "--color never": the value is no package's name.
+bool takesValue(const QString &word)
+{
+    static const QStringList options{
+        QStringLiteral("--color"), QStringLiteral("--config"), QStringLiteral("--dbpath"), QStringLiteral("--root"),
+        QStringLiteral("--cachedir"), QStringLiteral("--hookdir"), QStringLiteral("--gpgdir"), QStringLiteral("--logfile"),
+        QStringLiteral("--arch"), QStringLiteral("--sysroot"), QStringLiteral("--overwrite"),
+        QStringLiteral("--assume-installed"), QStringLiteral("--ignore"), QStringLiteral("--ignoregroup"),
+        QStringLiteral("--print-format")};
+    return options.contains(word);
+}
+
 QString when(const QDateTime &date)
 {
     if (!date.isValid())
@@ -133,6 +146,8 @@ QString RestorePoints::describe(const QString &description, const QString &clean
                 op += QLatin1Char('u');
             else if (w.startsWith(QLatin1Char('-')) && !w.startsWith(QLatin1String("--")) && w.size() > 1 && w.at(1).isUpper())
                 op = op.isEmpty() ? w : op;
+            else if (takesValue(w))
+                ++i;
             else if (w.startsWith(QLatin1Char('-')))
                 continue;
             else if (w.contains(QLatin1Char('/'))) {

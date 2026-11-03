@@ -842,6 +842,11 @@ private Q_SLOTS:
                  QStringLiteral("Before installing a community app"));
         QCOMPARE(RestorePoints::describe(QStringLiteral("pacman --sync --needed vlc"), QStringLiteral("number")),
                  QStringLiteral("Before installing vlc"));
+        // An option's value after it, as Install an app's own job writes it,
+        // is no app.
+        QCOMPARE(RestorePoints::describe(QStringLiteral("pacman -S --needed --noconfirm --noprogressbar --color never -- discover"),
+                                         QStringLiteral("number")),
+                 QStringLiteral("Before installing discover"));
         QVERIFY(RestorePoints::isOwn(QStringLiteral("Genie: Update")));
         QVERIFY(RestorePoints::isOwn(QStringLiteral("Shuffle Core: Update")));
         QVERIFY(!RestorePoints::isOwn(QStringLiteral("pacman -Syu")));
