@@ -1493,3 +1493,23 @@ fits no more Helpers later; calling Shuffle's own `shuffle-add` from Split
 Rock, which a component may not depend on; offering the app store everywhere,
 where it is already installed; and fetching every package list before adding
 the store, which makes the install a partial update.
+
+## A Helper opens at its own size
+
+A Helper's window is as wide as its card and as tall as what the card shows,
+growing as rows arrive, up to half the screen's room above and below where it
+opened, so growing never runs it off the bottom; past that the card scrolls
+inside. Its size is fixed, so Kadunce floats it centred over the work, as it
+does any window of a fixed size, rather than making it a card beside the window
+in use. It stays one window to move or close, and Close still works. Elsewhere
+it is placed as any window of a fixed size is.
+
+Why: on a test computer Restore points took half the screen as a card beside
+the window in use, with a heading and two buttons at the top of a tall empty
+panel. A Helper is a short job; it reads as one, as a dialog does, over the
+work it interrupts.
+
+Rejected: asking Kadunce to float Split Rock's windows by name, which ties a
+component to another's window names when a fixed size already says it;
+opening only once the card has looked, which leaves nothing on the screen
+while it does; and a fixed tall window, which was the empty panel.

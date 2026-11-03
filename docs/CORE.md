@@ -450,7 +450,8 @@ app.
 
 Core opens a Helper by starting `split-rock --card space`, or
 `split-rock --card install --query "pdf editor"` for the one that takes words.
-Split Rock then opens that one Helper in an ordinary window titled after it.
+Split Rock then opens that one Helper in a window titled after it, at the
+card's own size: as tall as what it shows, growing as rows arrive.
 The window closes when the Helper does, and can't be closed while the Helper is
 busy. A Helper that hands over to another, as Health check does to Free up
 space, keeps the window: the next Helper opens in it.

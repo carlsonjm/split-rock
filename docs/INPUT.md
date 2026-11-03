@@ -1,7 +1,7 @@
 # Input
 
 Every tap and key a Helper answers, and what you see happen. Each Helper opens
-on its own, in an ordinary window, from Core or Search (`DESKTOP.md`).
+on its own, in a window at its card's size, from Core or Search (`DESKTOP.md`).
 
 | Task | Touch | Keyboard |
 | --- | --- | --- |

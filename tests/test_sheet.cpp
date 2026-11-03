@@ -71,6 +71,8 @@ class TestSheet : public QObject
         auto *window = qobject_cast<QQuickWindow *>(component.create(engine.rootContext()));
         if (!window)
             qWarning().noquote() << component.errorString();
+        else
+            window->setProperty("fitsContent", false);
         return window;
     }
 
@@ -189,6 +191,8 @@ private Q_SLOTS:
         QQmlApplicationEngine engine;
         std::unique_ptr<QQuickWindow> window(open(engine, c));
         QVERIFY(window);
+        // As Split Rock opens it: at the card's own size.
+        window->setProperty("fitsContent", true);
 
         QVERIFY(c.openChore(QStringLiteral("space")));
         window->show();
@@ -200,6 +204,13 @@ private Q_SLOTS:
         // which Shuffle's Context Bar shows beside the name.
         QCOMPARE(window->title(), QStringLiteral("Free up space · 46 GB free"));
         settle();
+        // A fixed size, which a card workspace floats rather than filling a
+        // pane with it, no taller than keeps it on the screen; a long card
+        // scrolls inside.
+        QCOMPARE(window->width(), 560);
+        QCOMPARE(window->minimumHeight(), window->maximumHeight());
+        QCOMPARE(window->minimumWidth(), window->maximumWidth());
+        QTRY_COMPARE(window->height(), window->property("tallest").toInt());
         QVERIFY(overflowing(window.get()).isEmpty());
         shoot(window.get(), QStringLiteral("60-space-on-its-own"));
 
@@ -243,6 +254,12 @@ private Q_SLOTS:
             QVERIFY2(window->title().startsWith(QString::fromLatin1(card.title)), card.name);
             settle();
             QVERIFY2(overflowing(window.get()).isEmpty(), card.name);
+            QVERIFY2(window->height() <= window->property("tallest").toInt(), card.name);
+            // A short one is only as tall as what it shows.
+            if (name == QLatin1String("restore")) {
+                QQuickItem *shown = find(window.get(), QString::fromLatin1(card.card));
+                QTRY_COMPARE(window->height(), qRound(shown->height()));
+            }
             shoot(window.get(), QStringLiteral("61-") + name + QStringLiteral("-on-its-own"));
             QMetaObject::invokeMethod(job, "close");
             QTRY_VERIFY2(!window->isVisible(), card.name);
