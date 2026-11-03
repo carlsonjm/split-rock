@@ -72,6 +72,18 @@
     <annotate key="org.freedesktop.policykit.exec.path">@SPLIT_ROCK_ADMIN_PROGRAM@</annotate>
     <annotate key="org.freedesktop.policykit.exec.argv1">restore-list</annotate>
   </action>
+  <action id="io.github.carlsonjm.splitrock.admin.restore-delete">
+    <description>Delete restore points</description>
+    <message>Your password is needed to delete restore points</message>
+    <icon_name>io.github.carlsonjm.SplitRock</icon_name>
+    <defaults>
+      <allow_any>auth_admin</allow_any>
+      <allow_inactive>auth_admin</allow_inactive>
+      <allow_active>auth_admin</allow_active>
+    </defaults>
+    <annotate key="org.freedesktop.policykit.exec.path">@SPLIT_ROCK_ADMIN_PROGRAM@</annotate>
+    <annotate key="org.freedesktop.policykit.exec.argv1">restore-delete</annotate>
+  </action>
   <action id="io.github.carlsonjm.splitrock.admin.restore-undo">
     <description>Put back what changed</description>
     <message>Your password is needed to put back what changed</message>

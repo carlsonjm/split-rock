@@ -584,9 +584,10 @@ What needs the administrator goes through the system's password prompt
 (`pkexec`) to one program, `split-rock-admin`, installed beside Split Rock's
 other programs where only the administrator can change it. It holds every job
 the Helpers need, by name: `update`, `install` and `remove` one package,
-`free-space`, `restore-list`, `restore-undo` and `community`. It takes only
-the job's name and arguments it checks itself: a package name as pacman
-allows it, 0 or 1 for restore points, two restore point numbers, a commit's
+`free-space`, `restore-list`, `restore-undo`, `restore-delete` and
+`community`. It takes only the job's name and arguments it checks itself: a
+package name as pacman allows it, 0 or 1 for restore points, two restore point
+numbers, restore point numbers that may go, a commit's
 full hash, a recipe folder the person owns; anything else is refused before a
 thing runs. Run by the prompt it keeps nothing of the caller's environment,
 uses a PATH of its own and builds a community recipe as the person the prompt
@@ -733,6 +734,8 @@ page and in the notebook opens each.
   from one, through the boot menu, and how to keep it with Btrfs Assistant
   where that is installed. It never rolls back itself: that replaces the system
   under a running session, and starting from the point first shows it works.
+  It deletes one point, or clears all but the newest 3, each only after a
+  question with Cancel beside it.
 - **Health check** only reads: services, space, the drive, the battery, the last
   update, the newest restore point, settings files beside the person's own and
   crashes this week, each with the card or question that helps. It looks once a
@@ -947,11 +950,23 @@ Each restore point says whether Split Rock took it, before a change it made,
 or the system did by itself, as CachyOS's snap-pac does before every install,
 removal and update; a helper's command line is said in words ("Before
 installing a community app"). The card says the computer clears old ones by
-itself, with how many it keeps, read from its own settings, so no one needs
-to delete them.
+itself, with how many it keeps, read from its own settings.
 
-Rejected: deleting restore points from the card, which the system's own
-cleanup already does on a schedule the person never has to think about.
+The card can also delete them, since the system's own limit can hold more than
+the drive has room for: on a test computer 45 restore points held 11.5 GB.
+Tapping a point offers Delete beside going back to it; with more than 3, the
+list offers to clear the older ones, and the newest 3 always stay, so the
+person can still go back to before the last change. Each asks first, says it
+can't be undone and has Cancel, then asks for the password once and says how
+much space came back. The `restore-delete` job checks every number itself: it
+refuses the point the computer was started from, the one it starts from next
+and the system as it is now, and takes a pre/post pair's partner with it, so
+a pair never goes by half.
+
+Rejected: leaving deletion to the system's own cleanup alone, which the person
+looked for and couldn't find, and which runs only on its own schedule; and
+ticking points one by one in a list, which made the card a form for a job
+most people do once.
 
 ## Core lives in Split Rock, as a program of its own
 

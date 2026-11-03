@@ -914,6 +914,117 @@ private Q_SLOTS:
         QVERIFY(actions.indexOf(QStringLiteral("<allow_active>yes</allow_active>")) < actions.indexOf(QStringLiteral("</action>"), list));
     }
 
+    // Deleting restore points: each with the one taken after it, and never
+    // the one the computer runs on or starts from.
+    void theAdministratorDeletesOnlyRestorePointsThatMayGo()
+    {
+        StandIns standIns;
+        const QString ran = standIns.path() + QStringLiteral("/ran");
+        QVERIFY(standIns.add(QStringLiteral("snapper"), QStringLiteral(
+            "case \"$*\" in\n"
+            "*--csvout*) printf '%s\\n' number,type,pre-number,default,active 0,single,,no,no 4,pre,,no,no 5,post,4,no,no "
+            "6,single,,no,no 7,pre,,no,no 8,post,7,yes,yes ;;\n"
+            "*) echo \"snapper $*\" >> '%1' ;;\n"
+            "esac\n").arg(ran)));
+        const auto job = [](const QStringList &arguments) {
+            QProcess p;
+            p.setProcessChannelMode(QProcess::MergedChannels);
+            p.start(adminInSource().first(), arguments);
+            p.closeWriteChannel();
+            if (!p.waitForFinished(20000))
+                return -1;
+            return p.exitCode();
+        };
+        const auto said = [&ran] {
+            QFile file(ran);
+            const QString text = file.open(QIODevice::ReadOnly) ? QString::fromUtf8(file.readAll()) : QString();
+            file.remove();
+            return text;
+        };
+        QCOMPARE(job({QStringLiteral("restore-delete"), QStringLiteral("4"), QStringLiteral("6")}), 0);
+        QCOMPARE(said(), QStringLiteral("snapper -c root delete --sync 4 5 6\n"));
+        // The pair the computer starts from, a post alone, a number not
+        // there, and anything that isn't a number are refused, with nothing
+        // deleted.
+        for (const QStringList &refused : QList<QStringList>{{QStringLiteral("7")},
+                                                              {QStringLiteral("5")},
+                                                              {QStringLiteral("9")},
+                                                              {QStringLiteral("4"), QStringLiteral("0")},
+                                                              {QStringLiteral("4;reboot")},
+                                                              {}}) {
+            QCOMPARE(job(QStringList{QStringLiteral("restore-delete")} + refused), 2);
+            QCOMPARE(said(), QString());
+        }
+    }
+
+    void clearingOlderRestorePointsAsksFirstAndKeepsTheNewest()
+    {
+        QTemporaryDir dir;
+        const QString look = dir.filePath(QStringLiteral("look"));
+        const QString asked = dir.filePath(QStringLiteral("asked"));
+        const QString free = dir.filePath(QStringLiteral("free"));
+        QVERIFY(write(free, QStringLiteral("1000000\n")));
+        RestorePoints restore;
+        restore.setElevate({});
+        restore.setLookScript(printing(QStringLiteral("restore-look.txt")));
+        // Each look at the free space after a delete finds 2 GB more.
+        restore.setFreeScript(QStringLiteral("cat '%1'").arg(free));
+        restore.setAdmin({QStringLiteral("sh"), QStringLiteral("-c"),
+                          QStringLiteral("echo \"$*\" > '%1'; echo 3097152 > '%2'").arg(asked, free), QStringLiteral("admin")});
+        QStringList written;
+        restore.setWriteDown([&written](const QString &id, const QString &title, const QString &undo, QString *) {
+            written << id << title << undo;
+            return true;
+        });
+        restore.check();
+        QTRY_COMPARE(restore.stage(), QStringLiteral("ready"));
+        // Three in the fixture: all are among the newest three.
+        QCOMPARE(restore.olderCount(), 0);
+        restore.askClearOlder();
+        QCOMPARE(restore.stage(), QStringLiteral("ready"));
+
+        // One chosen: Delete asks first, and Cancel goes back with nothing done.
+        restore.choose(310);
+        restore.askDelete();
+        QCOMPARE(restore.stage(), QStringLiteral("confirmDelete"));
+        QCOMPARE(restore.deletingCount(), 1);
+        restore.cancelDelete();
+        QCOMPARE(restore.stage(), QStringLiteral("chosen"));
+        QVERIFY(!QFile::exists(asked));
+        QVERIFY(written.isEmpty());
+
+        restore.askDelete();
+        restore.confirmDelete();
+        QCOMPARE(restore.stage(), QStringLiteral("deleting"));
+        QVERIFY(restore.busy());
+        QTRY_COMPARE(restore.stage(), QStringLiteral("ready"));
+        QFile said(asked);
+        QVERIFY(said.open(QIODevice::ReadOnly));
+        QCOMPARE(QString::fromUtf8(said.readAll()).trimmed(), QStringLiteral("restore-delete 310"));
+        QCOMPARE(written.value(1), QStringLiteral("Deleted restore point 310"));
+        QCOMPARE(written.value(2), QString());
+        QCOMPARE(restore.points().size(), 2);
+        QVERIFY2(restore.note().contains(QStringLiteral("2.0 GB came free")), qPrintable(restore.note()));
+    }
+
+    void aClosedPasswordBoxDeletesNothing()
+    {
+        QTemporaryDir dir;
+        RestorePoints restore;
+        restore.setElevate({});
+        restore.setLookScript(printing(QStringLiteral("restore-look.txt")));
+        restore.setFreeScript(QStringLiteral("echo 1000000"));
+        restore.setAdmin({QStringLiteral("sh"), QStringLiteral("-c"), QStringLiteral("exit 126"), QStringLiteral("admin")});
+        restore.check();
+        QTRY_COMPARE(restore.stage(), QStringLiteral("ready"));
+        restore.choose(313);
+        restore.askDelete();
+        restore.confirmDelete();
+        QTRY_COMPARE(restore.stage(), QStringLiteral("chosen"));
+        QVERIFY(restore.note().contains(QStringLiteral("password box was closed")));
+        QCOMPARE(restore.points().size(), 3);
+    }
+
     void restorePointsAreReadWithoutAPasswordWhereTheSystemAllows()
     {
         // The person's own look is refused by snapper, but the system lets
