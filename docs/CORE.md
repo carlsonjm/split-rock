@@ -161,6 +161,17 @@ restart". During Do Not Disturb it waits. Tapping it asks Plasma's own
 Restart question; nothing restarts without the person. It says nothing again
 until a later update replaces the next kernel. `Restart/Enabled` switches it.
 
+Short of a restart, an update that changed the desktop itself since this
+sign-in (KWin, Plasma's shell, their plugins, and the widgets and effects
+Shuffle adds among them, read from the files' status times against when this
+person's KWin started) leaves the desktop on its old parts until the person
+signs out. Once a sign-in Core says so on the ticker: "Sign out to finish the
+Shuffle update" where Shuffle is the desktop, "Sign out to finish an update"
+elsewhere, and "Your desktop picks up its new parts when you sign back in".
+Tapping it asks Plasma's own Sign Out question. When the kernel was replaced
+too, only the restart notice shows, since a restart finishes both. The same
+switch covers it.
+
 ## Tidy up Downloads
 
 With each look at the drive, and when a download has settled, Core adds up

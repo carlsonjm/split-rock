@@ -81,6 +81,13 @@ public:
         // otherwise. And Plasma's own question about restarting.
         std::function<QString()> restartNeeded = [] { return QString(); };
         std::function<void()> promptRestart;
+        // Whether an update changed the desktop itself (KWin, Plasma or
+        // Shuffle's parts) since this sign-in, so it runs its old parts until
+        // the person signs out; and Plasma's own question about signing out.
+        std::function<bool()> signOutNeeded = [] { return false; };
+        std::function<void()> promptSignOut;
+        // Whether Shuffle is the desktop, for the notice's words.
+        std::function<bool()> shuffle = [] { return false; };
         // What the app menu calls an app, by its desktop file id.
         std::function<QString(const QString &desktopId)> appName = [](const QString &id) { return core::appName(id); };
     };
@@ -119,8 +126,11 @@ public:
 
     // An update replaced the running kernel: Core says once on the ticker,
     // for that kernel, that a restart finishes it; a tap asks Plasma's
-    // Restart question. Looked at with each check.
+    // Restart question. Short of that, an update that changed the desktop
+    // itself is said once a sign-in: signing out finishes it, and a tap asks
+    // Plasma's Sign Out question. Looked at with each check.
     void lookAtRestart();
+    void lookAtSignOut();
 
     // Every device of one kind there is now. One Core has not seen before is
     // news once, at the ticker; the first time Core looks at a kind, what is
@@ -299,6 +309,8 @@ private:
     qint64 m_tidySpokenKb = 0;
     // The kernel the restart notice was last given for.
     QString m_restartSpoken;
+    // The sign-in the sign-out notice was last given in.
+    QString m_signOutSpoken;
     HealthLook m_healthLook;
     HealthFact m_health;
     Attention m_healthAttention;

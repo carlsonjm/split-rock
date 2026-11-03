@@ -78,6 +78,11 @@ struct Desk {
     // questions asked.
     QString kernelGone;
     int restartsAsked = 0;
+    // An update changed the desktop since this sign-in; sign-out questions
+    // asked; Shuffle is the desktop.
+    bool desktopChanged = false;
+    int signOutsAsked = 0;
+    bool shuffle = false;
     std::unique_ptr<Core> core;
 
     Desk() { make(); }
@@ -104,6 +109,9 @@ struct Desk {
         hooks.signIn = [this] { return signIn; };
         hooks.restartNeeded = [this] { return kernelGone; };
         hooks.promptRestart = [this] { ++restartsAsked; };
+        hooks.signOutNeeded = [this] { return desktopChanged; };
+        hooks.promptSignOut = [this] { ++signOutsAsked; };
+        hooks.shuffle = [this] { return shuffle; };
         hooks.appName = [](const QString &id) {
             return id == QLatin1String("org.mozilla.firefox") ? QStringLiteral("Firefox") : appName(id);
         };
@@ -997,6 +1005,46 @@ private Q_SLOTS:
         d.core->lookAtRestart();
         QCOMPARE(d.ticker.size(), 2);
         QVERIFY(!d.core->act(QStringLiteral("restart"), QStringLiteral("open")));
+    }
+
+    void aChangedDesktopAsksToSignOutOnceASignIn()
+    {
+        Desk d;
+        d.shuffle = true;
+        d.core->lookAtRestart();
+        QVERIFY(d.ticker.isEmpty());
+        QVERIFY(!d.core->act(QStringLiteral("signout"), QStringLiteral("open")));
+        d.desktopChanged = true;
+        d.doNotDisturb = true;
+        d.core->lookAtRestart();
+        QVERIFY(d.ticker.isEmpty());
+        d.doNotDisturb = false;
+        d.core->lookAtRestart();
+        QCOMPARE(d.ticker, QStringList{QStringLiteral(
+                               "Sign out to finish the Shuffle update | Your desktop picks up its new parts when you sign back in")});
+        QCOMPARE(d.topics, QStringList{QStringLiteral("signout")});
+        // Once in this sign-in, through a restart of Core too.
+        d.core->lookAtRestart();
+        d.make();
+        d.core->lookAtRestart();
+        QCOMPARE(d.ticker.size(), 1);
+        QVERIFY(d.core->act(QStringLiteral("signout"), QStringLiteral("open")));
+        QCOMPARE(d.signOutsAsked, 1);
+        QCOMPARE(d.restartsAsked, 0);
+        // The next sign-in, with Shuffle gone: said again, in plain words.
+        d.signIn = QStringLiteral("2");
+        d.shuffle = false;
+        d.core->lookAtRestart();
+        QCOMPARE(d.ticker.last(), QStringLiteral(
+                                      "Sign out to finish an update | Your desktop picks up its new parts when you sign back in"));
+        // A replaced kernel says only restart, which finishes both.
+        d.signIn = QStringLiteral("3");
+        d.kernelGone = QStringLiteral("6.17.5-arch1-1");
+        d.core->lookAtRestart();
+        QCOMPARE(d.ticker.size(), 3);
+        QVERIFY(d.ticker.last().startsWith(QStringLiteral("Restart to finish an update")));
+        d.core->lookAtRestart();
+        QCOMPARE(d.ticker.size(), 3);
     }
 
     void downloadsSpeakPastFiveGigabytesAndAgainFiveLater()
