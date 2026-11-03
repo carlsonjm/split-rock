@@ -32,6 +32,13 @@ echo "@@ home"
 findmnt -no OPTIONS /home 2>/dev/null
 echo "@@ limits"
 grep -E '^(NUMBER_CLEANUP|NUMBER_LIMIT|NUMBER_LIMIT_IMPORTANT)=' /etc/snapper/configs/root 2>/dev/null
+echo "@@ free"
+# Whether the system lets the person read the list through split-rock-admin
+# without a password, as its polkit action does in their own session at the
+# computer; pkcheck asks without showing a prompt.
+command -v pkcheck >/dev/null 2>&1 \
+    && pkcheck --action-id io.github.carlsonjm.splitrock.admin.restore-list --process $$ >/dev/null 2>&1 \
+    && echo yes
 echo "@@ tools"
 command -v btrfs-assistant-launcher >/dev/null 2>&1 && echo btrfs-assistant-launcher
 command -v btrfs-assistant >/dev/null 2>&1 && echo btrfs-assistant
@@ -219,6 +226,7 @@ RestorePoints::Look RestorePoints::readLook(const QString &output)
         else if (key == QLatin1String("NUMBER_LIMIT_IMPORTANT"))
             look.limitImportant = top;
     }
+    look.listFree = found.value(QStringLiteral("free")).contains(QStringLiteral("yes"));
     const QStringList tools = found.value(QStringLiteral("tools"));
     look.keepTool = tools.value(0);
     // Started from a restore point: / is mounted from its snapshot.
@@ -280,10 +288,17 @@ void RestorePoints::check()
     if (busy())
         return;
     m_chosen = Point();
+    m_notShown.clear();
     clearProgress();
     setStage(QStringLiteral("looking"));
     run(asPerson(m_lookScript), 30000, [this](int, const QString &output) {
         m_look = readLook(output);
+        // Where the system lets the person read the list without a password,
+        // it is read straight away, with no prompt and no tap.
+        if (m_look.denied && m_look.listFree) {
+            listAsAdmin();
+            return;
+        }
         settle();
     });
 }
@@ -292,11 +307,29 @@ void RestorePoints::checkAsAdmin()
 {
     if (stage() != QLatin1String("denied"))
         return;
+    listAsAdmin();
+}
+
+void RestorePoints::listAsAdmin()
+{
+    m_notShown.clear();
     setStage(QStringLiteral("looking"));
-    run(asAdmin(QStringLiteral("restore-list")), 60000, [this](int, const QString &output) {
+    // No time limit: the password prompt waits for the person, who may be
+    // away, and closing it ends the job.
+    run(asAdmin(QStringLiteral("restore-list")), -1, [this](int exitCode, const QString &output) {
         const Look listed = readLook(output);
-        m_look.denied = listed.denied;
-        m_look.points = listed.points;
+        // A prompt closed or refused, or a list that didn't come, leaves the
+        // card where it was, saying so, with Show them to try again.
+        if (exitCode != 0 || !output.contains(QLatin1String("@@ list"))) {
+            m_look.denied = true;
+            m_look.points.clear();
+            m_notShown = exitCode == 126 || exitCode == 127
+                ? QStringLiteral("The list wasn't shown, because the password box was closed. Nothing changed.")
+                : QStringLiteral("The list couldn't be read just now. Nothing changed.");
+        } else {
+            m_look.denied = listed.denied;
+            m_look.points = listed.points;
+        }
         settle();
     });
 }

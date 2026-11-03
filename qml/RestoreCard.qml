@@ -41,7 +41,7 @@ CardFrame {
             case "looking": return "Each is how the system was just before a change."
             case "nothing": return card.job.configured ? "One is taken before each update and install."
                                                        : "This computer isn't set up to take them."
-            case "denied": return "It only reads the list; nothing changes."
+            case "denied": return card.job.notShown !== "" ? card.job.notShown : "It only reads the list; nothing changes."
             case "chosen": return card.chosen.what + "." + (card.job.homeSeparate ? " Your own files stay as they are now." : "")
             case "booted": return "Nothing is kept yet. Restarting normally comes back to how it was."
             }

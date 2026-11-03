@@ -49,6 +49,8 @@ class RestorePoints : public Chore
     Q_PROPERTY(int ownCount READ ownCount NOTIFY changed)
     // The steps to go back to the chosen one.
     Q_PROPERTY(QStringList steps READ steps NOTIFY changed)
+    // Why the list wasn't shown after Show them, in words; empty otherwise.
+    Q_PROPERTY(QString notShown READ notShown NOTIFY changed)
 
 public:
     struct Point {
@@ -72,6 +74,8 @@ public:
         bool cleanup = false;
         int limit = 0;
         int limitImportant = 0;
+        // The system lets the person read the list without a password.
+        bool listFree = false;
     };
 
     explicit RestorePoints(QObject *parent = nullptr);
@@ -89,6 +93,7 @@ public:
     QString keeping() const;
     int ownCount() const;
     QStringList steps() const;
+    QString notShown() const { return m_notShown; }
 
     Q_INVOKABLE void check();
     // Lists them through the password prompt, where the person may not.
@@ -110,9 +115,11 @@ public:
 
 private:
     void settle();
+    void listAsAdmin();
 
     Look m_look;
     Point m_chosen;
+    QString m_notShown;
     QString m_lookScript;
 };
 

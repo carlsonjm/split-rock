@@ -592,11 +592,15 @@ thing runs. Run by the prompt it keeps nothing of the caller's environment,
 uses a PATH of its own and builds a community recipe as the person the prompt
 asked. Split Rock hands it to the prompt only when it, and every folder above
 it, belongs to the administrator and no one else can write to it. The prompt
-then names `split-rock-admin` and the job, not `/bin/sh`. A polkit action of its
-own, `io.github.carlsonjm.splitrock.admin`, installed under
-`/usr/share/polkit-1/actions` with the package, gives that prompt plain words,
-"Your password is needed to make this change to the computer", in place of the
-command line, and still asks for the password every time.
+then names `split-rock-admin` and the job, not `/bin/sh`. Each job has a polkit
+action of its own, `io.github.carlsonjm.splitrock.admin.<job>`, installed under
+`/usr/share/polkit-1/actions` with the package: pkexec picks the action whose
+program and first argument match, so the prompt says in plain words what that
+job is for, such as "Your password is needed to update this computer", in place
+of the command line. No action matches the program alone, since pkexec could
+pick it for any job. Every job asks for the password every time, except
+`restore-list`, which only reads the restore points and needs none in the
+person's own session at the computer; anywhere else it asks too.
 
 Why: before, each Helper passed its own script to `pkexec /bin/sh`, so the
 prompt approved a shell and whatever text Split Rock gave it. With the jobs in
@@ -604,9 +608,11 @@ one checked, installed program, nothing running as the person can change what
 the administrator runs, and the prompt says what it is for.
 
 Rejected: a service that holds administrator rights between jobs, which Split
-Rock never holds; a polkit action of its own for each job, since pkexec picks
-an action by the program alone, so one program has one prompt; and a job that
-takes a command.
+Rock never holds; one action for every job, whose prompt said "make this
+change" even to read the restore points; letting the person use snapper
+directly (its `ALLOW_USERS`), which would let anything running as them delete
+restore points or put files back as the administrator, not only read the list;
+and a job that takes a command.
 
 ## The assistant opens settings skills from a shelf
 

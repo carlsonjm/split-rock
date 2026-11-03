@@ -18,6 +18,7 @@
 #include <QDir>
 #include <QFile>
 #include <QProcess>
+#include <QRegularExpression>
 #include <QSettings>
 #include <QSignalSpy>
 #include <QStandardPaths>
@@ -867,6 +868,92 @@ private Q_SLOTS:
         QVERIFY(steps.join(QLatin1Char(' ')).contains(QStringLiteral("number 311")));
         restore.back();
         QCOMPARE(restore.stage(), QStringLiteral("ready"));
+    }
+
+    void eachAdministratorJobHasAPromptOfItsOwn()
+    {
+        // pkexec picks the polkit action by the program and its first
+        // argument, the job; a job without one would show the raw command
+        // line, and one matching the program alone could be picked for any.
+        QFile admin(QStringLiteral(PROJECT_DIR "/src/admin/split-rock-admin"));
+        QVERIFY(admin.open(QIODevice::ReadOnly));
+        const QString script = QString::fromUtf8(admin.readAll());
+        QFile policy(QStringLiteral(PROJECT_DIR "/data/io.github.carlsonjm.splitrock.admin.policy.in"));
+        QVERIFY(policy.open(QIODevice::ReadOnly));
+        const QString actions = QString::fromUtf8(policy.readAll());
+        // The jobs that run as the person need no prompt.
+        const QStringList asPerson{QStringLiteral("unused"), QStringLiteral("kept")};
+        static const QRegularExpression job(QStringLiteral(R"(^([a-z|-]+)\)$)"), QRegularExpression::MultilineOption);
+        const qsizetype from = script.indexOf(QStringLiteral("case $job in"));
+        QVERIFY(from > 0);
+        QStringList jobs;
+        for (auto it = job.globalMatch(script, from); it.hasNext();)
+            jobs += it.next().captured(1).split(QLatin1Char('|'));
+        QVERIFY(jobs.contains(QStringLiteral("restore-list")));
+        QVERIFY(jobs.contains(QStringLiteral("appstore")));
+        for (const QString &name : jobs) {
+            if (asPerson.contains(name))
+                continue;
+            QVERIFY2(actions.contains(QStringLiteral("<action id=\"io.github.carlsonjm.splitrock.admin.%1\">").arg(name)),
+                     qPrintable(name));
+            QVERIFY2(actions.contains(QStringLiteral("exec.argv1\">%1</annotate>").arg(name)), qPrintable(name));
+        }
+        QCOMPARE(actions.count(QStringLiteral("exec.path")), actions.count(QStringLiteral("exec.argv1")));
+        // Reading the restore points is the only one without the password, and
+        // only in the person's own session at the computer.
+        QCOMPARE(actions.count(QStringLiteral("<allow_active>yes</allow_active>")), 1);
+        QCOMPARE(actions.count(QStringLiteral("<allow_any>auth_admin</allow_any>")), actions.count(QStringLiteral("<action ")));
+        QCOMPARE(actions.count(QStringLiteral("<allow_inactive>auth_admin</allow_inactive>")), actions.count(QStringLiteral("<action ")));
+        const qsizetype list = actions.indexOf(QStringLiteral("admin.restore-list\""));
+        QVERIFY(actions.indexOf(QStringLiteral("<allow_active>yes</allow_active>")) > list);
+        QVERIFY(actions.indexOf(QStringLiteral("<allow_active>yes</allow_active>")) < actions.indexOf(QStringLiteral("</action>"), list));
+    }
+
+    void restorePointsAreReadWithoutAPasswordWhereTheSystemAllows()
+    {
+        // The person's own look is refused by snapper, but the system lets
+        // them read the list through split-rock-admin: it is read at once.
+        QTemporaryDir dir;
+        const QString look = dir.filePath(QStringLiteral("look"));
+        const QString listed = dir.filePath(QStringLiteral("listed"));
+        QVERIFY(write(look, QStringLiteral("@@ snapper\nyes\n@@ list\nNo permissions.\n@@ free\nyes\n@@ end\n")));
+        RestorePoints restore;
+        restore.setElevate({});
+        restore.setAdmin({QStringLiteral("sh"), QStringLiteral("-c"),
+                          QStringLiteral("touch '%1'; cat '" FIXTURES_DIR "/chores/restore-look.txt'").arg(listed),
+                          QStringLiteral("admin")});
+        restore.setLookScript(QStringLiteral("cat '%1'").arg(look));
+        restore.check();
+        QTRY_COMPARE(restore.stage(), QStringLiteral("ready"));
+        QVERIFY(QFile::exists(listed));
+        QCOMPARE(restore.points().size(), 3);
+        QCOMPARE(restore.notShown(), QString());
+    }
+
+    void aClosedPasswordBoxLeavesRestorePointsAskingAgain()
+    {
+        QTemporaryDir dir;
+        const QString look = dir.filePath(QStringLiteral("look"));
+        QVERIFY(write(look, QStringLiteral("@@ snapper\nyes\n@@ list\nNo permissions.\n@@ end\n")));
+        RestorePoints restore;
+        restore.setElevate({});
+        // pkexec's own answer when its prompt is closed.
+        restore.setAdmin({QStringLiteral("sh"), QStringLiteral("-c"), QStringLiteral("exit 126"), QStringLiteral("admin")});
+        restore.setLookScript(QStringLiteral("cat '%1'").arg(look));
+        restore.check();
+        QTRY_COMPARE(restore.stage(), QStringLiteral("denied"));
+        QCOMPARE(restore.notShown(), QString());
+        restore.checkAsAdmin();
+        QCOMPARE(restore.stage(), QStringLiteral("looking"));
+        QTRY_COMPARE(restore.stage(), QStringLiteral("denied"));
+        QVERIFY(restore.notShown().contains(QStringLiteral("password box was closed")));
+        QVERIFY(restore.points().isEmpty());
+        // Shown at the second try.
+        restore.setAdmin({QStringLiteral("sh"), QStringLiteral("-c"),
+                          QStringLiteral("cat '" FIXTURES_DIR "/chores/restore-look.txt'"), QStringLiteral("admin")});
+        restore.checkAsAdmin();
+        QTRY_COMPARE(restore.stage(), QStringLiteral("ready"));
+        QCOMPARE(restore.notShown(), QString());
     }
 
     void theHealthCheckReadsEachPart()

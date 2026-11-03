@@ -1,15 +1,20 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE policyconfig PUBLIC "-//freedesktop//DTD PolicyKit Policy Configuration 1.0//EN"
  "http://www.freedesktop.org/standards/PolicyKit/1/policyconfig.dtd">
-<!-- The password prompt for split-rock-admin, the one program Split Rock runs
-     as the administrator (docs/DECISIONS.md). Without it, pkexec shows the
-     raw command line. The password is asked every time. -->
+<!-- The password prompts for split-rock-admin, the one program Split Rock runs
+     as the administrator (docs/DECISIONS.md). pkexec picks the action whose
+     program and first argument, the job, match what it was asked to run, so
+     each job's prompt says what that job is for; without them, pkexec shows
+     the raw command line. Every job has one, and none matches the program
+     alone, or pkexec could pick it for any job. The password is asked every
+     time, except to read the restore points in the person's own session at
+     the computer, which changes nothing. -->
 <policyconfig>
   <vendor>Split Rock</vendor>
   <vendor_url>https://github.com/carlsonjm/split-rock</vendor_url>
-  <action id="io.github.carlsonjm.splitrock.admin">
-    <description>Make a change to this computer</description>
-    <message>Your password is needed to make this change to the computer</message>
+  <action id="io.github.carlsonjm.splitrock.admin.update">
+    <description>Update this computer</description>
+    <message>Your password is needed to update this computer</message>
     <icon_name>io.github.carlsonjm.SplitRock</icon_name>
     <defaults>
       <allow_any>auth_admin</allow_any>
@@ -17,5 +22,114 @@
       <allow_active>auth_admin</allow_active>
     </defaults>
     <annotate key="org.freedesktop.policykit.exec.path">@SPLIT_ROCK_ADMIN_PROGRAM@</annotate>
+    <annotate key="org.freedesktop.policykit.exec.argv1">update</annotate>
+  </action>
+  <action id="io.github.carlsonjm.splitrock.admin.install">
+    <description>Install an app</description>
+    <message>Your password is needed to install an app</message>
+    <icon_name>io.github.carlsonjm.SplitRock</icon_name>
+    <defaults>
+      <allow_any>auth_admin</allow_any>
+      <allow_inactive>auth_admin</allow_inactive>
+      <allow_active>auth_admin</allow_active>
+    </defaults>
+    <annotate key="org.freedesktop.policykit.exec.path">@SPLIT_ROCK_ADMIN_PROGRAM@</annotate>
+    <annotate key="org.freedesktop.policykit.exec.argv1">install</annotate>
+  </action>
+  <action id="io.github.carlsonjm.splitrock.admin.remove">
+    <description>Remove an app</description>
+    <message>Your password is needed to remove an app</message>
+    <icon_name>io.github.carlsonjm.SplitRock</icon_name>
+    <defaults>
+      <allow_any>auth_admin</allow_any>
+      <allow_inactive>auth_admin</allow_inactive>
+      <allow_active>auth_admin</allow_active>
+    </defaults>
+    <annotate key="org.freedesktop.policykit.exec.path">@SPLIT_ROCK_ADMIN_PROGRAM@</annotate>
+    <annotate key="org.freedesktop.policykit.exec.argv1">remove</annotate>
+  </action>
+  <action id="io.github.carlsonjm.splitrock.admin.free-space">
+    <description>Free up space</description>
+    <message>Your password is needed to free up space</message>
+    <icon_name>io.github.carlsonjm.SplitRock</icon_name>
+    <defaults>
+      <allow_any>auth_admin</allow_any>
+      <allow_inactive>auth_admin</allow_inactive>
+      <allow_active>auth_admin</allow_active>
+    </defaults>
+    <annotate key="org.freedesktop.policykit.exec.path">@SPLIT_ROCK_ADMIN_PROGRAM@</annotate>
+    <annotate key="org.freedesktop.policykit.exec.argv1">free-space</annotate>
+  </action>
+  <action id="io.github.carlsonjm.splitrock.admin.restore-list">
+    <description>See the restore points</description>
+    <message>Your password is needed to see this computer&apos;s restore points</message>
+    <icon_name>io.github.carlsonjm.SplitRock</icon_name>
+    <defaults>
+      <allow_any>auth_admin</allow_any>
+      <allow_inactive>auth_admin</allow_inactive>
+      <allow_active>yes</allow_active>
+    </defaults>
+    <annotate key="org.freedesktop.policykit.exec.path">@SPLIT_ROCK_ADMIN_PROGRAM@</annotate>
+    <annotate key="org.freedesktop.policykit.exec.argv1">restore-list</annotate>
+  </action>
+  <action id="io.github.carlsonjm.splitrock.admin.restore-undo">
+    <description>Put back what changed</description>
+    <message>Your password is needed to put back what changed</message>
+    <icon_name>io.github.carlsonjm.SplitRock</icon_name>
+    <defaults>
+      <allow_any>auth_admin</allow_any>
+      <allow_inactive>auth_admin</allow_inactive>
+      <allow_active>auth_admin</allow_active>
+    </defaults>
+    <annotate key="org.freedesktop.policykit.exec.path">@SPLIT_ROCK_ADMIN_PROGRAM@</annotate>
+    <annotate key="org.freedesktop.policykit.exec.argv1">restore-undo</annotate>
+  </action>
+  <action id="io.github.carlsonjm.splitrock.admin.community">
+    <description>Install a community app</description>
+    <message>Your password is needed to install a community app</message>
+    <icon_name>io.github.carlsonjm.SplitRock</icon_name>
+    <defaults>
+      <allow_any>auth_admin</allow_any>
+      <allow_inactive>auth_admin</allow_inactive>
+      <allow_active>auth_admin</allow_active>
+    </defaults>
+    <annotate key="org.freedesktop.policykit.exec.path">@SPLIT_ROCK_ADMIN_PROGRAM@</annotate>
+    <annotate key="org.freedesktop.policykit.exec.argv1">community</annotate>
+  </action>
+  <action id="io.github.carlsonjm.splitrock.admin.start-service">
+    <description>Start a system service again</description>
+    <message>Your password is needed to start a system service again</message>
+    <icon_name>io.github.carlsonjm.SplitRock</icon_name>
+    <defaults>
+      <allow_any>auth_admin</allow_any>
+      <allow_inactive>auth_admin</allow_inactive>
+      <allow_active>auth_admin</allow_active>
+    </defaults>
+    <annotate key="org.freedesktop.policykit.exec.path">@SPLIT_ROCK_ADMIN_PROGRAM@</annotate>
+    <annotate key="org.freedesktop.policykit.exec.argv1">start-service</annotate>
+  </action>
+  <action id="io.github.carlsonjm.splitrock.admin.flatpak-back">
+    <description>Take an app back to its earlier version</description>
+    <message>Your password is needed to take an app back to its earlier version</message>
+    <icon_name>io.github.carlsonjm.SplitRock</icon_name>
+    <defaults>
+      <allow_any>auth_admin</allow_any>
+      <allow_inactive>auth_admin</allow_inactive>
+      <allow_active>auth_admin</allow_active>
+    </defaults>
+    <annotate key="org.freedesktop.policykit.exec.path">@SPLIT_ROCK_ADMIN_PROGRAM@</annotate>
+    <annotate key="org.freedesktop.policykit.exec.argv1">flatpak-back</annotate>
+  </action>
+  <action id="io.github.carlsonjm.splitrock.admin.appstore">
+    <description>Add the app store</description>
+    <message>Your password is needed to add the app store</message>
+    <icon_name>io.github.carlsonjm.SplitRock</icon_name>
+    <defaults>
+      <allow_any>auth_admin</allow_any>
+      <allow_inactive>auth_admin</allow_inactive>
+      <allow_active>auth_admin</allow_active>
+    </defaults>
+    <annotate key="org.freedesktop.policykit.exec.path">@SPLIT_ROCK_ADMIN_PROGRAM@</annotate>
+    <annotate key="org.freedesktop.policykit.exec.argv1">appstore</annotate>
   </action>
 </policyconfig>
