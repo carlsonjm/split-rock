@@ -21,6 +21,11 @@ Helpers that look after a KDE Plasma computer, built for people leaving decades 
 </p>
 
 
+<p align="center">
+<b>Split Rock powers the Helpers in <a href="https://shuffleplasma.com">Shuffle for Plasma</a></b>, a touch-first desktop for KDE Plasma that comes with every free part already set up to work together.
+</p>
+
+
 
 https://github.com/user-attachments/assets/b5c5d53a-4f06-4f06-9c3e-ebca5be75959
 
