@@ -42,6 +42,10 @@ public Q_SLOTS:
     // The same, ended inside the notifications, where the person already
     // sees what came in: nothing goes on the island.
     Q_SCRIPTABLE void FocusEndedInView(uint notifications);
+    // The same two, for the quiet the desktop keeps while the screen is
+    // shared: the island says "While you were sharing".
+    Q_SCRIPTABLE void SharingEnded(uint notifications);
+    Q_SCRIPTABLE void SharingEndedInView(uint notifications);
     // The person opened the notifications; the island about what came in
     // goes.
     Q_SCRIPTABLE void NotificationsSeen();

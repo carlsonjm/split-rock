@@ -398,7 +398,7 @@ void Core::hold(const QString &title, bool doNotDisturb, Level level, const Spok
     m_held.append(title);
 }
 
-void Core::focusEnded(int notifications, bool seen)
+void Core::focusEnded(int notifications, bool seen, bool sharing)
 {
     QStringList held = m_held;
     const QDateTime now = m_hooks.now();
@@ -408,20 +408,22 @@ void Core::focusEnded(int notifications, bool seen)
     m_heldSince = {};
     if (!watchesFocus())
         return;
+    const QString quiet = sharing ? QStringLiteral("Sharing the screen") : QStringLiteral("Do Not Disturb");
     if (notifications <= 0 && held.isEmpty()) {
-        write(QStringLiteral("Focus  Do Not Disturb ended; nothing came in."));
+        write(QStringLiteral("Focus  %1 ended; nothing came in.").arg(quiet));
         return;
     }
     // What Core held went to the ticker, so it is in the notifications too.
     if (seen) {
         write(notifications > 0
-                  ? QStringLiteral("Focus  Do Not Disturb ended in the notifications; %1 came in, shown there.").arg(notifications)
-                  : QStringLiteral("Focus  Do Not Disturb ended in the notifications."));
+                  ? QStringLiteral("Focus  %1 ended in the notifications; %2 came in, shown there.").arg(quiet).arg(notifications)
+                  : QStringLiteral("Focus  %1 ended in the notifications.").arg(quiet));
         notificationsSeen();
         return;
     }
     const bool islandBefore = m_focusAttention.islandOpen;
     m_focusNotifications = qMax(0, notifications);
+    m_focusSharing = sharing;
     m_focusHeld = held;
     ++m_focusTimes;
 
@@ -467,7 +469,7 @@ QVariantMap Core::focusFact() const
     return {
         {QStringLiteral("topic"), Focus},
         {QStringLiteral("title"), QStringLiteral("Focus")},
-        {QStringLiteral("line"), QStringLiteral("While you were focused")},
+        {QStringLiteral("line"), m_focusSharing ? QStringLiteral("While you were sharing") : QStringLiteral("While you were focused")},
         {QStringLiteral("detail"), said.join(QStringLiteral(" · "))},
         {QStringLiteral("notifications"), m_focusNotifications},
         {QStringLiteral("level"), levelName(Level::Island)},
@@ -476,7 +478,7 @@ QVariantMap Core::focusFact() const
         {QStringLiteral("actionText"), m_focusNotifications > 0 || m_focusHeld.isEmpty() ? QStringLiteral("See them")
                                                                                          : QStringLiteral("Open")},
         {QStringLiteral("keywords"), QStringList{QStringLiteral("focus"), QStringLiteral("do not disturb"),
-                                                 QStringLiteral("missed notifications")}},
+                                                 QStringLiteral("missed notifications"), QStringLiteral("screen sharing")}},
     };
 }
 
@@ -986,6 +988,7 @@ void Core::loadAttention()
     m_signOutSpoken = saved.value(QStringLiteral("Restart/SignOutSpoken")).toString();
     loadState(saved, QStringLiteral("Focus"), m_focusAttention);
     m_focusNotifications = saved.value(QStringLiteral("Focus/Notifications"), 0).toInt();
+    m_focusSharing = saved.value(QStringLiteral("Focus/Sharing"), false).toBool();
     m_focusHeld = saved.value(QStringLiteral("Focus/Held")).toStringList();
     m_focusTimes = saved.value(QStringLiteral("Focus/Times"), 0).toInt();
     saved.beginGroup(QStringLiteral("Devices"));
@@ -1091,6 +1094,7 @@ void Core::saveAttention(const QString &topic) const
     if (topic == Focus) {
         saveState(saved, QStringLiteral("Focus"), m_focusAttention);
         saved.setValue(QStringLiteral("Focus/Notifications"), m_focusNotifications);
+        saved.setValue(QStringLiteral("Focus/Sharing"), m_focusSharing);
         saved.setValue(QStringLiteral("Focus/Held"), m_focusHeld);
         saved.setValue(QStringLiteral("Focus/Times"), m_focusTimes);
         return;
