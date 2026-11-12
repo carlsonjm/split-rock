@@ -59,6 +59,16 @@ void CoreService::FocusEndedInView(uint notifications)
     m_core->focusEnded(int(qMin(notifications, 100000u)), true);
 }
 
+void CoreService::SharingEnded(uint notifications)
+{
+    m_core->focusEnded(int(qMin(notifications, 100000u)), false, true);
+}
+
+void CoreService::SharingEndedInView(uint notifications)
+{
+    m_core->focusEnded(int(qMin(notifications, 100000u)), true, true);
+}
+
 void CoreService::NotificationsSeen()
 {
     m_core->notificationsSeen();

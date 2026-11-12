@@ -145,8 +145,10 @@ public:
     // what Core itself held back from the island, it is said once, on the
     // island; nothing is said when nothing came in. seen: it ended inside
     // the notifications themselves, where the person is already looking at
-    // what came in, so there is no island.
-    void focusEnded(int notifications, bool seen = false);
+    // what came in, so there is no island. sharing: the quiet was the
+    // desktop's own while the screen was shared, so the island says "While
+    // you were sharing" rather than "While you were focused".
+    void focusEnded(int notifications, bool seen = false, bool sharing = false);
     // The person opened the notifications: what came in is seen, and the
     // island about it goes.
     void notificationsSeen();
@@ -335,6 +337,7 @@ private:
     QStringList m_held;
     QDateTime m_heldSince;
     int m_focusNotifications = 0;
+    bool m_focusSharing = false;
     QStringList m_focusHeld;
     int m_focusTimes = 0;
     Attention m_focusAttention;

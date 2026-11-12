@@ -2251,6 +2251,33 @@ private Q_SLOTS:
         QVERIFY(!d.core->act(QStringLiteral("focus"), QStringLiteral("open")));
     }
 
+    // The quiet the desktop keeps while the screen is shared ends the same
+    // way, said as sharing; the next Do Not Disturb is focus again.
+    void sharingSaysWhatCameInWhileTheScreenWasShared()
+    {
+        Desk d;
+        d.core->focusEnded(3, false, true);
+        const QVariantMap sharing = d.fact(QStringLiteral("focus"));
+        QCOMPARE(sharing.value(QStringLiteral("attention")).toString(), QStringLiteral("island"));
+        QCOMPARE(sharing.value(QStringLiteral("line")).toString(), QStringLiteral("While you were sharing"));
+        QCOMPARE(sharing.value(QStringLiteral("detail")).toString(), QStringLiteral("3 notifications"));
+        QCOMPARE(sharing.value(QStringLiteral("actionText")).toString(), QStringLiteral("See them"));
+        // It survives a restart as sharing.
+        d.make();
+        QCOMPARE(d.fact(QStringLiteral("focus")).value(QStringLiteral("line")).toString(), QStringLiteral("While you were sharing"));
+        QVERIFY(d.core->act(QStringLiteral("focus"), QStringLiteral("open")));
+        QCOMPARE(d.notificationsOpened, 1);
+        d.now = d.now.addDays(1);
+        d.core->focusEnded(0, false, true);
+        QVERIFY(d.fact(QStringLiteral("focus")).isEmpty());
+        QVERIFY(d.logbook().contains(QStringLiteral("Focus  Sharing the screen ended; nothing came in.")));
+        d.core->focusEnded(2, true, true);
+        QVERIFY(d.fact(QStringLiteral("focus")).isEmpty());
+        QVERIFY(d.logbook().contains(QStringLiteral("Focus  Sharing the screen ended in the notifications; 2 came in, shown there.")));
+        d.core->focusEnded(4);
+        QCOMPARE(d.fact(QStringLiteral("focus")).value(QStringLiteral("line")).toString(), QStringLiteral("While you were focused"));
+    }
+
     void focusSwitchedOffIsSilent()
     {
         Desk d;
@@ -2302,6 +2329,15 @@ private Q_SLOTS:
             QStringLiteral("NotificationsSeen")));
         QVERIFY2(seen.type() == QDBusMessage::ReplyMessage, qPrintable(seen.errorMessage()));
         QVERIFY(d.fact(QStringLiteral("focus")).isEmpty());
+        // The next day, sharing the screen ended, as the notifications tell it.
+        d.now = d.now.addDays(1);
+        QDBusMessage shared = QDBusMessage::createMethodCall(QLatin1String(CoreService::Service), QLatin1String(CoreService::Path),
+                                                             QStringLiteral("io.github.carlsonjm.SplitRock.Core"),
+                                                             QStringLiteral("SharingEnded"));
+        shared.setArguments({QVariant::fromValue(2u)});
+        const QDBusMessage sharedReply = bus.call(shared);
+        QVERIFY2(sharedReply.type() == QDBusMessage::ReplyMessage, qPrintable(sharedReply.errorMessage()));
+        QCOMPARE(d.fact(QStringLiteral("focus")).value(QStringLiteral("line")).toString(), QStringLiteral("While you were sharing"));
         bus.unregisterService(QLatin1String(CoreService::Service));
         bus.unregisterObject(QLatin1String(CoreService::Path));
     }
