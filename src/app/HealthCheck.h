@@ -30,7 +30,7 @@ class HealthCheck : public Chore
 {
     Q_OBJECT
     // Each: id, title, state (good, warn or bad), detail, action (update,
-    // space, restore, community, restart, downloads, ask or empty),
+    // space, restore, restart, downloads, ask or empty),
     // actionLabel and question.
     Q_PROPERTY(QVariantList items READ itemList NOTIFY changed)
     // How many are worth a look or a problem.

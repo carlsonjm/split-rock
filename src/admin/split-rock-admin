@@ -27,9 +27,6 @@
 #                                           the one the computer runs on or
 #                                           starts from
 #   restore-undo PRE POST                   put back what changed between two
-#   community NAME SNAP RECIPE HEAD [HELPER...] -- PACKAGE...
-#                                           build a reviewed recipe at its commit
-#                                           as the person, install what it built
 #   start-service UNIT                      start a system service that stopped
 #                                           working, and only one that did
 #   flatpak-back APP COMMIT                 take a system Flathub app back to
@@ -404,85 +401,6 @@ restore-undo)
     [ $# -eq 2 ] && is_number "$1" && is_number "$2" && [ "$1" -gt 0 ] && [ "$2" -gt "$1" ] \
         || refuse "restore-undo takes two restore point numbers, the earlier first"
     exec snapper -c root undochange "$1..$2"
-    ;;
-
-community)
-    [ $# -ge 6 ] && is_name "$1" && is_snap "$2" || refuse "community takes a name, 0 or 1, a recipe and a commit"
-    name=$1 snap=$2 dir=$3 head=$4
-    shift 4
-    case $head in *[!0-9a-f]*) refuse "community takes a commit's full hash" ;; esac
-    [ ${#head} -eq 40 ] || refuse "community takes a commit's full hash"
-    helpers=
-    while [ $# -gt 0 ] && [ "$1" != "--" ]; do
-        is_package "$1" || refuse "community takes package names"
-        helpers="$helpers $1"
-        shift
-    done
-    [ "${1-}" = "--" ] && shift
-    [ $# -gt 0 ] || refuse "community takes the packages to install after --"
-    for package in "$@"; do
-        is_package "$package" || refuse "community takes package names after --"
-    done
-    names="$*"
-    case $dir in *'/../'*|*'/..'|*[!A-Za-z0-9@._+/-]*) refuse "community takes a plain recipe folder" ;; esac
-    # Through the system's prompt the recipe is built as the person the
-    # prompt asked, in their own folder.
-    if [ -n "${PKEXEC_UID+set}" ]; then
-        is_number "$PKEXEC_UID" || refuse "community needs the system's prompt"
-        person=$(getent passwd "$PKEXEC_UID" | cut -d: -f1)
-        home=$(getent passwd "$PKEXEC_UID" | cut -d: -f6)
-        [ -n "$person" ] && [ -n "$home" ] || refuse "no such person"
-        case $dir in "$home"/*) ;; *) refuse "the recipe isn't in the person's own folder" ;; esac
-        [ "$(stat -c %u "$dir" 2>/dev/null)" = "$PKEXEC_UID" ] || refuse "the recipe isn't the person's own"
-        as() { runuser -u "$person" -- env HOME="$home" LANG=C LC_ALL=C "$@"; }
-    else
-        as() { "$@"; }
-    fi
-    desc="$name: Community $1"
-    log="$logs/split-rock-community.log"
-    trap '' HUP PIPE
-    : > "$log"
-    (
-        pre=
-        if own_point "$snap"; then
-            pre=$(snapper -c root create --type pre --cleanup-algorithm number --print-number --description "$desc") || pre=
-        fi
-        [ -n "$pre" ] && echo "split-rock-pre=$pre"
-        status=0
-        if [ -n "$helpers" ]; then
-            echo "@@ step helpers"
-            # shellcheck disable=SC2086 # each name checked above, one word each
-            pacman -S --asdeps --needed --noconfirm --noprogressbar --color never -- $helpers || status=1
-        fi
-        if [ $status = 0 ]; then
-            echo "@@ step build"
-            cd "$dir" && as git -C "$dir" checkout -q --detach "$head" && [ "$(as git -C "$dir" rev-parse HEAD)" = "$head" ] \
-                && as makepkg -f --noconfirm --nocolor --noprogressbar || status=1
-        fi
-        if [ $status = 0 ]; then
-            echo "@@ step install"
-            files=
-            for f in $(cd "$dir" && as makepkg --packagelist); do
-                [ -f "$f" ] || continue
-                n=$(pacman -Qqp "$f" 2>/dev/null)
-                for want in $names; do [ "$n" = "$want" ] && files="$files $f"; done
-            done
-            if [ -n "$files" ]; then
-                # shellcheck disable=SC2086 # the packages makepkg listed
-                pacman -U --noconfirm --noprogressbar --color never $files || status=1
-            else
-                echo "Nothing was built for $names."
-                status=1
-            fi
-        fi
-        if [ -n "$pre" ]; then
-            snapper -c root create --type post --pre-number "$pre" --cleanup-algorithm number --description "$desc"
-        fi
-        exit $status
-    ) >"$log" 2>&1 &
-    pid=$!
-    tail -n +1 --pid="$pid" -f "$log" 2>/dev/null
-    wait "$pid"
     ;;
 
 start-service)

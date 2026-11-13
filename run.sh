@@ -12,7 +12,7 @@ project_root="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 build_dir="${project_root}/build/m0"
 
 if [[ $# -lt 1 ]]; then
-    echo "Name a Helper: update, space, install, health, changes, restore or community." >&2
+    echo "Name a Helper: update, space, install, health, changes or restore." >&2
     exit 2
 fi
 
