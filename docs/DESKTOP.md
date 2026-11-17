@@ -19,7 +19,7 @@ package.
 
 | Start | What opens |
 | --- | --- |
-| `--card NAME` | One Helper in a window of its own: `update`, `space`, `tidy`, `install`, `uninstall`, `apps` (Your apps), `health`, `changes`, `restore` or `community`. `--query` gives Install an app what to look for, or Remove an app the desktop file id of the app to remove |
+| `--card NAME` | One Helper in a window of its own: `update`, `space`, `tidy`, `install`, `uninstall`, `apps` (Your apps), `health`, `changes` or `restore`. `--query` gives Install an app what to look for, or Remove an app the desktop file id of the app to remove |
 | `--notebook DIR` | With `--card`: the notebook folder, `~/Documents/Notebook` by default (`MEMORY.md`) |
 | `--health-report` | No window: it looks the computer over as Health check does, prints what it finds, and ends. It needs no desktop and changes nothing, not even the last look Health check keeps. It ends with 1 only when the look could not run to its end. Shuffle's install checks run it on a freshly installed system |
 | `--health-facts` | The same look for Core, one line per item: its state (`good`, `look` or `problem`), id, title and detail, separated by tabs |

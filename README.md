@@ -42,7 +42,7 @@ https://github.com/user-attachments/assets/b5c5d53a-4f06-4f06-9c3e-ebca5be75959
 </tr>
 <tr>
 <td width="33%" valign="top"><b>Health check</b><br>Looks the computer over and says what is fine and what needs a look.</td>
-<td width="33%" valign="top"><b>What changed</b><br>The last two weeks, with a way to undo a change or go back to before. Restore points and community apps have Helpers too.</td>
+<td width="33%" valign="top"><b>What changed</b><br>The last two weeks, with a way to undo a change or go back to before. Restore points have a Helper too.</td>
 <td width="33%" valign="top"><b>Core</b><br>A background program with no window. It notices when space runs low, updates have waited too long, a problem turns up, a Windows program lands in Downloads or a new device is plugged in, and says so without nagging.</td>
 </tr>
 </table>
@@ -147,8 +147,8 @@ split-rock --card health
 
 Health check opens in a window of its own, looks the computer over and says
 what is fine and what needs a look. It changes nothing. The other Helpers'
-names are `update`, `space`, `install`, `uninstall`, `apps`, `changes`,
-`restore` and `community`.
+names are `update`, `space`, `install`, `uninstall`, `apps`, `changes` and
+`restore`.
 
 ### Ask, on this computer
 
@@ -212,7 +212,7 @@ every test.
 
 `./run.sh space` builds Split Rock and opens Free up space from this checkout;
 any other Helper's name works the same way: `update`, `tidy`, `install`,
-`apps`, `health`, `changes`, `restore` or `community`.
+`apps`, `health`, `changes` or `restore`.
 
 </details>
 

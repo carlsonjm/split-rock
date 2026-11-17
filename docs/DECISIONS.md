@@ -560,8 +560,7 @@ asks for the administrator (`admin`), or names a program that changes who a
 command runs as (`sudo`, `pkexec`, `su`, `doas`, `run0`, `systemd-run`,
 `machinectl`) anywhere in its command, undo or check, is never shown on a card,
 and the assistant is told that system changes are made only by Split Rock's own
-Helpers: Update, Free up space, Install an app, Restore points and Community
-apps. What it does is fixed in Split Rock and shown in Split Rock's words. The
+Helpers: Update, Free up space, Install an app and Restore points. What it does is fixed in Split Rock and shown in Split Rock's words. The
 change, its undo and its check run in bubblewrap with the whole computer as the
 person sees it, but with no_new_privs set, so a set-user-ID program such as
 `sudo` or `pkexec` gains nothing however the command spells it, and with the
@@ -589,14 +588,15 @@ What needs the administrator goes through the system's password prompt
 (`pkexec`) to one program, `split-rock-admin`, installed beside Split Rock's
 other programs where only the administrator can change it. It holds every job
 the Helpers need, by name: `update`, `install` and `remove` one package,
-`free-space`, `restore-list`, `restore-undo`, `restore-delete` and
-`community`. It takes only the job's name and arguments it checks itself: a
-package name as pacman allows it, 0 or 1 for restore points, two restore point
-numbers, restore point numbers that may go, a commit's
-full hash, a recipe folder the person owns; anything else is refused before a
-thing runs. Run by the prompt it keeps nothing of the caller's environment,
-uses a PATH of its own and builds a community recipe as the person the prompt
-asked. Split Rock hands it to the prompt only when it, and every folder above
+`free-space`, `restore-list`, `restore-undo` and `restore-delete`. It takes
+only the job's name and arguments it checks itself: a package name as pacman
+allows it, 0 or 1 for restore points, two restore point numbers, restore point
+numbers that may go; anything else is refused before a thing runs. Run by the
+prompt it keeps nothing of the caller's environment and uses a PATH of its
+own. A job no Helper opens is taken out of it, not left in: the job that built
+a community recipe went when its card was retired, since a password prompt
+that nothing in Split Rock raises is only there for something else to raise.
+Split Rock hands it to the prompt only when it, and every folder above
 it, belongs to the administrator and no one else can write to it. The prompt
 then names `split-rock-admin` and the job, not `/bin/sh`. Each job has a polkit
 action of its own, `io.github.carlsonjm.splitrock.admin.<job>`, installed under
@@ -763,8 +763,8 @@ page and in the notebook opens each.
 - **Community apps** is retired: the product owner judged it not worth its
   place. Search, Ask and the assistant no longer offer it, and Check for
   updates says how many AUR apps have updates of their own and leaves them to
-  the person. Its engine (`src/app/CommunityApps`) is no longer opened by any
-  Helper.
+  the person. Its engine, its card and its administrator job are removed, so
+  nothing installed can build and install a recipe as the administrator.
 
 Rejected: running `snapper rollback` from the card; mixing community packages
 into Install an app or the update; building a community update from the latest

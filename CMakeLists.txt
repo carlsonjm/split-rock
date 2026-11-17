@@ -39,7 +39,6 @@ add_library(splitrock_core STATIC
     src/app/RecentChanges.cpp
     src/app/SettingRows.cpp
     src/app/HealthCheck.cpp
-    src/app/CommunityApps.cpp
     src/guide/GuideLibrary.cpp
     src/app/Product.cpp
 )

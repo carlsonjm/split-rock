@@ -11,8 +11,8 @@ class QProcess;
 namespace splitrock {
 
 // One of Split Rock's own upkeep cards: updating the computer, freeing up
-// space, installing an app, restore points, the health check and community
-// apps (docs/DECISIONS.md, Upkeep has cards of its own).
+// space, installing an app, restore points and the health check
+// (docs/DECISIONS.md, Upkeep has cards of its own).
 //
 // Each looks first, as the person, and changes nothing until the person taps
 // the card's button. What it does then is fixed in Split Rock, never written by
