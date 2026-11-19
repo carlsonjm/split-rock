@@ -367,6 +367,8 @@ private:
     // to open at sign-in, and the sign-in they last opened in.
     bool m_bringingBack = false;
     QString m_layoutRunning;
+    // The desk as Cards last read it, for a save that names no places.
+    QList<LayoutGroup> m_deskRead;
     QStringList m_layoutsWaiting;
     QString m_layoutsRanIn;
 };
