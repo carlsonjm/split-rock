@@ -30,9 +30,11 @@ QList<QVariantMap> Core::groupsWithNames(const QList<LayoutGroup> &groups) const
         QStringList names;
         for (const QString &id : group.apps)
             names.append(m_hooks.appName ? m_hooks.appName(id) : id);
-        list.append({{QStringLiteral("apps"), group.apps},
-                     {QStringLiteral("names"), names},
-                     {QStringLiteral("stack"), group.stack}});
+        QVariantMap map = group.place;
+        map.insert(QStringLiteral("apps"), group.apps);
+        map.insert(QStringLiteral("names"), names);
+        map.insert(QStringLiteral("stack"), group.stack);
+        list.append(map);
     }
     return list;
 }
@@ -52,6 +54,8 @@ QList<QVariantMap> Core::layoutsForBus() const
 void Core::currentLayout(std::function<void(const QVariantMap &)> answered)
 {
     const auto answer = [this, answered](const std::optional<CurrentDesk> &desk) {
+        // Kept for a save that names these apps without their places.
+        m_deskRead = desk ? desk->groups : QList<LayoutGroup>();
         answered({{QStringLiteral("available"), desk.has_value()},
                   {QStringLiteral("workspace"), desk ? desk->workspace : QString()},
                   {QStringLiteral("groups"), QVariant::fromValue(groupsWithNames(desk ? desk->groups : QList<LayoutGroup>()))}});
@@ -65,7 +69,8 @@ void Core::currentLayout(std::function<void(const QVariantMap &)> answered)
 
 QString Core::saveLayout(const QString &name, const QString &groupsJson, bool atSignIn)
 {
-    const Layout saved = core::saveLayout(m_settings, name, groupsFromJson(groupsJson), atSignIn, m_hooks.now());
+    const Layout saved = core::saveLayout(m_settings, name, placedAs(groupsFromJson(groupsJson), m_deskRead), atSignIn,
+                                          m_hooks.now());
     if (saved.id.isEmpty())
         return QString();
     int apps = 0;

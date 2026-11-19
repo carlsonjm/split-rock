@@ -1847,6 +1847,81 @@ private Q_SLOTS:
         QCOMPARE(groups.last().value(QStringLiteral("names")).toStringList(), QStringList{QStringLiteral("Firefox")});
     }
 
+    void aLayoutKeepsWhereEachGroupStood()
+    {
+        // Only a place's own keys are kept, each as its type.
+        const QVariantMap place = placeOf({{QStringLiteral("display"), QStringLiteral(" DP-1 ")},
+                                           {QStringLiteral("pane"), true},
+                                           {QStringLiteral("x"), 0.5},
+                                           {QStringLiteral("width"), QStringLiteral("wide")},
+                                           {QStringLiteral("pictureWidth"), 0.25},
+                                           {QStringLiteral("title"), QStringLiteral("Notes")}});
+        QCOMPARE(place, (QVariantMap{{QStringLiteral("display"), QStringLiteral("DP-1")},
+                                     {QStringLiteral("pane"), true},
+                                     {QStringLiteral("x"), 0.5},
+                                     {QStringLiteral("pictureWidth"), 0.25}}));
+        QVERIFY(placeOf({{QStringLiteral("apps"), QStringList{QStringLiteral("mail")}}, {QStringLiteral("pane"), false}}).isEmpty());
+
+        // Cards reading every display: each group takes its display's size.
+        const QVariantMap left{{QStringLiteral("apps"), QStringList{QStringLiteral("com.mitchellh.ghostty")}},
+                               {QStringLiteral("display"), QStringLiteral("DP-1")},
+                               {QStringLiteral("pane"), true},
+                               {QStringLiteral("x"), 0.0},
+                               {QStringLiteral("y"), 0.0},
+                               {QStringLiteral("width"), 0.5},
+                               {QStringLiteral("height"), 1.0}};
+        const QVariantMap other{{QStringLiteral("apps"), QStringList{QStringLiteral("org.mozilla.firefox")}},
+                                {QStringLiteral("display"), QStringLiteral("eDP-1")}};
+        const CurrentDesk read = currentDeskFrom(
+            {{QStringLiteral("workspace"), QStringLiteral("desktop-1")},
+             {QStringLiteral("groups"), QVariantList{left}},
+             {QStringLiteral("everywhere"), QVariantList{left, other}},
+             {QStringLiteral("displays"),
+              QVariantList{QVariantMap{{QStringLiteral("name"), QStringLiteral("DP-1")},
+                                       {QStringLiteral("x"), 0},
+                                       {QStringLiteral("y"), 0},
+                                       {QStringLiteral("width"), 2194},
+                                       {QStringLiteral("height"), 1463}},
+                           QVariantMap{{QStringLiteral("name"), QStringLiteral("eDP-1")},
+                                       {QStringLiteral("x"), 2194},
+                                       {QStringLiteral("y"), 400},
+                                       {QStringLiteral("width"), 1280},
+                                       {QStringLiteral("height"), 800}}}}});
+        QCOMPARE(read.groups.size(), 2);
+        QCOMPARE(read.groups.first().place.value(QStringLiteral("displayWidth")).toDouble(), 2194.0);
+        QCOMPARE(read.groups.first().place.value(QStringLiteral("width")).toDouble(), 0.5);
+        QCOMPARE(read.groups.last().place.value(QStringLiteral("displayX")).toDouble(), 2194.0);
+        QVERIFY(!read.groups.last().place.contains(QStringLiteral("pane")));
+        // An older Cards names the display in use only, and no places.
+        QCOMPARE(currentDeskFrom({{QStringLiteral("groups"),
+                                   QVariantList{QVariantMap{{QStringLiteral("apps"), QStringList{QStringLiteral("mail")}}}}}})
+                     .groups,
+                 (QList<LayoutGroup>{{{QStringLiteral("mail")}, false}}));
+
+        // Kept on disk and read back the same, and sent on to Cards.
+        QCOMPARE(groupsFromJson(groupsToJson(read.groups)), read.groups);
+        const QList<QVariantMap> sent = groupsToBus(read.groups);
+        QCOMPARE(sent.first().value(QStringLiteral("display")).toString(), QStringLiteral("DP-1"));
+        QVERIFY(sent.first().value(QStringLiteral("pane")).toBool());
+
+        // A save that names the apps alone takes the places of the desk last
+        // read; one that names places keeps its own.
+        Desk d;
+        d.cards = read;
+        d.core->currentLayout([](const QVariantMap &) {});
+        d.core->saveLayout(QStringLiteral("Desk"),
+                           QStringLiteral(R"([{"apps":["com.mitchellh.ghostty"],"stack":false},{"apps":["mail"],"stack":false}])"),
+                           false);
+        QCOMPARE(d.core->layouts().first().groups.first().place, read.groups.first().place);
+        QVERIFY(d.core->layouts().first().groups.last().place.isEmpty());
+        const QList<QVariantMap> told = d.core->layoutsForBus().first().value(QStringLiteral("groups")).value<QList<QVariantMap>>();
+        QCOMPARE(told.first().value(QStringLiteral("displayHeight")).toDouble(), 1463.0);
+        d.core->saveLayout(QStringLiteral("Desk"),
+                           QStringLiteral(R"([{"apps":["com.mitchellh.ghostty"],"stack":false,"display":"HDMI-A-1"}])"), false);
+        QCOMPARE(d.core->layouts().first().groups.first().place,
+                 (QVariantMap{{QStringLiteral("display"), QStringLiteral("HDMI-A-1")}}));
+    }
+
     void openingALayoutLaunchesWhatCardsNames()
     {
         Desk d;

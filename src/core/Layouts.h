@@ -25,12 +25,27 @@ namespace splitrock::core {
 // bus at org.kde.KWin, /Kadunce, co.goodinput.Kadunce.
 
 // One group of a layout: desktop file ids without .desktop, in Stack order,
-// front first; stack is true when two or more of them share a Stack.
+// front first; stack is true when two or more of them share a Stack. place
+// is where Cards read it, kept as given and handed back when the layout is
+// arranged: its display, a pane's shape, where it was drawn, and its
+// display's size (placeOf). Empty for a layout kept before places were.
 struct LayoutGroup {
     QStringList apps;
     bool stack = false;
-    bool operator==(const LayoutGroup &other) const { return apps == other.apps && stack == other.stack; }
+    QVariantMap place;
+    bool operator==(const LayoutGroup &other) const
+    {
+        return apps == other.apps && stack == other.stack && place == other.place;
+    }
 };
+// The place among a group's keys: display (a name), pane (true), and the
+// numbers x, y, width, height, pictureX, pictureY, pictureWidth,
+// pictureHeight, displayX, displayY, displayWidth and displayHeight. Any
+// other key, and a key of another type, is left out.
+QVariantMap placeOf(const QVariantMap &group);
+// Groups given without a place take the place of the group of `desk` that
+// names the same apps, as the desk last read had them.
+QList<LayoutGroup> placedAs(const QList<LayoutGroup> &groups, const QList<LayoutGroup> &desk);
 
 // One saved layout, as kept under "[Layout 1]": Name, Groups (the JSON array
 // of {apps, stack}), AtSignIn and Added. Its id is the group's number.
@@ -46,10 +61,11 @@ struct Layout {
 // path is dropped, an app appears once, in its first group, a group left
 // empty goes, and a group of one app is no Stack.
 QList<LayoutGroup> tidyGroups(const QList<LayoutGroup> &groups);
-// The JSON array of {apps, stack}, read and written; extra keys are ignored.
+// The JSON array of {apps, stack} with each group's place, read and written;
+// keys that are neither are ignored.
 QList<LayoutGroup> groupsFromJson(const QString &json);
 QString groupsToJson(const QList<LayoutGroup> &groups);
-// Groups as they come off the bus, aa{sv} of apps and stack, and back.
+// Groups as they come off the bus, aa{sv} of apps, stack and place, and back.
 QList<LayoutGroup> groupsFrom(const QVariantList &answer);
 QList<QVariantMap> groupsToBus(const QList<LayoutGroup> &groups);
 

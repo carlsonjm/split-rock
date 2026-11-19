@@ -286,6 +286,13 @@ own, and Search shows what it says.
   ids in Stack order, front first), `AtSignIn` (false by default) and `Added`.
   Qt writes the group's space as `%20` on disk, as it does for
   `[Automation 1]`. The layout's id is its group's number.
+- A group also keeps its place as Cards read it: its `display`, a pane's
+  shape (`pane`, `x`, `y`, `width`, `height`), where it was drawn
+  (`pictureX` and on) and its display's position and size (`displayX` and
+  on). Core hands the place back to Cards when the layout opens, and never
+  reads it itself. A save that names apps alone takes the places of the desk
+  last read through `CurrentLayout`; a layout kept without places opens on
+  the display in use.
 - Saving under a name already used, whatever its case, replaces that layout
   and keeps its id. An id ending `.desktop` loses it, an app appears once, in
   its first group, and a group of one app is no Stack.
@@ -395,9 +402,9 @@ can set these limits. Below the ticker's mark it writes nothing more.
 | `NotificationsSeen()` | The person opened the notifications, so the island about what came in goes |
 | `FactChanged(a{sv})` | A fact changed: its words, its level or whether it wants the island |
 | `OpenNotifications()` | The person asked to see what came in during Do Not Disturb; whatever keeps the notifications opens them |
-| `Layouts() → aa{sv}` | Each saved layout: `id` (`s`), `name` (`s`), `groups` (`aa{sv}`: `apps` `as`, `names` `as`, `stack` `b`) and `atSignIn` (`b`) |
-| `CurrentLayout() → a{sv}` | The desk as Cards reads it now (`currentLayout()`): `workspace` and `groups`, with each group's `names` as the app menu gives them; `available` is false when Cards isn't running. It answers once Cards has |
-| `SaveLayout(s name, s groupsJson, b atSignIn) → s` | Saves the groups, the JSON array of `{apps, stack}`, under that name, and answers its id; empty for an empty name or no groups |
+| `Layouts() → aa{sv}` | Each saved layout: `id` (`s`), `name` (`s`), `groups` (`aa{sv}`: `apps` `as`, `names` `as`, `stack` `b`, and its place where kept) and `atSignIn` (`b`) |
+| `CurrentLayout() → a{sv}` | The desk as Cards reads it now (`currentLayout()`): `workspace` and `groups`, every display's where Cards reads them all, with each group's place and `names` as the app menu gives them; `available` is false when Cards isn't running. It answers once Cards has |
+| `SaveLayout(s name, s groupsJson, b atSignIn) → s` | Saves the groups, the JSON array of `{apps, stack}` and any place, under that name, and answers its id; empty for an empty name or no groups |
 | `OpenLayout(s id) → b` | Arranges it and launches what isn't running; false for an unknown id, while a layout or a bring-back is under way, or when Cards turns it down. It answers once Cards has |
 | `RemoveLayout(s id) → b` | Forgets it; false for an unknown id |
 | `SetLayoutAtSignIn(s id, b on) → b` | Kept for older callers; no layout opens at sign-in. False for an unknown id |
