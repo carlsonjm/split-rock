@@ -250,8 +250,8 @@ sharing" in place of "While you were focused"; everything else is the same.
 Tapping it, See them, asks to show the notifications: Core sends
 `OpenNotifications` on the bus, and Status opens its notification history.
 With no notifications counted, the tap opens the card of the first topic
-held instead. Each time Do Not Disturb ends is news once; the island's daily
-allowance leaves a second time the same day to the ticker. Once answered, it
+held instead. Each time Do Not Disturb ends is news once, on the island every
+time: the person ended it, so Focus has no daily allowance. Once answered, it
 is no longer a fact.
 
 ## Workspace Memory
@@ -359,7 +359,8 @@ days).
   points fuller; a week further behind; a problem more).
 - Not now, or dismissing the island, quiets the fact until it is a step worse.
 - At most one island a day for each topic; each keeps its own allowance, so
-  one topic never silences another. Past that, the ticker carries it.
+  one topic never silences another. Past that, the ticker carries it. Focus
+  has none: it answers the person ending Do Not Disturb.
 - Do Not Disturb leaves only the ticker.
 - An island nobody touches closes after a day, and the logbook says it went
   unanswered.
