@@ -38,7 +38,7 @@ struct LayoutGroup {
         return apps == other.apps && stack == other.stack && place == other.place;
     }
 };
-// The place among a group's keys: display (a name), pane (true), and the
+// The place among a group's keys: display (a name), pane and shown (true), and the
 // numbers x, y, width, height, pictureX, pictureY, pictureWidth,
 // pictureHeight, displayX, displayY, displayWidth and displayHeight. Any
 // other key, and a key of another type, is left out.

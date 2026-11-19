@@ -1866,6 +1866,7 @@ private Q_SLOTS:
         const QVariantMap left{{QStringLiteral("apps"), QStringList{QStringLiteral("com.mitchellh.ghostty")}},
                                {QStringLiteral("display"), QStringLiteral("DP-1")},
                                {QStringLiteral("pane"), true},
+                               {QStringLiteral("shown"), true},
                                {QStringLiteral("x"), 0.0},
                                {QStringLiteral("y"), 0.0},
                                {QStringLiteral("width"), 0.5},
@@ -1892,6 +1893,8 @@ private Q_SLOTS:
         QCOMPARE(read.groups.first().place.value(QStringLiteral("width")).toDouble(), 0.5);
         QCOMPARE(read.groups.last().place.value(QStringLiteral("displayX")).toDouble(), 2194.0);
         QVERIFY(!read.groups.last().place.contains(QStringLiteral("pane")));
+        QVERIFY(read.groups.first().place.value(QStringLiteral("shown")).toBool());
+        QVERIFY(!read.groups.last().place.contains(QStringLiteral("shown")));
         // An older Cards names the display in use only, and no places.
         QCOMPARE(currentDeskFrom({{QStringLiteral("groups"),
                                    QVariantList{QVariantMap{{QStringLiteral("apps"), QStringList{QStringLiteral("mail")}}}}}})

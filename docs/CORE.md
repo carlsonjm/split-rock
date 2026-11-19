@@ -288,7 +288,7 @@ own, and Search shows what it says.
   `[Automation 1]`. The layout's id is its group's number.
 - A group also keeps its place as Cards read it: its `display`, a pane's
   shape (`pane`, `x`, `y`, `width`, `height`), where it was drawn
-  (`pictureX` and on) and its display's position and size (`displayX` and
+  (`pictureX` and on), whether it was the one seen there (`shown`) and its display's position and size (`displayX` and
   on). Core hands the place back to Cards when the layout opens, and never
   reads it itself. A save that names apps alone takes the places of the desk
   last read through `CurrentLayout`; a layout kept without places opens on

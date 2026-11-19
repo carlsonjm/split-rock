@@ -100,6 +100,8 @@ QVariantMap placeOf(const QVariantMap &group)
         place.insert(QStringLiteral("display"), display);
     if (group.value(QStringLiteral("pane")).toBool())
         place.insert(QStringLiteral("pane"), true);
+    if (group.value(QStringLiteral("shown")).toBool())
+        place.insert(QStringLiteral("shown"), true);
     for (const QString &key : numbers) {
         const QVariant value = group.value(key);
         bool ok = false;
