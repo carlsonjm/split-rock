@@ -48,13 +48,16 @@ QVariantMap placeOf(const QVariantMap &group);
 QList<LayoutGroup> placedAs(const QList<LayoutGroup> &groups, const QList<LayoutGroup> &desk);
 
 // One saved layout, as kept under "[Layout 1]": Name, Groups (the JSON array
-// of {apps, stack}), AtSignIn and Added. Its id is the group's number.
+// of {apps, stack}), AtSignIn, Added and Opened, when Cards last accepted it.
+// Its id is the group's number.
 struct Layout {
     QString id;
     QString name;
     QList<LayoutGroup> groups;
     bool atSignIn = false;
     QDateTime added;
+    // Invalid for a layout never opened.
+    QDateTime opened;
 };
 
 // Groups made tidy: an id with ".desktop" loses it, an id that could name a
@@ -78,6 +81,8 @@ Layout saveLayout(const QString &settingsFile, const QString &name, const QList<
                   const QDateTime &added);
 bool removeLayout(const QString &settingsFile, const QString &id);
 bool setLayoutAtSignIn(const QString &settingsFile, const QString &id, bool on);
+// Keeps when the layout was opened; false for an unknown id.
+bool setLayoutOpened(const QString &settingsFile, const QString &id, const QDateTime &when);
 
 // The desk Cards reads now: currentLayout().
 struct CurrentDesk {

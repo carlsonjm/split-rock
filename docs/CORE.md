@@ -284,7 +284,9 @@ own, and Search shows what it says.
 
 - Each layout is a group of its own in `split-rock-corerc`: `[Layout 1]` and
   on, with `Name`, `Groups` (the JSON array of `{apps, stack}`, desktop file
-  ids in Stack order, front first), `AtSignIn` (false by default) and `Added`.
+  ids in Stack order, front first), `AtSignIn` (false by default), `Added`
+  and `Opened`, when Cards last accepted it; saving under its name again keeps
+  `Opened`.
   Qt writes the group's space as `%20` on disk, as it does for
   `[Automation 1]`. The layout's id is its group's number.
 - A group also keeps its place as Cards read it: its `display`, a pane's
@@ -405,7 +407,7 @@ can set these limits. Below the ticker's mark it writes nothing more.
 | `NotificationsSeen()` | The person opened the notifications, so the island about what came in goes |
 | `FactChanged(a{sv})` | A fact changed: its words, its level or whether it wants the island |
 | `OpenNotifications(s screen)` | The person asked to see what came in during Do Not Disturb; whatever keeps the notifications opens them on the display named, or wherever it keeps them when `screen` is empty |
-| `Layouts() → aa{sv}` | Each saved layout: `id` (`s`), `name` (`s`), `groups` (`aa{sv}`: `apps` `as`, `names` `as`, `stack` `b`, and its place where kept) and `atSignIn` (`b`) |
+| `Layouts() → aa{sv}` | Each saved layout: `id` (`s`), `name` (`s`), `groups` (`aa{sv}`: `apps` `as`, `names` `as`, `stack` `b`, and its place where kept) `atSignIn` (`b`) and `opened` (`s`, ISO 8601 in UTC, empty when never opened) |
 | `CurrentLayout() → a{sv}` | The desk as Cards reads it now (`currentLayout()`): `workspace` and `groups`, every display's where Cards reads them all, with each group's place and `names` as the app menu gives them; `available` is false when Cards isn't running. It answers once Cards has |
 | `SaveLayout(s name, s groupsJson, b atSignIn) → s` | Saves the groups, the JSON array of `{apps, stack}` and any place, under that name, and answers its id; empty for an empty name or no groups |
 | `OpenLayout(s id) → b` | Arranges it and launches what isn't running; false for an unknown id, while a layout or a bring-back is under way, or when Cards turns it down. It answers once Cards has |

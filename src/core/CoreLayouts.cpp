@@ -46,7 +46,8 @@ QList<QVariantMap> Core::layoutsForBus() const
         list.append({{QStringLiteral("id"), layout.id},
                      {QStringLiteral("name"), layout.name},
                      {QStringLiteral("groups"), QVariant::fromValue(groupsWithNames(layout.groups))},
-                     {QStringLiteral("atSignIn"), layout.atSignIn}});
+                     {QStringLiteral("atSignIn"), layout.atSignIn},
+                     {QStringLiteral("opened"), layout.opened.isValid() ? layout.opened.toUTC().toString(Qt::ISODate) : QString()}});
     }
     return list;
 }
@@ -144,6 +145,9 @@ bool Core::openLayout(const QString &id, std::function<void(bool)> answered)
             nextLayoutAtSignIn();
             return;
         }
+        // Search's Layouts island names the layout opened last.
+        if (core::setLayoutOpened(m_settings, layout.id, m_hooks.now()))
+            Q_EMIT layoutsChanged();
         QStringList missedNames;
         for (const QString &app : run.missedApps)
             missedNames.append(m_hooks.appName ? m_hooks.appName(app) : app);
