@@ -87,6 +87,47 @@ QString groupOf(const QString &id)
 
 } // namespace
 
+QVariantMap placeOf(const QVariantMap &group)
+{
+    static const QStringList numbers = {
+        QStringLiteral("x"), QStringLiteral("y"), QStringLiteral("width"), QStringLiteral("height"),
+        QStringLiteral("pictureX"), QStringLiteral("pictureY"), QStringLiteral("pictureWidth"), QStringLiteral("pictureHeight"),
+        QStringLiteral("displayX"), QStringLiteral("displayY"), QStringLiteral("displayWidth"), QStringLiteral("displayHeight"),
+    };
+    QVariantMap place;
+    const QString display = group.value(QStringLiteral("display")).toString().trimmed();
+    if (!display.isEmpty())
+        place.insert(QStringLiteral("display"), display);
+    if (group.value(QStringLiteral("pane")).toBool())
+        place.insert(QStringLiteral("pane"), true);
+    if (group.value(QStringLiteral("shown")).toBool())
+        place.insert(QStringLiteral("shown"), true);
+    for (const QString &key : numbers) {
+        const QVariant value = group.value(key);
+        bool ok = false;
+        const double number = value.toDouble(&ok);
+        if (value.isValid() && ok)
+            place.insert(key, number);
+    }
+    return place;
+}
+
+QList<LayoutGroup> placedAs(const QList<LayoutGroup> &groups, const QList<LayoutGroup> &desk)
+{
+    QList<LayoutGroup> placed = groups;
+    for (LayoutGroup &group : placed) {
+        if (!group.place.isEmpty())
+            continue;
+        for (const LayoutGroup &read : desk) {
+            if (read.apps == group.apps && !read.place.isEmpty()) {
+                group.place = read.place;
+                break;
+            }
+        }
+    }
+    return placed;
+}
+
 QList<LayoutGroup> tidyGroups(const QList<LayoutGroup> &groups)
 {
     QList<LayoutGroup> tidy;
@@ -103,6 +144,7 @@ QList<LayoutGroup> tidyGroups(const QList<LayoutGroup> &groups)
             kept.apps.append(id);
         }
         kept.stack = group.stack && kept.apps.size() >= 2;
+        kept.place = group.place;
         if (!kept.apps.isEmpty())
             tidy.append(kept);
     }
@@ -111,7 +153,11 @@ QList<LayoutGroup> tidyGroups(const QList<LayoutGroup> &groups)
 
 QList<LayoutGroup> groupsFromJson(const QString &json)
 {
-    const QJsonDocument document = QJsonDocument::fromJson(json.toUtf8());
+    QJsonDocument document = QJsonDocument::fromJson(json.toUtf8());
+    // An early Split Rock wrote each quote as a backslash. No app id holds
+    // either, so such a list reads back as it was meant.
+    if (!document.isArray() && !json.contains(QLatin1Char('"')) && json.contains(QLatin1Char('\\')))
+        document = QJsonDocument::fromJson(QString(json).replace(QLatin1Char('\\'), QLatin1Char('"')).toUtf8());
     QList<LayoutGroup> groups;
     for (const QJsonValue &each : document.array()) {
         const QJsonObject object = each.toObject();
@@ -119,6 +165,7 @@ QList<LayoutGroup> groupsFromJson(const QString &json)
         for (const QJsonValue &app : object.value(QStringLiteral("apps")).toArray())
             group.apps.append(app.toString());
         group.stack = object.value(QStringLiteral("stack")).toBool();
+        group.place = placeOf(object.toVariantMap());
         groups.append(group);
     }
     return tidyGroups(groups);
@@ -128,8 +175,10 @@ QString groupsToJson(const QList<LayoutGroup> &groups)
 {
     QJsonArray array;
     for (const LayoutGroup &group : groups) {
-        array.append(QJsonObject{{QStringLiteral("apps"), QJsonArray::fromStringList(group.apps)},
-                                 {QStringLiteral("stack"), group.stack}});
+        QJsonObject object = QJsonObject::fromVariantMap(group.place);
+        object.insert(QStringLiteral("apps"), QJsonArray::fromStringList(group.apps));
+        object.insert(QStringLiteral("stack"), group.stack);
+        array.append(object);
     }
     return QString::fromUtf8(QJsonDocument(array).toJson(QJsonDocument::Compact));
 }
@@ -139,7 +188,7 @@ QList<LayoutGroup> groupsFrom(const QVariantList &answer)
     QList<LayoutGroup> groups;
     for (const QVariant &each : answer) {
         const QVariantMap map = mapOf(each);
-        groups.append({stringsOf(map.value(QStringLiteral("apps"))), map.value(QStringLiteral("stack")).toBool()});
+        groups.append({stringsOf(map.value(QStringLiteral("apps"))), map.value(QStringLiteral("stack")).toBool(), placeOf(map)});
     }
     return tidyGroups(groups);
 }
@@ -147,8 +196,12 @@ QList<LayoutGroup> groupsFrom(const QVariantList &answer)
 QList<QVariantMap> groupsToBus(const QList<LayoutGroup> &groups)
 {
     QList<QVariantMap> list;
-    for (const LayoutGroup &group : groups)
-        list.append(QVariantMap{{QStringLiteral("apps"), group.apps}, {QStringLiteral("stack"), group.stack}});
+    for (const LayoutGroup &group : groups) {
+        QVariantMap map = group.place;
+        map.insert(QStringLiteral("apps"), group.apps);
+        map.insert(QStringLiteral("stack"), group.stack);
+        list.append(map);
+    }
     return list;
 }
 
@@ -234,7 +287,23 @@ bool setLayoutAtSignIn(const QString &settingsFile, const QString &id, bool on)
 
 CurrentDesk currentDeskFrom(const QVariantMap &answer)
 {
-    return {answer.value(QStringLiteral("workspace")).toString(), groupsFrom(listOf(answer.value(QStringLiteral("groups"))))};
+    // A Cards that reads every display says so in `everywhere`, and gives each
+    // display's size, which goes with the groups standing on it.
+    const QVariantList everywhere = listOf(answer.value(QStringLiteral("everywhere")));
+    QList<LayoutGroup> groups = groupsFrom(everywhere.isEmpty() ? listOf(answer.value(QStringLiteral("groups"))) : everywhere);
+    for (const QVariant &each : listOf(answer.value(QStringLiteral("displays")))) {
+        const QVariantMap display = mapOf(each);
+        for (LayoutGroup &group : groups) {
+            if (group.place.value(QStringLiteral("display")).toString() != display.value(QStringLiteral("name")).toString())
+                continue;
+            for (const char *key : {"x", "y", "width", "height"}) {
+                QString kept = QString::fromLatin1(key);
+                kept[0] = kept.at(0).toUpper();
+                group.place.insert(QStringLiteral("display") + kept, display.value(QString::fromLatin1(key)).toDouble());
+            }
+        }
+    }
+    return {answer.value(QStringLiteral("workspace")).toString(), groups};
 }
 
 LayoutPlan layoutPlanFrom(const QVariantMap &answer)
