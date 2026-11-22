@@ -1901,6 +1901,11 @@ private Q_SLOTS:
                      .groups,
                  (QList<LayoutGroup>{{{QStringLiteral("mail")}, false}}));
 
+        // An early Split Rock wrote each quote as a backslash; read as meant.
+        QCOMPARE(groupsFromJson(QStringLiteral("[{\\apps\\:[\\zen\\],\\stack\\:false},"
+                                               "{\\apps\\:[\\mail\\,\\ghostty\\],\\stack\\:true}]")),
+                 (QList<LayoutGroup>{{{QStringLiteral("zen")}, false}, {{QStringLiteral("mail"), QStringLiteral("ghostty")}, true}}));
+
         // Kept on disk and read back the same, and sent on to Cards.
         QCOMPARE(groupsFromJson(groupsToJson(read.groups)), read.groups);
         const QList<QVariantMap> sent = groupsToBus(read.groups);

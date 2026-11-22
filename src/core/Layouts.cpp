@@ -153,7 +153,11 @@ QList<LayoutGroup> tidyGroups(const QList<LayoutGroup> &groups)
 
 QList<LayoutGroup> groupsFromJson(const QString &json)
 {
-    const QJsonDocument document = QJsonDocument::fromJson(json.toUtf8());
+    QJsonDocument document = QJsonDocument::fromJson(json.toUtf8());
+    // An early Split Rock wrote each quote as a backslash. No app id holds
+    // either, so such a list reads back as it was meant.
+    if (!document.isArray() && !json.contains(QLatin1Char('"')) && json.contains(QLatin1Char('\\')))
+        document = QJsonDocument::fromJson(QString(json).replace(QLatin1Char('\\'), QLatin1Char('"')).toUtf8());
     QList<LayoutGroup> groups;
     for (const QJsonValue &each : document.array()) {
         const QJsonObject object = each.toObject();
