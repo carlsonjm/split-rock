@@ -33,6 +33,8 @@ public Q_SLOTS:
     Q_SCRIPTABLE uint ProtocolVersion() const;
     Q_SCRIPTABLE QList<QVariantMap> Facts() const;
     Q_SCRIPTABLE bool Act(const QString &topic, const QString &action);
+    // As Act, answered on the display named `screen`.
+    Q_SCRIPTABLE bool ActOn(const QString &topic, const QString &action, const QString &screen);
     Q_SCRIPTABLE QList<QVariantMap> Actions() const;
     Q_SCRIPTABLE bool OpenAction(const QString &id, const QString &query);
     Q_SCRIPTABLE bool RemoveApp(const QString &desktopId);
@@ -62,8 +64,9 @@ public Q_SLOTS:
 Q_SIGNALS:
     Q_SCRIPTABLE void FactChanged(const QVariantMap &fact);
     // The person asked to see the notifications that came in during Do Not
-    // Disturb; whatever keeps them opens them.
-    Q_SCRIPTABLE void OpenNotifications();
+    // Disturb; whatever keeps them opens them, on the display named `screen`
+    // only, or wherever it keeps them when `screen` is empty.
+    Q_SCRIPTABLE void OpenNotifications(const QString &screen);
     // A layout was saved, removed or switched.
     Q_SCRIPTABLE void LayoutsChanged();
     // The upkeep cards Actions lists changed, as when the app store came or

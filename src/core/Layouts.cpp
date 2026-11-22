@@ -220,6 +220,7 @@ QList<Layout> readLayouts(const QString &settingsFile)
         layout.groups = groupsFromJson(settings.value(QStringLiteral("Groups")).toString());
         layout.atSignIn = settings.value(QStringLiteral("AtSignIn"), false).toBool();
         layout.added = QDateTime::fromString(settings.value(QStringLiteral("Added")).toString(), Qt::ISODate);
+        layout.opened = QDateTime::fromString(settings.value(QStringLiteral("Opened")).toString(), Qt::ISODate);
         settings.endGroup();
         if (!layout.name.isEmpty() && !layout.groups.isEmpty())
             found.append({n, layout});
@@ -234,7 +235,7 @@ QList<Layout> readLayouts(const QString &settingsFile)
 Layout saveLayout(const QString &settingsFile, const QString &name, const QList<LayoutGroup> &groups, bool atSignIn,
                   const QDateTime &added)
 {
-    Layout layout{QString(), name.trimmed(), tidyGroups(groups), atSignIn, added};
+    Layout layout{QString(), name.trimmed(), tidyGroups(groups), atSignIn, added, {}};
     if (layout.name.isEmpty() || layout.groups.isEmpty())
         return {};
     QSettings settings(settingsFile, QSettings::IniFormat);
@@ -252,12 +253,17 @@ Layout saveLayout(const QString &settingsFile, const QString &name, const QList<
     if (layout.id.isEmpty())
         layout.id = QString::number(next);
     const QString group = groupOf(layout.id);
+    // A layout replaced keeps when it was last opened.
+    const QString opened = settings.value(group + QStringLiteral("/Opened")).toString();
+    layout.opened = QDateTime::fromString(opened, Qt::ISODate);
     settings.remove(group);
     settings.beginGroup(group);
     settings.setValue(QStringLiteral("Name"), layout.name);
     settings.setValue(QStringLiteral("Groups"), groupsToJson(layout.groups));
     settings.setValue(QStringLiteral("AtSignIn"), layout.atSignIn);
     settings.setValue(QStringLiteral("Added"), added.toUTC().toString(Qt::ISODate));
+    if (!opened.isEmpty())
+        settings.setValue(QStringLiteral("Opened"), opened);
     settings.endGroup();
     settings.sync();
     return layout;
@@ -281,6 +287,17 @@ bool setLayoutAtSignIn(const QString &settingsFile, const QString &id, bool on)
     if (group.isEmpty() || !settings.childGroups().contains(group))
         return false;
     settings.setValue(group + QStringLiteral("/AtSignIn"), on);
+    settings.sync();
+    return true;
+}
+
+bool setLayoutOpened(const QString &settingsFile, const QString &id, const QDateTime &when)
+{
+    const QString group = groupOf(id);
+    QSettings settings(settingsFile, QSettings::IniFormat);
+    if (group.isEmpty() || !settings.childGroups().contains(group))
+        return false;
+    settings.setValue(group + QStringLiteral("/Opened"), when.toUTC().toString(Qt::ISODate));
     settings.sync();
     return true;
 }

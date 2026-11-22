@@ -60,6 +60,7 @@ struct Desk {
     QStringList opened;
     QStringList settingsOpened;
     int notificationsOpened = 0;
+    QString notificationsScreen;
     int bringBacks = 0;
     int dismissed = 0;
     QList<QStringList> appsOpened;
@@ -102,7 +103,10 @@ struct Desk {
         };
         hooks.hasSettings = [this](const QString &page) { return settingsInstalled.contains(page); };
         hooks.openSettings = [this](const QString &page) { settingsOpened.append(page); };
-        hooks.openNotifications = [this] { ++notificationsOpened; };
+        hooks.openNotifications = [this](const QString &screen) {
+            ++notificationsOpened;
+            notificationsScreen = screen;
+        };
         hooks.bringBack = [this] { ++bringBacks; };
         hooks.dismissSavedSession = [this] { ++dismissed; };
         hooks.openApps = [this](const QStringList &ids) { appsOpened.append(ids); };
@@ -1938,6 +1942,7 @@ private Q_SLOTS:
             QStringLiteral(R"([{"apps":["com.mitchellh.ghostty","com.anthropic.claude"],"stack":true},{"apps":["mail"],"stack":false}])"),
             false);
         QSignalSpy opened(d.core.get(), &Core::layoutOpened);
+        QVERIFY(d.core->layoutsForBus().first().value(QStringLiteral("opened")).toString().isEmpty());
         std::optional<bool> accepted;
         QVERIFY(!d.core->openLayout(QStringLiteral("7"), [&accepted](bool a) { accepted = a; }));
         QVERIFY(d.arranged.isEmpty());
@@ -1964,6 +1969,16 @@ private Q_SLOTS:
         QCOMPARE(opened.first().at(2).toInt(), 1);
         QCOMPARE(opened.first().at(3).toStringList(), QStringList{QStringLiteral("Mail")});
         QVERIFY(d.logbook().contains(QStringLiteral("Layouts  Opened Coding: launched 2 apps, with 1 already open; 2 in place, 1 missed (Mail).")));
+        // Core keeps when it opened, for the island that names the last one,
+        // and saving under its name again keeps it.
+        const QString openedAt = d.now.toUTC().toString(Qt::ISODate);
+        QCOMPARE(d.core->layoutsForBus().first().value(QStringLiteral("opened")).toString(), openedAt);
+        d.now = d.now.addSecs(600);
+        d.core->saveLayout(
+            QStringLiteral("Coding"),
+            QStringLiteral(R"([{"apps":["com.mitchellh.ghostty","com.anthropic.claude"],"stack":true},{"apps":["mail"],"stack":false}])"),
+            false);
+        QCOMPARE(d.core->layoutsForBus().first().value(QStringLiteral("opened")).toString(), openedAt);
 
         // Cards busy: refused, nothing launched, nothing opened.
         d.plan = {false, {}, {}, QStringLiteral("busy")};
@@ -1973,6 +1988,7 @@ private Q_SLOTS:
         QCOMPARE(d.appsOpened.size(), 1);
         QCOMPARE(opened.size(), 1);
         QVERIFY(d.logbook().contains(QStringLiteral("Layouts  Cards didn't open Coding: it was arranging the desk already.")));
+        QCOMPARE(d.core->layoutsForBus().first().value(QStringLiteral("opened")).toString(), openedAt);
 
         // During a bring-back, Core refuses at once.
         d.plan = {true, {}, {}, {}};
@@ -2155,6 +2171,8 @@ private Q_SLOTS:
         QCOMPARE(opened.first().at(2).toInt(), 1);
         QCOMPARE(opened.first().at(3).toStringList(), QStringList{QStringLiteral("Mail")});
         QVERIFY(!cards.running());
+        // Opening it changed the layouts: it is now the one opened last.
+        QTRY_COMPARE(changed.size(), 3);
 
         // Cards busy: OpenLayout answers false.
         kadunce.layoutPlan = {{QStringLiteral("accepted"), false}, {QStringLiteral("reason"), QStringLiteral("busy")}};
@@ -2166,7 +2184,7 @@ private Q_SLOTS:
         QDBusPendingReply<bool> removed = ask(QStringLiteral("RemoveLayout"), {QStringLiteral("1")});
         QTRY_VERIFY(removed.isFinished());
         QVERIFY(removed.value());
-        QTRY_COMPARE(changed.size(), 3);
+        QTRY_COMPARE(changed.size(), 4);
         // The layout version is asked once.
         QCOMPARE(kadunce.calls.count(QStringLiteral("layoutVersion")), 1);
 
@@ -2255,15 +2273,20 @@ private Q_SLOTS:
         QVERIFY(d.ticker.isEmpty());
         QVERIFY(d.logbook().contains(QStringLiteral("Focus  Showed the island: While you were focused, 7 notifications.")));
         // See them opens the notifications, and it is no longer news.
-        QVERIFY(d.core->act(QStringLiteral("focus"), QStringLiteral("open")));
+        // Answered on a display, they open on that display alone.
+        QVERIFY(d.core->act(QStringLiteral("focus"), QStringLiteral("open"), QStringLiteral("DP-1")));
         QCOMPARE(d.notificationsOpened, 1);
+        QCOMPARE(d.notificationsScreen, QStringLiteral("DP-1"));
         QVERIFY(d.fact(QStringLiteral("focus")).isEmpty());
         QVERIFY(d.logbook().contains(QStringLiteral("Focus  You opened the notifications.")));
         QVERIFY(!d.core->act(QStringLiteral("focus"), QStringLiteral("open")));
-        // A second time the same day goes to the ticker.
+        // A second time the same day is on the island again: the person
+        // ended it, so there is no daily allowance.
         d.now = d.now.addSecs(3600);
         d.core->focusEnded(1);
-        QCOMPARE(d.ticker, QStringList{QStringLiteral("Focus · While you were focused | 1 notification")});
+        QVERIFY(d.ticker.isEmpty());
+        QCOMPARE(d.fact(QStringLiteral("focus")).value(QStringLiteral("detail")).toString(), QStringLiteral("1 notification"));
+        QVERIFY(d.core->act(QStringLiteral("focus"), QStringLiteral("open")));
         QVERIFY(d.fact(QStringLiteral("focus")).isEmpty());
         // The next day, the island again; it survives a restart.
         d.now = d.now.addDays(1);
