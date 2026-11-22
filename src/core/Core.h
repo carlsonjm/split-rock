@@ -53,8 +53,9 @@ public:
         // is installed, and opening it.
         std::function<bool(const QString &page)> hasSettings = [](const QString &) { return true; };
         std::function<void(const QString &page)> openSettings;
-        // Opens the notifications that came in, where the desktop keeps them.
-        std::function<void()> openNotifications;
+        // Opens the notifications that came in, where the desktop keeps them:
+        // on the display named, or wherever they are kept when it is empty.
+        std::function<void(const QString &screen)> openNotifications;
         // Workspace Memory: asks Cards to bring back the session it offers,
         // after the person's yes or their Always; Core hears how it went
         // through broughtBack(). And tells Cards the person said not now.
@@ -217,8 +218,10 @@ public:
 
     // Every fact Core has, for the surfaces; none for a topic switched off.
     QList<QVariantMap> facts() const;
-    // The person answered a fact: "open", "not-now" or "dismiss".
-    bool act(const QString &topic, const QString &action);
+    // The person answered a fact: "open", "not-now" or "dismiss". `screen`
+    // is the name of the display it was answered on, when the surface knows
+    // it: what opens, opens there.
+    bool act(const QString &topic, const QString &action, const QString &screen = QString());
 
     // The upkeep cards Search can open by their words: id, title, sub,
     // icon, keywords and more (shown behind the Helpers row's More) each,
@@ -257,6 +260,9 @@ Q_SIGNALS:
     void layoutOpened(const QString &id, int placed, int missed, const QStringList &missedNames);
 
 private:
+    bool actOn(const QString &topic, const QString &action);
+    // The display the fact being answered was answered on, while act() runs.
+    QString m_actScreen;
     bool enabled(const QString &topic) const;
     QVariantMap storageFact() const;
     QVariantMap updatesFact() const;

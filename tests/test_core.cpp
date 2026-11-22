@@ -60,6 +60,7 @@ struct Desk {
     QStringList opened;
     QStringList settingsOpened;
     int notificationsOpened = 0;
+    QString notificationsScreen;
     int bringBacks = 0;
     int dismissed = 0;
     QList<QStringList> appsOpened;
@@ -102,7 +103,10 @@ struct Desk {
         };
         hooks.hasSettings = [this](const QString &page) { return settingsInstalled.contains(page); };
         hooks.openSettings = [this](const QString &page) { settingsOpened.append(page); };
-        hooks.openNotifications = [this] { ++notificationsOpened; };
+        hooks.openNotifications = [this](const QString &screen) {
+            ++notificationsOpened;
+            notificationsScreen = screen;
+        };
         hooks.bringBack = [this] { ++bringBacks; };
         hooks.dismissSavedSession = [this] { ++dismissed; };
         hooks.openApps = [this](const QStringList &ids) { appsOpened.append(ids); };
@@ -2255,8 +2259,10 @@ private Q_SLOTS:
         QVERIFY(d.ticker.isEmpty());
         QVERIFY(d.logbook().contains(QStringLiteral("Focus  Showed the island: While you were focused, 7 notifications.")));
         // See them opens the notifications, and it is no longer news.
-        QVERIFY(d.core->act(QStringLiteral("focus"), QStringLiteral("open")));
+        // Answered on a display, they open on that display alone.
+        QVERIFY(d.core->act(QStringLiteral("focus"), QStringLiteral("open"), QStringLiteral("DP-1")));
         QCOMPARE(d.notificationsOpened, 1);
+        QCOMPARE(d.notificationsScreen, QStringLiteral("DP-1"));
         QVERIFY(d.fact(QStringLiteral("focus")).isEmpty());
         QVERIFY(d.logbook().contains(QStringLiteral("Focus  You opened the notifications.")));
         QVERIFY(!d.core->act(QStringLiteral("focus"), QStringLiteral("open")));

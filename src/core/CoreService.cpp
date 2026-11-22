@@ -39,6 +39,11 @@ bool CoreService::Act(const QString &topic, const QString &action)
     return m_core->act(topic, action);
 }
 
+bool CoreService::ActOn(const QString &topic, const QString &action, const QString &screen)
+{
+    return m_core->act(topic, action, screen);
+}
+
 QList<QVariantMap> CoreService::Actions() const
 {
     return m_core->offeredActions();

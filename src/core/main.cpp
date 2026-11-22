@@ -608,9 +608,9 @@ int main(int argc, char **argv)
                                        QStringLiteral("plasma/plasmoids/co.goodinput.shuffle.bottomsurface"),
                                        QStandardPaths::LocateDirectory).isEmpty();
     };
-    hooks.openNotifications = [&offeredService] {
+    hooks.openNotifications = [&offeredService](const QString &screen) {
         if (offeredService)
-            Q_EMIT offeredService->OpenNotifications();
+            Q_EMIT offeredService->OpenNotifications(screen);
     };
     // KDE's settings pages are plugins; System Settings opens one by name.
     hooks.hasSettings = [](const QString &page) {

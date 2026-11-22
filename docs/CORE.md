@@ -248,7 +248,8 @@ setting for that is on. When that quiet ends, Status calls `SharingEnded`
 sharing" in place of "While you were focused"; everything else is the same.
 
 Tapping it, See them, asks to show the notifications: Core sends
-`OpenNotifications` on the bus, and Status opens its notification history.
+`OpenNotifications` on the bus with the name of the display the island was
+tapped on, and Status opens its notification history on that display alone.
 With no notifications counted, the tap opens the card of the first topic
 held instead. Each time Do Not Disturb ends is news once; the island's daily
 allowance leaves a second time the same day to the ticker. Once answered, it
@@ -392,6 +393,7 @@ can set these limits. Below the ticker's mark it writes nothing more.
 | `ProtocolVersion() → u` | The version, `1` |
 | `Facts() → aa{sv}` | Every fact Core has now; none for a topic switched off |
 | `Act(s topic, s action) → b` | The person answered a fact: `open` opens its Helper (for Automations, says yes to the offer), `not-now` and `dismiss` quiet it, `never`, for Windows programs, stops it for good, and `always`, for Workspace Memory, brings the apps back and stops asking. False for any other topic or action |
+| `ActOn(s topic, s action, s screen) → b` | As `Act`, answered on the display named `screen` (Qt's screen name, such as `DP-1`): what opens, opens there |
 | `Actions() → aa{sv}` | The Helpers Search can open by their words, in the order Search's Helpers row shows them: `id`, `title`, `sub`, `icon`, `keywords` (`as`) and `more` (`b`, shown behind the row's More) each |
 | `OpenAction(s id, s query) → b` | Opens that Helper on its own. `query` goes only to Install an app, which searches for it, or removes an app when it starts with "uninstall" or "remove". False for an id not listed |
 | `RemoveApp(s desktopId) → b` | Opens Install an app straight to removing the app with that desktop file id, such as `org.videolan.vlc.desktop`: it finds the package or Flatpak that owns it and waits for the person's yes. False for anything not shaped like a desktop file id |
@@ -401,7 +403,7 @@ can set these limits. Below the ticker's mark it writes nothing more.
 | `SharingEndedInView(u notifications)` | The same, ended inside the notifications themselves: logged, and nothing goes on the island |
 | `NotificationsSeen()` | The person opened the notifications, so the island about what came in goes |
 | `FactChanged(a{sv})` | A fact changed: its words, its level or whether it wants the island |
-| `OpenNotifications()` | The person asked to see what came in during Do Not Disturb; whatever keeps the notifications opens them |
+| `OpenNotifications(s screen)` | The person asked to see what came in during Do Not Disturb; whatever keeps the notifications opens them on the display named, or wherever it keeps them when `screen` is empty |
 | `Layouts() → aa{sv}` | Each saved layout: `id` (`s`), `name` (`s`), `groups` (`aa{sv}`: `apps` `as`, `names` `as`, `stack` `b`, and its place where kept) and `atSignIn` (`b`) |
 | `CurrentLayout() → a{sv}` | The desk as Cards reads it now (`currentLayout()`): `workspace` and `groups`, every display's where Cards reads them all, with each group's place and `names` as the app menu gives them; `available` is false when Cards isn't running. It answers once Cards has |
 | `SaveLayout(s name, s groupsJson, b atSignIn) → s` | Saves the groups, the JSON array of `{apps, stack}` and any place, under that name, and answers its id; empty for an empty name or no groups |

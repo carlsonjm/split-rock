@@ -557,7 +557,15 @@ QVariantMap Core::storageFact() const
     };
 }
 
-bool Core::act(const QString &topic, const QString &action)
+bool Core::act(const QString &topic, const QString &action, const QString &screen)
+{
+    m_actScreen = screen;
+    const bool done = actOn(topic, action);
+    m_actScreen.clear();
+    return done;
+}
+
+bool Core::actOn(const QString &topic, const QString &action)
 {
     if (topic == Memory)
         return actMemory(action);
@@ -626,7 +634,7 @@ bool Core::act(const QString &topic, const QString &action)
             if (m_focusNotifications > 0) {
                 write(QStringLiteral("Focus  You opened the notifications."));
                 if (m_hooks.openNotifications)
-                    m_hooks.openNotifications();
+                    m_hooks.openNotifications(m_actScreen);
             } else if (!m_focusHeld.isEmpty()) {
                 write(QStringLiteral("Focus  You opened %1.").arg(m_focusHeld.constFirst()));
                 const QString held = m_focusHeld.constFirst() == QLatin1String("Windows programs")
