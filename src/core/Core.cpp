@@ -13,6 +13,8 @@
 #include <QTextStream>
 #include <QTimeZone>
 
+#include <limits>
+
 namespace splitrock::core {
 
 namespace {
@@ -427,14 +429,17 @@ void Core::focusEnded(int notifications, bool seen, bool sharing)
     m_focusHeld = held;
     ++m_focusTimes;
 
-    // Each time Do Not Disturb ends is news once; the island's daily
-    // allowance leaves a second one the same day to the ticker.
+    // Each time Do Not Disturb ends is news once, on the island every time:
+    // the person ended it, so the island answers rather than nags, and has
+    // no daily allowance.
     Measure measure;
     measure.known = true;
     measure.level = Level::Island;
     measure.score = m_focusTimes;
     measure.step = 1;
-    const Spoken spoken = decide(measure, m_focusAttention, now, false);
+    AttentionLimits limits;
+    limits.islandsPerDay = std::numeric_limits<int>::max();
+    const Spoken spoken = decide(measure, m_focusAttention, now, false, limits);
     const QVariantMap fact = focusFact();
     tell(Focus, QStringLiteral("Focus"), spoken, fact.value(QStringLiteral("line")).toString(),
          fact.value(QStringLiteral("detail")).toString());

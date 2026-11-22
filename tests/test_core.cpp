@@ -2266,10 +2266,13 @@ private Q_SLOTS:
         QVERIFY(d.fact(QStringLiteral("focus")).isEmpty());
         QVERIFY(d.logbook().contains(QStringLiteral("Focus  You opened the notifications.")));
         QVERIFY(!d.core->act(QStringLiteral("focus"), QStringLiteral("open")));
-        // A second time the same day goes to the ticker.
+        // A second time the same day is on the island again: the person
+        // ended it, so there is no daily allowance.
         d.now = d.now.addSecs(3600);
         d.core->focusEnded(1);
-        QCOMPARE(d.ticker, QStringList{QStringLiteral("Focus · While you were focused | 1 notification")});
+        QVERIFY(d.ticker.isEmpty());
+        QCOMPARE(d.fact(QStringLiteral("focus")).value(QStringLiteral("detail")).toString(), QStringLiteral("1 notification"));
+        QVERIFY(d.core->act(QStringLiteral("focus"), QStringLiteral("open")));
         QVERIFY(d.fact(QStringLiteral("focus")).isEmpty());
         // The next day, the island again; it survives a restart.
         d.now = d.now.addDays(1);
