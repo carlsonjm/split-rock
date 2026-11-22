@@ -1938,6 +1938,7 @@ private Q_SLOTS:
             QStringLiteral(R"([{"apps":["com.mitchellh.ghostty","com.anthropic.claude"],"stack":true},{"apps":["mail"],"stack":false}])"),
             false);
         QSignalSpy opened(d.core.get(), &Core::layoutOpened);
+        QVERIFY(d.core->layoutsForBus().first().value(QStringLiteral("opened")).toString().isEmpty());
         std::optional<bool> accepted;
         QVERIFY(!d.core->openLayout(QStringLiteral("7"), [&accepted](bool a) { accepted = a; }));
         QVERIFY(d.arranged.isEmpty());
@@ -1964,6 +1965,16 @@ private Q_SLOTS:
         QCOMPARE(opened.first().at(2).toInt(), 1);
         QCOMPARE(opened.first().at(3).toStringList(), QStringList{QStringLiteral("Mail")});
         QVERIFY(d.logbook().contains(QStringLiteral("Layouts  Opened Coding: launched 2 apps, with 1 already open; 2 in place, 1 missed (Mail).")));
+        // Core keeps when it opened, for the island that names the last one,
+        // and saving under its name again keeps it.
+        const QString openedAt = d.now.toUTC().toString(Qt::ISODate);
+        QCOMPARE(d.core->layoutsForBus().first().value(QStringLiteral("opened")).toString(), openedAt);
+        d.now = d.now.addSecs(600);
+        d.core->saveLayout(
+            QStringLiteral("Coding"),
+            QStringLiteral(R"([{"apps":["com.mitchellh.ghostty","com.anthropic.claude"],"stack":true},{"apps":["mail"],"stack":false}])"),
+            false);
+        QCOMPARE(d.core->layoutsForBus().first().value(QStringLiteral("opened")).toString(), openedAt);
 
         // Cards busy: refused, nothing launched, nothing opened.
         d.plan = {false, {}, {}, QStringLiteral("busy")};
@@ -1973,6 +1984,7 @@ private Q_SLOTS:
         QCOMPARE(d.appsOpened.size(), 1);
         QCOMPARE(opened.size(), 1);
         QVERIFY(d.logbook().contains(QStringLiteral("Layouts  Cards didn't open Coding: it was arranging the desk already.")));
+        QCOMPARE(d.core->layoutsForBus().first().value(QStringLiteral("opened")).toString(), openedAt);
 
         // During a bring-back, Core refuses at once.
         d.plan = {true, {}, {}, {}};
@@ -2155,6 +2167,8 @@ private Q_SLOTS:
         QCOMPARE(opened.first().at(2).toInt(), 1);
         QCOMPARE(opened.first().at(3).toStringList(), QStringList{QStringLiteral("Mail")});
         QVERIFY(!cards.running());
+        // Opening it changed the layouts: it is now the one opened last.
+        QTRY_COMPARE(changed.size(), 3);
 
         // Cards busy: OpenLayout answers false.
         kadunce.layoutPlan = {{QStringLiteral("accepted"), false}, {QStringLiteral("reason"), QStringLiteral("busy")}};
@@ -2166,7 +2180,7 @@ private Q_SLOTS:
         QDBusPendingReply<bool> removed = ask(QStringLiteral("RemoveLayout"), {QStringLiteral("1")});
         QTRY_VERIFY(removed.isFinished());
         QVERIFY(removed.value());
-        QTRY_COMPARE(changed.size(), 3);
+        QTRY_COMPARE(changed.size(), 4);
         // The layout version is asked once.
         QCOMPARE(kadunce.calls.count(QStringLiteral("layoutVersion")), 1);
 
