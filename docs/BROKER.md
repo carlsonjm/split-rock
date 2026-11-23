@@ -15,8 +15,8 @@ checked against that file.
 Ask keeps its own rules on top, because they are written for questions about
 the computer. The broker has only the rules that hold for every app.
 
-This is version 0, for testing with Mail and Notes. It may still change. The
-tools were added within version 0, since Mail starts only a broker of the
+This is version 0, for testing with Mail, Notes and Slides. It may still change. The
+tools and the slide calls were added within version 0, since Mail starts only a broker of the
 version it knows.
 
 ## What holds
@@ -55,6 +55,8 @@ Name `io.github.carlsonjm.splitrock.Broker`, object `/Broker`, interface
 | `StyleNote(av sent) → u` | The model on this computer writes how the person writes email, from up to 30 messages they sent, with nothing private in it |
 | `DraftReply(a{sv} conversation, s styleNote, s ask) → u` | Codex drafts a reply to one conversation |
 | `Clerk(s question, av found) → u` | Codex answers a question from up to twelve emails the app found itself. Each call stands alone: for a follow-up the app passes the earlier turns at the head of `question`, under "Earlier:", and the emails from earlier turns again in `found` |
+| `FitSlide(a{sv} slide) → u` | Codex fits one slide to its page. The slide is `title`, `lines` (as) and `others` (as, the other slides' titles) |
+| `MakeSlides(s notes) → u` | Codex makes two to ten slides from the person's notes |
 | `Cancel(u id)` | Stops a request |
 | `Tools() → av` | Every tool the apps' files describe, read again, each an `a{sv}` (Tools, below) |
 | `Call(s tool, a{sv} args, s caller) → a{sv}` | Calls a tool for `caller` (`ask`, `codex` or the app's own name), after checking it against the app's file |
@@ -83,6 +85,7 @@ it knows the mail.
 | `Said(u id, s text)` | The next words of a style note, draft or answer |
 | `Drafted(u id, a{sv})` | Carries `text`, the reply's body, and `who` |
 | `Answered(u id, a{sv})` | A style note or the clerk's answer. Carries `text` and `who`; from the clerk also `read` (the emails Codex was given) and `proposals`, each with `action` (file, done, needs_you, draft or trash), `ids`, `why`, to file `tab`, and to trash perhaps `senders`: addresses or domains meaning everything from them, each kept only when one of the emails passed came from it (a whole shared domain such as gmail.com never) |
+| `Answered(u id, a{sv})` from Slides | Carries `slides`, each with `layout` (title, text or number), `title` and `lines`; `line`, one plain sentence on what Codex did; and `who`. A fitted slide comes back alone, or with one more slide to follow it |
 | `Failed(u id, s problem)` | Why it couldn't be done, in plain words, or `cancelled` |
 | `ModelChanged(a{sv})` | As `Model()` |
 

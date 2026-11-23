@@ -63,6 +63,11 @@ public:
     uint styleNote(const QVariantList &sent);
     uint draftReply(const QVariantMap &conversation, const QString &styleNote, const QString &ask);
     uint clerk(const QString &question, const QVariantList &found);
+    // Slides: Codex fits one slide to its page, or makes slides from notes.
+    // The result is answered with `slides`, each a layout, a title and lines,
+    // and `line`, one plain sentence on what was done.
+    uint fitSlide(const QVariantMap &slide);
+    uint makeSlides(const QString &notes);
     void cancel(uint id);
 
     bool busy() const;
@@ -79,6 +84,12 @@ public:
     // Proposals at the end of what Codex wrote, as the app shows them as cards,
     // with the words before them. Only the actions and messages it was given.
     static QVariantList proposalsIn(QString *text, const QStringList &ids, const QStringList &froms = {});
+    // Slides at the end of what Codex wrote, as Slides builds them: only its
+    // layouts, short titles and lines, at most `most` slides, with the words
+    // before them. Empty when none fit.
+    static QVariantList slidesIn(QString *text, int most);
+    // A slide as Codex is given it: material set apart, never instructions.
+    static QString slideText(const QVariantMap &slide);
 
 Q_SIGNALS:
     void sorted(uint id, const QVariantMap &result);

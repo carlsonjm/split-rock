@@ -14,6 +14,12 @@
         {"optionId": "yes", "name": "Allow", "kind": "allow_once"},
         {"optionId": "no", "name": "Reject", "kind": "reject_once"}]}, "expect": "reject_once"},
       {"say": "Yes: Best Buy sent the receipt for the tablet.\n\n```proposals\n[{\"action\": \"file\", \"ids\": [\"7\", \"99\"], \"why\": \"Keep the receipt with the others\", \"tab\": \"Receipts\"}, {\"action\": \"send\", \"ids\": [\"7\"], \"why\": \"Forward it\"}]\n```"}
+    ]},
+    {"expectPrompt": "Fit one presentation slide", "steps": [
+      {"say": "Six lines down to four, same points.\n\n```slides\n[{\"layout\": \"text\", \"title\": \"Where the money goes\", \"lines\": [\"A new four for the juniors\"]}]\n```"}
+    ]},
+    {"expectPrompt": "Make a short presentation", "steps": [
+      {"say": "Three slides from your notes.\n\n```slides\n[{\"layout\": \"title\", \"title\": \"Two events, one new boat\", \"lines\": [\"Spring 2027\"]}, {\"layout\": \"text\", \"title\": \"Bake sale\", \"lines\": [\"Sat 14 March\"]}, {\"layout\": \"number\", \"title\": \"$6,000\", \"lines\": [\"for a new four\"]}]\n```"}
     ]}
   ]
 }

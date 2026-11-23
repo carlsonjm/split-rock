@@ -45,6 +45,8 @@ public Q_SLOTS:
     Q_SCRIPTABLE uint DraftReply(const QVariantMap &conversation, const QString &styleNote, const QString &ask);
     Q_SCRIPTABLE uint Clerk(const QString &question, const QVariantList &found);
     Q_SCRIPTABLE uint StyleNote(const QVariantList &sent);
+    Q_SCRIPTABLE uint FitSlide(const QVariantMap &slide);
+    Q_SCRIPTABLE uint MakeSlides(const QString &notes);
     Q_SCRIPTABLE void Cancel(uint id);
     // The apps' tools (docs/BROKER.md § Tools): each as its app's file
     // describes it. Call answers a read with what the app gave and a write

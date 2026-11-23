@@ -78,6 +78,16 @@ uint BrokerService::StyleNote(const QVariantList &sent)
     return m_broker->styleNote(plain(sent).toList());
 }
 
+uint BrokerService::FitSlide(const QVariantMap &slide)
+{
+    return m_broker->fitSlide(plain(slide).toMap());
+}
+
+uint BrokerService::MakeSlides(const QString &notes)
+{
+    return m_broker->makeSlides(notes);
+}
+
 void BrokerService::Cancel(uint id)
 {
     m_broker->cancel(id);
