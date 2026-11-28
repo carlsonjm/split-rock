@@ -695,6 +695,35 @@ unanswered and Undo unsafe; a terminal with the assistant narrating beside it,
 which breaks No terminal for anyone but the maintainer; and holding Plasma back
 while the rest updates, which is the half-update Arch doesn't support.
 
+## An update something holds back says so
+
+Where something installed needs a package at the version it has, as Shuffle's
+parts need the Qt and KWin they were built for until Shuffle's own build is out,
+pacman refuses the whole update. The Update card's look notices that before
+Update, from pacman's own refusal, and says it in a person's words: what waits,
+and for what ("Shuffle" for the suite's own parts where Shuffle is installed,
+else the package holding it), never "the update failed".
+
+What waits is the package pacman named and every package of the update tied
+to it, both ways and to the end: what uses it, as the update brings it, and
+what it uses, as installed now, with everything tied to those in turn. The rest
+can go ahead. The card offers the apps on their own, and the rest of the system
+with the apps only when pacman's own look, with the waiting packages left out,
+brings none of them; otherwise the system waits whole and the card says it
+resumes once the build is out. The rest runs through its own administrator job,
+which fetches the lists, asks pacman once more what it would install, and stops
+before any change if a waiting package is among it. A restore point is taken
+first, as for any update.
+
+This narrows the half-update the Update card rejected: Split Rock never chooses
+to hold anything back. It only lets the rest go ahead of a hold that something
+installed already makes, and keeps waiting everything a held package touches.
+
+Rejected: reporting the refusal as a failure, which reads as something broken;
+`pacman -Syu --ignore` with the held package alone, which updates what was built
+against the new version beside the old one; and a fixed list of what Qt or
+Plasma touch, which goes stale with every release.
+
 ## The conversation reads as a page, with one colour
 
 A later ruling than the mock-up's look, which stays the layout (The mock-up is

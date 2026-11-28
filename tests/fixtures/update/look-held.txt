@@ -1,0 +1,51 @@
+@@ system
+curl 8.17.0-1 -> 8.17.1-1
+firefox 143.0-1 -> 144.0-1
+kio 6.20.0-1 -> 6.20.0-2
+linux-cachyos 6.17.1-1 -> 6.17.2-1
+python 3.13.7-1 -> 3.13.8-1
+qt6-base 6.12.0-1 -> 6.12.1-1
+qt6-declarative 6.12.0-1 -> 6.12.1-1
+zstd 1.5.6-1 -> 1.5.7-1
+@@ download
+@@ hold
+:: installing qt6-base (6.12.1-1) breaks dependency 'qt6-base=6.12.0' required by kadunce
+@@ local
+glibc|None|None
+gtk3|glibc|None
+firefox|gtk3  glibc|None
+zstd|glibc|libzstd.so=1-64
+curl|libzstd.so=1-64  glibc|None
+qt6-base|zstd  glibc|qt6-base-private=6.12.0
+qt6-declarative|qt6-base|None
+kio|qt6-declarative|None
+kadunce|qt6-base=6.12.0  qt6-declarative|None
+linux-cachyos|None|None
+python|glibc|None
+@@ sync
+curl|libzstd.so=1-64  glibc|None
+firefox|gtk3  glibc|None
+kio|qt6-declarative|None
+linux-cachyos|None|None
+python|glibc|None
+qt6-base|zstd  glibc|qt6-base-private=6.12.1
+qt6-declarative|qt6-base>=6.12.1|None
+zstd|glibc|libzstd.so=1-64
+@@ launchers
+firefox	Firefox
+@@ community
+@@ apps
+org.mozilla.Thunderbird
+org.videolan.VLC
+@@ free
+48000000
+@@ power
+ac 1
+@@ snapshots
+yes
+@@ busy
+@@ shuffle
+shuffle-plasma 1.1.2-1
+@@ lastupdate
+@@ news
+@@ end

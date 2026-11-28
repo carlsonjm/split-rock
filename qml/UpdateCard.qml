@@ -17,6 +17,11 @@ CardFrame {
     // Only the system's own parts change: no app by name, no big piece.
     readonly property bool onlyParts: card.plan.system > 0 && (card.plan.named || []).length === 0
                                       && (card.plan.pieces || []).length === 0 && card.plan.apps === 0
+    // Something installed holds part of the update back: what waits, and
+    // what can go ahead now.
+    readonly property var held: card.plan.held || ({})
+    readonly property bool holding: card.reading && !!card.held.heading
+    readonly property bool heldDone: card.stage === "done" && (card.result.heldBack || 0) > 0
     hue: card.stage === "failed" ? "coral" : card.stage === "done" ? "green" : "blue"
 
     // The heading: what the card is, and where it has got to.
@@ -32,9 +37,11 @@ CardFrame {
             case "confirming": return "Shuffle may need its own update first"
             case "nothing": return "Everything is up to date"
             case "updating": return "Updating this computer"
-            case "done": return "This computer is up to date"
+            case "done": return card.heldDone ? "Updated, with some waiting for " + card.result.heldFor : "This computer is up to date"
             case "failed": return "The update didn't finish"
             }
+            if (card.holding)
+                return card.held.heading
             if (card.plan.system < 0)
                 return "Update this computer"
             if (card.onlyParts)
@@ -51,9 +58,12 @@ CardFrame {
                                    ? "Nothing else needs doing. " + card.plan.community + (card.plan.community === 1 ? " app from the AUR has an update" : " apps from the AUR have updates") + ", which " + productName + " leaves to you."
                                    : "Nothing needs doing."
             case "updating": return "You can keep working. The computer stays awake until it's done."
-            case "done": return card.result.installed > 0 ? card.result.installed + " packages were updated." : ""
+            case "done": return card.result.installed === 1 ? "1 package was updated."
+                               : card.result.installed > 0 ? card.result.installed + " packages were updated." : ""
             case "failed": return card.result.why
             }
+            if (card.holding)
+                return card.held.sub
             if (card.onlyParts)
                 return (card.plan.download ? card.plan.download + " to download. " : "") + "No app you use changes."
             const parts = []
@@ -85,7 +95,7 @@ CardFrame {
 
     Column {
         objectName: "updatePieces"
-        visible: card.reading && (card.plan.pieces || []).length > 0
+        visible: card.reading && !card.holding && (card.plan.pieces || []).length > 0
         width: card.innerWidth
         spacing: 6
         Text {
@@ -150,10 +160,127 @@ CardFrame {
         }
     }
 
+    // Held: what waits, then what can go ahead now, each opening to its
+    // packages.
+    Repeater {
+        model: card.holding ? [
+            { title: "Waiting for " + card.held["for"] + "'s build", waiting: true },
+            { title: "Ready now", waiting: false }
+        ].filter(g => g.waiting || card.plan.apps > 0 || card.held.restOk) : []
+        Column {
+            id: heldGroup
+            objectName: modelData.waiting ? "updateWaiting" : "updateReadyNow"
+            property bool open: false
+            readonly property bool waiting: modelData.waiting
+            readonly property var rows: modelData.waiting
+                ? (card.held.first || []).map(r => ({ name: r.name, value: (r.from ? r.from + " → " : "") + r.to }))
+                  .concat(card.held.more > 0 ? [{ name: card.held.moreLabel, value: card.held.moreCount }] : [])
+                : (card.plan.apps > 0 ? [{ name: card.held.apps, value: card.held.appsCount }] : [])
+                  .concat(card.held.restOk ? [{ name: card.held.rest, value: card.held.restCount }] : [])
+            readonly property var packages: modelData.waiting ? card.held.list || [] : card.held.restList || []
+            width: card.innerWidth
+            spacing: 6
+            Text {
+                text: modelData.title
+                color: theme.quiet
+                font.pixelSize: 13
+                font.weight: Font.Medium
+            }
+            Repeater {
+                model: heldGroup.rows
+                Rectangle {
+                    width: card.innerWidth
+                    height: 48
+                    radius: theme.cardRadius
+                    color: heldGroup.waiting ? theme.soft(theme.warn, 0.16) : theme.inset
+                    Text {
+                        x: 14
+                        anchors.verticalCenter: parent.verticalCenter
+                        width: parent.width - x - rowValue.implicitWidth - 28
+                        elide: Text.ElideRight
+                        text: modelData.name
+                        color: theme.text
+                        font.pixelSize: 15
+                        font.weight: Font.DemiBold
+                    }
+                    Text {
+                        id: rowValue
+                        anchors.right: parent.right
+                        anchors.rightMargin: 14
+                        anchors.verticalCenter: parent.verticalCenter
+                        text: modelData.value
+                        color: theme.quiet
+                        font.pixelSize: 14
+                    }
+                }
+            }
+            Item {
+                visible: heldGroup.packages.length > 0
+                width: groupToggle.implicitWidth + 12
+                height: 28
+                activeFocusOnTab: true
+                Accessible.role: Accessible.Button
+                Accessible.name: groupToggle.text
+                Keys.onReturnPressed: heldGroup.open = !heldGroup.open
+                Keys.onSpacePressed: heldGroup.open = !heldGroup.open
+                Text {
+                    id: groupToggle
+                    anchors.verticalCenter: parent.verticalCenter
+                    text: (heldGroup.open ? "▾ " : "▸ ") + (heldGroup.waiting ? "Show what's waiting" : "Show what's included")
+                    color: theme.quiet
+                    font.pixelSize: 13
+                    font.weight: Font.Medium
+                }
+                MouseArea {
+                    anchors.fill: parent
+                    cursorShape: Qt.PointingHandCursor
+                    onClicked: heldGroup.open = !heldGroup.open
+                }
+            }
+            Repeater {
+                model: heldGroup.open ? heldGroup.packages : []
+                Item {
+                    width: card.innerWidth
+                    height: 28
+                    Text {
+                        id: heldName
+                        x: 14
+                        anchors.verticalCenter: parent.verticalCenter
+                        width: Math.min(implicitWidth, parent.width * 0.5)
+                        elide: Text.ElideRight
+                        text: modelData.name
+                        color: theme.text
+                        font.family: theme.mono
+                        font.pixelSize: 13
+                    }
+                    Text {
+                        anchors.left: heldName.right
+                        anchors.leftMargin: 10
+                        anchors.right: parent.right
+                        anchors.rightMargin: 14
+                        anchors.verticalCenter: parent.verticalCenter
+                        elide: Text.ElideRight
+                        text: (modelData.from ? modelData.from + " → " : "new · ") + modelData.to
+                        color: theme.quiet
+                        font.family: theme.mono
+                        font.pixelSize: 13
+                    }
+                }
+            }
+        }
+    }
+
+    CardNote {
+        objectName: "updateHeldNote"
+        visible: card.holding
+        width: card.innerWidth
+        text: card.held.note || ""
+    }
+
     // Everything the update installs, in a box of its own so a long list
     // scrolls and the buttons stay in reach.
     Column {
-        visible: card.reading && ((card.plan.list || []).length + (card.plan.appIds || []).length) > 0
+        visible: card.reading && !card.holding && ((card.plan.list || []).length + (card.plan.appIds || []).length) > 0
         width: card.innerWidth
         spacing: 6
         Text {
@@ -297,7 +424,7 @@ CardFrame {
     }
 
     Flow {
-        visible: card.stage === "ready"
+        visible: card.stage === "ready" && !card.holding
         width: card.innerWidth
         spacing: 18
         CardFact {
@@ -332,6 +459,13 @@ CardFrame {
         visible: card.stage === "done" || card.stage === "failed"
         width: card.innerWidth
         spacing: 10
+        CardNote {
+            objectName: "updateStillWaiting"
+            visible: card.heldDone
+            tone: theme.warn
+            text: (card.result.heldBack === 1 ? "1 update is" : card.result.heldBack + " updates are")
+                  + " still waiting for " + card.result.heldFor + "'s build. Open Update again once it's out."
+        }
         CardNote {
             visible: card.stage === "done" && card.result.restart
             tone: theme.accent
@@ -375,7 +509,7 @@ CardFrame {
         visible: card.stage !== "looking" && card.stage !== "rechecking" && card.stage !== "updating"
         Pill {
             objectName: "updateButton"
-            visible: card.stage === "ready"
+            visible: card.stage === "ready" && !card.holding
             implicitHeight: 44
             padding: 30
             fontSize: 16
@@ -386,6 +520,34 @@ CardFrame {
             iconPath: Icons.refresh
             text: "Update"
             onClicked: card.job.start()
+        }
+        Pill {
+            objectName: "updateRest"
+            visible: card.holding && card.held.restOk === true
+            implicitHeight: 44
+            padding: 30
+            fontSize: 16
+            filled: true
+            tone: card.tone
+            toneInk: theme.hueInk
+            enabled: !card.blocked
+            iconPath: Icons.refresh
+            text: "Update the rest"
+            onClicked: card.job.startRest()
+        }
+        Pill {
+            objectName: "updateApps"
+            visible: card.holding && card.plan.apps > 0
+            implicitHeight: 44
+            padding: card.held.restOk === true ? 16 : 30
+            fontSize: card.held.restOk === true ? 15 : 16
+            filled: card.held.restOk !== true
+            tone: filled ? card.tone : theme.accent
+            toneInk: theme.hueInk
+            enabled: !card.blocked
+            iconPath: card.held.restOk === true ? "" : Icons.refresh
+            text: card.held.restOk === true ? "Update apps only" : "Update apps"
+            onClicked: card.job.startApps()
         }
         Pill {
             objectName: "updateAnyway"
@@ -426,7 +588,8 @@ CardFrame {
             implicitHeight: 44
             padding: 16
             fontSize: 15
-            text: card.reading ? "Not now" : card.stage === "done" && card.result.restart ? "Later" : "Close"
+            text: card.holding && card.plan.apps <= 0 && card.held.restOk !== true ? "Close"
+                  : card.reading ? "Not now" : card.stage === "done" && card.result.restart ? "Later" : "Close"
             onClicked: card.job.close()
         }
     }
