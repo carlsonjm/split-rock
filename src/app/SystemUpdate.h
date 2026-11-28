@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 #pragma once
 
+#include <functional>
 #include <optional>
 
 #include "app/Chore.h"
@@ -26,6 +27,13 @@ namespace splitrock {
 // output as it goes for the progress the card shows. Afterwards it updates the
 // person's Flatpak apps, and looks again for what needs the person: a restart,
 // settings files left beside their own, and services that failed.
+//
+// When something installed holds part of the update back, as Shuffle does
+// until its own build for a new Qt or KWin is out, the look says so before
+// Update: what waits and for what, and what can go ahead now. It offers the
+// apps on their own and, when pacman's own look agrees nothing of it touches
+// what waits, the rest of the system with them (docs/DECISIONS.md, An update
+// something holds back says so).
 //
 // Its stages: looking, ready, nothing, confirming, rechecking, updating, done
 // or failed.
@@ -106,6 +114,20 @@ public:
         QString plasmaFrom;
         QString plasmaTo;
 
+        // What something installed holds back: the packages pacman says it
+        // can't update yet, and every package of the update tied to them,
+        // that uses them or that they use. Empty when nothing is held.
+        QList<Package> held;
+        // The packages that set it off, such as qt6-base.
+        QStringList heldFirst;
+        // What it waits for, in a person's words: "Shuffle" for the suite's
+        // own parts where Shuffle is installed, else the package holding it.
+        QString heldFor;
+        // The rest of the update, which can go ahead without them.
+        QList<Package> rest;
+        // pacman's own look found the rest installs none of what is held.
+        bool restOk = false;
+
         bool nothing() const { return system == 0 && apps == 0; }
         // Which packages at which versions, to tell whether two looks found
         // the same update.
@@ -124,6 +146,9 @@ public:
         bool appsUpdated = false;
         QStringList settingsFiles;
         QStringList failedServices;
+        // Updates left waiting, and for what, when part was held back.
+        int heldBack = 0;
+        QString heldFor;
         QVariantMap toMap() const;
     };
 
@@ -148,6 +173,17 @@ public:
     Q_INVOKABLE void start();
     // The person read the desktop warning and updates anyway.
     Q_INVOKABLE void confirm();
+    // With part of the update held back: the rest of the system and the apps,
+    // when pacman's own look agreed; or the apps alone.
+    Q_INVOKABLE void startRest();
+    Q_INVOKABLE void startApps();
+
+    // The packages of an update held back with those pacman named, from the
+    // graph the look printed: each line a package, its dependencies and what
+    // it provides, separated by "|". local is what is installed now, sync
+    // what the update brings; candidates are the update's packages.
+    static QStringList heldClosure(const QStringList &first, const QStringList &candidates, const QStringList &local,
+                                   const QStringList &sync);
 
     // What the look printed, read into the card's plan. now is the time the
     // news is measured against when the last update's date is unknown.
@@ -157,10 +193,7 @@ public:
     // A line of pacman's output, as Chore::pacmanStep reads it.
     static Step readStep(const QString &line, int done, int total) { return pacmanStep(line, done, total); }
     // Why an update failed, in plain words, from its output and exit code.
-    static QString whyFailed(const QString &output, int exitCode)
-    {
-        return Chore::whyFailed(output, exitCode, QStringLiteral("The update"));
-    }
+    static QString whyFailed(const QString &output, int exitCode);
     // The quick look the card opens on, from the lists the last fetch left.
     static QString quickLook();
     // What the look after the update printed.
@@ -178,6 +211,9 @@ public:
     void setQuickLookScript(const QString &script) { m_quickScript = script; }
     void setAppsScript(const QString &script) { m_appsScript = script; }
     void setAfterScript(const QString &script) { m_afterScript = script; }
+    // pacman's look at the rest of a held update; given the held packages,
+    // comma-separated, as its first argument.
+    void setRestScript(const QString &script) { m_restScript = script; }
     void setSnapshots(bool on) { m_snapshots = on; }
 
 Q_SIGNALS:
@@ -186,6 +222,11 @@ Q_SIGNALS:
     void waitingChanged();
 
 private:
+    enum class Mode { Everything, Rest, Apps };
+
+    // Asks pacman whether the rest of a held update can go ahead, then
+    // hands the plan on.
+    void settle(Plan plan, std::function<void(Plan)> then);
     void look();
     void refresh();
     void afterRecheck(const QStringList &read, Plan now);
@@ -204,6 +245,8 @@ private:
     QString m_quickScript;
     QString m_appsScript;
     QString m_afterScript;
+    QString m_restScript;
+    Mode m_mode = Mode::Everything;
     bool m_snapshots = true;
     int m_waiting = -1;
     bool m_peeking = false;

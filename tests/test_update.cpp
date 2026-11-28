@@ -363,6 +363,122 @@ private Q_SLOTS:
         update.start();
         QCOMPARE(update.stage(), QStringLiteral("ready"));
     }
+
+    void whatAHeldPackageIsTiedToWaitsWithIt()
+    {
+        const SystemUpdate::Plan plan = SystemUpdate::readLook(fixture(QStringLiteral("look-held.txt")), Now);
+        QStringList held;
+        for (const SystemUpdate::Package &p : plan.held)
+            held.append(p.name);
+        QStringList rest;
+        for (const SystemUpdate::Package &p : plan.rest)
+            rest.append(p.name);
+        held.sort();
+        rest.sort();
+        // Qt, what uses it, what it uses, and what uses that.
+        QCOMPARE(held, (QStringList{QStringLiteral("curl"), QStringLiteral("kio"), QStringLiteral("qt6-base"),
+                                    QStringLiteral("qt6-declarative"), QStringLiteral("zstd")}));
+        QCOMPARE(rest, (QStringList{QStringLiteral("firefox"), QStringLiteral("linux-cachyos"), QStringLiteral("python")}));
+        QCOMPARE(plan.heldFirst, QStringList{QStringLiteral("qt6-base")});
+        QCOMPARE(plan.heldFor, QStringLiteral("Shuffle"));
+        // Not offered until pacman's own look agrees.
+        QVERIFY(!plan.restOk);
+        const QVariantMap card = plan.toMap().value(QStringLiteral("held")).toMap();
+        QCOMPARE(card.value(QStringLiteral("heading")).toString(), QStringLiteral("System updates are waiting for Shuffle"));
+        QVERIFY(card.value(QStringLiteral("sub")).toString().startsWith(QStringLiteral("Qt 6.12.1 is out, and Shuffle's matching build isn't yet.")));
+        QVERIFY(card.value(QStringLiteral("sub")).toString().contains(QStringLiteral("Your apps can update now.")));
+        QCOMPARE(card.value(QStringLiteral("apps")).toString(), QStringLiteral("Apps: Thunderbird, VLC"));
+    }
+
+    void withoutAHoldNothingWaits()
+    {
+        const SystemUpdate::Plan plan = SystemUpdate::readLook(fixture(QStringLiteral("look.txt")), Now);
+        QVERIFY(plan.held.isEmpty());
+        QVERIFY(plan.toMap().value(QStringLiteral("held")).toMap().isEmpty());
+    }
+
+    void theRestGoesAheadWithoutWhatIsHeld()
+    {
+        QTemporaryDir dir;
+        SystemUpdate update;
+        update.setElevate({});
+        update.setLookScript(QStringLiteral("cat '" FIXTURES_DIR "/update/look-held.txt'"));
+        update.setRestScript(QStringLiteral("echo \"$1\" > '%1/ignored'; printf 'firefox 144.0-1 70254592\\nlinux-cachyos 6.17.2-1 157286400\\npython 3.13.8-1 0\\n'")
+                                 .arg(dir.path()));
+        update.setAdmin(adminStandIn(QStringLiteral("echo \"$@\" > '%1/admin'; echo 'upgrading firefox...'; echo split-rock-pre=7; echo split-rock-post=8")
+                                         .arg(dir.path())));
+        update.setAppsScript(QStringLiteral("echo Updating apps"));
+        update.setAfterScript(QStringLiteral("printf '@@ end\\n'"));
+        update.check();
+        QTRY_COMPARE(update.stage(), QStringLiteral("ready"));
+        QVERIFY(update.plan().restOk);
+        const QVariantMap card = update.plan().toMap().value(QStringLiteral("held")).toMap();
+        QCOMPARE(card.value(QStringLiteral("heading")).toString(), QStringLiteral("Some updates are waiting for Shuffle"));
+        QCOMPARE(card.value(QStringLiteral("rest")).toString(), QStringLiteral("The rest of the system, like the Linux kernel and Firefox"));
+        QCOMPARE(card.value(QStringLiteral("restCount")).toString(), QStringLiteral("3 packages"));
+
+        QSignalSpy finished(&update, &SystemUpdate::finished);
+        update.startRest();
+        QTRY_COMPARE(finished.size(), 1);
+        QVERIFY(update.result().ok);
+        QCOMPARE(update.result().heldBack, 5);
+        QCOMPARE(update.result().heldFor, QStringLiteral("Shuffle"));
+        QVERIFY(update.result().appsUpdated);
+        QCOMPARE(update.waiting(), 5);
+        QFile admin(dir.filePath(QStringLiteral("admin")));
+        QVERIFY(admin.open(QIODevice::ReadOnly));
+        const QString args = QString::fromUtf8(admin.readAll()).trimmed();
+        QVERIFY2(args.startsWith(QStringLiteral("update-rest ")), qPrintable(args));
+        for (const QString &name : {QStringLiteral("qt6-base"), QStringLiteral("zstd"), QStringLiteral("curl")})
+            QVERIFY2(args.split(QLatin1Char(' ')).contains(name), qPrintable(args));
+        QVERIFY(!args.contains(QStringLiteral("firefox")));
+    }
+
+    void theRestWaitsWhenPacmanWouldBringWhatIsHeld()
+    {
+        SystemUpdate update;
+        update.setElevate({});
+        update.setLookScript(QStringLiteral("cat '" FIXTURES_DIR "/update/look-held.txt'"));
+        update.setRestScript(QStringLiteral("printf 'firefox 144.0-1 70254592\\nqt6-base 6.12.1-1 100\\n'"));
+        update.setAdmin(adminStandIn(QStringLiteral("exit 99")));
+        update.check();
+        QTRY_COMPARE(update.stage(), QStringLiteral("ready"));
+        QVERIFY(!update.plan().restOk);
+        update.startRest();
+        QCOMPARE(update.stage(), QStringLiteral("ready"));
+    }
+
+    void theAppsUpdateOnTheirOwn()
+    {
+        SystemUpdate update;
+        update.setElevate({});
+        update.setLookScript(QStringLiteral("cat '" FIXTURES_DIR "/update/look-held.txt'"));
+        update.setRestScript(QStringLiteral("exit 1"));
+        // The system's update is never run.
+        update.setAdmin(adminStandIn(QStringLiteral("exit 99")));
+        update.setAppsScript(QStringLiteral("echo Updating apps"));
+        update.setAfterScript(QStringLiteral("printf '@@ end\\n'"));
+        update.check();
+        QTRY_COMPARE(update.stage(), QStringLiteral("ready"));
+        QSignalSpy finished(&update, &SystemUpdate::finished);
+        update.startApps();
+        QTRY_COMPARE(finished.size(), 1);
+        QVERIFY(update.result().ok);
+        QVERIFY(update.result().appsUpdated);
+        QCOMPARE(update.result().installed, 0);
+        QCOMPARE(update.result().heldBack, 8);
+    }
+
+    void aHeldUpdateIsSaidPlainly()
+    {
+        const QString why = SystemUpdate::whyFailed(
+            QStringLiteral("error: failed to prepare transaction (could not satisfy dependencies)\n"
+                           ":: installing qt6-base (6.12.1-1) breaks dependency 'qt6-base=6.12.0' required by kadunce"),
+            1);
+        QVERIFY2(why.startsWith(QStringLiteral("Some updates are waiting for Shuffle's matching build")), qPrintable(why));
+        QVERIFY(SystemUpdate::whyFailed(QStringLiteral("split-rock-admin: held: zstd would be updated too"), 3)
+                    .contains(QStringLiteral("tied to the updates still waiting")));
+    }
 };
 
 QTEST_MAIN(TestUpdate)

@@ -198,6 +198,53 @@ private Q_SLOTS:
         update->close();
         QTRY_VERIFY(!full->isVisible());
     }
+    // Part of the update held back: what waits and what can go ahead, then
+    // the rest, then what still waits.
+    void theUpdateCardSaysWhatIsHeld()
+    {
+        for (const bool restOk : {true, false}) {
+            QTemporaryDir store;
+            Helpers h(store.path());
+            SystemUpdate *update = h.systemUpdate();
+            update->setElevate({});
+            update->setLookScript(QStringLiteral("cat '" FIXTURES_DIR "/update/look-held.txt'"));
+            update->setRestScript(restOk ? QStringLiteral("printf 'firefox 144.0-1 70254592\\nlinux-cachyos 6.17.2-1 157286400\\npython 3.13.8-1 0\\n'")
+                                         : QStringLiteral("exit 1"));
+            update->setAdmin(adminStandIn(QStringLiteral("echo split-rock-pre=41; echo 'upgrading firefox...'; echo split-rock-post=42")));
+            update->setAppsScript(QStringLiteral("echo Updating apps"));
+            update->setAfterScript(QStringLiteral("printf '@@ end\\n'"));
+            QQmlApplicationEngine engine;
+            std::unique_ptr<QQuickWindow> window(open(engine, h));
+            QVERIFY(window);
+            QVERIFY(h.openChore(QStringLiteral("update")));
+            window->show();
+            window->setGeometry(0, 0, 560, 800);
+            QVERIFY(QTest::qWaitForWindowExposed(window.get()));
+            QQuickWindow *full = window.get();
+            QTRY_COMPARE(update->stage(), QStringLiteral("ready"));
+            QTRY_VERIFY(find(full, QStringLiteral("updateCard")));
+            settle();
+            QVERIFY(overflowing(full).isEmpty());
+            shoot(full, restOk ? QStringLiteral("24-update-held") : QStringLiteral("24b-update-held-apps"));
+            QVERIFY(!find(full, QStringLiteral("updateButton"))->isVisible());
+            QVERIFY(find(full, QStringLiteral("updateWaiting")));
+            QVERIFY(find(full, QStringLiteral("updateHeldNote"))->isVisible());
+            QCOMPARE(find(full, QStringLiteral("updateRest"))->isVisible(), restOk);
+            QQuickItem *apps = find(full, QStringLiteral("updateApps"));
+            QVERIFY(apps && apps->isVisible());
+            if (!restOk) {
+                update->close();
+                continue;
+            }
+            QMetaObject::invokeMethod(find(full, QStringLiteral("updateRest")), "clicked");
+            QTRY_COMPARE_WITH_TIMEOUT(update->stage(), QStringLiteral("done"), 10000);
+            settle();
+            QVERIFY(find(full, QStringLiteral("updateStillWaiting"))->isVisible());
+            QVERIFY(overflowing(full).isEmpty());
+            shoot(full, QStringLiteral("25-update-held-done"));
+            update->close();
+        }
+    }
     // Core opens Free up space on its own: an ordinary window with the
     // Helper in it.
     void aHelperOpensOnItsOwn()

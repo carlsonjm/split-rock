@@ -10,6 +10,11 @@
 # Rock's own named jobs).
 #
 #   update NAME SNAP                        the whole system, with pacman
+#   update-rest NAME SNAP PACKAGE...        the whole system but the packages
+#                                           named, which something installed
+#                                           holds back, and all tied to them;
+#                                           stops before any change if one of
+#                                           them would come too
 #   install NAME SNAP PACKAGE               one package from the system's shelf
 #   remove NAME SNAP PACKAGE                one package, with what only it needed
 #   free-space NAME SNAP [JOB...] -- [PACKAGE...]
@@ -288,6 +293,33 @@ case $job in
 update)
     [ $# -eq 2 ] && is_name "$1" && is_snap "$2" || refuse "update takes a name and 0 or 1"
     transaction "$1: Update" "$2" "$logs/split-rock-update.log" pacman -Syu --noconfirm --noprogressbar --color never
+    ;;
+
+update-rest)
+    [ $# -ge 3 ] && is_name "$1" && is_snap "$2" || refuse "update-rest takes a name, 0 or 1, and the packages held back"
+    name=$1 snap=$2
+    shift 2
+    held=
+    for p in "$@"; do
+        is_package "$p" || refuse "update-rest takes package names"
+        held="${held:+$held,}$p"
+    done
+    # The lists are fetched, then pacman says what the update would install
+    # without the held packages; only when none of them is among it does the
+    # update run, so pacman is never asked whether to bring one after all.
+    transaction "$name: Update" "$snap" "$logs/split-rock-update.log" sh -c '
+        held=$1
+        shift
+        pacman -Sy --noconfirm --noprogressbar --color never || exit 1
+        plan=$(pacman -Sup --ignore "$held" --noconfirm --color never --print-format "%n") || exit 1
+        for p in "$@"; do
+            if printf "%s\n" "$plan" | grep -qx -- "$p"; then
+                echo "split-rock-admin: held: $p would be updated too, so nothing was changed"
+                exit 3
+            fi
+        done
+        exec pacman -Su --ignore "$held" --noconfirm --noprogressbar --color never
+    ' sh "$held" "$@"
     ;;
 
 install|remove)
